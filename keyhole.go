@@ -20,12 +20,13 @@ func main() {
 	uri := flag.String("uri", "mongodb://localhost", "MongoDB URI")
 	info := flag.Bool("info", false, "get cluster info")
 	seed := flag.Bool("seed", false, "seed a database for demo")
+	conn := flag.Int("conn", 20, "nuumber of connections")
+	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
 	verbose := flag.Bool("v", false, "verbose")
 
 	flag.Parse()
 	fmt.Println("MongoDB URI:", *uri)
-	fmt.Println("info:", *info)
-	fmt.Println("seed:", *seed)
+	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d\n", *tps, *conn, *tps**conn)
 
 	if *info == true {
 		bytes, _ := json.MarshalIndent(mongo.IsMaster(*uri), "", "  ")
@@ -49,13 +50,13 @@ func main() {
 	go mongo.CollectServerStatus(*uri)
 	go mongo.PrintDBStats(*uri, dbname)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < *conn; i++ {
 		go func() {
 			select {
 			case <-quit:
 				return
 			default:
-				mongo.Insert(*uri, dbname)
+				mongo.Insert(*uri, dbname, *tps)
 			}
 		}()
 	}

@@ -75,7 +75,7 @@ func PrintServerStatus(uri string) {
 	sort.Strings(keys)
 	key := keys[0]
 	bytes, _ = json.MarshalIndent(mongoStats[key], "", "  ")
-	fmt.Println("Key:", key, "Value:", string(bytes))
+	fmt.Println("\nKey:", key, "Value:", string(bytes))
 	key = keys[len(keys)-1]
 	bytes, _ = json.MarshalIndent(mongoStats[key], "", "  ")
 	fmt.Println("Key:", key, "Value:", string(bytes))
