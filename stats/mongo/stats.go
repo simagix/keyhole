@@ -3,38 +3,50 @@ package mongo
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
 )
 
 var mb = 1024.0 * 1024
-var mongoStats = make(map[time.Time]interface{})
-var dbStats = make(map[time.Time]interface{})
+var mongoStats = make(map[string]interface{})
 var sleepTime = 10 * time.Second
 
-// CollectServerStatus -
-func CollectServerStatus(uri string) {
-	mongoStats[time.Now()] = ServerStatus(uri)
+// WiredTigerData -
+type WiredTigerData struct {
+	Perf interface{}
+}
 
+// ServerStatusData -
+type ServerStatusData struct {
+	Mem        interface{}
+	ExtraInfo  interface{} `json:"extra_info" bson:"extra_info"`
+	WiredTiger WiredTigerData
+}
+
+// CollectServerStatus - Collect serverStatus every 10 minutes
+func CollectServerStatus(uri string) {
+	stat := ServerStatusData{}
 	for {
-		time.Sleep(sleepTime)
-		mongoStats[time.Now()] = ServerStatus(uri)
+		bytes, _ := json.Marshal(ServerStatus(uri))
+		json.Unmarshal(bytes, &stat)
+		mongoStats[time.Now().Format("2006-01-02T15:04:05-07:00")] = stat
+		time.Sleep(10 * time.Minute)
 	}
 }
 
-// CollectDBStats -
-func CollectDBStats(uri string, dbname string) {
+// PrintDBStats - Print dbStats every 10 seconds
+func PrintDBStats(uri string, dbname string) {
 	var raw map[string]interface{}
-	pds := 0.0
-	ds := 0.0
+	var pds float64
+	var ds float64
 	ptime := time.Now()
 	now := ptime
 
 	for {
 		stat := DBStats(uri, dbname)
-		dbStats[now] = stat
-		bytes, _ := json.MarshalIndent(stat, "", "   ")
+		bytes, _ := json.Marshal(stat)
 		json.Unmarshal(bytes, &raw)
 		ds = raw["dataSize"].(float64)
 		sec := now.Sub(ptime).Seconds()
@@ -49,14 +61,27 @@ func CollectDBStats(uri string, dbname string) {
 	}
 }
 
-// PrintServerStatus -
-func PrintServerStatus() {
-	for key, value := range mongoStats {
-		fmt.Println("Key:", key, "Value:", value)
+// PrintServerStatus - Print serverStatus summary for the duration
+func PrintServerStatus(uri string) {
+	stat := ServerStatusData{}
+	bytes, _ := json.Marshal(ServerStatus(uri))
+	json.Unmarshal(bytes, &stat)
+	mongoStats[time.Now().Format("2006-01-02T15:04:05-07:00")] = stat
+
+	var keys []string
+	for k := range mongoStats {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	key := keys[0]
+	bytes, _ = json.MarshalIndent(mongoStats[key], "", "  ")
+	fmt.Println("Key:", key, "Value:", string(bytes))
+	key = keys[len(keys)-1]
+	bytes, _ = json.MarshalIndent(mongoStats[key], "", "  ")
+	fmt.Println("Key:", key, "Value:", string(bytes))
 }
 
-// Cleanup -
+// Cleanup - Drop the temp database
 func Cleanup(uri string, dbname string) {
 	fmt.Println("cleanup", uri)
 	session, _ := mgo.Dial(uri)
