@@ -16,6 +16,19 @@ type WiredTigerData struct {
 	Perf interface{}
 }
 
+// Document -
+type Document struct {
+	Deleted  int `json:"deleted" bson:"deleted"`
+	Inserted int `json:"inserted" bson:"inserted"`
+	Returned int `json:"returned" bson:"returned"`
+	Updated  int `json:"updated" bson:"updated"`
+}
+
+// Metrics -
+type Metrics struct {
+	Document Document `json:"document" bson:"document"`
+}
+
 // Mem -
 type Mem struct {
 	Resident int `json:"resident" bson:"resident"`
@@ -31,12 +44,15 @@ type ExtraInfo struct {
 type ServerStatusData struct {
 	Mem        Mem       `json:"Mem" bson:"Mem"`
 	ExtraInfo  ExtraInfo `json:"extra_info" bson:"extra_info"`
+	Metrics    Metrics   `json:"metrics" bson:"metrics"`
 	WiredTiger WiredTigerData
 }
 
 // CollectServerStatus - Collect serverStatus every 10 minutes
 func CollectServerStatus(uri string) {
 	stat := ServerStatusData{}
+	var iop int
+	var piop int
 	for {
 		bytes, _ := json.Marshal(ServerStatus(uri))
 		json.Unmarshal(bytes, &stat)
@@ -44,6 +60,16 @@ func CollectServerStatus(uri string) {
 		mongoStats[key] = stat
 		fmt.Printf("%s resident: %d, virtual: %d, page faults: %d\n",
 			key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
+		iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
+			stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
+		iops := (iop - piop) / 60
+		if piop == 0 {
+			iops = 0
+		}
+		fmt.Printf("%s metrics: c: %d, r: %d, u: %d, d: %d, iops: %d\n",
+			key, stat.Metrics.Document.Inserted, stat.Metrics.Document.Returned,
+			stat.Metrics.Document.Updated, stat.Metrics.Document.Deleted, iops)
+		piop = iop
 		time.Sleep(1 * time.Minute)
 	}
 }
