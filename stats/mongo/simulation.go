@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/simagix/keyhole/stats"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -14,14 +15,13 @@ var collname = "keyhole"
 
 // simulation -
 type simulation struct {
-	uri    string
-	dbName string
-	tps    int
+	uri string
+	tps int
 }
 
 // New - Constructor
-func New(uri string, dbName string, tps int) simulation {
-	sim := simulation{uri, dbName, tps}
+func New(uri string, tps int) simulation {
+	sim := simulation{uri, tps}
 	return sim
 }
 
@@ -34,7 +34,7 @@ func (sim simulation) PopulateData() {
 	defer session.Close()
 
 	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(sim.dbName).C(collname)
+	c := session.DB(stats.DBName).C(collname)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
@@ -64,7 +64,7 @@ func (sim simulation) Simulate() {
 	defer session.Close()
 
 	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(sim.dbName).C(collname)
+	c := session.DB(stats.DBName).C(collname)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")

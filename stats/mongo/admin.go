@@ -2,28 +2,30 @@ package mongo
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/simagix/keyhole/stats"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 // IsMaster - Execute isMaster
 func IsMaster(uri string) bson.M {
-	return Admin(uri, "admin", "isMaster")
+	return admin(uri, "admin", "isMaster")
 }
 
 // ServerStatus - Execute serverStatus
 func ServerStatus(uri string) bson.M {
-	return Admin(uri, "admin", "serverStatus")
+	return admin(uri, "admin", "serverStatus")
 }
 
 // DBStats - Execute dbStats
-func DBStats(uri string, dbname string) bson.M {
-	return Admin(uri, dbname, "dbStats")
+func DBStats(uri string) bson.M {
+	return admin(uri, stats.DBName, "dbStats")
 }
 
-// Admin - Execute an admin command
-func Admin(uri string, dbname string, cmd string) bson.M {
+// admin - Execute an admin command
+func admin(uri string, dbname string, cmd string) bson.M {
 	session, err := mgo.Dial(uri)
 	if err != nil {
 		panic(err)
@@ -35,4 +37,14 @@ func Admin(uri string, dbname string, cmd string) bson.M {
 		fmt.Println(err)
 	}
 	return result
+}
+
+// Cleanup - Drop the temp database
+func Cleanup(uri string) {
+	fmt.Println("cleanup", uri)
+	session, _ := mgo.Dial(uri)
+	defer session.Close()
+	fmt.Println("dropping database", stats.DBName)
+	time.Sleep(1 * time.Second)
+	session.DB(stats.DBName).DropDatabase()
 }

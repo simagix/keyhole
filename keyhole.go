@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,9 +11,6 @@ import (
 	"github.com/simagix/keyhole/stats"
 	"github.com/simagix/keyhole/stats/mongo"
 )
-
-var x = 1024
-var dbname = fmt.Sprintf("_KEYHOLE_%X", x+x*rand.Intn(x))
 
 func main() {
 	uri := flag.String("uri", "mongodb://localhost", "MongoDB URI")
@@ -43,13 +39,13 @@ func main() {
 	go func() {
 		<-quit
 		mongo.PrintServerStatus(*uri)
-		mongo.Cleanup(*uri, dbname)
+		mongo.Cleanup(*uri)
 		os.Exit(0)
 	}()
 
-	mongo.Cleanup(*uri, dbname)
+	mongo.Cleanup(*uri)
 	go mongo.CollectServerStatus(*uri)
-	go mongo.PrintDBStats(*uri, dbname)
+	go mongo.PrintDBStats(*uri)
 
 	for i := 0; i < *conn; i++ {
 		go func() {
@@ -57,7 +53,7 @@ func main() {
 			case <-quit:
 				return
 			default:
-				sim := mongo.New(*uri, dbname, *tps)
+				sim := mongo.New(*uri, *tps)
 				sim.PopulateData()
 				sim.Simulate()
 			}

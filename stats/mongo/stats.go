@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"time"
-
-	mgo "gopkg.in/mgo.v2"
 )
 
 var mb = 1024.0 * 1024
@@ -51,7 +49,7 @@ func CollectServerStatus(uri string) {
 }
 
 // PrintDBStats - Print dbStats every 10 seconds
-func PrintDBStats(uri string, dbname string) {
+func PrintDBStats(uri string) {
 	var raw map[string]interface{}
 	var pds float64
 	var ds float64
@@ -59,7 +57,7 @@ func PrintDBStats(uri string, dbname string) {
 	now := ptime
 
 	for {
-		stat := DBStats(uri, dbname)
+		stat := DBStats(uri)
 		bytes, _ := json.Marshal(stat)
 		json.Unmarshal(bytes, &raw)
 		ds = raw["dataSize"].(float64)
@@ -94,14 +92,4 @@ func PrintServerStatus(uri string) {
 	key = keys[len(keys)-1]
 	bytes, _ = json.MarshalIndent(mongoStats[key], "", "  ")
 	fmt.Println("Key:", key, "Value:", string(bytes))
-}
-
-// Cleanup - Drop the temp database
-func Cleanup(uri string, dbname string) {
-	fmt.Println("cleanup", uri)
-	session, _ := mgo.Dial(uri)
-	defer session.Close()
-	fmt.Println("dropping database", dbname)
-	time.Sleep(1 * time.Second)
-	session.DB(dbname).DropDatabase()
 }
