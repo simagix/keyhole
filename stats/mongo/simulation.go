@@ -6,9 +6,10 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/globalsign/mgo/bson"
 	"github.com/simagix/keyhole/stats"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+
+	"github.com/globalsign/mgo"
 )
 
 var collname = "keyhole"
