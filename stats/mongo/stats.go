@@ -18,10 +18,21 @@ type WiredTigerData struct {
 	Perf interface{}
 }
 
+// Mem -
+type Mem struct {
+	Resident int `json:"resident" bson:"resident"`
+	Virtual  int `json:"virtual" bson:"virtual"`
+}
+
+// ExtraInfo -
+type ExtraInfo struct {
+	PageFaults int `json:"page_faults" bson:"page_faults"`
+}
+
 // ServerStatusData -
 type ServerStatusData struct {
-	Mem        interface{}
-	ExtraInfo  interface{} `json:"extra_info" bson:"extra_info"`
+	Mem        Mem       `json:"Mem" bson:"Mem"`
+	ExtraInfo  ExtraInfo `json:"extra_info" bson:"extra_info"`
 	WiredTiger WiredTigerData
 }
 
@@ -31,8 +42,11 @@ func CollectServerStatus(uri string) {
 	for {
 		bytes, _ := json.Marshal(ServerStatus(uri))
 		json.Unmarshal(bytes, &stat)
-		mongoStats[time.Now().Format("2006-01-02T15:04:05-07:00")] = stat
-		time.Sleep(10 * time.Minute)
+		key := time.Now().Format("2006-01-02T15:04:05-07:00")
+		mongoStats[key] = stat
+		fmt.Printf("%s resident: %d, virtual: %d, page faults: %d\n",
+			key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
+		time.Sleep(1 * time.Minute)
 	}
 }
 
@@ -50,9 +64,10 @@ func PrintDBStats(uri string, dbname string) {
 		json.Unmarshal(bytes, &raw)
 		ds = raw["dataSize"].(float64)
 		sec := now.Sub(ptime).Seconds()
-		if sec > 0 {
+		delta := (ds - pds) / mb / sec
+		if sec > 0 && delta > .01 {
 			fmt.Printf("%s %8.1f -> %8.1f, rate %8.1f MB/second\n",
-				now.Format("2006-01-02T15:04:05-07:00"), pds/mb, ds/mb, (ds-pds)/mb/sec)
+				now.Format("2006-01-02T15:04:05-07:00"), pds/mb, ds/mb, delta)
 		}
 		pds = ds
 		ptime = now

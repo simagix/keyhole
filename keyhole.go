@@ -56,7 +56,8 @@ func main() {
 			case <-quit:
 				return
 			default:
-				mongo.Insert(*uri, dbname, *tps)
+				mongo.PopulateData(*uri, dbname, *tps)
+				mongo.Simulate(*uri, dbname, *tps)
 			}
 		}()
 	}
