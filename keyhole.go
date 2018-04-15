@@ -36,24 +36,30 @@ func main() {
 		os.Exit(0)
 	}
 
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	quit := make(chan os.Signal, 2)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
-		if *verbose {
-			mongo.PrintServerStatus()
-		}
+		<-quit
+		mongo.PrintServerStatus(*uri)
 		mongo.Cleanup(*uri, dbname)
 		os.Exit(0)
 	}()
 
 	mongo.Cleanup(*uri, dbname)
 	go mongo.CollectServerStatus(*uri)
-	go mongo.CollectDBStats(*uri, dbname)
+	go mongo.PrintDBStats(*uri, dbname)
 
 	for i := 0; i < 10; i++ {
-		go mongo.Insert(*uri, dbname)
+		go func() {
+			select {
+			case <-quit:
+				return
+			default:
+				mongo.Insert(*uri, dbname)
+			}
+		}()
 	}
+
 	var input string
 	fmt.Println("Ctrl-C to quit...")
 	fmt.Scanln(&input)
