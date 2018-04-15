@@ -26,7 +26,6 @@ func main() {
 
 	flag.Parse()
 	fmt.Println("MongoDB URI:", *uri)
-	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d\n", *tps, *conn, *tps**conn)
 
 	if *info == true {
 		bytes, _ := json.MarshalIndent(mongo.IsMaster(*uri), "", "  ")
@@ -37,6 +36,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Simulation mode
+	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d\n", *tps, *conn, *tps**conn)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -56,8 +57,9 @@ func main() {
 			case <-quit:
 				return
 			default:
-				mongo.PopulateData(*uri, dbname, *tps)
-				mongo.Simulate(*uri, dbname, *tps)
+				sim := mongo.New(*uri, dbname, *tps)
+				sim.PopulateData()
+				sim.Simulate()
 			}
 		}()
 	}

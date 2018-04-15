@@ -3,7 +3,7 @@ package stats
 import (
 	"fmt"
 	"log"
-	mrand "math/rand"
+	"math/rand"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
@@ -40,20 +40,20 @@ func Seed(uri string, verbose bool) {
 	cr := session.DB(db).C("robots")
 
 	for i := 1000; i < 1050; i++ {
-		model := "model-" + fmt.Sprintf("%x", (mrand.Intn(5000)+5000)*i)
-		name := fmt.Sprintf("Robo %d-%x", i, mrand.Intn(1000000))
+		model := "model-" + fmt.Sprintf("%x", (rand.Intn(5000)+5000)*i)
+		name := fmt.Sprintf("Robo %d-%x", i, rand.Intn(1000000))
 		descr := fmt.Sprintf("%s %s", model, name)
-		year := time.Now().Year() - mrand.Intn(5)
+		year := time.Now().Year() - rand.Intn(5)
 		err = cm.Insert(&Model{model, name, descr, year})
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		for r := 0; r < 20+mrand.Intn(30); r++ {
-			id := "robot-" + fmt.Sprintf("%x", (mrand.Intn(5000)+5000)*r)
+		for r := 0; r < 20+rand.Intn(30); r++ {
+			id := "robot-" + fmt.Sprintf("%x", (rand.Intn(5000)+5000)*r)
 			notes := fmt.Sprintf("%s %s", id, model)
-			pct := mrand.Float32()
-			tasks := []Task{{"Business", 10 + mrand.Intn(60)}, {"Home", 10 + mrand.Intn(60)}}
+			pct := rand.Float32()
+			tasks := []Task{{"Business", 10 + rand.Intn(60)}, {"Home", 10 + rand.Intn(60)}}
 			err = cr.Insert(&Robot{id, model, notes, pct, tasks})
 			if err != nil {
 				continue
