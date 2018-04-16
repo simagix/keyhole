@@ -1,41 +1,41 @@
-package mongo
+package stats
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
 
-	"github.com/globalsign/mgo/bson"
-	"github.com/simagix/keyhole/stats"
-
 	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 )
 
 var collname = "keyhole"
 
-// simulation -
-type simulation struct {
-	uri string
-	tps int
+// MongoConn -
+type MongoConn struct {
+	uri    string
+	dbName string
+	tps    int
 }
 
 // New - Constructor
-func New(uri string, tps int) simulation {
-	sim := simulation{uri, tps}
-	return sim
+func New(uri string, dbName string, tps int) MongoConn {
+	m := MongoConn{uri, dbName, tps}
+	return m
 }
 
 // PopulateData - Insert docs to evaluate performance/bandwidth
-func (sim simulation) PopulateData() {
-	session, err := mgo.Dial(sim.uri)
+func (m MongoConn) PopulateData() {
+	session, err := mgo.Dial(m.uri)
 	if err != nil {
 		panic(err)
 	}
 	defer session.Close()
 
 	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(stats.DBName).C(collname)
+	c := session.DB(m.dbName).C(collname)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
@@ -44,7 +44,7 @@ func (sim simulation) PopulateData() {
 	for s < 60 {
 		s++
 		bt := time.Now()
-		for i := 0; i < sim.tps; i++ {
+		for i := 0; i < m.tps; i++ {
 			err = c.Insert(bson.M{"buffer": buffer.String(), "ts": time.Now()})
 			if err != nil {
 				log.Fatal(err)
@@ -57,15 +57,15 @@ func (sim simulation) PopulateData() {
 }
 
 // Simulate - Simulate CRUD for load tests
-func (sim simulation) Simulate() {
-	session, err := mgo.Dial(sim.uri)
+func (m MongoConn) Simulate() {
+	session, err := mgo.Dial(m.uri)
 	if err != nil {
 		panic(err)
 	}
 	defer session.Close()
 
 	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(stats.DBName).C(collname)
+	c := session.DB(m.dbName).C(collname)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
@@ -88,4 +88,14 @@ func (sim simulation) Simulate() {
 		_ = c.Find(nil).Limit(10).All(&results)
 		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
 	}
+}
+
+// Cleanup - Drop the temp database
+func (m MongoConn) Cleanup() {
+	fmt.Println("cleanup", m.uri)
+	session, _ := mgo.Dial(m.uri)
+	defer session.Close()
+	fmt.Println("dropping database", m.dbName)
+	time.Sleep(1 * time.Second)
+	session.DB(m.dbName).DropDatabase()
 }

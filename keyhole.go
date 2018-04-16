@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/simagix/keyhole/stats"
-	"github.com/simagix/keyhole/stats/mongo"
 )
 
 func main() {
@@ -24,7 +23,7 @@ func main() {
 	fmt.Println("MongoDB URI:", *uri)
 
 	if *info == true {
-		bytes, _ := json.MarshalIndent(mongo.IsMaster(*uri), "", "  ")
+		bytes, _ := json.MarshalIndent(stats.IsMaster(*uri), "", "  ")
 		fmt.Println(string(bytes))
 		os.Exit(0)
 	} else if *seed == true {
@@ -34,18 +33,19 @@ func main() {
 
 	// Simulation mode
 	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d\n", *tps, *conn, *tps**conn)
+	m := stats.New(*uri, stats.DBName, *tps)
+	m.Cleanup()
+	go m.CollectServerStatus()
+	go m.PrintDBStats()
+
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
-		mongo.PrintServerStatus(*uri)
-		mongo.Cleanup(*uri)
+		m.PrintServerStatus()
+		m.Cleanup()
 		os.Exit(0)
 	}()
-
-	mongo.Cleanup(*uri)
-	go mongo.CollectServerStatus(*uri)
-	go mongo.PrintDBStats(*uri)
 
 	for i := 0; i < *conn; i++ {
 		go func() {
@@ -53,9 +53,9 @@ func main() {
 			case <-quit:
 				return
 			default:
-				sim := mongo.New(*uri, *tps)
-				sim.PopulateData()
-				sim.Simulate()
+				m := stats.New(*uri, stats.DBName, *tps)
+				m.PopulateData()
+				m.Simulate()
 			}
 		}()
 	}
