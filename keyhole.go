@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/simagix/keyhole/stats"
 )
@@ -17,6 +18,7 @@ func main() {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	conn := flag.Int("conn", 20, "nuumber of connections")
 	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
+	duration := flag.Int("duration", 6, "load test duration in minutes")
 	verbose := flag.Bool("v", false, "verbose")
 
 	flag.Parse()
@@ -32,19 +34,25 @@ func main() {
 	}
 
 	// Simulation mode
-	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d\n", *tps, *conn, *tps**conn)
+	// 1st minute - build up data and memory
+	// 2nd and 3rd minutes - normal TPS ops
+	// remaining minutes - burst with no delay
+	// last minute - normal TPS ops until exit
+	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duratin = %d(mins)\n", *tps, *conn, *tps**conn, *duration)
 	m := stats.New(*uri, stats.DBName, *tps)
 	m.Cleanup()
 	go m.CollectServerStatus()
 	go m.PrintDBStats()
-
+	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
-		m.PrintServerStatus()
-		m.Cleanup()
-		os.Exit(0)
+		cleanup(m)
+	}()
+	go func() {
+		<-timer.C
+		cleanup(m)
 	}()
 
 	for i := 0; i < *conn; i++ {
@@ -55,7 +63,7 @@ func main() {
 			default:
 				m := stats.New(*uri, stats.DBName, *tps)
 				m.PopulateData()
-				m.Simulate()
+				m.Simulate(*duration)
 			}
 		}()
 	}
@@ -63,4 +71,10 @@ func main() {
 	var input string
 	fmt.Println("Ctrl-C to quit...")
 	fmt.Scanln(&input)
+}
+
+func cleanup(m stats.MongoConn) {
+	m.PrintServerStatus()
+	m.Cleanup()
+	os.Exit(0)
 }

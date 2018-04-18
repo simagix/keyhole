@@ -57,7 +57,7 @@ func (m MongoConn) PopulateData() {
 }
 
 // Simulate - Simulate CRUD for load tests
-func (m MongoConn) Simulate() {
+func (m MongoConn) Simulate(duration int) {
 	session, err := mgo.Dial(m.uri)
 	if err != nil {
 		panic(err)
@@ -74,19 +74,34 @@ func (m MongoConn) Simulate() {
 	result := bson.M{}
 	results := []bson.M{}
 	change := bson.M{"$set": bson.M{"year": 1989}}
+	isBurst := false
+	burstBegin := time.NewTimer(2 * time.Minute)
+	go func() {
+		<-burstBegin.C
+		isBurst = true
+	}()
+	burstEnd := time.NewTimer(time.Duration(duration-2) * time.Minute)
+	go func() {
+		<-burstEnd.C
+		isBurst = false
+	}()
 
 	for {
+		msec := 5
+		if isBurst {
+			msec = 1
+		}
 		id := bson.NewObjectId()
 		_ = c.Insert(bson.M{"_id": id, "buffer": buffer.String(), "ts": time.Now()})
-		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 		_ = c.Find(bson.M{"_id": id}).One(&result)
-		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 		_ = c.Update(bson.M{"_id": id}, change)
-		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 		_ = c.Remove(bson.M{"_id": id})
-		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 		_ = c.Find(nil).Limit(10).All(&results)
-		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 	}
 }
 
