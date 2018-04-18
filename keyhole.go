@@ -38,10 +38,9 @@ func main() {
 	// 2nd and 3rd minutes - normal TPS ops
 	// remaining minutes - burst with no delay
 	// last minute - normal TPS ops until exit
-	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duratin = %d(mins)\n", *tps, *conn, *tps**conn, *duration)
+	fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
 	m := stats.New(*uri, stats.DBName, *tps)
 	m.Cleanup()
-	go m.CollectServerStatus()
 	go m.PrintDBStats()
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
@@ -61,16 +60,14 @@ func main() {
 			case <-quit:
 				return
 			default:
-				m := stats.New(*uri, stats.DBName, *tps)
-				m.PopulateData()
-				m.Simulate(*duration)
+				msim := stats.New(*uri, stats.DBName, *tps)
+				msim.PopulateData()
+				msim.Simulate(*duration)
 			}
 		}()
 	}
 
-	var input string
-	fmt.Println("Ctrl-C to quit...")
-	fmt.Scanln(&input)
+	m.CollectServerStatus()
 }
 
 func cleanup(m stats.MongoConn) {

@@ -74,17 +74,19 @@ func (m MongoConn) CollectServerStatus() {
 	for {
 		bytes, _ := json.Marshal(m.serverStatus(session))
 		json.Unmarshal(bytes, &stat)
-		key := time.Now().Format("2018-01-02T15:04:05-05:00")
+		key := time.Now().Format("2018-01-02T15:04:05")
 		mongoStats[key] = stat
-		fmt.Printf("%s resident: %d, virtual: %d, page faults: %d\n",
+		fmt.Printf("%s res: %7d, virt: %7d, faults: %5d",
 			key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
 		iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 			stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 		iops := (iop - piop) / 60
 		if piop > 0 {
-			fmt.Printf("%s metrics: c: %d, r: %d, u: %d, d: %d, iops: %d\n",
-				key, stat.Metrics.Document.Inserted-crud[0], stat.Metrics.Document.Returned-crud[1],
+			fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n",
+				stat.Metrics.Document.Inserted-crud[0], stat.Metrics.Document.Returned-crud[1],
 				stat.Metrics.Document.Updated-crud[2], stat.Metrics.Document.Deleted-crud[3], iops)
+		} else {
+			fmt.Println()
 		}
 		crud[0] = stat.Metrics.Document.Inserted
 		crud[1] = stat.Metrics.Document.Returned
@@ -118,8 +120,8 @@ func (m MongoConn) PrintDBStats() {
 		sec := now.Sub(ptime).Seconds()
 		delta := (ds - pds) / mb / sec
 		if sec > 0 && delta > .01 {
-			fmt.Printf("%s %8.1f -> %8.1f, rate %8.1f MB/second\n",
-				now.Format("2018-01-02T15:04:05-05:00"), pds/mb, ds/mb, delta)
+			fmt.Printf("%s data: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
+				now.Format("2018-01-02T15:04:05"), pds/mb, ds/mb, delta)
 		}
 		pds = ds
 		ptime = now
@@ -140,7 +142,7 @@ func (m MongoConn) PrintServerStatus() {
 	stat := ServerStatusData{}
 	bytes, _ := json.Marshal(m.serverStatus(session))
 	json.Unmarshal(bytes, &stat)
-	mongoStats[time.Now().Format("2018-01-02T15:04:05-05:00")] = stat
+	mongoStats[time.Now().Format("2018-01-02T15:04:05")] = stat
 
 	var keys []string
 	for k := range mongoStats {
@@ -149,39 +151,43 @@ func (m MongoConn) PrintServerStatus() {
 	sort.Strings(keys)
 	var s1 [4]int
 	var s2 [4]int
-	key := keys[0]
+	key1 := keys[0]
 	stat1 := ServerStatusData{}
 	stat2 := ServerStatusData{}
-	bytes, _ = json.Marshal(mongoStats[key])
+	bytes, _ = json.Marshal(mongoStats[key1])
 	json.Unmarshal(bytes, &stat1)
 	b, _ := json.MarshalIndent(stat1.WiredTiger, "", "  ")
-	fmt.Println("\n", key, string(b))
+	fmt.Println("\n", key1, string(b))
 	s1[0] = stat1.Metrics.Document.Inserted
 	s1[1] = stat1.Metrics.Document.Returned
 	s1[2] = stat1.Metrics.Document.Updated
 	s1[3] = stat1.Metrics.Document.Deleted
-	t1, _ := time.Parse("2018-01-02T15:04:05-05:00", key)
-	key = keys[len(keys)-1]
-	bytes, _ = json.Marshal(mongoStats[key])
+	t1, _ := time.Parse("2018-01-02T15:04:05", key1)
+	key2 := keys[len(keys)-1]
+	bytes, _ = json.Marshal(mongoStats[key2])
 	json.Unmarshal(bytes, &stat2)
 	b, _ = json.MarshalIndent(stat2.WiredTiger, "", "  ")
-	fmt.Println(key, string(b))
+	fmt.Println(key2, string(b))
 	s2[0] = stat2.Metrics.Document.Inserted
 	s2[1] = stat2.Metrics.Document.Returned
 	s2[2] = stat2.Metrics.Document.Updated
 	s2[3] = stat2.Metrics.Document.Deleted
-	t2, _ := time.Parse("2018-01-02T15:04:05-05:00", key)
+	t2, _ := time.Parse("2018-01-02T15:04:05", key2)
 	d := int(t2.Sub(t1).Seconds())
 	iops := (s2[0] + s2[1] + s2[2] + s2[3]) - (s1[0] + s1[1] + s1[2] + s1[3])
 	iops = iops / d
 
 	// print stats for this duration
 	fmt.Println("\n--- Analytic Summary ---")
-	fmt.Printf("resident mem %d -> %d\n", stat1.Mem.Resident, stat2.Mem.Resident)
-	fmt.Printf("virtual mem %d -> %d\n", stat1.Mem.Virtual, stat2.Mem.Virtual)
-	fmt.Printf("page faules %d -> %d\n", stat1.ExtraInfo.PageFaults, stat2.ExtraInfo.PageFaults)
-	fmt.Printf("%s metrics: c: %d, r: %d, u: %d, d: %d, iops: %d\n",
-		key, s2[0]-s1[0], s2[1]-s1[1], s2[2]-s1[2], s2[3]-s1[3], iops)
+	fmt.Printf("%s res: %7d, virt: %7d, faults: %5d", key1, stat1.Mem.Resident, stat1.Mem.Virtual, stat1.ExtraInfo.PageFaults)
+	fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d\n", s1[0], s1[1], s1[2], s1[3])
+	fmt.Printf("%s res: %7d, virt: %7d, faults: %5d", key2, stat2.Mem.Resident, stat2.Mem.Virtual, stat2.ExtraInfo.PageFaults)
+	fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d\n", s2[0], s2[1], s2[2], s2[3])
+
+	// delta
+	fmt.Printf("%s res: %7d, virt: %7d, faults: %5d", key2,
+		stat2.Mem.Resident-stat1.Mem.Resident, stat2.Mem.Virtual-stat1.Mem.Virtual, stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults)
+	fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n", s2[0]-s1[0], s2[1]-s1[1], s2[2]-s1[2], s2[3]-s1[3], iops)
 }
 
 // serverStatus - Execute serverStatus
