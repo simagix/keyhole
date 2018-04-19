@@ -1,4 +1,4 @@
-# keyhole
+# Keyhole
 
 Peek into `mongod` for
 
@@ -155,4 +155,12 @@ MongoDB URI: mongodb://localhost
 |2018-04-19T12:45:33Z     |          1073741824|         771915373|                  301798|            9613667|                   0|                     69|
 |2018-04-19T12:46:33Z     |          1073741824|         794083508|                  301798|           31781837|                   0|                     70|
 |2018-04-19T12:47:32Z     |          1073741824|         809118456|                  301798|           46816750|                   0|                     44|
-+-------------------------+--------------------+------------------+------------------------+-------------------+--------------------+-----------------------+```
++-------------------------+--------------------+------------------+------------------------+-------------------+--------------------+-----------------------+
+```
+
+## Atlas TLS/SSL Mode
+An example connecting to Atlas
+
+```
+build/keyhole-osx-x64 -uri=mongodb://user:secret@cluster0-shard-00-01-nhftn.mongodb.net.:27017,cluster0-shard-00-02-nhftn.mongodb.net.:27017,cluster0-shard-00-00-nhftn.mongodb.net.:27017/test?replicaSet=Cluster0-shard-0\&authSource=admin -ssl -sslCAFile=ssl/ca.crt -info
+```
