@@ -206,7 +206,7 @@ func (m MongoConn) PrintServerStatus() {
 
 	// Save mongoStats
 	bytes, _ = json.Marshal(serverStatusSlice)
-	statsFile := os.TempDir() + "keyhole_stats." + time.Now().Format("2018-01-02T15-04-05")
+	statsFile := os.TempDir() + "/keyhole_stats." + time.Now().Format("2018-01-02T15-04-05")
 	fmt.Println("\nServer status written to", statsFile)
 	f, ferr := os.Create(statsFile)
 	if ferr != nil {
