@@ -22,16 +22,22 @@ func main() {
 	verbose := flag.Bool("v", false, "verbose")
 	peek := flag.Bool("peek", false, "only collect data")
 	view := flag.String("view", "", "server status file")
+	ssl := flag.Bool("ssl", false, "use TLS/SSL")
+	sslCA := flag.String("sslCAFile", "", "CA file")
 
 	flag.Parse()
 	fmt.Println("MongoDB URI:", *uri)
 
 	if *info == true {
-		bytes, _ := json.MarshalIndent(stats.IsMaster(*uri), "", "  ")
+		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+		bytes, _ := json.MarshalIndent(stats.IsMaster(session), "", "  ")
+		session.Close()
 		fmt.Println(string(bytes))
 		os.Exit(0)
 	} else if *seed == true {
-		stats.Seed(*uri, *verbose)
+		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+		stats.Seed(session, *verbose)
+		session.Close()
 		os.Exit(0)
 	} else if *view != "" {
 		stats.AnalyzeServerStatus(*view)
@@ -43,7 +49,7 @@ func main() {
 	// 2nd and 3rd minutes - normal TPS ops
 	// remaining minutes - burst with no delay
 	// last minute - normal TPS ops until exit
-	m := stats.New(*uri, stats.DBName, *tps)
+	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
 	go m.PrintDBStats()
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
@@ -66,7 +72,7 @@ func main() {
 				case <-quit:
 					return
 				default:
-					msim := stats.New(*uri, stats.DBName, *tps)
+					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
 					msim.PopulateData()
 					msim.Simulate(*duration)
 				}

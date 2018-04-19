@@ -114,7 +114,7 @@ type ServerStatusData struct {
 
 // CollectServerStatus - Collect serverStatus every 10 minutes
 func (m MongoConn) CollectServerStatus() {
-	session, err := mgo.Dial(m.uri)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
@@ -156,7 +156,7 @@ func (m MongoConn) CollectServerStatus() {
 
 // PrintDBStats - Print dbStats every 10 seconds
 func (m MongoConn) PrintDBStats() {
-	session, err := mgo.Dial(m.uri)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
@@ -189,7 +189,7 @@ func (m MongoConn) PrintDBStats() {
 
 // PrintServerStatus - Print serverStatus summary for the duration
 func (m MongoConn) PrintServerStatus() {
-	session, err := mgo.Dial(m.uri)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}

@@ -54,13 +54,7 @@ type Robot struct {
 //   "batteryPct": float,
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
-func Seed(uri string, verbose bool) {
-	session, err := mgo.Dial(uri)
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-
+func Seed(session *mgo.Session, verbose bool) {
 	session.SetMode(mgo.Monotonic, true)
 	session.DB(db).DropDatabase()
 	cm := session.DB(db).C("models")
@@ -71,7 +65,7 @@ func Seed(uri string, verbose bool) {
 		name := fmt.Sprintf("Robo %d-%x", i, rand.Intn(1000000))
 		descr := fmt.Sprintf("%s %s", model, name)
 		year := time.Now().Year() - rand.Intn(5)
-		err = cm.Insert(&Model{model, name, descr, year})
+		err := cm.Insert(&Model{model, name, descr, year})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -81,7 +75,7 @@ func Seed(uri string, verbose bool) {
 			notes := fmt.Sprintf("%s %s", id, model)
 			pct := rand.Float32()
 			tasks := []Task{{"Business", 10 + rand.Intn(60)}, {"Home", 10 + rand.Intn(60)}}
-			err = cr.Insert(&Robot{id, model, notes, pct, tasks})
+			err := cr.Insert(&Robot{id, model, notes, pct, tasks})
 			if err != nil {
 				continue
 			}

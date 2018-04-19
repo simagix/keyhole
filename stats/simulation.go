@@ -16,19 +16,21 @@ var collname = "keyhole"
 // MongoConn -
 type MongoConn struct {
 	uri    string
+	ssl    bool
+	sslCA  string
 	dbName string
 	tps    int
 }
 
 // New - Constructor
-func New(uri string, dbName string, tps int) MongoConn {
-	m := MongoConn{uri, dbName, tps}
+func New(uri string, ssl bool, sslCA string, dbName string, tps int) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, dbName, tps}
 	return m
 }
 
 // PopulateData - Insert docs to evaluate performance/bandwidth
 func (m MongoConn) PopulateData() {
-	session, err := mgo.Dial(m.uri)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +47,7 @@ func (m MongoConn) PopulateData() {
 		s++
 		bt := time.Now()
 		for i := 0; i < m.tps; i++ {
-			err = c.Insert(bson.M{"buffer": buffer.String(), "ts": time.Now()})
+			err := c.Insert(bson.M{"buffer": buffer.String(), "ts": time.Now()})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -58,7 +60,7 @@ func (m MongoConn) PopulateData() {
 
 // Simulate - Simulate CRUD for load tests
 func (m MongoConn) Simulate(duration int) {
-	session, err := mgo.Dial(m.uri)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
@@ -108,7 +110,10 @@ func (m MongoConn) Simulate(duration int) {
 // Cleanup - Drop the temp database
 func (m MongoConn) Cleanup() {
 	fmt.Println("cleanup", m.uri)
-	session, _ := mgo.Dial(m.uri)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+	if err != nil {
+		panic(err)
+	}
 	defer session.Close()
 	fmt.Println("dropping database", m.dbName)
 	time.Sleep(1 * time.Second)
