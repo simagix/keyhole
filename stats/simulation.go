@@ -3,7 +3,6 @@ package stats
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
@@ -46,12 +45,20 @@ func (m MongoConn) PopulateData() {
 	for s < 60 {
 		s++
 		bt := time.Now()
-		for i := 0; i < m.tps; i++ {
-			err := c.Insert(bson.M{"buffer": buffer.String(), "ts": time.Now()})
+		bulk := c.Bulk()
+		var contentArray []interface{}
+
+		for i := 0; i < m.tps; i += 20 {
+			for n := 0; n < 20; n++ {
+				contentArray = append(contentArray, bson.M{"buffer": buffer.String(), "ts": time.Now()})
+			}
+			bulk.Insert(contentArray...)
+			_, err := bulk.Run()
 			if err != nil {
-				log.Fatal(err)
+				panic(err)
 			}
 		}
+
 		t := time.Now()
 		elapsed := t.Sub(bt)
 		time.Sleep(time.Second - elapsed)
