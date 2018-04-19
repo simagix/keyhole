@@ -35,7 +35,8 @@ func AnalyzeServerStatus(filename string) {
 	json.Unmarshal(bytes, &serverStatusData)
 	PrintStatsDetails(serverStatusData)
 	PrintLatencyDetails(serverStatusData)
-	PrintMetricsetails(serverStatusData)
+	PrintMetricsDetails(serverStatusData)
+	PrintWiredTigerDetails(serverStatusData)
 }
 
 // PrintStatsDetails -
@@ -46,6 +47,7 @@ func PrintStatsDetails(docs []ServerStatusData) {
 	fmt.Println("\n--- Analytic Summary ---")
 	fmt.Printf("+-------------------------+-------+-------+------+--------+--------+--------+--------+--------+--------+--------+\n")
 	fmt.Printf("| Date/Time               | res   | virt  | fault| Command| Delete | Getmore| Insert | Query  | Update | iops   |\n")
+	fmt.Printf("|-------------------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
@@ -62,8 +64,7 @@ func PrintStatsDetails(docs []ServerStatusData) {
 			} else {
 				iops = 0
 			}
-			fmt.Printf("|-------------------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
-			fmt.Printf("|%25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
+			fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
 				stat2.LocalTime.Format(dateFormat),
 				stat2.Mem.Resident,
 				stat2.Mem.Virtual,
@@ -89,6 +90,7 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 	fmt.Println("\n--- Latencies Summary ---")
 	fmt.Printf("+-------------------------+----------+----------+----------+\n")
 	fmt.Printf("| Date/Time               | reads    | writes   | commands |\n")
+	fmt.Printf("|-------------------------|----------|----------|----------|\n")
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
@@ -105,8 +107,7 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 			if c > 0 {
 				c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
 			}
-			fmt.Printf("|-------------------------|----------|----------|----------|\n")
-			fmt.Printf("|%25s|%10d|%10d|%10d|\n",
+			fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
 				stat2.LocalTime.Format(dateFormat), r, w, c)
 		}
 		stat1 = stat2
@@ -115,20 +116,20 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 	fmt.Printf("+-------------------------+----------+----------+----------+\n")
 }
 
-// PrintMetricsetails -
-func PrintMetricsetails(docs []ServerStatusData) {
+// PrintMetricsDetails -
+func PrintMetricsDetails(docs []ServerStatusData) {
 	stat1 := ServerStatusData{}
 	stat2 := ServerStatusData{}
 	cnt := 0
 	fmt.Println("\n--- Metrics ---")
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
-	fmt.Printf("| Date/Time               | Scanned  | ScannedObj |ScanAdnOrder|WriteConflicts| Deleted  | Inserted | Returned | Updated  |\n")
+	fmt.Printf("| Date/Time               | Scanned  | ScannedObj |ScanAndOrder|WriteConflicts| Deleted  | Inserted | Returned | Updated  |\n")
+	fmt.Printf("|-------------------------|----------|------------|------------|--------------|----------|----------|----------|----------|\n")
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
 		if cnt > 0 {
-			fmt.Printf("|-------------------------|----------|------------|------------|--------------|----------|----------|----------|----------|\n")
-			fmt.Printf("|%25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
+			fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
 				stat2.LocalTime.Format(dateFormat),
 				stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
 				stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
@@ -143,4 +144,32 @@ func PrintMetricsetails(docs []ServerStatusData) {
 		cnt++
 	}
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
+}
+
+// PrintWiredTigerDetails -
+func PrintWiredTigerDetails(docs []ServerStatusData) {
+	stat1 := ServerStatusData{}
+	stat2 := ServerStatusData{}
+	cnt := 0
+	fmt.Println("\n--- WiredTiger Summary ---")
+	fmt.Printf("+-------------------------+--------------------+------------------+------------------------+-------------------+--------------------+-----------------------+\n")
+	fmt.Printf("| Date/Time               | MaxBytesConfigured | CurrentlyInCache | UnmodifiedPagesEvicted | TrackedDirtyBytes | PagesReadIntoCache | PagesWrittenFromCache |\n")
+	fmt.Printf("|-------------------------|--------------------|------------------|------------------------|-------------------|--------------------|-----------------------|\n")
+	for _, doc := range docs {
+		bytes, _ := json.Marshal(doc)
+		json.Unmarshal(bytes, &stat2)
+		if cnt > 0 {
+			fmt.Printf("|%-25s|%20d|%18d|%24d|%19d|%20d|%23d|\n",
+				stat2.LocalTime.Format(dateFormat),
+				stat2.WiredTiger.Cache.MaxBytesConfigured,
+				stat2.WiredTiger.Cache.CurrentlyInCache,
+				stat2.WiredTiger.Cache.UnmodifiedPagesEvicted,
+				stat2.WiredTiger.Cache.TrackedDirtyBytes,
+				stat2.WiredTiger.Cache.PagesReadIntoCache-stat1.WiredTiger.Cache.PagesReadIntoCache,
+				stat2.WiredTiger.Cache.PagesWrittenFromCache-stat1.WiredTiger.Cache.PagesWrittenFromCache)
+		}
+		stat1 = stat2
+		cnt++
+	}
+	fmt.Printf("+-------------------------+--------------------+------------------+------------------------+-------------------+--------------------+-----------------------+\n")
 }

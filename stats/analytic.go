@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/globalsign/mgo"
@@ -24,10 +23,20 @@ type analytic struct {
 	dbName string
 }
 
+// Cache -
+type Cache struct {
+	MaxBytesConfigured     int `json:"maximum bytes configured" bson:"maximum bytes configured"`
+	CurrentlyInCache       int `json:"bytes currently in the cache" bson:"bytes currently in the cache"`
+	UnmodifiedPagesEvicted int `json:"unmodified pages evicted" bson:"unmodified pages evicted"`
+	TrackedDirtyBytes      int `json:"tracked dirty bytes in the cache" bson:"tracked dirty bytes in the cache"`
+	PagesReadIntoCache     int `json:"pages read into cache" bson:"pages read into cache"`
+	PagesWrittenFromCache  int `json:"pages written from cache" bson:"pages written from cache"`
+}
+
 // WiredTigerData -
 type WiredTigerData struct {
 	Perf  interface{} `json:"perf" bson:"perf"`
-	Cache interface{} `json:"cache" bson:"cache"`
+	Cache Cache       `json:"cache" bson:"cache"`
 }
 
 // OpCounters -
@@ -206,73 +215,7 @@ func (m MongoConn) PrintServerStatus() {
 	defer f.Close()
 	f.Write(bytes)
 	f.Sync()
-
-	// Print server status stats
-	var keys []string
-	for k := range mongoStats {
-		keys = append(keys, k)
-	}
-
-	sort.Strings(keys)
-
-	key1 := keys[0]
-	stat1 := ServerStatusData{}
-	bytes, _ = json.Marshal(mongoStats[key1])
-	json.Unmarshal(bytes, &stat1)
-	// b, _ := json.MarshalIndent(stat1.WiredTiger, "", "  ")
-	// fmt.Println("\n", key1, string(b))
-	key2 := keys[len(keys)-1]
-	stat2 := ServerStatusData{}
-	bytes, _ = json.Marshal(mongoStats[key2])
-	json.Unmarshal(bytes, &stat2)
-	// b, _ = json.MarshalIndent(stat2.WiredTiger, "", "  ")
-	// fmt.Println(key2, string(b))
-	PrintStatsSummary(stat1, stat2)
-}
-
-// PrintStatsSummary -
-func PrintStatsSummary(stat1 ServerStatusData, stat2 ServerStatusData) {
-	var s1 [6]int
-	var s2 [6]int
-	s1[0] = stat1.OpCounters.Command
-	s1[1] = stat1.OpCounters.Delete
-	s1[2] = stat1.OpCounters.Getmore
-	s1[3] = stat1.OpCounters.Insert
-	s1[4] = stat1.OpCounters.Query
-	s1[5] = stat1.OpCounters.Update
-	key1 := stat1.LocalTime.Format(dateFormat)
-	t1, _ := time.Parse(dateFormat, key1)
-
-	s2[0] = stat2.OpCounters.Command
-	s2[1] = stat2.OpCounters.Delete
-	s2[2] = stat2.OpCounters.Getmore
-	s2[3] = stat2.OpCounters.Insert
-	s2[4] = stat2.OpCounters.Query
-	s2[5] = stat2.OpCounters.Update
-	key2 := stat2.LocalTime.Format(dateFormat)
-	t2, _ := time.Parse(dateFormat, key2)
-	d := int(t2.Sub(t1).Seconds())
-	iops := (s2[0] + s2[1] + s2[2] + s2[3] + s2[4] + s2[5]) - (s1[0] + s1[1] + s1[2] + s1[3] + s1[4] + s1[5])
-	iops = iops / d
-
-	// print stats for this duration
-	fmt.Println("\n--- Analytic Summary ---")
-	fmt.Printf("+-------------------------+-------+-------+------+--------+--------+--------+--------+--------+--------+--------+\n")
-	fmt.Printf("| Date/Time               | res   | virt  | fault| Command| Delete | Getmore| Insert | Query  | Update | iops   |\n")
-	fmt.Printf("|-------------------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
-	fmt.Printf("|%25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8s|\n",
-		key1, stat1.Mem.Resident, stat1.Mem.Virtual, stat1.ExtraInfo.PageFaults, s1[0], s1[1], s1[2], s1[3], s1[4], s1[5], " ")
-	fmt.Printf("|-------------------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
-	fmt.Printf("|%25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8s|\n",
-		key2, stat2.Mem.Resident, stat2.Mem.Virtual, stat2.ExtraInfo.PageFaults, s2[0], s2[1], s2[2], s2[3], s2[4], s2[5], " ")
-	fmt.Printf("|-------------------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
-	fmt.Printf("|%25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
-		"Delta",
-		stat2.Mem.Resident-stat1.Mem.Resident,
-		stat2.Mem.Virtual-stat1.Mem.Virtual,
-		stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
-		s2[0]-s1[0], s2[1]-s1[1], s2[2]-s1[2], s2[3]-s1[3], s2[4]-s1[4], s2[5]-s1[5], iops)
-	fmt.Printf("+-------------------------+-------+-------+------+--------+--------+--------+--------+--------+--------+--------+\n")
+	AnalyzeServerStatus(statsFile)
 }
 
 // serverStatus - Execute serverStatus
