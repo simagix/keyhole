@@ -44,13 +44,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Simulation mode
-	// 1st minute - build up data and memory
-	// 2nd and 3rd minutes - normal TPS ops
-	// remaining minutes - burst with no delay
-	// last minute - normal TPS ops until exit
 	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
-	go m.PrintDBStats()
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -64,6 +58,12 @@ func main() {
 	}()
 
 	if *peek == false {
+		// Simulation mode
+		// 1st minute - build up data and memory
+		// 2nd and 3rd minutes - normal TPS ops
+		// remaining minutes - burst with no delay
+		// last minute - normal TPS ops until exit
+		go m.PrintDBStats()
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
 		m.Cleanup()
 		for i := 0; i < *conn; i++ {
