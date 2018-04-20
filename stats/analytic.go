@@ -113,6 +113,10 @@ type ServerStatusData struct {
 	OpCounters  OpCounters     `json:"opcounters" bson:"opcounters"`
 	OpLatencies OpLatencies    `json:"opLatencies" bson:"opLatencies"`
 	WiredTiger  WiredTigerData `json:"wiredTiger" bson:"wiredTiger"`
+	Sharding    interface{}    `json:"sharding" bson:"sharding"`
+	Repl        interface{}    `json:"repl" bson:"repl"`
+	Process     string         `json:"process" bson:"process"`
+	Version     string         `json:"version" bson:"version"`
 }
 
 // CollectServerStatus - Collect serverStatus every 10 minutes
@@ -224,14 +228,14 @@ func (m MongoConn) PrintServerStatus() {
 // serverStatus - Execute serverStatus
 func (m MongoConn) serverStatus(session *mgo.Session) bson.M {
 	result := bson.M{}
-	session.DB("admin").Run(bson.D{{"serverStatus", 1}}, &result)
+	session.DB("admin").Run("serverStatus", &result)
 	return result
 }
 
 // dbStats - Execute dbStats
 func (m MongoConn) dbStats(session *mgo.Session) bson.M {
 	result := bson.M{}
-	session.DB(m.dbName).Run(bson.D{{"dbStats", 1}}, &result)
+	session.DB(m.dbName).Run("dbStats", &result)
 	return result
 }
 

@@ -42,15 +42,19 @@ func (m MongoConn) PopulateData() {
 		buffer.WriteString("simagix.")
 	}
 	s := 0
+	batchSize := 20
+	if m.tps < batchSize {
+		batchSize = m.tps
+	}
 	for s < 60 {
 		s++
 		bt := time.Now()
 		bulk := c.Bulk()
 		var contentArray []interface{}
 
-		for i := 0; i < m.tps; i += 20 {
-			for n := 0; n < 20; n++ {
-				contentArray = append(contentArray, bson.M{"buffer": buffer.String(), "ts": time.Now()})
+		for i := 0; i < m.tps; i += batchSize {
+			for n := 0; n < batchSize; n++ {
+				contentArray = append(contentArray, bson.M{"buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
 			}
 			bulk.Insert(contentArray...)
 			_, err := bulk.Run()
@@ -101,7 +105,7 @@ func (m MongoConn) Simulate(duration int) {
 			msec = 1
 		}
 		id := bson.NewObjectId()
-		_ = c.Insert(bson.M{"_id": id, "buffer": buffer.String(), "ts": time.Now()})
+		_ = c.Insert(bson.M{"_id": id, "buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
 		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 		_ = c.Find(bson.M{"_id": id}).One(&result)
 		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)

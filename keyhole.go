@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	uri := flag.String("uri", "mongodb://localhost", "MongoDB URI")
+	uri := flag.String("uri", "", "MongoDB URI")
 	info := flag.Bool("info", false, "get cluster info")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	conn := flag.Int("conn", 20, "nuumber of connections")
@@ -26,13 +26,17 @@ func main() {
 	sslCA := flag.String("sslCAFile", "", "CA file")
 
 	flag.Parse()
+	if len(*uri) == 0 {
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
 	fmt.Println("MongoDB URI:", *uri)
 
 	if *info == true {
 		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
-		bytes, _ := json.MarshalIndent(stats.IsMaster(session), "", "  ")
-		session.Close()
+		bytes, _ := json.MarshalIndent(stats.ServerInfo(session), "", "  ")
 		fmt.Println(string(bytes))
+		session.Close()
 		os.Exit(0)
 	} else if *seed == true {
 		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
