@@ -2,14 +2,15 @@
 
 Peek into `mongod` for
 
-- Load tests
+- Write Throughputs Test
+- Load test
+- Monitoring
+- Cluster Info
 - Seed data
-- Collect server status
-
 
 ## Usage
 ```
-$ build/keyhole-osx-x64 -h
+$ build/keyhole-linux-x64 -h
   -conn int
     	nuumber of connections (default 20)
   -duration int
@@ -27,15 +28,60 @@ $ build/keyhole-osx-x64 -h
   -tps int
     	number of trasaction per second per connection (default 600)
   -uri string
-    	MongoDB URI (default "mongodb://localhost")
+    	MongoDB URI
   -v	verbose
   -view string
     	server status file
 ```
 
-## Example
+## Use Cases
+### Write Throughputs Test
+Test MongoDB write throughput.
+
 ```
-build/keyhole-osx-x64 -uri=mongodb://localhost/_KEYHOLE_?replicaSet=replset
+build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -duration=1
+```
+
+### Load Test
+Load test a cluster/replica.  A default cycle last six minutes.
+
+- Populate data in first minute
+- Perform CRUD operations during the second and third minutes
+- Burst test during the fourth and fifth minutes
+- Perform CRUD ops in the last minute
+
+```
+build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset
+```
+
+### Monitoring
+Only collects data from `db.serverStatus()`
+
+```
+build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -peek
+```
+
+### Cluster Info
+Collect cluster information:
+
+- Sharded cluster
+- Replica set
+- Standalone
+
+```
+build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -info
+```
+
+### Seed Data
+Populate a small amount of data for demo.
+
+```
+build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -seed
+```
+
+## Load Test Example
+```
+build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset
 
 MongoDB URI: mongodb://localhost
 Total TPS: 600 (tps) * 20 (conns) = 12000, duration = 6 (mins)
