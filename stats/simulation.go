@@ -2,7 +2,8 @@ package stats
 
 import (
 	"bytes"
-	"fmt"
+	"log"
+	"math"
 	"math/rand"
 	"time"
 
@@ -59,13 +60,20 @@ func (m MongoConn) PopulateData() {
 			bulk.Insert(contentArray...)
 			_, err := bulk.Run()
 			if err != nil {
-				panic(err)
+				log.Println(err)
+				return
 			}
 		}
 
 		t := time.Now()
 		elapsed := t.Sub(bt)
-		time.Sleep(time.Second - elapsed)
+		if elapsed.Seconds() > time.Second.Seconds() {
+			x := math.Floor(elapsed.Seconds())
+			s += int(x)
+			elapsed = time.Duration(elapsed.Seconds() - x)
+		}
+		et := time.Second.Seconds() - elapsed.Seconds()
+		time.Sleep(time.Duration(et))
 	}
 }
 
@@ -102,7 +110,7 @@ func (m MongoConn) Simulate(duration int) {
 	for {
 		msec := 5
 		if isBurst {
-			msec = 1
+			msec = 2
 		}
 		id := bson.NewObjectId()
 		_ = c.Insert(bson.M{"_id": id, "buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
@@ -114,19 +122,19 @@ func (m MongoConn) Simulate(duration int) {
 		_ = c.Remove(bson.M{"_id": id})
 		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
 		_ = c.Find(nil).Limit(10).All(&results)
-		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
+		time.Sleep(time.Millisecond)
 	}
 }
 
 // Cleanup - Drop the temp database
 func (m MongoConn) Cleanup() {
-	fmt.Println("cleanup", m.uri)
+	log.Println("cleanup", m.uri)
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
 	defer session.Close()
-	fmt.Println("dropping database", m.dbName)
+	log.Println("dropping database", m.dbName)
 	time.Sleep(1 * time.Second)
 	session.DB(m.dbName).DropDatabase()
 }
