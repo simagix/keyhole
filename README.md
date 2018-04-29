@@ -28,10 +28,27 @@ $ build/keyhole-linux-x64 -h
   -tps int
     	number of trasaction per second per connection (default 600)
   -uri string
-    	MongoDB URI
+    	Mongo
+    	DB URI
   -v	verbose
   -view string
     	server status file
+```
+
+## Download
+### MacOS
+```
+curl -L https://github.com/simagix/keyhole/blob/master/build/keyhole-osx-x64?raw=true > keyhole ; chmod +x keyhole
+```
+### Linux
+```
+curl -L https://github.com/simagix/keyhole/blob/master/build/keyhole-linux-x64?raw=true > keyhole ; chmod +x keyhole
+```
+### Windows
+The download link is as below.
+
+```
+https://github.com/simagix/keyhole/blob/master/build/keyhole-win-x64.exe?raw=true
 ```
 
 ## Use Cases
