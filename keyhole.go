@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/simagix/keyhole/stats"
-	"gopkg.in/mgo.v2/bson"
 )
 
 func main() {
@@ -49,39 +48,38 @@ func main() {
 		os.Exit(0)
 	}
 
+	session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+	defer session.Close()
+	ssi := stats.ServerInfo(session)
+
+	curi := *uri
+	if ssi.Cluster == "sharded" {
+		list := stats.GetShards(session, *uri)
+		curi = list[0]
+	}
+
 	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
-		cleanup(m)
+		m.PrintServerStatus(curi)
+		m.Cleanup()
+		os.Exit(0)
 	}()
 	go func() {
 		<-timer.C
-		cleanup(m)
+		m.PrintServerStatus(curi)
+		m.Cleanup()
+		os.Exit(0)
 	}()
 
 	if *peek == false {
-		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
-		defer session.Close()
-		ssi := stats.ServerInfo(session)
 		m.Cleanup()
 
 		if ssi.Cluster == "sharded" {
-			collname := stats.DBName + "." + stats.CollectionName
-			fmt.Println(ssi.Cluster, collname)
-			result := bson.M{}
-			if err := session.DB("admin").Run(bson.D{{"enableSharding", stats.DBName}}, &result); err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(result)
-			}
-			if err := session.DB("admin").Run(bson.D{{"shardCollection", collname}, {"key", bson.M{"_id": "hashed"}}}, &result); err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(result)
-			}
+			stats.ShardCollection(session, stats.DBName+"."+stats.CollectionName)
 		}
 
 		// Simulation mode
@@ -105,11 +103,5 @@ func main() {
 		}
 	}
 
-	m.CollectServerStatus()
-}
-
-func cleanup(m stats.MongoConn) {
-	m.PrintServerStatus()
-	m.Cleanup()
-	os.Exit(0)
+	m.CollectServerStatus(curi)
 }
