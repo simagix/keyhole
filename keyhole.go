@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/simagix/keyhole/stats"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func main() {
@@ -62,6 +63,27 @@ func main() {
 	}()
 
 	if *peek == false {
+		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+		defer session.Close()
+		ssi := stats.ServerInfo(session)
+		m.Cleanup()
+
+		if ssi.Cluster == "sharded" {
+			collname := stats.DBName + "." + stats.CollectionName
+			fmt.Println(ssi.Cluster, collname)
+			result := bson.M{}
+			if err := session.DB("admin").Run(bson.D{{"enableSharding", stats.DBName}}, &result); err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(result)
+			}
+			if err := session.DB("admin").Run(bson.D{{"shardCollection", collname}, {"key", bson.M{"_id": "hashed"}}}, &result); err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(result)
+			}
+		}
+
 		// Simulation mode
 		// 1st minute - build up data and memory
 		// 2nd and 3rd minutes - normal TPS ops
@@ -69,7 +91,6 @@ func main() {
 		// last minute - normal TPS ops until exit
 		go m.PrintDBStats()
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
-		m.Cleanup()
 		for i := 0; i < *conn; i++ {
 			go func() {
 				select {

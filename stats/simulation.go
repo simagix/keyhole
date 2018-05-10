@@ -7,11 +7,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
-var collname = "keyhole"
+var CollectionName = "keyhole"
 
 // MongoConn -
 type MongoConn struct {
@@ -37,7 +37,7 @@ func (m MongoConn) PopulateData() {
 	defer session.Close()
 
 	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(m.dbName).C(collname)
+	c := session.DB(m.dbName).C(CollectionName)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
@@ -86,7 +86,7 @@ func (m MongoConn) Simulate(duration int) {
 	defer session.Close()
 
 	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(m.dbName).C(collname)
+	c := session.DB(m.dbName).C(CollectionName)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
