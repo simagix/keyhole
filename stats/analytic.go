@@ -120,14 +120,13 @@ type ServerStatusData struct {
 }
 
 // CollectServerStatus - Collect serverStatus every 10 minutes
-func (m MongoConn) CollectServerStatus() {
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+func (m MongoConn) CollectServerStatus(uri string) {
+	session, err := GetSession(uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
-
 	stat := ServerStatusData{}
 	var iop int
 	var piop int
@@ -195,8 +194,8 @@ func (m MongoConn) PrintDBStats() {
 }
 
 // PrintServerStatus - Print serverStatus summary for the duration
-func (m MongoConn) PrintServerStatus() {
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+func (m MongoConn) PrintServerStatus(uri string) {
+	session, err := GetSession(uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
