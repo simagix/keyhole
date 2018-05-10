@@ -134,7 +134,9 @@ func (m MongoConn) Cleanup() {
 		panic(err)
 	}
 	defer session.Close()
+	time.Sleep(2 * time.Second)
+	log.Println("dropping collection", m.dbName, CollectionName)
+	session.DB(m.dbName).C(CollectionName).DropCollection()
 	log.Println("dropping database", m.dbName)
-	time.Sleep(1 * time.Second)
 	session.DB(m.dbName).DropDatabase()
 }
