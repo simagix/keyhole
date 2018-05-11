@@ -93,4 +93,41 @@ func Seed(session *mgo.Session, verbose bool) {
 	mn, _ := cm.Count()
 	rn, _ := cr.Count()
 	fmt.Printf("Seeded models: %d, robots: %d\n", mn, rn)
+
+	isNew := []bool{true, false}
+	styles := []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
+	colors := []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
+
+	c := session.DB(db).C("cars")
+	for i := 0; i < 250; i++ {
+		bulk := c.Bulk()
+		var contentArray []interface{}
+		for n := 0; n < 1000; n++ {
+			contentArray = append(contentArray,
+				bson.M{
+					"isNew": isNew[rand.Intn(len(isNew))],
+					"style": styles[rand.Intn(len(styles))],
+					"color": colors[rand.Intn(len(colors))],
+				})
+		}
+
+		bulk.Insert(contentArray...)
+		_, err := bulk.Run()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+	var contentArray []interface{}
+	abc := session.DB(db).C("numbers")
+	bulk := abc.Bulk()
+	for n := 0; n < 100000; n++ {
+		contentArray = append(contentArray, bson.M{"a": rand.Intn(100), "b": rand.Intn(50), "c": rand.Intn(1000)})
+	}
+	bulk.Insert(contentArray...)
+	_, err := bulk.Run()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }

@@ -51,9 +51,9 @@ func (m MongoConn) PopulateData() {
 		s++
 		bt := time.Now()
 		bulk := c.Bulk()
-		var contentArray []interface{}
 
 		for i := 0; i < m.tps; i += batchSize {
+			var contentArray []interface{}
 			for n := 0; n < batchSize; n++ {
 				contentArray = append(contentArray, bson.M{"buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
 			}
