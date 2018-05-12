@@ -30,6 +30,7 @@ func New(uri string, ssl bool, sslCA string, dbName string, tps int) MongoConn {
 
 // PopulateData - Insert docs to evaluate performance/bandwidth
 func (m MongoConn) PopulateData() {
+	rand.Seed(time.Now().Unix())
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
