@@ -121,54 +121,46 @@ type ServerStatusData struct {
 
 // CollectServerStatus - Collect serverStatus every 10 minutes
 func (m MongoConn) CollectServerStatus(uri string) {
-	session, err := GetSession(uri, m.ssl, m.sslCA)
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
 	stat := ServerStatusData{}
 	var iop int
 	var piop int
 	var crud [4]int
 
 	for {
-		serverStatus := m.serverStatus(session)
-		bytes, _ := json.Marshal(serverStatus)
-		json.Unmarshal(bytes, &stat)
-		key := time.Now().Format(dateFormat)
-		serverStatusDocs = append(serverStatusDocs, serverStatus)
-		mongoStats[key] = stat
-		fmt.Printf("%s res: %7d, virt: %7d, faults: %5d",
-			key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
-		iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
-			stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
-		iops := (iop - piop) / 60
-		if piop > 0 {
-			fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n",
-				stat.Metrics.Document.Inserted-crud[0], stat.Metrics.Document.Returned-crud[1],
-				stat.Metrics.Document.Updated-crud[2], stat.Metrics.Document.Deleted-crud[3], iops)
-		} else {
-			fmt.Println()
+		session, err := GetSession(uri, m.ssl, m.sslCA)
+		if err == nil {
+			session.SetMode(mgo.Monotonic, true)
+			serverStatus := m.serverStatus(session)
+			bytes, _ := json.Marshal(serverStatus)
+			json.Unmarshal(bytes, &stat)
+			key := time.Now().Format(dateFormat)
+			serverStatusDocs = append(serverStatusDocs, serverStatus)
+			mongoStats[key] = stat
+			fmt.Printf("%s res: %7d, virt: %7d, faults: %5d",
+				key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
+			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
+				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
+			iops := (iop - piop) / 60
+			if piop > 0 {
+				fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n",
+					stat.Metrics.Document.Inserted-crud[0], stat.Metrics.Document.Returned-crud[1],
+					stat.Metrics.Document.Updated-crud[2], stat.Metrics.Document.Deleted-crud[3], iops)
+			} else {
+				fmt.Println()
+			}
+			crud[0] = stat.Metrics.Document.Inserted
+			crud[1] = stat.Metrics.Document.Returned
+			crud[2] = stat.Metrics.Document.Updated
+			crud[3] = stat.Metrics.Document.Deleted
+			piop = iop
+			session.Close()
 		}
-		crud[0] = stat.Metrics.Document.Inserted
-		crud[1] = stat.Metrics.Document.Returned
-		crud[2] = stat.Metrics.Document.Updated
-		crud[3] = stat.Metrics.Document.Deleted
-		piop = iop
 		time.Sleep(1 * time.Minute)
 	}
 }
 
 // PrintDBStats - Print dbStats every 10 seconds
 func (m MongoConn) PrintDBStats() {
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
-
 	var raw map[string]interface{}
 	var pds float64
 	var ds float64
@@ -176,20 +168,25 @@ func (m MongoConn) PrintDBStats() {
 	now := ptime
 
 	for {
-		stat := m.dbStats(session)
-		bytes, _ := json.Marshal(stat)
-		json.Unmarshal(bytes, &raw)
-		ds = raw["dataSize"].(float64)
-		sec := now.Sub(ptime).Seconds()
-		delta := (ds - pds) / mb / sec
-		if sec > 0 && delta > .01 {
-			fmt.Printf("%s data: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
-				now.Format(dateFormat), pds/mb, ds/mb, delta)
+		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+		if err == nil {
+			session.SetMode(mgo.Monotonic, true)
+			stat := m.dbStats(session)
+			bytes, _ := json.Marshal(stat)
+			json.Unmarshal(bytes, &raw)
+			ds = raw["dataSize"].(float64)
+			sec := now.Sub(ptime).Seconds()
+			delta := (ds - pds) / mb / sec
+			if sec > 0 && delta > .01 {
+				fmt.Printf("%s data: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
+					now.Format(dateFormat), pds/mb, ds/mb, delta)
+			}
+			pds = ds
+			ptime = now
+			now = time.Now()
+			session.Close()
 		}
-		pds = ds
-		ptime = now
 		time.Sleep(sleepTime)
-		now = time.Now()
 	}
 }
 

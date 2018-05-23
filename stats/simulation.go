@@ -31,14 +31,6 @@ func New(uri string, ssl bool, sslCA string, dbName string, tps int) MongoConn {
 // PopulateData - Insert docs to evaluate performance/bandwidth
 func (m MongoConn) PopulateData() {
 	rand.Seed(time.Now().Unix())
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-
-	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(m.dbName).C(CollectionName)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
@@ -50,44 +42,46 @@ func (m MongoConn) PopulateData() {
 	}
 	for s < 60 {
 		s++
-		bt := time.Now()
-		bulk := c.Bulk()
+		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+		if err == nil {
+			session.SetMode(mgo.Monotonic, true)
+			c := session.DB(m.dbName).C(CollectionName)
 
-		for i := 0; i < m.tps; i += batchSize {
-			var contentArray []interface{}
-			for n := 0; n < batchSize; n++ {
-				contentArray = append(contentArray, bson.M{"buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
-			}
-			bulk.Insert(contentArray...)
-			_, err := bulk.Run()
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		}
+			bt := time.Now()
+			bulk := c.Bulk()
 
-		t := time.Now()
-		elapsed := t.Sub(bt)
-		if elapsed.Seconds() > time.Second.Seconds() {
-			x := math.Floor(elapsed.Seconds())
-			s += int(x)
-			elapsed = time.Duration(elapsed.Seconds() - x)
+			for i := 0; i < m.tps; i += batchSize {
+				var contentArray []interface{}
+				for n := 0; n < batchSize; n++ {
+					contentArray = append(contentArray, bson.M{"buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
+				}
+				bulk.Insert(contentArray...)
+				_, err := bulk.Run()
+				if err != nil {
+					log.Println(err)
+					session.Close()
+					break
+				}
+			}
+
+			t := time.Now()
+			elapsed := t.Sub(bt)
+			if elapsed.Seconds() > time.Second.Seconds() {
+				x := math.Floor(elapsed.Seconds())
+				s += int(x)
+				elapsed = time.Duration(elapsed.Seconds() - x)
+			}
+			et := time.Second.Seconds() - elapsed.Seconds()
+			time.Sleep(time.Duration(et))
+			session.Close()
+		} else {
+			time.Sleep(time.Second)
 		}
-		et := time.Second.Seconds() - elapsed.Seconds()
-		time.Sleep(time.Duration(et))
 	}
 }
 
 // Simulate - Simulate CRUD for load tests
 func (m MongoConn) Simulate(duration int) {
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-
-	session.SetMode(mgo.Monotonic, true)
-	c := session.DB(m.dbName).C(CollectionName)
 	var buffer bytes.Buffer
 	for i := 0; i < 4096/len("simagix."); i++ {
 		buffer.WriteString("simagix.")
@@ -113,17 +107,25 @@ func (m MongoConn) Simulate(duration int) {
 		if isBurst {
 			msec = 2
 		}
-		id := bson.NewObjectId()
-		_ = c.Insert(bson.M{"_id": id, "buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
-		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-		_ = c.Find(bson.M{"_id": id}).One(&result)
-		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-		_ = c.Update(bson.M{"_id": id}, change)
-		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-		_ = c.Remove(bson.M{"_id": id})
-		time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-		_ = c.Find(nil).Limit(10).All(&results)
-		time.Sleep(time.Millisecond)
+		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+		if err == nil {
+			session.SetMode(mgo.Monotonic, true)
+			c := session.DB(m.dbName).C(CollectionName)
+			for i := 0; i < 500; i++ {
+				id := bson.NewObjectId()
+				_ = c.Insert(bson.M{"_id": id, "buffer": buffer.String(), "n": rand.Intn(1000), "ts": time.Now()})
+				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
+				_ = c.Find(bson.M{"_id": id}).One(&result)
+				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
+				_ = c.Update(bson.M{"_id": id}, change)
+				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
+				_ = c.Remove(bson.M{"_id": id})
+				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
+				_ = c.Find(nil).Limit(10).All(&results)
+				time.Sleep(time.Millisecond)
+			}
+			session.Close()
+		}
 	}
 }
 

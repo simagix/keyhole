@@ -33,13 +33,19 @@ func main() {
 	fmt.Println("MongoDB URI:", *uri)
 
 	if *info == true {
-		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+		session, err := stats.GetSession(*uri, *ssl, *sslCA)
+		if err != nil {
+			panic(err)
+		}
 		bytes, _ := json.MarshalIndent(stats.ServerInfo(session), "", "  ")
 		fmt.Println(string(bytes))
 		session.Close()
 		os.Exit(0)
 	} else if *seed == true {
-		session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+		session, err := stats.GetSession(*uri, *ssl, *sslCA)
+		if err != nil {
+			panic(err)
+		}
 		stats.Seed(session, *verbose)
 		session.Close()
 		os.Exit(0)
@@ -48,7 +54,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	session, _ := stats.GetSession(*uri, *ssl, *sslCA)
+	session, err := stats.GetSession(*uri, *ssl, *sslCA)
+	if err != nil {
+		panic(err)
+	}
 	defer session.Close()
 	ssi := stats.ServerInfo(session)
 

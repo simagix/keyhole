@@ -49,9 +49,6 @@ func GetSession(uri string, ssl bool, sslCA string) (*mgo.Session, error) {
 		session, err = mgo.DialWithInfo(dialInfo)
 	} else {
 		session, err = mgo.Dial(uri)
-		if err != nil {
-			panic(err)
-		}
 	}
 
 	return session, err
