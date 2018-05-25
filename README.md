@@ -5,7 +5,7 @@ Peek into `mongod` for
 - [Load test](LOADTEST.md)
 - Monitoring
 - Cluster Info
-- Seed data
+- [Seed data](SEED.md)
 
 ## Use Cases
 ### Write Throughputs Test
