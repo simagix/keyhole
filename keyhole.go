@@ -26,7 +26,10 @@ func main() {
 	sslCA := flag.String("sslCAFile", "", "CA file")
 
 	flag.Parse()
-	if len(*uri) == 0 {
+	if *view != "" {
+		stats.AnalyzeServerStatus(*view)
+		os.Exit(0)
+	} else if len(*uri) == 0 {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
@@ -48,9 +51,6 @@ func main() {
 		}
 		stats.Seed(session, *verbose)
 		session.Close()
-		os.Exit(0)
-	} else if *view != "" {
-		stats.AnalyzeServerStatus(*view)
 		os.Exit(0)
 	}
 
