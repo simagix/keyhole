@@ -1,4 +1,10 @@
 # Seed Data
+Seed data for demo.
+
+```
+keyhole -uri=mongodb://localhost/?replicaSet=replset -seed
+```
+
 ## Collections
 ### models
 

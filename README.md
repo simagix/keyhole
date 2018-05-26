@@ -48,7 +48,7 @@ build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -info
 ```
 
 ### Seed Data
-Populate a small amount of data for demo.
+Populate a small amount of data for [demo](SEED.md).
 
 ```
 build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -seed
