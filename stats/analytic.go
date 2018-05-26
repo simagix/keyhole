@@ -1,9 +1,10 @@
 package stats
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 
 const dateFormat = time.RFC3339
 
+var statsFile = os.TempDir() + "/keyhole_stats." + time.Now().Format("2018-01-02T15-04-05")
 var loc, _ = time.LoadLocation("Local")
-
 var mb = 1024.0 * 1024
 var serverStatusDocs = []bson.M{}
 var mongoStats = make(map[string]ServerStatusData)
@@ -135,6 +136,9 @@ func (m MongoConn) CollectServerStatus(uri string) {
 			json.Unmarshal(bytes, &stat)
 			key := time.Now().Format(dateFormat)
 			serverStatusDocs = append(serverStatusDocs, serverStatus)
+			if len(serverStatusDocs) > 10 {
+				saveStatsToFile()
+			}
 			mongoStats[key] = stat
 			fmt.Printf("%s res: %7d, virt: %7d, faults: %5d",
 				key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
@@ -207,18 +211,24 @@ func (m MongoConn) PrintServerStatus(uri string) {
 	json.Unmarshal(bytes, &stat)
 	mongoStats[time.Now().Format(dateFormat)] = stat
 
-	// Save mongoStats
-	bytes, _ = json.Marshal(serverStatusDocs)
-	statsFile := os.TempDir() + "/keyhole_stats." + time.Now().Format("2018-01-02T15-04-05")
-	fmt.Println("\nHost", stat.Host, "stats written to", statsFile)
-	f, ferr := os.Create(statsFile)
+	// save serverStatusDocs
+	saveStatsToFile()
+	AnalyzeServerStatus(statsFile)
+}
+
+func saveStatsToFile() {
+	bytes, _ := json.Marshal(serverStatusDocs)
+	serverStatusDocs = serverStatusDocs[:0]
+	fmt.Println("\nstats written to", statsFile)
+	f, ferr := os.OpenFile(statsFile, os.O_WRONLY|os.O_APPEND, 0644)
 	if ferr != nil {
-		panic(ferr)
+		f, _ = os.Create(statsFile)
 	}
 	defer f.Close()
 	f.Write(bytes)
+	f.WriteString("\n")
 	f.Sync()
-	AnalyzeServerStatus(statsFile)
+	serverStatusDocs = serverStatusDocs[:0]
 }
 
 // serverStatus - Execute serverStatus
@@ -237,13 +247,33 @@ func (m MongoConn) dbStats(session *mgo.Session) bson.M {
 
 // AnalyzeServerStatus -
 func AnalyzeServerStatus(filename string) {
-	bytes, err := ioutil.ReadFile(filename)
+	fmt.Println("filename", filename)
+	var serverStatusData = []ServerStatusData{}
+	var docs = []ServerStatusData{}
+	f, err := os.Open(filename)
 	if err != nil {
-		panic(err)
+		fmt.Println("error opening file ", err)
+		return
+	}
+	defer f.Close()
+
+	r := bufio.NewReader(f)
+	for {
+		text, ferr := r.ReadString('\n') // 0x0A separator = newline
+		if ferr == io.EOF {
+			break
+		}
+		json.Unmarshal([]byte(text), &docs)
+		serverStatusData = append(serverStatusData, docs...)
 	}
 
-	var serverStatusData = []ServerStatusData{}
-	json.Unmarshal(bytes, &serverStatusData)
+	// bytes, err := ioutil.ReadFile(filename)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//
+	// var serverStatusData = []ServerStatusData{}
+	// json.Unmarshal(bytes, &serverStatusData)
 	PrintStatsDetails(serverStatusData)
 	PrintLatencyDetails(serverStatusData)
 	PrintMetricsDetails(serverStatusData)
