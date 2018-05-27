@@ -181,7 +181,7 @@ func (m MongoConn) PrintDBStats() {
 			ds = raw["dataSize"].(float64)
 			sec := now.Sub(ptime).Seconds()
 			delta := (ds - pds) / mb / sec
-			if sec > 0 && delta > .01 {
+			if sec > 1 && delta > .01 {
 				fmt.Printf("%s data: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
 					now.Format(dateFormat), pds/mb, ds/mb, delta)
 			}
