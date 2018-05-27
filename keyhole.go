@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,12 +23,19 @@ func main() {
 	verbose := flag.Bool("v", false, "verbose")
 	peek := flag.Bool("peek", false, "only collect data")
 	view := flag.String("view", "", "server status file")
+	schema := flag.Bool("schema", false, "print schema")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
 
 	flag.Parse()
 	if *view != "" {
 		stats.AnalyzeServerStatus(*view)
+		os.Exit(0)
+	} else if *schema {
+		bytes, _ := json.MarshalIndent(stats.GetRandomDoc(), "", "  ")
+		doc := strings.Replace(string(bytes), "mongodb.", "", -1)
+		doc = strings.Replace(doc, "simagix.", "", -1)
+		fmt.Println(doc)
 		os.Exit(0)
 	} else if len(*uri) == 0 {
 		flag.PrintDefaults()
