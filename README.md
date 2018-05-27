@@ -65,6 +65,8 @@ $ build/keyhole-linux-x64 -h
     	get cluster info
   -peek
     	only collect data
+  -schema
+    	print schema
   -seed
     	seed a database for demo
   -ssl
@@ -74,8 +76,7 @@ $ build/keyhole-linux-x64 -h
   -tps int
     	number of trasaction per second per connection (default 600)
   -uri string
-    	Mongo
-    	DB URI
+    	MongoDB URI
   -v	verbose
   -view string
     	server status file
