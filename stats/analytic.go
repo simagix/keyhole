@@ -122,10 +122,10 @@ type ServerStatusData struct {
 
 // CollectServerStatus - Collect serverStatus every 10 minutes
 func (m MongoConn) CollectServerStatus(uri string) {
+	pstat := ServerStatusData{}
 	stat := ServerStatusData{}
 	var iop int
 	var piop int
-	var crud [4]int
 
 	for {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
@@ -140,22 +140,25 @@ func (m MongoConn) CollectServerStatus(uri string) {
 				saveStatsToFile()
 			}
 			mongoStats[key] = stat
-			fmt.Printf("%s res: %7d, virt: %7d, faults: %5d",
+			fmt.Printf("%s Memory - resident: %7d, virtual: %7d, page faults: %5d\n",
 				key, stat.Mem.Resident, stat.Mem.Virtual, stat.ExtraInfo.PageFaults)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := (iop - piop) / 60
-			if piop > 0 {
-				fmt.Printf(", i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n",
-					stat.Metrics.Document.Inserted-crud[0], stat.Metrics.Document.Returned-crud[1],
-					stat.Metrics.Document.Updated-crud[2], stat.Metrics.Document.Deleted-crud[3], iops)
-			} else {
-				fmt.Println()
+			if len(serverStatusDocs) > 1 {
+				bytes, _ = json.Marshal(serverStatusDocs[len(serverStatusDocs)-2])
+				json.Unmarshal(bytes, &pstat)
+				fmt.Printf("%s CRUD - i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n",
+					key, stat.Metrics.Document.Inserted-pstat.Metrics.Document.Inserted,
+					stat.Metrics.Document.Returned-pstat.Metrics.Document.Returned,
+					stat.Metrics.Document.Updated-pstat.Metrics.Document.Updated,
+					stat.Metrics.Document.Deleted-pstat.Metrics.Document.Deleted, iops)
+				fmt.Printf("%s Latency (ms) - read: %7.1f, write: %7.1f, command: %7.1f\n",
+					key,
+					float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
+					float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
+					float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
 			}
-			crud[0] = stat.Metrics.Document.Inserted
-			crud[1] = stat.Metrics.Document.Returned
-			crud[2] = stat.Metrics.Document.Updated
-			crud[3] = stat.Metrics.Document.Deleted
 			piop = iop
 			session.Close()
 		}
@@ -182,7 +185,7 @@ func (m MongoConn) PrintDBStats() {
 			sec := now.Sub(ptime).Seconds()
 			delta := (ds - pds) / mb / sec
 			if sec > 1 && delta > .01 {
-				fmt.Printf("%s data: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
+				fmt.Printf("%s Storage: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
 					now.Format(dateFormat), pds/mb, ds/mb, delta)
 			}
 			pds = ds
@@ -329,7 +332,7 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 	stat1 := ServerStatusData{}
 	stat2 := ServerStatusData{}
 	cnt := 0
-	fmt.Println("\n--- Latencies Summary ---")
+	fmt.Println("\n--- Latencies Summary (ms) ---")
 	fmt.Printf("+-------------------------+----------+----------+----------+\n")
 	fmt.Printf("| Date/Time               | reads    | writes   | commands |\n")
 	fmt.Printf("|-------------------------|----------|----------|----------|\n")
@@ -350,7 +353,7 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 				c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
 			}
 			fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(dateFormat), r, w, c)
+				stat2.LocalTime.In(loc).Format(dateFormat), r/1000, w/1000, c/1000)
 		}
 		stat1 = stat2
 		cnt++
