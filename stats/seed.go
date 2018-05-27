@@ -99,7 +99,9 @@ func Seed(session *mgo.Session, verbose bool) {
 	colors := []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
 
 	c := session.DB(db).C("cars")
+	k := session.DB(db).C("keyhole")
 	for i := 0; i < 250; i++ {
+		k.Insert(GetRandomDoc())
 		bulk := c.Bulk()
 		var contentArray []interface{}
 		for n := 0; n < 1000; n++ {
@@ -130,4 +132,8 @@ func Seed(session *mgo.Session, verbose bool) {
 		log.Println(err)
 		return
 	}
+	cc, _ := c.Count()
+	ck, _ := k.Count()
+	ca, _ := abc.Count()
+	fmt.Printf("Seeded cars: %d, keyhole: %d, numbers: %d\n", cc, ck, ca)
 }
