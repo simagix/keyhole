@@ -13,6 +13,8 @@ import (
 	"github.com/simagix/keyhole/stats"
 )
 
+var version string
+
 func main() {
 	uri := flag.String("uri", "", "MongoDB URI")
 	info := flag.Bool("info", false, "get cluster info")
@@ -26,10 +28,14 @@ func main() {
 	schema := flag.Bool("schema", false, "print schema")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
+	ver := flag.Bool("version", false, "print version number")
 
 	flag.Parse()
 	if *view != "" {
 		stats.AnalyzeServerStatus(*view)
+		os.Exit(0)
+	} else if *ver {
+		fmt.Println("keyhole ver.", version)
 		os.Exit(0)
 	} else if *schema {
 		bytes, _ := json.MarshalIndent(stats.GetRandomDoc(), "", "  ")
