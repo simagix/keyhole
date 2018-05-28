@@ -315,7 +315,7 @@ func PrintStatsDetails(docs []ServerStatusData) {
 				stat2.LocalTime.In(loc).Format(dateFormat),
 				stat2.Mem.Resident,
 				stat2.Mem.Virtual,
-				stat2.ExtraInfo.PageFaults,
+				stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
 				stat2.OpCounters.Command-stat1.OpCounters.Command,
 				stat2.OpCounters.Delete-stat1.OpCounters.Delete,
 				stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
