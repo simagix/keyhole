@@ -16,12 +16,12 @@ build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset -duration=1
 ```
 
 ### Load Test
-Load test a cluster/replica.  A default cycle last six minutes.
+Load test a cluster/replica.  A default cycle lasts five minutes with docs using in this [schema](LOADTEST.md).
 
 - Populate data in first minute
-- Perform CRUD operations during the second and third minutes
-- Burst test during the fourth and fifth minutes
-- Perform CRUD ops in the last minute
+- Perform CRUD operations during the second minutes
+- Burst test until before the last minute
+- Perform cleanup ops in the last minute
 
 ```
 build/keyhole-linux-x64 -uri=mongodb://localhost/?replicaSet=replset

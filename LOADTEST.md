@@ -2,9 +2,9 @@
 Load test a cluster/replica.  A default cycle last six minutes.
 
 - Populate data in first minute
-- Perform CRUD operations during the second minute
+- Perform CRUD operations during the second minutes
 - Burst test until before the last minute
-- Perform slower CRUD ops in the last minute
+- Perform cleanup ops in the last minute
 
 ## Document Example
 ### Usage
