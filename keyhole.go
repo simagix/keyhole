@@ -19,7 +19,7 @@ func main() {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	conn := flag.Int("conn", 20, "nuumber of connections")
 	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
-	duration := flag.Int("duration", 6, "load test duration in minutes")
+	duration := flag.Int("duration", 5, "load test duration in minutes")
 	verbose := flag.Bool("v", false, "verbose")
 	peek := flag.Bool("peek", false, "only collect data")
 	view := flag.String("view", "", "server status file")
@@ -114,7 +114,8 @@ func main() {
 				default:
 					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
 					msim.PopulateData()
-					msim.Simulate(*duration)
+					msim.Simulate(*duration - 1)
+					time.Sleep(time.Second)
 				}
 			}()
 		}

@@ -140,20 +140,20 @@ func (m MongoConn) CollectServerStatus(uri string) {
 				saveStatsToFile()
 			}
 			mongoStats[key] = stat
-			fmt.Printf("%s Memory - resident: %7d, virtual: %7d", key, stat.Mem.Resident, stat.Mem.Virtual)
+			fmt.Printf("\n%s Memory - resident: %7d, virtual: %7d", key, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := (iop - piop) / 60
 			if len(serverStatusDocs) > 1 {
-				fmt.Printf(", page faults: %5d\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults))
 				bytes, _ = json.Marshal(serverStatusDocs[len(serverStatusDocs)-2])
 				json.Unmarshal(bytes, &pstat)
-				fmt.Printf("%s CRUD - i: %7d, q: %7d, u: %7d, d: %7d, iops: %7d\n",
+				fmt.Printf(", page faults: %3d, iops: %7d\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
+				fmt.Printf("%s CRUD   - insert: %7d, find: %7d, update: %7d, delete: %7d\n",
 					key, stat.Metrics.Document.Inserted-pstat.Metrics.Document.Inserted,
 					stat.Metrics.Document.Returned-pstat.Metrics.Document.Returned,
 					stat.Metrics.Document.Updated-pstat.Metrics.Document.Updated,
-					stat.Metrics.Document.Deleted-pstat.Metrics.Document.Deleted, iops)
-				fmt.Printf("%s Latency (ms) - read: %7.1f, write: %7.1f, command: %7.1f\n",
+					stat.Metrics.Document.Deleted-pstat.Metrics.Document.Deleted)
+				fmt.Printf("%s Latency- read: %7.1f, write: %7.1f, command: %7.1f (ms)\n",
 					key,
 					float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
 					float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,

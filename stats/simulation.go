@@ -148,6 +148,7 @@ func (m MongoConn) PopulateData() {
 		if err == nil {
 			session.SetMode(mgo.Monotonic, true)
 			c := session.DB(m.dbName).C(CollectionName)
+			c.EnsureIndexKey("favoriteCity")
 			bt := time.Now()
 			bulk := c.Bulk()
 
@@ -184,51 +185,47 @@ func (m MongoConn) PopulateData() {
 // Simulate - Simulate CRUD for load tests
 func (m MongoConn) Simulate(duration int) {
 	var schema = Schema{}
-	result := bson.M{}
 	results := []bson.M{}
-	change := bson.M{"$set": bson.M{"year": 1989}}
-	isBurst := false
-	burstBegin := time.NewTimer(2 * time.Minute)
+	change := bson.M{"$set": bson.M{"ts": time.Now()}}
+	burstBegin := time.NewTimer(1 * time.Minute)
+	waitms := 5
+	isTeardown := false
+
 	go func() {
 		<-burstBegin.C
-		isBurst = true
+		waitms = 0
 	}()
-	burstEnd := time.NewTimer(time.Duration(duration-2) * time.Minute)
+	burstEnd := time.NewTimer(time.Duration(duration-1) * time.Minute)
 	go func() {
 		<-burstEnd.C
-		isBurst = false
+		waitms = 1
+		isTeardown = true
 	}()
 
 	for {
-		msec := 2
-		if isBurst {
-			msec = 0
-		}
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+		session.SetMode(mgo.Monotonic, true)
 		if err == nil {
-			session.SetMode(mgo.Monotonic, true)
 			c := session.DB(m.dbName).C(CollectionName)
+			var book string
+			var city string
 			for i := 0; i < 500; i++ {
 				kdoc := GetRandomDoc()
 				bytes, _ := json.Marshal(kdoc)
 				json.Unmarshal(bytes, &schema)
-				city := schema.FavoriteCity
-				book := schema.FavoriteBook
-				_ = c.Insert(kdoc)
-				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-				_ = c.Find(bson.M{"favoriteCity": city}).One(&result)
-				bytes, _ = json.Marshal(result)
-				json.Unmarshal(bytes, &schema)
-				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-				_ = c.Update(bson.M{"_id": schema.ID}, change)
-				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-				_ = c.Remove(bson.M{"_id": schema.ID})
-				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-				_ = c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
-				time.Sleep(time.Duration(rand.Intn(msec)) * time.Millisecond)
-				_ = c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteBook").Limit(512).All(&results)
-				time.Sleep(time.Millisecond)
+				city = schema.FavoriteCity
+				book = schema.FavoriteBook
+
+				if isTeardown {
+					c.RemoveAll(bson.M{"favoriteCity": city, "favoriteBook": book})
+				} else {
+					c.Update(bson.M{"favoriteCity": city}, change)
+					c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
+					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
+				}
+				time.Sleep(time.Millisecond * time.Duration(waitms))
 			}
+			c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteBook").Limit(100).All(&results)
 			session.Close()
 		}
 	}
