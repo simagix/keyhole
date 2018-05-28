@@ -14,12 +14,20 @@ import (
 
 // ServerStatusInfo -
 type ServerStatusInfo struct {
-	Cluster  string      `json:"cluster",bson:"cluster"`
-	Host     string      `json:"host",bson:"host"`
-	Process  string      `json:"process",bson:"process"`
-	Version  string      `json:"version",bson:"version"`
-	Sharding interface{} `json:"sharding",bson:"sharding"`
-	Repl     interface{} `json:"repl",bson:"repl"`
+	Cluster      string      `json:"cluster",bson:"cluster"`
+	Host         string      `json:"host",bson:"host"`
+	Process      string      `json:"process",bson:"process"`
+	Version      string      `json:"version",bson:"version"`
+	Sharding     interface{} `json:"sharding",bson:"sharding"`
+	Repl         interface{} `json:"repl",bson:"repl"`
+	TotalDBStats bson.M
+}
+
+// DBStats -
+type DBStats struct {
+	DB        string `json:"db",bson:"db"`
+	DataSize  int    `json:"dataSize",bson:"dataSize"`
+	IndexSize int    `json:"indexSize",bson:"indexSize"`
 }
 
 // GetSession -
@@ -87,14 +95,34 @@ func ServerInfo(session *mgo.Session) ServerStatusInfo {
 		ssi.Cluster = "standalone"
 	}
 
+	names, _ := session.DatabaseNames()
+	dbStats := DBStats{}
+	var dsize, isize int
+	list := []bson.M{}
+
+	for _, name := range names {
+		result = AdminCommandOnDB(session, "dbStats", name)
+		bytes, _ := json.Marshal(result)
+		json.Unmarshal(bytes, &dbStats)
+		dsize += dbStats.DataSize
+		isize += dbStats.IndexSize
+		list = append(list, bson.M{"db": dbStats.DB, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
+	}
+
+	ssi.TotalDBStats = bson.M{"totalDataSize": dsize, "totalIndexSize": isize, "statsDetails": list}
 	return ssi
 }
 
 // AdminCommand - Execute Admin Command
 func AdminCommand(session *mgo.Session, command string) bson.M {
+	return AdminCommandOnDB(session, command, "admin")
+}
+
+// AdminCommandOnDB - Execute Admin Command
+func AdminCommandOnDB(session *mgo.Session, command string, db string) bson.M {
 	session.SetMode(mgo.Monotonic, true)
 	result := bson.M{}
-	if err := session.DB("admin").Run(command, &result); err != nil {
+	if err := session.DB(db).Run(command, &result); err != nil {
 		fmt.Println(err)
 	}
 	return result
