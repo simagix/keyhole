@@ -36,8 +36,7 @@ keyhole ver. master-20180528.1527529455
 Connect to an instance on the Docker host.
 
 ```
-docker run -v /etc/ssl/certs:/etc/ssl/certs simagix/keyhole \
-    /keyhole --uri mongodb://$(hostname -f):30000/ --info
+docker run simagix/keyhole/keyhole --uri mongodb://$(hostname -f):30000/ --info
 ```
 
 ### Atlas Example
