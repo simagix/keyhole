@@ -146,17 +146,17 @@ Download the desired binary.  No other downloads (interpreter or modules) are ne
 
 #### MacOS
 ```
-curl -L https://github.com/simagix/keyhole/blob/master/build/keyhole-osx-x64?raw=true > keyhole ; chmod +x keyhole
+curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-osx-x64 > keyhole ; chmod +x keyhole
 ```
 #### Linux
 ```
-curl -L https://github.com/simagix/keyhole/blob/master/build/keyhole-linux-x64?raw=true > keyhole ; chmod +x keyhole
+curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-linux-x64 > keyhole ; chmod +x keyhole
 ```
 #### Windows
 The download link is as below.
 
 ```
-https://github.com/simagix/keyhole/blob/master/build/keyhole-win-x64.exe?raw=true
+https://github.com/simagix/keyhole/raw/master/build/keyhole-win-x64.exe
 ```
 
 ### Usage
@@ -183,6 +183,8 @@ $ keyhole -h
   -uri string
     	MongoDB URI
   -v	verbose
+  -version
+    	print version number
   -view string
     	server status file
 ```
