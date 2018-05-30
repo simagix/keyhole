@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // OpPattern -
@@ -16,6 +17,7 @@ type OpPattern struct {
 	Filter    string
 	Milli     int
 	Count     int
+	Scan      string
 }
 
 // LogInfo -
@@ -32,10 +34,14 @@ func LogInfo(filename string) {
 	r := bufio.NewReader(f)
 	for {
 		buf, _, err := r.ReadLine() // 0x0A separator = newline
+		scan := ""
 		if err != nil {
 			break
 		} else if matched.MatchString(string(buf)) == true {
 			s := string(buf)
+			if strings.Index(s, "COLLSCAN") >= 0 {
+				scan = "COLLSCAN"
+			}
 			result := matched.FindStringSubmatch(s)
 			b := false
 			n := 0
@@ -74,7 +80,7 @@ func LogInfo(filename string) {
 
 			re = regexp.MustCompile(`(createIndexes: "\w+", |find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+`)
 			filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`(: "[^"]*"|: \d+)`)
+			re = regexp.MustCompile(`(: "[^"]*"|: \d+| new Date\(\d+?\))`)
 			filter = re.ReplaceAllString(filter, ": 1")
 			key := op + "." + filter
 			_, ok := opMap[key]
@@ -82,9 +88,9 @@ func LogInfo(filename string) {
 			if ok {
 				x := opMap[key].Milli + m
 				y := opMap[key].Count + 1
-				opMap[key] = OpPattern{Command: opMap[key].Command, Namespace: ns, Filter: opMap[key].Filter, Milli: x, Count: y}
+				opMap[key] = OpPattern{Command: opMap[key].Command, Namespace: ns, Filter: opMap[key].Filter, Milli: x, Count: y, Scan: scan}
 			} else {
-				opMap[key] = OpPattern{Command: op, Namespace: ns, Filter: filter, Milli: m, Count: 1}
+				opMap[key] = OpPattern{Command: op, Namespace: ns, Filter: filter, Milli: m, Count: 1, Scan: scan}
 			}
 		}
 	}
@@ -96,11 +102,11 @@ func LogInfo(filename string) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
 	})
-	fmt.Println("+-------------+---------+------+------------------------------+----------------------------------------------------------------------+")
-	fmt.Printf("| Command     | Time ms | Count| %-29s| %-69s|\n", "Namespace", "Query Pattern")
-	fmt.Println("|-------------+---------+------+------------------------------+----------------------------------------------------------------------|")
+	fmt.Println("+-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+")
+	fmt.Printf("| Command     | COLLSCAN | Time ms | Count| %-29s| %-69s|\n", "Namespace", "Query Pattern")
+	fmt.Println("|-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------|")
 	for _, value := range arr {
-		fmt.Printf("|%-13s|%9.1f|%6d|%-30s|%-70s|\n", value.Command, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, value.Filter)
+		fmt.Printf("|%-13s| %-9s|%9.1f|%6d|%-30s|%-70s|\n", value.Command, value.Scan, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, value.Filter)
 	}
-	fmt.Println("+-------------+---------+------+------------------------------+----------------------------------------------------------------------+")
+	fmt.Println("+-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+")
 }
