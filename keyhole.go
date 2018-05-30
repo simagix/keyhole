@@ -16,23 +16,27 @@ import (
 var version string
 
 func main() {
-	uri := flag.String("uri", "", "MongoDB URI")
-	info := flag.Bool("info", false, "get cluster info")
-	seed := flag.Bool("seed", false, "seed a database for demo")
 	conn := flag.Int("conn", 20, "nuumber of connections")
-	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
-	verbose := flag.Bool("v", false, "verbose")
+	info := flag.Bool("info", false, "get cluster info")
+	loginfo := flag.String("loginfo", "", "log performance analytic")
 	peek := flag.Bool("peek", false, "only collect data")
-	view := flag.String("view", "", "server status file")
 	schema := flag.Bool("schema", false, "print schema")
+	seed := flag.Bool("seed", false, "seed a database for demo")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
+	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
+	uri := flag.String("uri", "", "MongoDB URI")
 	ver := flag.Bool("version", false, "print version number")
+	verbose := flag.Bool("v", false, "verbose")
+	view := flag.String("view", "", "server status file")
 
 	flag.Parse()
 	if *view != "" {
 		stats.AnalyzeServerStatus(*view)
+		os.Exit(0)
+	} else if *loginfo != "" {
+		stats.LogInfo(*loginfo)
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)
