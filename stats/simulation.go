@@ -17,9 +17,10 @@ var CollectionName = "keyhole"
 
 // Schema -
 type Schema struct {
-	ID           string `json:"_id",bson:"_id"`
-	FavoriteCity string `json:"favoriteCity",bson:"favoriteCity"`
-	FavoriteBook string `json:"favoriteBook",bson:"favoriteBook"`
+	ID            string `json:"_id",bson:"_id"`
+	FavoriteCity  string `json:"favoriteCity",bson:"favoriteCity"`
+	FavoriteBook  string `json:"favoriteBook",bson:"favoriteBook"`
+	FavoriteMovie string `json:"favoriteMovie",bson:"favoriteMovie"`
 }
 
 // Favorites -
@@ -209,18 +210,23 @@ func (m MongoConn) Simulate(duration int) {
 			c := session.DB(m.dbName).C(CollectionName)
 			var book string
 			var city string
+			var movie string
 			for i := 0; i < 500; i++ {
 				kdoc := GetRandomDoc()
 				bytes, _ := json.Marshal(kdoc)
 				json.Unmarshal(bytes, &schema)
 				city = schema.FavoriteCity
 				book = schema.FavoriteBook
+				movie = schema.FavoriteMovie
 
 				if isTeardown {
 					c.RemoveAll(bson.M{"favoriteCity": city, "favoriteBook": book})
 				} else {
 					c.Update(bson.M{"favoriteCity": city}, change)
 					c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
+					c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
+					c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
+					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
 					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
 				}
 				time.Sleep(time.Millisecond * time.Duration(waitms))

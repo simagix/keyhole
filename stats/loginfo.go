@@ -72,7 +72,7 @@ func LogInfo(filename string) {
 				filter = res[2]
 			}
 
-			re = regexp.MustCompile(`(find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+`)
+			re = regexp.MustCompile(`(createIndexes: "\w+", |find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+`)
 			filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`(: "[^"]*"|: \d+)`)
 			filter = re.ReplaceAllString(filter, ": 1")
@@ -96,11 +96,11 @@ func LogInfo(filename string) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
 	})
-	fmt.Println("+-------+--------+------+------------------------------+------------------------------------------------------------+")
-	fmt.Printf("| Ops   | Time   | Count| %-29s| %-59s|\n", "Namespace", "Query Pattern")
-	fmt.Println("|-------+--------+------+------------------------------+------------------------------------------------------------|")
+	fmt.Println("+-------------+---------+------+------------------------------+----------------------------------------------------------------------+")
+	fmt.Printf("| Command     | Time ms | Count| %-29s| %-69s|\n", "Namespace", "Query Pattern")
+	fmt.Println("|-------------+---------+------+------------------------------+----------------------------------------------------------------------|")
 	for _, value := range arr {
-		fmt.Printf("|%-7s|%8.1f|%6d|%-30s|%-60s|\n", value.Command, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, value.Filter)
+		fmt.Printf("|%-13s|%9.1f|%6d|%-30s|%-70s|\n", value.Command, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, value.Filter)
 	}
-	fmt.Println("+-------+--------+------+------------------------------+------------------------------------------------------------+")
+	fmt.Println("+-------------+---------+------+------------------------------+----------------------------------------------------------------------+")
 }
