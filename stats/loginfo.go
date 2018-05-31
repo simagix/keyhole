@@ -78,12 +78,19 @@ func LogInfo(filename string) {
 				filter = res[2]
 			}
 
-			re = regexp.MustCompile(`(createIndexes: "\w+", |find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+`)
+			if op == "insert" || op == "moveChunk" || op == "splitVector" {
+				continue
+			}
+
+			re = regexp.MustCompile(`(createIndexes: "\w+", |find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+|, shardVersion: \[ Timestamp 0\|0, ObjectId\('\S+'\) \]`)
 			filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\))|: ObjectId\('\S+'\)`)
+			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\))`)
 			filter = re.ReplaceAllString(filter, ": 1")
+			re = regexp.MustCompile(`(ObjectId\('\S+'\))`)
+			filter = re.ReplaceAllString(filter, "ObjectId(1)")
 			re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
 			filter = re.ReplaceAllString(filter, "$1")
+			filter = removeInElements(filter)
 			key := op + "." + filter
 			_, ok := opMap[key]
 			m, _ := strconv.Atoi(ms)
@@ -104,11 +111,56 @@ func LogInfo(filename string) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
 	})
-	fmt.Println("+-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+")
-	fmt.Printf("| Command     | COLLSCAN | Time ms | Count| %-29s| %-69s|\n", "Namespace", "Query Pattern")
-	fmt.Println("|-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------|")
+	fmt.Println("+-------------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
+	fmt.Printf("| Command     |COLLSCAN| avg ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
+	fmt.Println("|-------------+--------+-------+------+---------------------------------+----------------------------------------------------------------------|")
 	for _, value := range arr {
-		fmt.Printf("|%-13s| %-9s|%9.1f|%6d|%-30s|%-70s|\n", value.Command, value.Scan, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, value.Filter)
+		str := value.Filter
+		if len(str) > 70 {
+			str = value.Filter[:70]
+		}
+		if len(value.Command) > 13 {
+			value.Command = value.Command[:13]
+		}
+		if len(value.Namespace) > 33 {
+			value.Namespace = value.Namespace[:30] + "..."
+		}
+		fmt.Printf("|%-13s|%8s|%7.0f|%6d|%-33s|%-70s|\n", value.Command, value.Scan, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, str)
+		if len(value.Filter) > 70 {
+			remaining := value.Filter[70:]
+			for i := 0; i < len(remaining); i += 70 {
+				e := i + 70
+				if e > len(remaining) {
+					e = len(remaining)
+				}
+				fmt.Printf("|%71s|%-70s|\n", " ", remaining[i:e])
+			}
+		}
 	}
-	fmt.Println("+-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+")
+	fmt.Println("+-------------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
+}
+
+func removeInElements(str string) string {
+	idx := strings.Index(str, "$in: [")
+	if idx < 0 {
+		return str
+	}
+
+	idx += 6
+	cnt, epos := 0, 0
+	for _, r := range str {
+		if cnt < idx {
+			cnt++
+			continue
+		}
+		if r == ']' {
+			epos = cnt
+			break
+		}
+		cnt++
+
+	}
+
+	str = str[:idx] + " " + str[epos:]
+	return str
 }
