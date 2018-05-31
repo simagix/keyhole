@@ -23,6 +23,7 @@ func main() {
 	peek := flag.Bool("peek", false, "only collect data")
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
+	simonly := flag.Bool("simonly", false, "simulation only mode")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
 	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
@@ -116,6 +117,7 @@ func main() {
 		// last minute - normal TPS ops until exit
 		go m.PrintDBStats()
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
+		m.CreateIndexes()
 		for i := 0; i < *conn; i++ {
 			go func() {
 				select {
@@ -123,8 +125,11 @@ func main() {
 					return
 				default:
 					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
-					msim.PopulateData()
-					msim.Simulate(*duration - 1)
+					if *simonly == false {
+						msim.PopulateData()
+						*duration--
+					}
+					msim.Simulate(*duration)
 					time.Sleep(time.Second)
 				}
 			}()
