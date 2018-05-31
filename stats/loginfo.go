@@ -80,8 +80,10 @@ func LogInfo(filename string) {
 
 			re = regexp.MustCompile(`(createIndexes: "\w+", |find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+`)
 			filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`(: "[^"]*"|: \d+| new Date\(\d+?\))`)
+			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\))|: ObjectId\('\S+'\)`)
 			filter = re.ReplaceAllString(filter, ": 1")
+			re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
+			filter = re.ReplaceAllString(filter, "$1")
 			key := op + "." + filter
 			_, ok := opMap[key]
 			m, _ := strconv.Atoi(ms)

@@ -154,21 +154,20 @@ Below are sample outputs.
 +-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+
 | Command     | COLLSCAN | Time ms | Count| Namespace                    | Query Pattern                                                        |
 |-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------|
-|remove       |          |  26120.0|    43|_KEYHOLE_88800.keyhole        |{ q: { favoriteCity: 1, favoriteBook: 1 } }                           |
-|delete       |          |  25033.2|    46|_KEYHOLE_88800.$cmd           |{ delete: 1, writeConcern: { getLastError: 1 }}                       |
-|remove       |          |   9450.3|     3|_KEYHOLE_88800.keyhole        |{ q: { favoriteBook: 1, favoriteCity: 1 } }                           |
-|find         |          |   6789.8|    65|_KEYHOLE_88800.keyhole        |{ filter: { favoriteBook: 1, FavoriteMovie: 1, favoriteCity: 1 }}     |
-|find         |          |   6729.4|    78|_KEYHOLE_88800.keyhole        |{ filter: { FavoriteMovie: 1, favoriteCity: 1, favoriteBook: 1 }}     |
-|find         |          |   6575.1|   394|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1, favoriteBook: 1, FavoriteMovie: 1 }}     |
-|createIndexes|          |     66.0|    41|_KEYHOLE_88800.$cmd           |{ indexes: [ { name: 1, ns: 1, key: { favoriteCity: 1 } } ]}          |
-|dbStats      |          |     45.0|     6|_KEYHOLE_88800                |{ dbStats: 1, $readPreference: { mode: 1 }}                           |
-|update       |          |     22.5|     2|_KEYHOLE_88800.$cmd           |{ update: 1, writeConcern: { getLastError: 1 }}                       |
-|insert       |          |     22.4|  2618|_KEYHOLE_88800.keyhole        |{ insert: 1, writeConcern: { getLastError: 1 }}                       |
-|find         | COLLSCAN |     22.0|     1|_KEYHOLE_88800.keyhole        |{ filter: { favoritesList: { $elemMatch: { movie: 1 } } }}            |
-|update       |          |     22.0|     2|_KEYHOLE_88800.keyhole        |{ q: { favoriteCity: 1 }, u: { $set: { ts:: 1 } } }                   |
-|find         |          |     19.4|   201|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1 }, sort: { favoriteCity: 1 }}             |
-|find         | COLLSCAN |     18.1|     9|_KEYHOLE_88800.keyhole        |{ filter: { favoritesList: { $elemMatch: { book: 1 } } }}             |
-|drop         |          |     13.0|     1|_KEYHOLE_88800.keyhole        |{ drop: 1}                                                            |
+|find         |          |  14574.8|    17|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1, favoriteBook: 1, FavoriteMovie: 1 }}     |
+|find         |          |  13959.0|     4|_KEYHOLE_88800.keyhole        |{ filter: { FavoriteMovie: 1, favoriteCity: 1, favoriteBook: 1 }}     |
+|find         |          |  10260.0|     1|_KEYHOLE_88800.keyhole        |{ filter: { favoriteBook: 1, FavoriteMovie: 1, favoriteCity: 1 }}     |
+|find         |          |   8541.4|     8|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1, favoriteBook: 1 }}                       |
+|remove       |          |   7003.2|   472|_KEYHOLE_88800.keyhole        |{ q: { favoriteCity: 1, favoriteBook: 1 } }                           |
+|delete       |          |   6983.2|   540|_KEYHOLE_88800.$cmd           |{ delete: 1, writeConcern: { getLastError: 1 }}                       |
+|remove       |          |   6936.5|    67|_KEYHOLE_88800.keyhole        |{ q: { favoriteBook: 1, favoriteCity: 1 } }                           |
+|find         | COLLSCAN |    389.2|   118|_KEYHOLE_88800.keyhole        |{ filter: { favoritesList: { $elemMatch: { book: 1 } } }, sort: { favoriteBook: 1 }}|
+|drop         |          |    181.5|     2|_KEYHOLE_88800.keyhole        |{ drop: 1}                                                            |
+|createIndexes|          |    127.0|     1|_KEYHOLE_88800.$cmd           |{ indexes: [ { name: 1, ns: 1, key: { favoriteCity: 1 } } ]}          |
+|dbStats      |          |     38.7|    16|_KEYHOLE_88800                |{ dbStats: 1, $readPreference: { mode: 1 }}                           |
+|find         |          |     36.9|    19|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1 }, sort: { favoriteCity: 1 }}             |
+|insert       |          |     21.5|  3745|_KEYHOLE_88800.keyhole        |{ insert: 1, writeConcern: { getLastError: 1 }}                       |
+|find         | COLLSCAN |     17.7|     3|_KEYHOLE_88800.keyhole        |{ filter: { favoritesList: { $elemMatch: { book: 1 } } }}             |
 +-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+
 ```
 
@@ -193,34 +192,7 @@ https://github.com/simagix/keyhole/raw/master/build/keyhole-win-x64.exe
 
 ### Usage
 ```
-$ keyhole -h
-  -conn int
-    	nuumber of connections (default 20)
-  -duration int
-    	load test duration in minutes (default 5)
-  -info
-    	get cluster info
-  -loginfo string
-    	log performance analytic
-  -peek
-    	only collect data
-  -schema
-    	print schema
-  -seed
-    	seed a database for demo
-  -ssl
-    	use TLS/SSL
-  -sslCAFile string
-    	CA file
-  -tps int
-    	number of trasaction per second per connection (default 600)
-  -uri string
-    	MongoDB URI
-  -v	verbose
-  -version
-    	print version number
-  -view string
-    	server status file
+$ keyhole --help
 ```
 
 ### Atlas TLS/SSL Mode
