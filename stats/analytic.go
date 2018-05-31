@@ -143,16 +143,18 @@ func (m MongoConn) CollectServerStatus(uri string) {
 			fmt.Printf("\n%s Memory - resident: %7d, virtual: %7d", key, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
-			iops := (iop - piop) / 60
+			iops := float64(iop-piop) / 60
 			if len(serverStatusDocs) > 1 {
 				bytes, _ = json.Marshal(serverStatusDocs[len(serverStatusDocs)-2])
 				json.Unmarshal(bytes, &pstat)
-				fmt.Printf(", page faults: %3d, iops: %7d\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
-				fmt.Printf("%s CRUD   - insert: %7d, find: %7d, update: %7d, delete: %7d\n",
-					key, stat.Metrics.Document.Inserted-pstat.Metrics.Document.Inserted,
-					stat.Metrics.Document.Returned-pstat.Metrics.Document.Returned,
-					stat.Metrics.Document.Updated-pstat.Metrics.Document.Updated,
-					stat.Metrics.Document.Deleted-pstat.Metrics.Document.Deleted)
+				fmt.Printf(", page faults: %3d, iops: %7.1f\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
+				fmt.Printf("%s CRUD+  - insert:%7d, find:%7d, update:%7d, delete:%7d, getmore:%7d, command:%7d\n",
+					key, stat.OpCounters.Insert-pstat.OpCounters.Insert,
+					stat.OpCounters.Query-pstat.OpCounters.Query,
+					stat.OpCounters.Update-pstat.OpCounters.Update,
+					stat.OpCounters.Delete-pstat.OpCounters.Delete,
+					stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
+					stat.OpCounters.Command-pstat.OpCounters.Command)
 				fmt.Printf("%s Latency- read: %7.1f, write: %7.1f, command: %7.1f (ms)\n",
 					key,
 					float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
@@ -170,7 +172,7 @@ func (m MongoConn) CollectServerStatus(uri string) {
 
 // PrintDBStats - Print dbStats every 10 seconds
 func (m MongoConn) PrintDBStats() {
-	var raw map[string]interface{}
+	var docs map[string]interface{}
 	var pds float64
 	var ds float64
 	ptime := time.Now()
@@ -182,8 +184,8 @@ func (m MongoConn) PrintDBStats() {
 			session.SetMode(mgo.Monotonic, true)
 			stat := m.dbStats(session)
 			bytes, _ := json.Marshal(stat)
-			json.Unmarshal(bytes, &raw)
-			ds = raw["dataSize"].(float64)
+			json.Unmarshal(bytes, &docs)
+			ds = docs["dataSize"].(float64)
 			sec := now.Sub(ptime).Seconds()
 			delta := (ds - pds) / mb / sec
 			if sec > 1 && delta > .01 {
@@ -272,13 +274,6 @@ func AnalyzeServerStatus(filename string) {
 		serverStatusData = append(serverStatusData, docs...)
 	}
 
-	// bytes, err := ioutil.ReadFile(filename)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	//
-	// var serverStatusData = []ServerStatusData{}
-	// json.Unmarshal(bytes, &serverStatusData)
 	PrintStatsDetails(serverStatusData)
 	PrintLatencyDetails(serverStatusData)
 	PrintMetricsDetails(serverStatusData)
