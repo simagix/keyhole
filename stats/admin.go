@@ -120,7 +120,7 @@ func AdminCommand(session *mgo.Session, command string) bson.M {
 
 // AdminCommandOnDB - Execute Admin Command
 func AdminCommandOnDB(session *mgo.Session, command string, db string) bson.M {
-	session.SetMode(mgo.Monotonic, true)
+	session.SetMode(mgo.Primary, true)
 	result := bson.M{}
 	if err := session.DB(db).Run(command, &result); err != nil {
 		fmt.Println(err)

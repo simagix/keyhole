@@ -55,7 +55,7 @@ type Robot struct {
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
 func Seed(session *mgo.Session, verbose bool) {
-	session.SetMode(mgo.Monotonic, true)
+	session.SetMode(mgo.Primary, true)
 	session.DB(db).DropDatabase()
 	cm := session.DB(db).C("models")
 	cr := session.DB(db).C("robots")

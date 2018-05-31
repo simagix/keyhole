@@ -130,7 +130,7 @@ func (m MongoConn) CollectServerStatus(uri string) {
 	for {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
 		if err == nil {
-			session.SetMode(mgo.Monotonic, true)
+			session.SetMode(mgo.Primary, true)
 			serverStatus := m.serverStatus(session)
 			bytes, _ := json.Marshal(serverStatus)
 			json.Unmarshal(bytes, &stat)
@@ -181,7 +181,7 @@ func (m MongoConn) PrintDBStats() {
 	for {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		if err == nil {
-			session.SetMode(mgo.Monotonic, true)
+			session.SetMode(mgo.Primary, true)
 			stat := m.dbStats(session)
 			bytes, _ := json.Marshal(stat)
 			json.Unmarshal(bytes, &docs)
@@ -208,7 +208,7 @@ func (m MongoConn) PrintServerStatus(uri string) {
 		panic(err)
 	}
 	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
+	session.SetMode(mgo.Primary, true)
 
 	serverStatus := m.serverStatus(session)
 	stat := ServerStatusData{}

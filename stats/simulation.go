@@ -147,7 +147,7 @@ func (m MongoConn) PopulateData() {
 		s++
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		if err == nil {
-			session.SetMode(mgo.Monotonic, true)
+			session.SetMode(mgo.Primary, true)
 			c := session.DB(m.dbName).C(CollectionName)
 			bt := time.Now()
 			bulk := c.Bulk()
@@ -204,7 +204,7 @@ func (m MongoConn) Simulate(duration int) {
 
 	for {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
-		session.SetMode(mgo.Monotonic, true)
+		session.SetMode(mgo.Primary, true)
 		if err == nil {
 			c := session.DB(m.dbName).C(CollectionName)
 			var book string
