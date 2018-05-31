@@ -149,7 +149,6 @@ func (m MongoConn) PopulateData() {
 		if err == nil {
 			session.SetMode(mgo.Monotonic, true)
 			c := session.DB(m.dbName).C(CollectionName)
-			c.EnsureIndexKey("favoriteCity")
 			bt := time.Now()
 			bulk := c.Bulk()
 
@@ -212,8 +211,8 @@ func (m MongoConn) Simulate(duration int) {
 			var city string
 			var movie string
 			for i := 0; i < 500; i++ {
-				kdoc := GetRandomDoc()
-				bytes, _ := json.Marshal(kdoc)
+				doc := GetRandomDoc()
+				bytes, _ := json.Marshal(doc)
 				json.Unmarshal(bytes, &schema)
 				city = schema.FavoriteCity
 				book = schema.FavoriteBook
@@ -222,12 +221,15 @@ func (m MongoConn) Simulate(duration int) {
 				if isTeardown {
 					c.RemoveAll(bson.M{"favoriteCity": city, "favoriteBook": book})
 				} else {
-					c.Update(bson.M{"favoriteCity": city}, change)
+					_id := bson.NewObjectIdWithTime(time.Now())
+					c.Upsert(_id, doc)
 					c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
 					c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
+					c.Update(bson.M{"_id": _id}, change)
 					c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
 					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
 					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
+					c.Remove(bson.M{"_id": _id})
 				}
 				time.Sleep(time.Millisecond * time.Duration(waitms))
 			}
@@ -250,4 +252,11 @@ func (m MongoConn) Cleanup() {
 	session.DB(m.dbName).C(CollectionName).DropCollection()
 	log.Println("dropping database", m.dbName)
 	session.DB(m.dbName).DropDatabase()
+}
+
+// CreateIndexes -
+func (m MongoConn) CreateIndexes() {
+	session, _ := GetSession(m.uri, m.ssl, m.sslCA)
+	c := session.DB(m.dbName).C(CollectionName)
+	c.EnsureIndexKey("favoriteCity")
 }
