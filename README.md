@@ -15,7 +15,7 @@ Several features are available, and they are
 - **Monitoring** mode to collcet stats (see above) from `mongod` periodically.  Detail analytic results are displayed when the tool exists or can be viewed at a later time.
 - **Cluster Info** to display information of a cluster including stats to help determine physical memory size.
 - [**Seed data**](SEED.md) for demo and educational purposes as a trainer.
-- Display average ops time and query patterns by parsing logs
+- [Display average ops time](LOGINFO.md) and query patterns by parsing logs.
 
 ## Use Cases
 ### Write Throughputs Test
@@ -142,33 +142,10 @@ keyhole --uri mongodb://localhost/?replicaSet=replset --seed
 ```
 
 ### Ops Performance Analytic
-Display ops average execution with query patterns using `--loginfo` flag.
+Display ops average execution with query patterns using `--loginfo` flag.  See [LOGINFO.md](LOGINFO.md) for details.
 
 ```
 keyhole --uri mongodb://localhost/?replicaSet=replset --loginfo ~/ws/demo/mongod.log
-```
-
-Below are sample outputs.
-
-```
-+-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+
-| Command     | COLLSCAN | Time ms | Count| Namespace                    | Query Pattern                                                        |
-|-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------|
-|find         |          |  14574.8|    17|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1, favoriteBook: 1, FavoriteMovie: 1 }}     |
-|find         |          |  13959.0|     4|_KEYHOLE_88800.keyhole        |{ filter: { FavoriteMovie: 1, favoriteCity: 1, favoriteBook: 1 }}     |
-|find         |          |  10260.0|     1|_KEYHOLE_88800.keyhole        |{ filter: { favoriteBook: 1, FavoriteMovie: 1, favoriteCity: 1 }}     |
-|find         |          |   8541.4|     8|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1, favoriteBook: 1 }}                       |
-|remove       |          |   7003.2|   472|_KEYHOLE_88800.keyhole        |{ q: { favoriteCity: 1, favoriteBook: 1 } }                           |
-|delete       |          |   6983.2|   540|_KEYHOLE_88800.$cmd           |{ delete: 1, writeConcern: { getLastError: 1 }}                       |
-|remove       |          |   6936.5|    67|_KEYHOLE_88800.keyhole        |{ q: { favoriteBook: 1, favoriteCity: 1 } }                           |
-|find         | COLLSCAN |    389.2|   118|_KEYHOLE_88800.keyhole        |{ filter: { favoritesList: { $elemMatch: { book: 1 } } }, sort: { favoriteBook: 1 }}|
-|drop         |          |    181.5|     2|_KEYHOLE_88800.keyhole        |{ drop: 1}                                                            |
-|createIndexes|          |    127.0|     1|_KEYHOLE_88800.$cmd           |{ indexes: [ { name: 1, ns: 1, key: { favoriteCity: 1 } } ]}          |
-|dbStats      |          |     38.7|    16|_KEYHOLE_88800                |{ dbStats: 1, $readPreference: { mode: 1 }}                           |
-|find         |          |     36.9|    19|_KEYHOLE_88800.keyhole        |{ filter: { favoriteCity: 1 }, sort: { favoriteCity: 1 }}             |
-|insert       |          |     21.5|  3745|_KEYHOLE_88800.keyhole        |{ insert: 1, writeConcern: { getLastError: 1 }}                       |
-|find         | COLLSCAN |     17.7|     3|_KEYHOLE_88800.keyhole        |{ filter: { favoritesList: { $elemMatch: { book: 1 } } }}             |
-+-------------+----------+---------+------+------------------------------+----------------------------------------------------------------------+
 ```
 
 ## Usages
