@@ -31,35 +31,35 @@ func LogInfo(filename string) {
 		return
 	}
 	defer f.Close()
-	r := bufio.NewReader(f)
+	reader := bufio.NewReader(f)
 	for {
-		buf, _, err := r.ReadLine() // 0x0A separator = newline
+		buf, _, err := reader.ReadLine() // 0x0A separator = newline
 		scan := ""
 		if err != nil {
 			break
 		} else if matched.MatchString(string(buf)) == true {
-			s := string(buf)
-			if strings.Index(s, "COLLSCAN") >= 0 {
+			str := string(buf)
+			if strings.Index(str, "COLLSCAN") >= 0 {
 				scan = "COLLSCAN"
 			}
-			result := matched.FindStringSubmatch(s)
-			b := false
-			n := 0
-			e := 0
+			result := matched.FindStringSubmatch(str)
+			isFound := false
+			bpos := 0 // begin position
+			epos := 0 // end position
 			for _, r := range result[4] {
-				e++
-				if b == false && r == '{' {
-					b = true
-					n++
-				} else if b == true {
+				epos++
+				if isFound == false && r == '{' {
+					isFound = true
+					bpos++
+				} else if isFound == true {
 					if r == '{' {
-						n++
+						bpos++
 					} else if r == '}' {
-						n--
+						bpos--
 					}
 				}
 
-				if b == true && n == 0 {
+				if isFound == true && bpos == 0 {
 					break
 				}
 			}
@@ -67,7 +67,7 @@ func LogInfo(filename string) {
 			re := regexp.MustCompile(`^(\w+) ({.*})$`)
 			op := result[2]
 			ns := result[3]
-			filter := result[4][:e]
+			filter := result[4][:epos]
 			ms := result[5]
 			if op == "command" {
 				res := re.FindStringSubmatch(filter)
@@ -78,28 +78,29 @@ func LogInfo(filename string) {
 				filter = res[2]
 			}
 
-			if op == "insert" || op == "moveChunk" || op == "splitVector" {
+			if hasFilter(op) == false {
 				continue
 			}
 
-			re = regexp.MustCompile(`(createIndexes: "\w+", |find: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+|, shardVersion: \[ Timestamp 0\|0, ObjectId\('\S+'\) \]`)
+			// remove unneeded info
+			re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+|, shardVersion: \[ Timestamp 0\|0, ObjectId\('\S+'\) \]`)
 			filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\))`)
+			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ": 1")
 			re = regexp.MustCompile(`(ObjectId\('\S+'\))`)
-			filter = re.ReplaceAllString(filter, "ObjectId(1)")
+			filter = re.ReplaceAllString(filter, "1")
 			re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
 			filter = re.ReplaceAllString(filter, "$1")
 			filter = removeInElements(filter)
 			key := op + "." + filter
 			_, ok := opMap[key]
-			m, _ := strconv.Atoi(ms)
+			milli, _ := strconv.Atoi(ms)
 			if ok {
-				x := opMap[key].Milli + m
+				x := opMap[key].Milli + milli
 				y := opMap[key].Count + 1
 				opMap[key] = OpPattern{Command: opMap[key].Command, Namespace: ns, Filter: opMap[key].Filter, Milli: x, Count: y, Scan: scan}
 			} else {
-				opMap[key] = OpPattern{Command: op, Namespace: ns, Filter: filter, Milli: m, Count: 1, Scan: scan}
+				opMap[key] = OpPattern{Command: op, Namespace: ns, Filter: filter, Milli: milli, Count: 1, Scan: scan}
 			}
 		}
 	}
@@ -111,35 +112,44 @@ func LogInfo(filename string) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
 	})
-	fmt.Println("+-------------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
-	fmt.Printf("| Command     |COLLSCAN| avg ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
-	fmt.Println("|-------------+--------+-------+------+---------------------------------+----------------------------------------------------------------------|")
+	fmt.Println("+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
+	fmt.Printf("|Command|COLLSCAN| avg ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
+	fmt.Println("|-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------|")
 	for _, value := range arr {
 		str := value.Filter
-		if len(str) > 70 {
-			str = value.Filter[:70]
-		}
 		if len(value.Command) > 13 {
 			value.Command = value.Command[:13]
 		}
 		if len(value.Namespace) > 33 {
-			value.Namespace = value.Namespace[:30] + "..."
+			value.Namespace = value.Namespace[:33]
 		}
-		fmt.Printf("|%-13s|%8s|%7.0f|%6d|%-33s|%-70s|\n", value.Command, value.Scan, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, str)
+		if len(str) > 70 {
+			// fmt.Println(value.Filter)
+			str = value.Filter[:70]
+			idx := strings.LastIndex(str, " ")
+			str = value.Filter[:idx]
+		}
+		fmt.Printf("|%-7s|%8s|%7.0f|%6d|%-33s|%-70s|\n", value.Command, value.Scan, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, str)
 		if len(value.Filter) > 70 {
-			remaining := value.Filter[70:]
+			remaining := value.Filter[len(str):]
 			for i := 0; i < len(remaining); i += 70 {
-				e := i + 70
-				if e > len(remaining) {
-					e = len(remaining)
+				epos := i + 70
+				if epos > len(remaining) {
+					epos = len(remaining)
+					fmt.Printf("|%65s %-70s|\n", " ", remaining[i:epos])
+				} else {
+					str = remaining[i:epos]
+					idx := strings.LastIndex(str, " ")
+					fmt.Printf("|%65s %-70s|\n", " ", str[:idx])
+					i -= (70 - idx)
 				}
-				fmt.Printf("|%71s|%-70s|\n", " ", remaining[i:e])
 			}
 		}
 	}
-	fmt.Println("+-------------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
+	fmt.Println("+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
 }
 
+// convert $in: [...] to $in: [ ]
 func removeInElements(str string) string {
 	idx := strings.Index(str, "$in: [")
 	if idx < 0 {
@@ -163,4 +173,15 @@ func removeInElements(str string) string {
 
 	str = str[:idx] + " " + str[epos:]
 	return str
+}
+
+var filters = []string{"count", "delete", "find", "remove", "update"}
+
+func hasFilter(op string) bool {
+	for _, f := range filters {
+		if f == op {
+			return true
+		}
+	}
+	return false
 }
