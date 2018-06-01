@@ -147,19 +147,23 @@ func (m MongoConn) CollectServerStatus(uri string) {
 			if len(serverStatusDocs) > 1 {
 				bytes, _ = json.Marshal(serverStatusDocs[len(serverStatusDocs)-2])
 				json.Unmarshal(bytes, &pstat)
-				fmt.Printf(", page faults: %3d, iops: %7.1f\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
-				fmt.Printf("%s CRUD+  - insert:%7d, find:%7d, update:%7d, delete:%7d, getmore:%7d, command:%7d\n",
-					key, stat.OpCounters.Insert-pstat.OpCounters.Insert,
-					stat.OpCounters.Query-pstat.OpCounters.Query,
-					stat.OpCounters.Update-pstat.OpCounters.Update,
-					stat.OpCounters.Delete-pstat.OpCounters.Delete,
-					stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
-					stat.OpCounters.Command-pstat.OpCounters.Command)
-				fmt.Printf("%s Latency- read: %7.1f, write: %7.1f, command: %7.1f (ms)\n",
-					key,
-					float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
-					float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
-					float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
+				if stat.Host == pstat.Host {
+					fmt.Printf(", page faults: %3d, iops: %7.1f\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
+					fmt.Printf("%s CRUD+  - insert:%7d, find:%7d, update:%7d, delete:%7d, getmore:%7d, command:%7d\n",
+						key, stat.OpCounters.Insert-pstat.OpCounters.Insert,
+						stat.OpCounters.Query-pstat.OpCounters.Query,
+						stat.OpCounters.Update-pstat.OpCounters.Update,
+						stat.OpCounters.Delete-pstat.OpCounters.Delete,
+						stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
+						stat.OpCounters.Command-pstat.OpCounters.Command)
+					fmt.Printf("%s Latency- read: %7.1f, write: %7.1f, command: %7.1f (ms)\n",
+						key,
+						float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
+						float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
+						float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
+				} else {
+					fmt.Println()
+				}
 			} else {
 				fmt.Println()
 			}
@@ -292,7 +296,7 @@ func PrintStatsDetails(docs []ServerStatusData) {
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
-		if cnt > 0 {
+		if cnt > 0 && stat2.Host == stat1.Host {
 			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
 			iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
 				stat2.OpCounters.Delete - stat1.OpCounters.Delete +
@@ -336,7 +340,7 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
-		if cnt > 0 {
+		if cnt > 0 && stat2.Host == stat1.Host {
 			r := stat2.OpLatencies.Reads.Ops - stat1.OpLatencies.Reads.Ops
 			if r > 0 {
 				r = (stat2.OpLatencies.Reads.Latency - stat1.OpLatencies.Reads.Latency) / r
@@ -370,7 +374,7 @@ func PrintMetricsDetails(docs []ServerStatusData) {
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
-		if cnt > 0 {
+		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
 				stat2.LocalTime.In(loc).Format(dateFormat),
 				stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
@@ -401,7 +405,7 @@ func PrintWiredTigerDetails(docs []ServerStatusData) {
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
-		if cnt > 0 {
+		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
 				stat2.LocalTime.In(loc).Format(dateFormat),
 				stat2.WiredTiger.Cache.MaxBytesConfigured,
