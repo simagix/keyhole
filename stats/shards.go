@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// ShardDoc -
+// Shard information
 type Shard struct {
 	ID    string `json:"_id" bson:"_id"`
 	Host  string `json:"host" bson:"host"`
