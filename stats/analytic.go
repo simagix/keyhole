@@ -1,3 +1,5 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package stats
 
 import (
@@ -12,39 +14,45 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-const dateFormat = time.RFC3339
-
-var statsFile = os.TempDir() + "/keyhole_stats." + time.Now().Format("2018-01-02T15-04-05")
+var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + time.Now().Format(time.RFC3339)
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = []bson.M{}
-var mongoStats = make(map[string]ServerStatusData)
-var sleepTime = 10 * time.Second
 
-// simulation -
-type analytic struct {
-	uri    string
-	dbName string
+// DocumentDoc contains db.serverStatus().document
+type DocumentDoc struct {
+	Deleted  int `json:"deleted" bson:"deleted"`
+	Inserted int `json:"inserted" bson:"inserted"`
+	Returned int `json:"returned" bson:"returned"`
+	Updated  int `json:"updated" bson:"updated"`
 }
 
-// Cache -
-type Cache struct {
-	MaxBytesConfigured     int `json:"maximum bytes configured" bson:"maximum bytes configured"`
-	CurrentlyInCache       int `json:"bytes currently in the cache" bson:"bytes currently in the cache"`
-	UnmodifiedPagesEvicted int `json:"unmodified pages evicted" bson:"unmodified pages evicted"`
-	TrackedDirtyBytes      int `json:"tracked dirty bytes in the cache" bson:"tracked dirty bytes in the cache"`
-	PagesReadIntoCache     int `json:"pages read into cache" bson:"pages read into cache"`
-	PagesWrittenFromCache  int `json:"pages written from cache" bson:"pages written from cache"`
+// ExtraInfoDoc contains db.serverStatus().extra_info
+type ExtraInfoDoc struct {
+	PageFaults int `json:"page_faults" bson:"page_faults"`
 }
 
-// WiredTigerData -
-type WiredTigerData struct {
-	Perf  interface{} `json:"perf" bson:"perf"`
-	Cache Cache       `json:"cache" bson:"cache"`
+// MemDoc containers db.serverStatus().mem
+type MemDoc struct {
+	Resident int `json:"resident" bson:"resident"`
+	Virtual  int `json:"virtual" bson:"virtual"`
 }
 
-// OpCounters -
-type OpCounters struct {
+// MetricsDoc contains db.serverStatus().metrics
+type MetricsDoc struct {
+	Document      DocumentDoc      `json:"document" bson:"document"`
+	QueryExecutor QueryExecutorDoc `json:"queryExecutor" bson:"queryExecutor"`
+	Operation     OperationDoc     `json:"operation" bson:"operation"`
+}
+
+// OperationDoc contains db.serverStatus().operation
+type OperationDoc struct {
+	ScanAndOrder   int `json:"scanAndOrder" bson:"scanAndOrder"`
+	WriteConflicts int `json:"writeConflicts" bson:"writeConflicts"`
+}
+
+// OpCountersDoc contains db.serverStatus().OpCounters
+type OpCountersDoc struct {
 	Command int `json:"command" bson:"command"`
 	Delete  int `json:"delete" bson:"delete"`
 	Getmore int `json:"getmore" bson:"getmore"`
@@ -53,77 +61,61 @@ type OpCounters struct {
 	Update  int `json:"update" bson:"update"`
 }
 
-// OpsLatency -
-type OpsLatency struct {
+// OpLatenciesDoc contains db.serverStatus().opLatencies
+type OpLatenciesDoc struct {
+	Commands OpLatenciesOpDoc `json:"commands" bson:"commands"`
+	Reads    OpLatenciesOpDoc `json:"reads" bson:"reads"`
+	Writes   OpLatenciesOpDoc `json:"writes" bson:"writes"`
+}
+
+// OpLatenciesOpDoc contains doc of db.serverStatus().opLatencies
+type OpLatenciesOpDoc struct {
 	Latency int `json:"latency" bson:"latency"`
 	Ops     int `json:"ops" bson:"ops"`
 }
 
-// OpLatencies -
-type OpLatencies struct {
-	Commands OpsLatency `json:"commands" bson:"commands"`
-	Reads    OpsLatency `json:"reads" bson:"reads"`
-	Writes   OpsLatency `json:"writes" bson:"writes"`
-}
-
-// Document -
-type Document struct {
-	Deleted  int `json:"deleted" bson:"deleted"`
-	Inserted int `json:"inserted" bson:"inserted"`
-	Returned int `json:"returned" bson:"returned"`
-	Updated  int `json:"updated" bson:"updated"`
-}
-
-// QueryExecutor -
-type QueryExecutor struct {
+// QueryExecutorDoc contains db.serverStatus().queryExecutor
+type QueryExecutorDoc struct {
 	Scanned        int `json:"scanned" bson:"scanned"`
 	ScannedObjects int `json:"scannedObjects" bson:"scannedObjects"`
 }
 
-// Operation -
-type Operation struct {
-	ScanAndOrder   int `json:"scanAndOrder" bson:"scanAndOrder"`
-	WriteConflicts int `json:"writeConflicts" bson:"writeConflicts"`
+// WiredTigerCacheDoc contains db.serverStatus().wiredTiger.cache
+type WiredTigerCacheDoc struct {
+	MaxBytesConfigured     int `json:"maximum bytes configured" bson:"maximum bytes configured"`
+	CurrentlyInCache       int `json:"bytes currently in the cache" bson:"bytes currently in the cache"`
+	UnmodifiedPagesEvicted int `json:"unmodified pages evicted" bson:"unmodified pages evicted"`
+	TrackedDirtyBytes      int `json:"tracked dirty bytes in the cache" bson:"tracked dirty bytes in the cache"`
+	PagesReadIntoCache     int `json:"pages read into cache" bson:"pages read into cache"`
+	PagesWrittenFromCache  int `json:"pages written from cache" bson:"pages written from cache"`
 }
 
-// Metrics -
-type Metrics struct {
-	Document      Document      `json:"document" bson:"document"`
-	QueryExecutor QueryExecutor `json:"queryExecutor" bson:"queryExecutor"`
-	Operation     Operation     `json:"operation" bson:"operation"`
+// WiredTigerDoc containers db.serverStatus().wiredTiger
+type WiredTigerDoc struct {
+	Perf  interface{}        `json:"perf" bson:"perf"`
+	Cache WiredTigerCacheDoc `json:"cache" bson:"cache"`
 }
 
-// Mem -
-type Mem struct {
-	Resident int `json:"resident" bson:"resident"`
-	Virtual  int `json:"virtual" bson:"virtual"`
-}
-
-// ExtraInfo -
-type ExtraInfo struct {
-	PageFaults int `json:"page_faults" bson:"page_faults"`
-}
-
-// ServerStatusData -
-type ServerStatusData struct {
-	Mem         Mem            `json:"Mem" bson:"Mem"`
-	ExtraInfo   ExtraInfo      `json:"extra_info" bson:"extra_info"`
-	Metrics     Metrics        `json:"metrics" bson:"metrics"`
-	LocalTime   time.Time      `json:"localTime" bson:"localTime"`
+// ServerStatusDoc contains docs from db.serverStatus()
+type ServerStatusDoc struct {
+	ExtraInfo   ExtraInfoDoc   `json:"extra_info" bson:"extra_info"`
 	Host        string         `json:"host" bson:"host"`
-	OpCounters  OpCounters     `json:"opcounters" bson:"opcounters"`
-	OpLatencies OpLatencies    `json:"opLatencies" bson:"opLatencies"`
-	WiredTiger  WiredTigerData `json:"wiredTiger" bson:"wiredTiger"`
-	Sharding    interface{}    `json:"sharding" bson:"sharding"`
-	Repl        interface{}    `json:"repl" bson:"repl"`
+	LocalTime   time.Time      `json:"localTime" bson:"localTime"`
+	Mem         MemDoc         `json:"Mem" bson:"Mem"`
+	Metrics     MetricsDoc     `json:"metrics" bson:"metrics"`
+	OpCounters  OpCountersDoc  `json:"opcounters" bson:"opcounters"`
+	OpLatencies OpLatenciesDoc `json:"opLatencies" bson:"opLatencies"`
 	Process     string         `json:"process" bson:"process"`
+	Repl        interface{}    `json:"repl" bson:"repl"`
+	Sharding    interface{}    `json:"sharding" bson:"sharding"`
 	Version     string         `json:"version" bson:"version"`
+	WiredTiger  WiredTigerDoc  `json:"wiredTiger" bson:"wiredTiger"`
 }
 
-// CollectServerStatus - Collect serverStatus every 10 minutes
+// CollectServerStatus collects db.serverStatus() every minute
 func (m MongoConn) CollectServerStatus(uri string) {
-	pstat := ServerStatusData{}
-	stat := ServerStatusData{}
+	pstat := ServerStatusDoc{}
+	stat := ServerStatusDoc{}
 	var iop int
 	var piop int
 
@@ -134,12 +126,12 @@ func (m MongoConn) CollectServerStatus(uri string) {
 			serverStatus := m.serverStatus(session)
 			bytes, _ := json.Marshal(serverStatus)
 			json.Unmarshal(bytes, &stat)
-			key := time.Now().Format(dateFormat)
+			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs = append(serverStatusDocs, serverStatus)
 			if len(serverStatusDocs) > 10 {
-				saveStatsToFile()
+				saveServerStatusDocsToFile()
 			}
-			mongoStats[key] = stat
+
 			fmt.Printf("\n%s Memory - resident: %7d, virtual: %7d", key, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
@@ -177,10 +169,10 @@ func (m MongoConn) CollectServerStatus(uri string) {
 // PrintDBStats - Print dbStats every 10 seconds
 func (m MongoConn) PrintDBStats() {
 	var docs map[string]interface{}
-	var pds float64
-	var ds float64
-	ptime := time.Now()
-	now := ptime
+	var prevDataSize float64
+	var dataSize float64
+	prevTime := time.Now()
+	now := prevTime
 
 	for {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
@@ -189,23 +181,23 @@ func (m MongoConn) PrintDBStats() {
 			stat := m.dbStats(session)
 			bytes, _ := json.Marshal(stat)
 			json.Unmarshal(bytes, &docs)
-			ds = docs["dataSize"].(float64)
-			sec := now.Sub(ptime).Seconds()
-			delta := (ds - pds) / mb / sec
+			dataSize = docs["dataSize"].(float64)
+			sec := now.Sub(prevTime).Seconds()
+			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 1 && delta > .01 {
 				fmt.Printf("%s Storage: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
-					now.Format(dateFormat), pds/mb, ds/mb, delta)
+					now.Format(time.RFC3339), prevDataSize/mb, dataSize/mb, delta)
 			}
-			pds = ds
-			ptime = now
+			prevDataSize = dataSize
+			prevTime = now
 			now = time.Now()
 			session.Close()
 		}
-		time.Sleep(sleepTime)
+		time.Sleep(10 * time.Second)
 	}
 }
 
-// PrintServerStatus - Print serverStatus summary for the duration
+// PrintServerStatus prints serverStatusDocs summary for the duration
 func (m MongoConn) PrintServerStatus(uri string) {
 	session, err := GetSession(uri, m.ssl, m.sslCA)
 	if err != nil {
@@ -215,25 +207,21 @@ func (m MongoConn) PrintServerStatus(uri string) {
 	session.SetMode(mgo.Primary, true)
 
 	serverStatus := m.serverStatus(session)
-	stat := ServerStatusData{}
 	bytes, _ := json.Marshal(serverStatus)
 	json.Unmarshal(bytes, &serverStatus)
 	serverStatusDocs = append(serverStatusDocs, serverStatus)
-	json.Unmarshal(bytes, &stat)
-	mongoStats[time.Now().Format(dateFormat)] = stat
-
-	// save serverStatusDocs
-	saveStatsToFile()
-	AnalyzeServerStatus(statsFile)
+	saveServerStatusDocsToFile()
+	AnalyzeServerStatus(keyholeStatsDataFile)
 }
 
-func saveStatsToFile() {
+// saveServerStatusDocsToFile appends []ServerStatusDoc to a file
+func saveServerStatusDocsToFile() {
 	bytes, _ := json.Marshal(serverStatusDocs)
 	serverStatusDocs = serverStatusDocs[:0]
-	fmt.Println("\nstats written to", statsFile)
-	f, ferr := os.OpenFile(statsFile, os.O_WRONLY|os.O_APPEND, 0644)
+	fmt.Println("\nstats written to", keyholeStatsDataFile)
+	f, ferr := os.OpenFile(keyholeStatsDataFile, os.O_WRONLY|os.O_APPEND, 0644)
 	if ferr != nil {
-		f, _ = os.Create(statsFile)
+		f, _ = os.Create(keyholeStatsDataFile)
 	}
 	defer f.Close()
 	f.Write(bytes)
@@ -242,14 +230,14 @@ func saveStatsToFile() {
 	serverStatusDocs = serverStatusDocs[:0]
 }
 
-// serverStatus - Execute serverStatus
+// serverStatus executes db.serverStatus()
 func (m MongoConn) serverStatus(session *mgo.Session) bson.M {
 	result := bson.M{}
 	session.DB("admin").Run("serverStatus", &result)
 	return result
 }
 
-// dbStats - Execute dbStats
+// dbStats executes db.Stats()
 func (m MongoConn) dbStats(session *mgo.Session) bson.M {
 	result := bson.M{}
 	session.DB(m.dbName).Run("dbStats", &result)
@@ -259,8 +247,8 @@ func (m MongoConn) dbStats(session *mgo.Session) bson.M {
 // AnalyzeServerStatus -
 func AnalyzeServerStatus(filename string) {
 	fmt.Println("filename", filename)
-	var serverStatusData = []ServerStatusData{}
-	var docs = []ServerStatusData{}
+	var serverStatusDocs = []ServerStatusDoc{}
+	var docs = []ServerStatusDoc{}
 	f, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("error opening file ", err)
@@ -270,24 +258,24 @@ func AnalyzeServerStatus(filename string) {
 
 	r := bufio.NewReader(f)
 	for {
-		text, ferr := r.ReadString('\n') // 0x0A separator = newline
+		line, ferr := r.ReadString('\n') // 0x0A separator = newline
 		if ferr == io.EOF {
 			break
 		}
-		json.Unmarshal([]byte(text), &docs)
-		serverStatusData = append(serverStatusData, docs...)
+		json.Unmarshal([]byte(line), &docs)
+		serverStatusDocs = append(serverStatusDocs, docs...)
 	}
 
-	PrintStatsDetails(serverStatusData)
-	PrintLatencyDetails(serverStatusData)
-	PrintMetricsDetails(serverStatusData)
-	PrintWiredTigerDetails(serverStatusData)
+	PrintStatsDetails(serverStatusDocs)
+	PrintLatencyDetails(serverStatusDocs)
+	PrintMetricsDetails(serverStatusDocs)
+	PrintWiredTigerDetails(serverStatusDocs)
 }
 
 // PrintStatsDetails -
-func PrintStatsDetails(docs []ServerStatusData) {
-	stat1 := ServerStatusData{}
-	stat2 := ServerStatusData{}
+func PrintStatsDetails(docs []ServerStatusDoc) {
+	stat1 := ServerStatusDoc{}
+	stat2 := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- Analytic Summary ---")
 	fmt.Printf("+-------------------------+-------+-------+------+--------+--------+--------+--------+--------+--------+--------+\n")
@@ -311,7 +299,7 @@ func PrintStatsDetails(docs []ServerStatusData) {
 			}
 
 			fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
-				stat2.LocalTime.In(loc).Format(dateFormat),
+				stat2.LocalTime.In(loc).Format(time.RFC3339),
 				stat2.Mem.Resident,
 				stat2.Mem.Virtual,
 				stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
@@ -329,9 +317,9 @@ func PrintStatsDetails(docs []ServerStatusData) {
 }
 
 // PrintLatencyDetails -
-func PrintLatencyDetails(docs []ServerStatusData) {
-	stat1 := ServerStatusData{}
-	stat2 := ServerStatusData{}
+func PrintLatencyDetails(docs []ServerStatusDoc) {
+	stat1 := ServerStatusDoc{}
+	stat2 := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- Latencies Summary (ms) ---")
 	fmt.Printf("+-------------------------+----------+----------+----------+\n")
@@ -354,7 +342,7 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 				c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
 			}
 			fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(dateFormat), r/1000, w/1000, c/1000)
+				stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
 		}
 		stat1 = stat2
 		cnt++
@@ -363,9 +351,9 @@ func PrintLatencyDetails(docs []ServerStatusData) {
 }
 
 // PrintMetricsDetails -
-func PrintMetricsDetails(docs []ServerStatusData) {
-	stat1 := ServerStatusData{}
-	stat2 := ServerStatusData{}
+func PrintMetricsDetails(docs []ServerStatusDoc) {
+	stat1 := ServerStatusDoc{}
+	stat2 := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- Metrics ---")
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
@@ -376,7 +364,7 @@ func PrintMetricsDetails(docs []ServerStatusData) {
 		json.Unmarshal(bytes, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(dateFormat),
+				stat2.LocalTime.In(loc).Format(time.RFC3339),
 				stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
 				stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
 				stat2.Metrics.Operation.ScanAndOrder-stat1.Metrics.Operation.ScanAndOrder,
@@ -393,9 +381,9 @@ func PrintMetricsDetails(docs []ServerStatusData) {
 }
 
 // PrintWiredTigerDetails -
-func PrintWiredTigerDetails(docs []ServerStatusData) {
-	stat1 := ServerStatusData{}
-	stat2 := ServerStatusData{}
+func PrintWiredTigerDetails(docs []ServerStatusDoc) {
+	stat1 := ServerStatusDoc{}
+	stat2 := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- WiredTiger Summary ---")
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
@@ -407,7 +395,7 @@ func PrintWiredTigerDetails(docs []ServerStatusData) {
 		json.Unmarshal(bytes, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
-				stat2.LocalTime.In(loc).Format(dateFormat),
+				stat2.LocalTime.In(loc).Format(time.RFC3339),
 				stat2.WiredTiger.Cache.MaxBytesConfigured,
 				stat2.WiredTiger.Cache.CurrentlyInCache,
 				stat2.WiredTiger.Cache.UnmodifiedPagesEvicted,

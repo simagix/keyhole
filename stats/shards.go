@@ -1,3 +1,5 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package stats
 
 import (
@@ -9,17 +11,17 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// Shard -
+// ShardDoc -
 type Shard struct {
-	ID    string `json:"_id",bson:"_id"`
-	Host  string `json:"host",bson:"host"`
-	State int    `json:"state",bson:"state"`
+	ID    string `json:"_id" bson:"_id"`
+	Host  string `json:"host" bson:"host"`
+	State int    `json:"state" bson:"state"`
 }
 
 // ShardList -
 type ShardList struct {
-	Shards []Shard `json:"shards",bson:"shards"`
-	OK     int     `json:"ok",bson:"ok"`
+	Shards []Shard `json:"shards" bson:"shards"`
+	OK     int     `json:"ok" bson:"ok"`
 }
 
 // GetShards -
@@ -61,10 +63,10 @@ func GetShards(session *mgo.Session, uri string) []string {
 func ShardCollection(session *mgo.Session, collname string) {
 	fmt.Println("Shard", collname)
 	result := bson.M{}
-	if err := session.DB("admin").Run(bson.D{{"enableSharding", DBName}}, &result); err != nil {
+	if err := session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: DBName}}, &result); err != nil {
 		fmt.Println(err)
 	}
-	if err := session.DB("admin").Run(bson.D{{"shardCollection", collname}, {"key", bson.M{"_id": "hashed"}}}, &result); err != nil {
+	if err := session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
 		fmt.Println(err)
 	}
 }

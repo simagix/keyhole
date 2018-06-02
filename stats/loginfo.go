@@ -1,3 +1,5 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package stats
 
 import (
@@ -10,20 +12,20 @@ import (
 	"strings"
 )
 
-// OpPattern -
-type OpPattern struct {
-	Command   string
-	Namespace string
-	Filter    string
-	Milli     int
-	Count     int
-	Scan      string
+// OpPerformanceDoc stores performance data
+type OpPerformanceDoc struct {
+	Command   string // count, delete, find, remove, and update
+	Namespace string // database.collectin
+	Filter    string // query pattern
+	Milli     int    // millisecond
+	Count     int    // number of ops
+	Scan      string // COLLSCAN
 }
 
 // LogInfo -
 func LogInfo(filename string) {
-	var opMap map[string]OpPattern
-	opMap = make(map[string]OpPattern)
+	var opsMap map[string]OpPerformanceDoc
+	opsMap = make(map[string]OpPerformanceDoc)
 	var matched = regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
 	f, err := os.Open(filename)
 	if err != nil {
@@ -93,20 +95,20 @@ func LogInfo(filename string) {
 			filter = re.ReplaceAllString(filter, "$1")
 			filter = removeInElements(filter)
 			key := op + "." + filter
-			_, ok := opMap[key]
+			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
 			if ok {
-				x := opMap[key].Milli + milli
-				y := opMap[key].Count + 1
-				opMap[key] = OpPattern{Command: opMap[key].Command, Namespace: ns, Filter: opMap[key].Filter, Milli: x, Count: y, Scan: scan}
+				x := opsMap[key].Milli + milli
+				y := opsMap[key].Count + 1
+				opsMap[key] = OpPerformanceDoc{Command: opsMap[key].Command, Namespace: ns, Filter: opsMap[key].Filter, Milli: x, Count: y, Scan: scan}
 			} else {
-				opMap[key] = OpPattern{Command: op, Namespace: ns, Filter: filter, Milli: milli, Count: 1, Scan: scan}
+				opsMap[key] = OpPerformanceDoc{Command: op, Namespace: ns, Filter: filter, Milli: milli, Count: 1, Scan: scan}
 			}
 		}
 	}
 
-	arr := make([]OpPattern, 0, len(opMap))
-	for _, value := range opMap {
+	arr := make([]OpPerformanceDoc, 0, len(opsMap))
+	for _, value := range opsMap {
 		arr = append(arr, value)
 	}
 	sort.Slice(arr, func(i, j int) bool {

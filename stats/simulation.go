@@ -1,3 +1,5 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package stats
 
 import (
@@ -17,10 +19,12 @@ var CollectionName = "keyhole"
 
 // Schema -
 type Schema struct {
-	ID            string `json:"_id",bson:"_id"`
-	FavoriteCity  string `json:"favoriteCity",bson:"favoriteCity"`
-	FavoriteBook  string `json:"favoriteBook",bson:"favoriteBook"`
-	FavoriteMovie string `json:"favoriteMovie",bson:"favoriteMovie"`
+	ID            string `json:"_id" bson:"_id"`
+	FavoriteBook  string `json:"favoriteBook" bson:"favoriteBook"`
+	FavoriteCity  string `json:"favoriteCity" bson:"favoriteCity"`
+	FavoriteMovie string `json:"favoriteMovie" bson:"favoriteMovie"`
+	FavoriteMusic string `json:"favoriteMusic" bson:"favoriteMusic"`
+	FavoriteSport string `json:"favoriteSport" bson:"favoriteSport"`
 }
 
 // Favorites -
@@ -182,7 +186,7 @@ func (m MongoConn) PopulateData() {
 	}
 }
 
-// Simulate - Simulate CRUD for load tests
+// Simulate simulates CRUD for load tests
 func (m MongoConn) Simulate(duration int) {
 	var schema = Schema{}
 	results := []bson.M{}
@@ -239,7 +243,7 @@ func (m MongoConn) Simulate(duration int) {
 	}
 }
 
-// Cleanup - Drop the temp database
+// Cleanup drops the temp database
 func (m MongoConn) Cleanup() {
 	log.Println("cleanup", m.uri)
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
@@ -254,9 +258,10 @@ func (m MongoConn) Cleanup() {
 	session.DB(m.dbName).DropDatabase()
 }
 
-// CreateIndexes -
+// CreateIndexes creates indexes
 func (m MongoConn) CreateIndexes() {
 	session, _ := GetSession(m.uri, m.ssl, m.sslCA)
+	defer session.Close()
 	c := session.DB(m.dbName).C(CollectionName)
 	c.EnsureIndexKey("favoriteCity")
 }

@@ -1,3 +1,5 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package stats
 
 import (
@@ -12,25 +14,25 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// ServerStatusInfo -
+// ServerStatusInfo constains info from db.serverStatus()
 type ServerStatusInfo struct {
-	Cluster      string      `json:"cluster",bson:"cluster"`
-	Host         string      `json:"host",bson:"host"`
-	Process      string      `json:"process",bson:"process"`
-	Version      string      `json:"version",bson:"version"`
-	Sharding     interface{} `json:"sharding",bson:"sharding"`
-	Repl         interface{} `json:"repl",bson:"repl"`
-	TotalDBStats bson.M
+	Cluster     string      `json:"cluster" bson:"cluster"`
+	Host        string      `json:"host" bson:"host"`
+	Process     string      `json:"process" bson:"process"`
+	Version     string      `json:"version" bson:"version"`
+	Sharding    interface{} `json:"sharding" bson:"sharding"`
+	Repl        interface{} `json:"repl" bson:"repl"`
+	StorageSize bson.M
 }
 
-// DBStats -
+// DBStats contains info from db.stats()
 type DBStats struct {
-	DB        string `json:"db",bson:"db"`
-	DataSize  int    `json:"dataSize",bson:"dataSize"`
-	IndexSize int    `json:"indexSize",bson:"indexSize"`
+	DB        string `json:"db" bson:"db"`
+	DataSize  int    `json:"dataSize" bson:"dataSize"`
+	IndexSize int    `json:"indexSize" bson:"indexSize"`
 }
 
-// GetSession -
+// GetSession returns a MongoDB session
 func GetSession(uri string, ssl bool, sslCA string) (*mgo.Session, error) {
 	var session *mgo.Session
 	var err error
@@ -62,63 +64,63 @@ func GetSession(uri string, ssl bool, sslCA string) (*mgo.Session, error) {
 	return session, err
 }
 
-// IsMaster - Execute isMaster
+// IsMaster executes dbisMaster()
 func IsMaster(session *mgo.Session) bson.M {
 	return AdminCommand(session, "isMaster")
 }
 
-// ServerInfo -
+// ServerInfo returns ServerStatusInfo from db.serverStatus()
 func ServerInfo(session *mgo.Session) ServerStatusInfo {
 	result := AdminCommand(session, "serverStatus")
 	bytes, _ := json.Marshal(result)
-	stat := ServerStatusData{}
+	stat := ServerStatusDoc{}
 	json.Unmarshal(bytes, &stat)
-	ssi := ServerStatusInfo{}
+	info := ServerStatusInfo{}
 
-	ssi.Host = stat.Host
-	ssi.Process = stat.Process
-	ssi.Version = stat.Version
-	ssi.Sharding = bson.M{}
+	info.Host = stat.Host
+	info.Process = stat.Process
+	info.Version = stat.Version
+	info.Sharding = bson.M{}
 	if stat.Sharding != nil {
-		ssi.Sharding = stat.Sharding
+		info.Sharding = stat.Sharding
 	}
-	ssi.Repl = bson.M{}
+	info.Repl = bson.M{}
 	if stat.Repl != nil {
-		ssi.Repl = stat.Repl
+		info.Repl = stat.Repl
 	}
 
 	if stat.Process == "mongos" {
-		ssi.Cluster = "sharded"
+		info.Cluster = "sharded"
 	} else if stat.Repl != nil {
-		ssi.Cluster = "replica"
+		info.Cluster = "replica"
 	} else {
-		ssi.Cluster = "standalone"
+		info.Cluster = "standalone"
 	}
 
 	names, _ := session.DatabaseNames()
 	dbStats := DBStats{}
-	var dsize, isize int
+	var dataSize, indexSize int
 	list := []bson.M{}
 
 	for _, name := range names {
 		result = AdminCommandOnDB(session, "dbStats", name)
 		bytes, _ := json.Marshal(result)
 		json.Unmarshal(bytes, &dbStats)
-		dsize += dbStats.DataSize
-		isize += dbStats.IndexSize
+		dataSize += dbStats.DataSize
+		indexSize += dbStats.IndexSize
 		list = append(list, bson.M{"db": dbStats.DB, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
 	}
 
-	ssi.TotalDBStats = bson.M{"totalDataSize": dsize, "totalIndexSize": isize, "statsDetails": list}
-	return ssi
+	info.StorageSize = bson.M{"totalDataSize": dataSize, "totalIndexSize": indexSize, "statsDetails": list}
+	return info
 }
 
-// AdminCommand - Execute Admin Command
+// AdminCommand executes admin Command
 func AdminCommand(session *mgo.Session, command string) bson.M {
 	return AdminCommandOnDB(session, command, "admin")
 }
 
-// AdminCommandOnDB - Execute Admin Command
+// AdminCommandOnDB execute admin Command at given database
 func AdminCommandOnDB(session *mgo.Session, command string, db string) bson.M {
 	session.SetMode(mgo.Primary, true)
 	result := bson.M{}
