@@ -4,7 +4,9 @@ package stats
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"sort"
@@ -27,17 +29,24 @@ func LogInfo(filename string) {
 	var opsMap map[string]OpPerformanceDoc
 	opsMap = make(map[string]OpPerformanceDoc)
 	var matched = regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
-	f, err := os.Open(filename)
+	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("error opening file ", err)
 		return
 	}
-	defer f.Close()
-	reader := bufio.NewReader(f)
+	defer file.Close()
+	lineCounts, _ := countLines(file)
+	file.Seek(0, 0)
+	reader := bufio.NewReader(file)
+	index := 0
+
 	for {
+		fmt.Printf("\r%3d%%", (100*index)/lineCounts)
 		buf, _, err := reader.ReadLine() // 0x0A separator = newline
+		index++
 		scan := ""
 		if err != nil {
+			fmt.Printf("\r%3d%%\n", 100)
 			break
 		} else if matched.MatchString(string(buf)) == true {
 			str := string(buf)
@@ -186,4 +195,24 @@ func hasFilter(op string) bool {
 		}
 	}
 	return false
+}
+
+// count number of '\n'
+func countLines(file *os.File) (int, error) {
+	reader := bufio.NewReader(file)
+	buf := make([]byte, 32*1024)
+	lineSep := []byte{'\n'}
+	lineCounts := 0
+	for {
+		c, err := reader.Read(buf)
+		lineCounts += bytes.Count(buf[:c], lineSep)
+
+		switch {
+		case err == io.EOF:
+			return lineCounts, err
+
+		case err != nil:
+			return lineCounts, err
+		}
+	}
 }
