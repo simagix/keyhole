@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
-var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + time.Now().Format(time.RFC3339)
+var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = []bson.M{}
