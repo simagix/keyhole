@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -175,11 +176,12 @@ func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbos
 	total := 1000
 	for n := 0; n < total; n++ {
 		ndoc := make(map[string]interface{})
-		fmt.Printf("\r%3d%% ", 100*n/total)
+		fmt.Fprintf(os.Stderr, "\r%3d%% ", 100*n/total)
 		traverseDocument(&ndoc, doc, false)
 		delete(ndoc, "_id")
 		contentArray = append(contentArray, ndoc)
 	}
+	fmt.Fprintf(os.Stderr, "\r100%% \n")
 	bulk.Insert(contentArray...)
 	_, err = bulk.Run()
 	if err != nil {
