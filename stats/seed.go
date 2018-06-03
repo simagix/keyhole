@@ -299,7 +299,10 @@ func isEmailAddress(str string) bool {
 }
 
 func getEmailAddress() string {
-	return fnames[rand.Intn(len(fnames)-1)] + "." + lnames[rand.Intn(len(lnames)-1)] + "@" + domains[rand.Intn(len(domains)-1)]
+	return fnames[rand.Intn(len(fnames)-1)] + "." +
+		string(fnames[rand.Intn(len(fnames)-1)][0]) + "." +
+		lnames[rand.Intn(len(lnames)-1)] + "@" +
+		domains[rand.Intn(len(domains)-1)]
 }
 
 func isIP(str string) bool {
@@ -341,20 +344,35 @@ func getDateString(n int) string {
 
 var quotes = []string{
 	"Frankly, my dear, I don't give a damn.",
-	"Here's looking at you, kid.",
-	"You're gonna need a bigger boat.",
-	"May the Force be with you.",
-	"Toto, I've a feeling we're not in Kansas anymore.",
 	"I'm going to make him an offer he can't refuse.",
-	"Of all the gin joints in all the towns in all the world, she walks into mine.",
+	"Toto, I've a feeling we're not in Kansas anymore.",
+	"Here's looking at you, kid.",
+	"Go ahead, make my day.",
+	"All right, Mr. DeMille, I'm ready for my close-up.",
+	"May the Force be with you.",
+	"Fasten your seatbelts. It's going to be a bumpy night.",
 	"You talkin' to me?",
+	"What we've got here is failure to communicate.",
+	"I love the smell of napalm in the morning.",
+	"Love means never having to say you're sorry.",
+	"The stuff that dreams are made of.",
+	"E.T. phone home.",
+	"They call me Mister Tibbs!",
+	"You're gonna need a bigger boat.",
+	"Of all the gin joints in all the towns in all the world, she walks into mine.",
+	"Bond. James Bond.",
 	"There's no place like home.",
-	"The first rule of Fight Club is: You do not talk about Fight Club.",
+	"Show me the money!",
 }
 
-var domains = []string{"gmail.com", "me.com", "yahoo.com", "outlook.com",
-	"simagix.com", "aol.com", "mongodb.com", "example.com"}
+var domains = []string{"gmail.com", "me.com", "yahoo.com", "outlook.com", "google.com",
+	"simagix.com", "aol.com", "mongodb.com", "example.com", "cisco.com",
+	"microsoft.com", "facebook.com", "apple.com", "amazon.com", "oracle.com"}
 var fnames = []string{"Liam", "Emma", "Noah", "Olivia", "Willaim",
-	"Ava", "James", "Isabella", "Logan", "Sophia"}
+	"Ava", "James", "Isabella", "Logan", "Sophia",
+	"John", "Robert", "Michael", "David", "Richard",
+	"Mary", "Patricia", "Jennifer", "Linda", "Elizabeth"}
 var lnames = []string{"Smith", "Johnson", "Williams", "Brown", "Jones",
-	"Miller", "Davis", "Garcia", "Rodriguez", "Chen"}
+	"Miller", "Davis", "Garcia", "Rodriguez", "Chen",
+	"Adams", "Arthur", "Bush", "Carter", "Clinton",
+	"Eisenhower", "Ford", "Grant", "Harrison", "Hoover"}
