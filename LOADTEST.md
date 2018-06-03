@@ -6,6 +6,19 @@ Load test a cluster/replica.  A default cycle last six minutes.
 - Burst test until before the last minute
 - Perform cleanup ops in the last minute
 
+## Load Test
+Keyhole uses a template to read in a sample document and then generates randomized documents based on the template (see [SEED.md](SEED,md) for details.  To execute a load test with a template, do
+
+```
+keyhole -uri=mongodb://localhost/?replicaSet=replset --file example/seedkeys.json
+```
+
+To execute a demo load test, run it without the `--file` flag.
+
+```
+keyhole -uri=mongodb://localhost/?replicaSet=replset
+```
+
 ## Document Example
 ### Usage
 ```

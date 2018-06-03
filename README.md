@@ -12,6 +12,7 @@ Several features are available, and they are
   - Latency: read, write, and command
   - Metrics: index keys examined, collection scan, in-memory sort, and ops
   - WiredTiger analytic 
+- Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](LOADTEST.md) for details).
 - **Monitoring** mode to collcet stats (see above) from `mongod` periodically.  Detail analytic results are displayed when the tool exists or can be viewed at a later time.
 - **Cluster Info** to display information of a cluster including stats to help determine physical memory size.
 - [**Seed data**](SEED.md) for demo and educational purposes as a trainer.
