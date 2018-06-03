@@ -133,7 +133,7 @@ func (m MongoConn) CollectServerStatus(uri string) {
 				saveServerStatusDocsToFile()
 			}
 
-			fmt.Printf("\n%s Memory - resident: %7d, virtual: %7d", key, stat.Mem.Resident, stat.Mem.Virtual)
+			fmt.Printf("\n%s Memory - resident: %d, virtual: %d", key, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
@@ -141,15 +141,15 @@ func (m MongoConn) CollectServerStatus(uri string) {
 				bytes, _ = json.Marshal(serverStatusDocs[len(serverStatusDocs)-2])
 				json.Unmarshal(bytes, &pstat)
 				if stat.Host == pstat.Host {
-					fmt.Printf(", page faults: %3d, iops: %7.1f\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
-					fmt.Printf("%s CRUD+  - insert:%7d, find:%7d, update:%7d, delete:%7d, getmore:%7d, command:%7d\n",
+					fmt.Printf(", page faults: %d, iops: %.1f\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
+					fmt.Printf("%s CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
 						key, stat.OpCounters.Insert-pstat.OpCounters.Insert,
 						stat.OpCounters.Query-pstat.OpCounters.Query,
 						stat.OpCounters.Update-pstat.OpCounters.Update,
 						stat.OpCounters.Delete-pstat.OpCounters.Delete,
 						stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
 						stat.OpCounters.Command-pstat.OpCounters.Command)
-					fmt.Printf("%s Latency- read: %7.1f, write: %7.1f, command: %7.1f (ms)\n",
+					fmt.Printf("%s Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
 						key,
 						float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
 						float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
@@ -186,7 +186,7 @@ func (m MongoConn) PrintDBStats() {
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 1 && delta > .01 {
-				fmt.Printf("%s Storage: %6.1f -> %6.1f, rate %6.1f MB/sec\n",
+				fmt.Printf("%s Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
 					now.Format(time.RFC3339), prevDataSize/mb, dataSize/mb, delta)
 			}
 			prevDataSize = dataSize

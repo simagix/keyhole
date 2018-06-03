@@ -166,25 +166,14 @@ func Seed(session *mgo.Session, verbose bool) {
 
 // SeedFromTemplate seeds data from a template in a file
 func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbose bool) {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-
-	var f interface{}
-	err = json.Unmarshal(bytes, &f)
-	if err != nil {
-		fmt.Println("Error parsing JSON: ", err)
-		panic(err)
-	}
-
-	session.SetMode(mgo.Primary, true)
-	doc := make(map[string]interface{})
-	traverseDocument(&doc, f, true)
-	bytes, _ = json.MarshalIndent(doc, "", "   ")
+	sdoc := GetDocByTemplate(filename, true)
+	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if verbose {
 		fmt.Println(string(bytes))
 	}
+	doc := make(map[string]interface{})
+	json.Unmarshal(bytes, &doc)
+	session.SetMode(mgo.Primary, true)
 	var contentArray []interface{}
 	examplesCollection := session.DB(keyholeDB).C("examples")
 	if isDrop {
@@ -201,7 +190,7 @@ func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbos
 	}
 	fmt.Fprintf(os.Stderr, "\r100%% \n")
 	bulk.Insert(contentArray...)
-	_, err = bulk.Run()
+	_, err := bulk.Run()
 	if err != nil {
 		log.Println(err)
 		return

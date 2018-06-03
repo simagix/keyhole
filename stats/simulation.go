@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
 	"math/rand"
@@ -73,23 +72,13 @@ func (m MongoConn) initSimDocs() {
 		return
 	}
 
-	bytes, err := ioutil.ReadFile(m.filename)
-	if err != nil {
-		panic(err)
-	}
-
-	var f interface{}
-	err = json.Unmarshal(bytes, &f)
-	if err != nil {
-		fmt.Println("Error parsing JSON: ", err)
-		panic(err)
-	}
-	doc := make(map[string]interface{})
-	traverseDocument(&doc, f, true)
+	sdoc := GetDocByTemplate(m.filename, true)
+	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if m.verbose {
-		bytes, _ := json.MarshalIndent(doc, "", "   ")
 		fmt.Println(string(bytes))
 	}
+	doc := make(map[string]interface{})
+	json.Unmarshal(bytes, &doc)
 
 	for len(simDocs) < total {
 		ndoc := make(map[string]interface{})
