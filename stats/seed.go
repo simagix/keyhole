@@ -47,6 +47,24 @@ type Robot struct {
 	Tasks      []Task  `json:"tasks" bson:"tasks"`
 }
 
+// GetDocByTemplate returns a bson.M document
+func GetDocByTemplate(filename string, meta bool) bson.M {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	var f interface{}
+	err = json.Unmarshal(bytes, &f)
+	if err != nil {
+		fmt.Println("Error parsing JSON: ", err)
+		panic(err)
+	}
+	doc := make(map[string]interface{})
+	traverseDocument(&doc, f, meta)
+	return doc
+}
+
 // Seed - seed data for demo
 //  models: {
 //    "_id": string

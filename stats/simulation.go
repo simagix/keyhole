@@ -55,6 +55,7 @@ type MongoConn struct {
 	tps      int
 	filename string
 	verbose  bool
+	cleannUp bool
 }
 
 var simDocs []bson.M
@@ -83,11 +84,10 @@ func (m MongoConn) initSimDocs() {
 		fmt.Println("Error parsing JSON: ", err)
 		panic(err)
 	}
-
 	doc := make(map[string]interface{})
 	traverseDocument(&doc, f, true)
 	if m.verbose {
-		bytes, _ = json.MarshalIndent(doc, "", "   ")
+		bytes, _ := json.MarshalIndent(doc, "", "   ")
 		fmt.Println(string(bytes))
 	}
 
@@ -100,8 +100,8 @@ func (m MongoConn) initSimDocs() {
 }
 
 // New - Constructor
-func New(uri string, ssl bool, sslCA string, dbName string, tps int, filename string, verbose bool) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose}
+func New(uri string, ssl bool, sslCA string, dbName string, tps int, filename string, verbose bool, cleanUp bool) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp}
 	m.initSimDocs()
 	return m
 }
@@ -300,6 +300,9 @@ func (m MongoConn) Simulate(duration int) {
 
 // Cleanup drops the temp database
 func (m MongoConn) Cleanup() {
+	if m.cleannUp == false {
+		return
+	}
 	log.Println("cleanup", m.uri)
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
