@@ -161,17 +161,17 @@ Download the desired binary.  No other downloads (interpreter or modules) are ne
 
 #### MacOS
 ```
-curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-osx-x64 > keyhole ; chmod +x keyhole
+curl -L https://github.com/simagix/keyhole/raw/1.1/build/keyhole-osx-x64 > keyhole ; chmod +x keyhole
 ```
 #### Linux
 ```
-curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-linux-x64 > keyhole ; chmod +x keyhole
+curl -L https://github.com/simagix/keyhole/raw/1.1/build/keyhole-linux-x64 > keyhole ; chmod +x keyhole
 ```
 #### Windows
 The download link is as below.
 
 ```
-https://github.com/simagix/keyhole/raw/master/build/keyhole-win-x64.exe
+https://github.com/simagix/keyhole/raw/1.1/build/keyhole-win-x64.exe
 ```
 
 ### Usage
