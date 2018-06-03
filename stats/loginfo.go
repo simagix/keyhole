@@ -41,7 +41,7 @@ func LogInfo(filename string) {
 	index := 0
 
 	for {
-		fmt.Printf("\r%3d%% ", (100*index)/lineCounts)
+		fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		buf, _, err := reader.ReadLine() // 0x0A separator = newline
 		index++
 		scan := ""
@@ -93,7 +93,7 @@ func LogInfo(filename string) {
 			}
 
 			// remove unneeded info
-			re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|, ordered: \w+|, shardVersion: \[ Timestamp 0\|0, ObjectId\('\S+'\) \]`)
+			re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|bypassDocumentValidation: \w+, |ordered: \w+, |, shardVersion: \[.*\]`)
 			filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ": 1")
@@ -122,6 +122,8 @@ func LogInfo(filename string) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
 	})
+
+	fmt.Fprintf(os.Stderr, "\r100%% \n")
 	fmt.Println("\r+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
 	fmt.Printf("|Command|COLLSCAN| avg ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
 	fmt.Println("|-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------|")
