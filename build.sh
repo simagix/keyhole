@@ -1,7 +1,7 @@
 #! /bin/bash
 # Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-export version="master-$(date "+%Y%m%d.%s")"
+export version="1.1"
 mkdir -p build
 env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
 env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-osx-x64 keyhole.go
