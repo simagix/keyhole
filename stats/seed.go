@@ -3,9 +3,14 @@
 package stats
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
@@ -139,3 +144,217 @@ func Seed(session *mgo.Session, verbose bool) {
 	numbersCount, _ := numbersCollection.Count()
 	fmt.Printf("Seeded cars: %d, keyhole: %d, numbers: %d\n", carsCount, keyholeCount, numbersCount)
 }
+
+// SeedFromTemplate seeds data from a template in a file
+func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbose bool) {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	var f interface{}
+	err = json.Unmarshal(bytes, &f)
+	if err != nil {
+		fmt.Println("Error parsing JSON: ", err)
+		panic(err)
+	}
+
+	session.SetMode(mgo.Primary, true)
+	doc := make(map[string]interface{})
+	traverseDocument(&doc, f, true)
+	bytes, _ = json.MarshalIndent(doc, "", "   ")
+	if verbose {
+		fmt.Println(string(bytes))
+	}
+	var contentArray []interface{}
+	examplesCollection := session.DB(keyholeDB).C("examples")
+	if isDrop {
+		examplesCollection.DropCollection()
+	}
+	bulk := examplesCollection.Bulk()
+	total := 1000
+	for n := 0; n < total; n++ {
+		ndoc := make(map[string]interface{})
+		fmt.Printf("\r%3d%% ", 100*n/total)
+		traverseDocument(&ndoc, doc, false)
+		delete(ndoc, "_id")
+		contentArray = append(contentArray, ndoc)
+	}
+	bulk.Insert(contentArray...)
+	_, err = bulk.Run()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	examplesCount, _ := examplesCollection.Count()
+	fmt.Printf("\rSeeded examples: %d, total count: %d\n", total, examplesCount)
+}
+
+// traverse a doc and replace values with random values according to their data type.
+func traverseDocument(doc *map[string]interface{}, f interface{}, meta bool) {
+	elems := f.(map[string]interface{})
+	for key, value := range elems {
+		switch o := value.(type) {
+		case map[string]interface{}:
+			subdoc := make(map[string]interface{})
+			traverseDocument(&subdoc, value, meta)
+			(*doc)[key] = subdoc
+		case []interface{}:
+			subdoc := make([]interface{}, len(o))
+			getArrayOfRandomDocs(o, &subdoc, meta)
+			(*doc)[key] = subdoc
+		case bool:
+			b := true
+			if rand.Int()%2 == 0 {
+				b = false
+			}
+			(*doc)[key] = b
+		case int, int8, int16, int32, int64:
+			(*doc)[key] = rand.Intn(10000)
+		case float32, float64:
+			(*doc)[key] = rand.Intn(10000)
+		case string:
+			(*doc)[key] = getMagicString(value.(string), meta)
+		default:
+			(*doc)[key] = value
+		}
+	}
+}
+
+func getArrayOfRandomDocs(obj []interface{}, subdoc *[]interface{}, meta bool) {
+	for key, value := range obj {
+		switch o := value.(type) {
+		case bool:
+			b := true
+			if rand.Int()%2 == 0 {
+				b = false
+			}
+			(*subdoc)[key] = b
+		case int, int8, int16, int32, int64:
+			(*subdoc)[key] = rand.Intn(10000)
+		case float32, float64:
+			(*subdoc)[key] = rand.Intn(10000)
+		case string:
+			(*subdoc)[key] = getMagicString(value.(string), meta)
+		case []interface{}:
+			subdocument := make([]interface{}, len(o))
+			getArrayOfRandomDocs(o, &subdocument, meta)
+			(*subdoc)[key] = subdocument
+		case map[string]interface{}:
+			subdoc1 := make(map[string]interface{})
+			traverseDocument(&subdoc1, value, meta)
+			(*subdoc)[key] = subdoc1
+		case interface{}:
+			fmt.Println("=>", o)
+			(*subdoc)[key] = value
+		default:
+		}
+	}
+}
+
+// Returns randomized string.  if meta is true, it intends to avoid future regex
+// actions by replacing the values with $mail, $ip, and $date.
+func getMagicString(str string, meta bool) string {
+	if meta {
+		if isEmailAddress(str) {
+			return "$mail"
+		} else if isIP(str) {
+			return "$ip"
+		} else if isDateString(str) {
+			return "$date"
+		}
+		return str
+	}
+
+	if str == "$mail" || isEmailAddress(str) {
+		return getEmailAddress()
+	} else if str == "$ip" || isIP(str) {
+		return getIP()
+	} else if str == "$date" || isDateString(str) {
+		return getDateString(len(str))
+	} else if isHexString(str) {
+		return getHexString(len(str))
+	}
+
+	if len(str) < 10 {
+		return fnames[rand.Intn(len(fnames))]
+	}
+	quote := ""
+	for len(quote) < len(str) {
+		quote += quotes[rand.Intn(len(quotes))] + " "
+	}
+	quote = quote[:len(str)]
+	quote = strings.Trim(quote, " ")
+	idx := strings.LastIndex(quote, " ")
+	if idx < 0 {
+		return quote
+	}
+
+	return quote[:idx]
+}
+
+func isEmailAddress(str string) bool {
+	var matched = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
+	return matched.MatchString(str)
+}
+
+func getEmailAddress() string {
+	return fnames[rand.Intn(len(fnames)-1)] + "." + lnames[rand.Intn(len(lnames)-1)] + "@" + domains[rand.Intn(len(domains)-1)]
+}
+
+func isIP(str string) bool {
+	var matched = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+	return matched.MatchString(str)
+}
+
+func getIP() string {
+	return strconv.Itoa(rand.Intn(255)) + "." + strconv.Itoa(rand.Intn(255)) + "." +
+		strconv.Itoa(rand.Intn(255)) + "." + strconv.Itoa(rand.Intn(255))
+}
+
+func isHexString(str string) bool {
+	var matched = regexp.MustCompile(`^[\da-fA-F]+$`)
+	return matched.MatchString(str)
+}
+
+func getHexString(n int) string {
+	hexstr := "1234567890abcdef"
+	hex := ""
+	for len(hex) < n {
+		hex += string(hexstr[rand.Intn(len(hexstr)-1)])
+	}
+	return hex
+}
+
+func isDateString(str string) bool {
+	var matched = regexp.MustCompile(`^\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])T.*Z$`)
+	return matched.MatchString(str)
+}
+
+func getDateString(n int) string {
+	min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+	max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+	delta := max - min
+	sec := rand.Int63n(delta) + min
+	return time.Unix(sec, 0).Format(time.RFC3339)
+}
+
+var quotes = []string{
+	"Frankly, my dear, I don't give a damn.",
+	"Here's looking at you, kid.",
+	"You're gonna need a bigger boat.",
+	"May the Force be with you.",
+	"Toto, I've a feeling we're not in Kansas anymore.",
+	"I'm going to make him an offer he can't refuse.",
+	"Of all the gin joints in all the towns in all the world, she walks into mine.",
+	"You talkin' to me?",
+	"There's no place like home.",
+	"The first rule of Fight Club is: You do not talk about Fight Club.",
+}
+
+var domains = []string{"gmail.com", "me.com", "yahoo.com", "outlook.com",
+	"simagix.com", "aol.com", "mongodb.com", "example.com"}
+var fnames = []string{"Liam", "Emma", "Noah", "Olivia", "Willaim",
+	"Ava", "James", "Isabella", "Logan", "Sophia"}
+var lnames = []string{"Smith", "Johnson", "Williams", "Brown", "Jones",
+	"Miller", "Davis", "Garcia", "Rodriguez", "Chen"}

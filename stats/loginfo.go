@@ -41,12 +41,11 @@ func LogInfo(filename string) {
 	index := 0
 
 	for {
-		fmt.Printf("\r%3d%%", (100*index)/lineCounts)
+		fmt.Printf("\r%3d%% ", (100*index)/lineCounts)
 		buf, _, err := reader.ReadLine() // 0x0A separator = newline
 		index++
 		scan := ""
 		if err != nil {
-			fmt.Printf("\r%3d%%\n", 100)
 			break
 		} else if matched.MatchString(string(buf)) == true {
 			str := string(buf)
@@ -123,7 +122,7 @@ func LogInfo(filename string) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
 	})
-	fmt.Println("+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
+	fmt.Println("\r+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
 	fmt.Printf("|Command|COLLSCAN| avg ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
 	fmt.Println("|-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------|")
 	for _, value := range arr {
