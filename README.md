@@ -141,6 +141,12 @@ Populate a small amount of data to *\_KEYHOLE\_* databse for [demo](SEED.md) and
 keyhole --uri mongodb://localhost/?replicaSet=replset --seed
 ```
 
+Seeding data from a template is also supported, see [document](SEED.md) for details.
+
+```
+keyhole --uri mongodb://localhost/?replicaSet=replset --seed --file <json_file> [--drop]
+```
+
 ### Ops Performance Analytic
 Display ops average execution with query patterns using `--loginfo` flag.  See [LOGINFO.md](LOGINFO.md) for details.
 
