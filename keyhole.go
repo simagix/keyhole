@@ -77,7 +77,7 @@ func main() {
 		if *file == "" {
 			stats.Seed(session, *verbose)
 		} else {
-			stats.SeedFromTemplate(session, *file, *drop)
+			stats.SeedFromTemplate(session, *file, *drop, *verbose)
 		}
 		os.Exit(0)
 	}

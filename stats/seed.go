@@ -146,7 +146,7 @@ func Seed(session *mgo.Session, verbose bool) {
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool) {
+func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbose bool) {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		panic(err)
@@ -159,9 +159,13 @@ func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool) {
 		panic(err)
 	}
 
+	session.SetMode(mgo.Primary, true)
 	doc := make(map[string]interface{})
 	traverseDocument(&doc, f, true)
-	session.SetMode(mgo.Primary, true)
+	bytes, _ = json.MarshalIndent(doc, "", "   ")
+	if verbose {
+		fmt.Println(string(bytes))
+	}
 	var contentArray []interface{}
 	examplesCollection := session.DB(keyholeDB).C("examples")
 	if isDrop {
@@ -173,6 +177,7 @@ func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool) {
 		ndoc := make(map[string]interface{})
 		fmt.Printf("\r%3d%% ", 100*n/total)
 		traverseDocument(&ndoc, doc, false)
+		delete(ndoc, "_id")
 		contentArray = append(contentArray, ndoc)
 	}
 	bulk.Insert(contentArray...)
@@ -185,6 +190,7 @@ func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool) {
 	fmt.Printf("\rSeeded examples: %d, total count: %d\n", total, examplesCount)
 }
 
+// traverse a doc and replace values with random values according to their data type.
 func traverseDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 	elems := f.(map[string]interface{})
 	for key, value := range elems {
@@ -246,6 +252,8 @@ func getArrayOfRandomDocs(obj []interface{}, subdoc *[]interface{}, meta bool) {
 	}
 }
 
+// Returns randomized string.  if meta is true, it intends to avoid future regex
+// actions by replacing the values with $mail, $ip, and $date.
 func getMagicString(str string, meta bool) string {
 	if meta {
 		if isEmailAddress(str) {
@@ -268,6 +276,9 @@ func getMagicString(str string, meta bool) string {
 		return getHexString(len(str))
 	}
 
+	if len(str) < 10 {
+		return fnames[rand.Intn(len(fnames))]
+	}
 	quote := ""
 	for len(quote) < len(str) {
 		quote += quotes[rand.Intn(len(quotes))] + " "
