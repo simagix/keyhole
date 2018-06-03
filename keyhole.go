@@ -95,7 +95,7 @@ func main() {
 		curi = list[0]
 	}
 
-	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
+	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -133,7 +133,7 @@ func main() {
 				case <-quit:
 					return
 				default:
-					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps)
+					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose)
 					if *simonly == false {
 						msim.PopulateData()
 						*duration--
