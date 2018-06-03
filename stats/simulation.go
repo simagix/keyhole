@@ -5,6 +5,8 @@ package stats
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
 	"math/rand"
@@ -46,16 +48,61 @@ var favorites = Favorites{
 
 // MongoConn -
 type MongoConn struct {
-	uri    string
-	ssl    bool
-	sslCA  string
-	dbName string
-	tps    int
+	uri      string
+	ssl      bool
+	sslCA    string
+	dbName   string
+	tps      int
+	filename string
+	verbose  bool
+}
+
+var simDocs []bson.M
+
+// initialize an array of documents for simulation test.  If a template is available
+// read the sample json and replace them with random values.  Otherwise, use the demo
+// example.
+func (m MongoConn) initSimDocs() {
+	rand.Seed(time.Now().Unix())
+	total := 512
+	if m.filename == "" {
+		for len(simDocs) < total {
+			simDocs = append(simDocs, GetRandomDoc())
+		}
+		return
+	}
+
+	bytes, err := ioutil.ReadFile(m.filename)
+	if err != nil {
+		panic(err)
+	}
+
+	var f interface{}
+	err = json.Unmarshal(bytes, &f)
+	if err != nil {
+		fmt.Println("Error parsing JSON: ", err)
+		panic(err)
+	}
+
+	doc := make(map[string]interface{})
+	traverseDocument(&doc, f, true)
+	if m.verbose {
+		bytes, _ = json.MarshalIndent(doc, "", "   ")
+		fmt.Println(string(bytes))
+	}
+
+	for len(simDocs) < total {
+		ndoc := make(map[string]interface{})
+		traverseDocument(&ndoc, doc, false)
+		delete(ndoc, "_id")
+		simDocs = append(simDocs, ndoc)
+	}
 }
 
 // New - Constructor
-func New(uri string, ssl bool, sslCA string, dbName string, tps int) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, dbName, tps}
+func New(uri string, ssl bool, sslCA string, dbName string, tps int, filename string, verbose bool) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose}
+	m.initSimDocs()
 	return m
 }
 
@@ -141,7 +188,6 @@ func GetRandomDoc() bson.M {
 //	favoriteSports3
 // }
 func (m MongoConn) PopulateData() {
-	rand.Seed(time.Now().Unix())
 	s := 0
 	batchSize := 20
 	if m.tps < batchSize {
@@ -159,7 +205,7 @@ func (m MongoConn) PopulateData() {
 			for i := 0; i < m.tps; i += batchSize {
 				var contentArray []interface{}
 				for n := 0; n < batchSize; n++ {
-					contentArray = append(contentArray, GetRandomDoc())
+					contentArray = append(contentArray, simDocs[i%len(simDocs)])
 				}
 				bulk.Insert(contentArray...)
 				_, err := bulk.Run()
@@ -214,8 +260,8 @@ func (m MongoConn) Simulate(duration int) {
 			var book string
 			var city string
 			var movie string
-			for i := 0; i < 500; i++ {
-				doc := GetRandomDoc()
+			for i := 0; i < m.tps; i++ {
+				doc := simDocs[i%len(simDocs)]
 				bytes, _ := json.Marshal(doc)
 				json.Unmarshal(bytes, &schema)
 				city = schema.FavoriteCity
@@ -227,17 +273,26 @@ func (m MongoConn) Simulate(duration int) {
 				} else {
 					_id := bson.NewObjectIdWithTime(time.Now())
 					c.Upsert(_id, doc)
-					c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
-					c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
-					c.Update(bson.M{"_id": _id}, change)
-					c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
-					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
-					c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
-					c.Remove(bson.M{"_id": _id})
+					if m.filename == "" {
+						// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
+						c.Find(bson.M{"favoriteCity": city}).Limit(20).All(&results)
+						c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
+						c.Update(bson.M{"_id": _id}, change)
+						// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
+						c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
+						// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
+					} else {
+						c.Find(bson.M{"_id": _id}).One(&results)
+						c.Update(bson.M{"_id": _id}, change)
+						c.Remove(bson.M{"_id": _id})
+					}
+
 				}
 				time.Sleep(time.Millisecond * time.Duration(waitms))
 			}
-			c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteBook").Limit(100).All(&results)
+			if m.filename == "" {
+				c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteCity").Limit(20).All(&results)
+			}
 			session.Close()
 		}
 	}
