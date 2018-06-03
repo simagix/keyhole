@@ -20,6 +20,8 @@ var version string
 func main() {
 	conn := flag.Int("conn", 20, "nuumber of connections")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
+	drop := flag.Bool("drop", false, "drop examples collection before seeding")
+	file := flag.String("file", "", "template file for seedibg data")
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	peek := flag.Bool("peek", false, "only collect data")
@@ -51,6 +53,7 @@ func main() {
 		fmt.Println(doc)
 		os.Exit(0)
 	} else if len(*uri) == 0 {
+		fmt.Println("Missing --uri")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
@@ -70,8 +73,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		stats.Seed(session, *verbose)
-		session.Close()
+		defer session.Close()
+		if *file == "" {
+			stats.Seed(session, *verbose)
+		} else {
+			stats.SeedFromTemplate(session, *file, *drop)
+		}
 		os.Exit(0)
 	}
 
