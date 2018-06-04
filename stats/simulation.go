@@ -213,7 +213,11 @@ func (m MongoConn) PopulateData() {
 				elapsed = time.Duration(elapsed.Seconds() - x)
 			}
 			et := time.Second.Seconds() - elapsed.Seconds()
-			time.Sleep(time.Duration(et))
+			if et > 0 {
+				time.Sleep(time.Millisecond * time.Duration(int(1000*et)))
+			} else if m.verbose {
+				fmt.Println("Populate", "TPS Overflows", et)
+			}
 			session.Close()
 		} else {
 			time.Sleep(time.Second)
@@ -227,17 +231,26 @@ func (m MongoConn) Simulate(duration int) {
 	results := []bson.M{}
 	change := bson.M{"$set": bson.M{"ts": time.Now()}}
 	burstBegin := time.NewTimer(1 * time.Minute)
-	waitms := 5
+	waitms := 2
+	totalTPS := m.tps / 2
 	isTeardown := false
 
 	go func() {
 		<-burstBegin.C
-		waitms = 0
+		if m.verbose {
+			println("burst begins")
+		}
+		totalTPS = m.tps
+		waitms = 1
 	}()
 	burstEnd := time.NewTimer(time.Duration(duration-1) * time.Minute)
 	go func() {
 		<-burstEnd.C
-		waitms = 1
+		if m.verbose {
+			println("burst ends")
+		}
+		totalTPS = m.tps / 2
+		waitms = 2
 		isTeardown = true
 	}()
 
@@ -249,7 +262,8 @@ func (m MongoConn) Simulate(duration int) {
 			var book string
 			var city string
 			var movie string
-			for i := 0; i < m.tps; i++ {
+			beginTime := time.Now()
+			for i := 0; i < totalTPS; i++ {
 				doc := simDocs[i%len(simDocs)]
 				bytes, _ := json.Marshal(doc)
 				json.Unmarshal(bytes, &schema)
@@ -259,9 +273,11 @@ func (m MongoConn) Simulate(duration int) {
 
 				if isTeardown {
 					c.RemoveAll(bson.M{"favoriteCity": city, "favoriteBook": book})
+					time.Sleep(time.Millisecond * time.Duration(waitms))
 				} else {
 					_id := bson.NewObjectIdWithTime(time.Now())
 					c.Upsert(_id, doc)
+					time.Sleep(time.Millisecond * time.Duration(waitms))
 					if m.filename == "" {
 						// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
 						c.Find(bson.M{"favoriteCity": city}).Limit(20).All(&results)
@@ -272,12 +288,27 @@ func (m MongoConn) Simulate(duration int) {
 						// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
 					} else {
 						c.Find(bson.M{"_id": _id}).One(&results)
+						time.Sleep(time.Millisecond * time.Duration(waitms))
 						c.Update(bson.M{"_id": _id}, change)
+						time.Sleep(time.Millisecond * time.Duration(waitms))
 						c.Remove(bson.M{"_id": _id})
 					}
-
 				}
-				time.Sleep(time.Millisecond * time.Duration(waitms))
+				if (i % 21) == 20 {
+					seconds := 1 - time.Now().Sub(beginTime).Seconds()
+					if seconds < 0 {
+						if m.verbose {
+							fmt.Println("Simulate", "TPS overflows and break out of loop", seconds)
+						}
+						break
+					}
+				}
+			}
+			seconds := 1 - time.Now().Sub(beginTime).Seconds()
+			if seconds > 0 {
+				time.Sleep(time.Millisecond * time.Duration(int(1000*seconds)))
+			} else if m.verbose {
+				fmt.Println("Simulate", "TPS overflows", seconds)
 			}
 			if m.filename == "" {
 				c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteCity").Limit(20).All(&results)
