@@ -165,7 +165,7 @@ func Seed(session *mgo.Session, verbose bool) {
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbose bool) {
+func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop bool, verbose bool) {
 	sdoc := GetDocByTemplate(filename, true)
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if verbose {
@@ -180,7 +180,6 @@ func SeedFromTemplate(session *mgo.Session, filename string, isDrop bool, verbos
 		examplesCollection.DropCollection()
 	}
 	bulk := examplesCollection.Bulk()
-	total := 1000
 	for n := 0; n < total; n++ {
 		ndoc := make(map[string]interface{})
 		fmt.Fprintf(os.Stderr, "\r%3d%% ", 100*n/total)

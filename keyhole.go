@@ -34,6 +34,7 @@ func main() {
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
 	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
+	total := flag.Int("total", 1000, "nuumber of documents to create")
 	uri := flag.String("uri", "", "MongoDB URI")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
@@ -91,7 +92,7 @@ func main() {
 		if *file == "" {
 			stats.Seed(session, *verbose)
 		} else {
-			stats.SeedFromTemplate(session, *file, *drop, *verbose)
+			stats.SeedFromTemplate(session, *file, *total, *drop, *verbose)
 		}
 		os.Exit(0)
 	}
