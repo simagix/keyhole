@@ -1,6 +1,10 @@
 #! /bin/bash
 # Copyright 2018 Kuei-chun Chen. All rights reserved.
 
+# Test quotes
+go run keyhole.go --quote
+go run keyhole.go --quotes
+
 # Test version
 go run keyhole.go --version
 

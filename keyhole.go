@@ -26,6 +26,8 @@ func main() {
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	peek := flag.Bool("peek", false, "only collect data")
+	quote := flag.Bool("quote", false, "print a quote")
+	quotes := flag.Bool("quotes", false, "print all quotes")
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
@@ -38,7 +40,13 @@ func main() {
 	view := flag.String("view", "", "server status file")
 
 	flag.Parse()
-	if *view != "" {
+	if *quote {
+		stats.PrintQuote()
+		os.Exit(0)
+	} else if *quotes {
+		stats.PrintQuotes()
+		os.Exit(0)
+	} else if *view != "" {
 		stats.AnalyzeServerStatus(*view)
 		os.Exit(0)
 	} else if *loginfo != "" {

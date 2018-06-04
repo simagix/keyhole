@@ -351,6 +351,19 @@ func getDateString(n int) string {
 	return time.Unix(sec, 0).Format(time.RFC3339)
 }
 
+// PrintQuote print a random quote
+func PrintQuote() {
+	rand.Seed(time.Now().Unix())
+	fmt.Println(quotes[rand.Intn(len(quotes))])
+}
+
+// PrintQuotes print all quotes
+func PrintQuotes() {
+	for _, q := range quotes {
+		fmt.Println(q)
+	}
+}
+
 var quotes = []string{
 	"Frankly, my dear, I don't give a damn.",
 	"I'm going to make him an offer he can't refuse.",
