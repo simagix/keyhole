@@ -182,7 +182,9 @@ func (m MongoConn) PrintDBStats() {
 			stat := m.dbStats(session)
 			bytes, _ := json.Marshal(stat)
 			json.Unmarshal(bytes, &docs)
-			dataSize = docs["dataSize"].(float64)
+			if docs["dataSize"] != nil {
+				dataSize = docs["dataSize"].(float64)
+			}
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 1 && delta > .01 {
