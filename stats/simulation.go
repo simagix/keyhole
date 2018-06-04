@@ -60,6 +60,13 @@ type MongoConn struct {
 
 var simDocs []bson.M
 
+// New - Constructor
+func New(uri string, ssl bool, sslCA string, dbName string, tps int, filename string, verbose bool, cleanUp bool) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp}
+	m.initSimDocs()
+	return m
+}
+
 // initialize an array of documents for simulation test.  If a template is available
 // read the sample json and replace them with random values.  Otherwise, use the demo
 // example.
@@ -85,15 +92,9 @@ func (m MongoConn) initSimDocs() {
 		ndoc := make(map[string]interface{})
 		traverseDocument(&ndoc, doc, false)
 		delete(ndoc, "_id")
+		ndoc["_search"] = strconv.FormatInt(rand.Int63(), 16)
 		simDocs = append(simDocs, ndoc)
 	}
-}
-
-// New - Constructor
-func New(uri string, ssl bool, sslCA string, dbName string, tps int, filename string, verbose bool, cleanUp bool) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp}
-	m.initSimDocs()
-	return m
 }
 
 func unique(s []string) []string {
@@ -139,6 +140,7 @@ func GetRandomDoc() bson.M {
 	}
 
 	doc := bson.M{
+		"_search": strconv.FormatInt(rand.Int63(), 16),
 		"favorites": bson.M{
 			"sports": favoriteSports, "sport": favoriteSports[0],
 			"musics": favoriteMusic, "music": favoriteMusic[0],
@@ -231,29 +233,12 @@ func (m MongoConn) Simulate(duration int) {
 	var schema = Schema{}
 	results := []bson.M{}
 	change := bson.M{"$set": bson.M{"ts": time.Now()}}
-	burstBegin := time.NewTimer(1 * time.Minute)
 	waitms := 2
-	totalTPS := m.tps / 2
 	isTeardown := false
+	var totalTPS int
 
-	go func() {
-		<-burstBegin.C
-		if m.verbose {
-			println("burst begins")
-		}
-		totalTPS = m.tps
-	}()
-	burstEnd := time.NewTimer(time.Duration(duration-1) * time.Minute)
-	go func() {
-		<-burstEnd.C
-		if m.verbose {
-			println("burst ends")
-		}
-		totalTPS = m.tps / 2
-		isTeardown = true
-	}()
-
-	for {
+	run := 0
+	for run < duration {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		session.SetMode(mgo.Primary, true)
 		if err == nil {
@@ -262,6 +247,11 @@ func (m MongoConn) Simulate(duration int) {
 			var city string
 			var movie string
 			beginTime := time.Now()
+			if run > 0 && run < (duration-1) {
+				totalTPS = m.tps
+			} else {
+				totalTPS = m.tps / 2
+			}
 			for i := 0; i < totalTPS; i++ {
 				doc := simDocs[i%len(simDocs)]
 				bytes, _ := json.Marshal(doc)
@@ -271,11 +261,10 @@ func (m MongoConn) Simulate(duration int) {
 				movie = schema.FavoriteMovie
 
 				if isTeardown {
-					c.RemoveAll(bson.M{"_search": strconv.FormatInt(int64(i)*100, 16)})
+					c.RemoveAll(bson.M{"_search": doc["_search"]})
 					time.Sleep(time.Millisecond * time.Duration(waitms))
 				} else {
 					_id := bson.NewObjectIdWithTime(time.Now())
-					doc["_search"] = strconv.FormatInt(int64(i)*100, 16)
 					c.Upsert(_id, doc)
 					time.Sleep(time.Millisecond * time.Duration(waitms))
 					if m.filename == "" {

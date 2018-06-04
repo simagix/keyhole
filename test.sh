@@ -3,7 +3,7 @@
 
 mongod --version
 mkdir -p data/db
-mongod --port 33168 --dbpath data/db --logpath data/mongod.log --fork
+mongod --port 33168 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB .5
 
 # Test version
 go run keyhole.go --version
