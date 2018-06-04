@@ -151,6 +151,7 @@ func main() {
 					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup)
 					if *simonly == false {
 						msim.PopulateData()
+						time.Sleep(time.Second)
 						*duration--
 					}
 					msim.Simulate(*duration)

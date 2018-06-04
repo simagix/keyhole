@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strconv"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
@@ -182,7 +183,7 @@ func (m MongoConn) PopulateData() {
 	if m.tps < batchSize {
 		batchSize = m.tps
 	}
-	for s < 60 {
+	for s < 57 { // 3 seconds less of a minute
 		s++
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		if err == nil {
@@ -241,7 +242,6 @@ func (m MongoConn) Simulate(duration int) {
 			println("burst begins")
 		}
 		totalTPS = m.tps
-		waitms = 1
 	}()
 	burstEnd := time.NewTimer(time.Duration(duration-1) * time.Minute)
 	go func() {
@@ -250,7 +250,6 @@ func (m MongoConn) Simulate(duration int) {
 			println("burst ends")
 		}
 		totalTPS = m.tps / 2
-		waitms = 2
 		isTeardown = true
 	}()
 
@@ -272,10 +271,11 @@ func (m MongoConn) Simulate(duration int) {
 				movie = schema.FavoriteMovie
 
 				if isTeardown {
-					c.RemoveAll(bson.M{"favoriteCity": city, "favoriteBook": book})
+					c.RemoveAll(bson.M{"_search": strconv.FormatInt(int64(i)*100, 16)})
 					time.Sleep(time.Millisecond * time.Duration(waitms))
 				} else {
 					_id := bson.NewObjectIdWithTime(time.Now())
+					doc["_search"] = strconv.FormatInt(int64(i)*100, 16)
 					c.Upsert(_id, doc)
 					time.Sleep(time.Millisecond * time.Duration(waitms))
 					if m.filename == "" {
@@ -287,11 +287,19 @@ func (m MongoConn) Simulate(duration int) {
 						c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
 						// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
 					} else {
-						c.Find(bson.M{"_id": _id}).One(&results)
-						time.Sleep(time.Millisecond * time.Duration(waitms))
-						c.Update(bson.M{"_id": _id}, change)
-						time.Sleep(time.Millisecond * time.Duration(waitms))
-						c.Remove(bson.M{"_id": _id})
+						if i == 20 {
+							c.Find(bson.M{"COLLSCAN": doc["_search"]}).One(&results) // simulate COLLSCAN
+						} else if (i % 21) == 20 {
+							c.Find(bson.M{"_search": doc["_search"]}).Sort("_search").Limit(10).All(&results)
+						} else {
+							c.Find(bson.M{"_id": _id}).One(&results)
+							time.Sleep(time.Millisecond * time.Duration(waitms))
+							if (i % 2) == 0 {
+								c.Update(bson.M{"_id": _id}, change)
+							} else {
+								c.Remove(bson.M{"_id": _id})
+							}
+						}
 					}
 				}
 				if (i % 21) == 20 {
@@ -341,5 +349,9 @@ func (m MongoConn) CreateIndexes() {
 	session, _ := GetSession(m.uri, m.ssl, m.sslCA)
 	defer session.Close()
 	c := session.DB(m.dbName).C(CollectionName)
-	c.EnsureIndexKey("favoriteCity")
+
+	if m.filename == "" {
+		c.EnsureIndexKey("favoriteCity")
+	}
+	c.EnsureIndexKey("_search")
 }
