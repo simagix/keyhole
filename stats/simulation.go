@@ -181,7 +181,7 @@ func GetRandomDoc() bson.M {
 //	favoriteSports2
 //	favoriteSports3
 // }
-func (m MongoConn) PopulateData() {
+func (m MongoConn) PopulateData(wmajor bool) {
 	s := 0
 	batchSize := 20
 	if m.tps < batchSize {
@@ -192,6 +192,11 @@ func (m MongoConn) PopulateData() {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
+			if wmajor {
+				session.SetSafe(&mgo.Safe{WMode: "majority"})
+			} else {
+				session.SetSafe(&mgo.Safe{W: 1})
+			}
 			c := session.DB(m.dbName).C(CollectionName)
 			bt := time.Now()
 			bulk := c.Bulk()
@@ -231,7 +236,7 @@ func (m MongoConn) PopulateData() {
 }
 
 // Simulate simulates CRUD for load tests
-func (m MongoConn) Simulate(duration int) {
+func (m MongoConn) Simulate(duration int, wmajor bool) {
 	var schema = Schema{}
 	results := []bson.M{}
 	change := bson.M{"$set": bson.M{"ts": time.Now()}}
@@ -243,6 +248,11 @@ func (m MongoConn) Simulate(duration int) {
 	for run < duration {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		session.SetMode(mgo.Primary, true)
+		if wmajor {
+			session.SetSafe(&mgo.Safe{WMode: "majority"})
+		} else {
+			session.SetSafe(&mgo.Safe{W: 1})
+		}
 		if err == nil {
 			c := session.DB(m.dbName).C(CollectionName)
 			var book string

@@ -115,15 +115,12 @@ type ServerStatusDoc struct {
 
 // CollectServerStatus collects db.serverStatus() every minute
 func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
-	fmt.Println("CollectServerStatus: connect to", uri)
+	mapKey := getKeyFromReplicaSetName(uri)
+	fmt.Println("CollectServerStatus: connect to", mapKey)
 	pstat := ServerStatusDoc{}
 	stat := ServerStatusDoc{}
 	var iop int
 	var piop int
-	dialInfo, _ := mgo.ParseURL(uri)
-	if dialInfo.ReplicaSetName == "" {
-		dialInfo.ReplicaSetName = "standalone"
-	}
 
 	for {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
@@ -137,11 +134,9 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			if len(serverStatusDocs) > 10 {
 				saveServerStatusDocsToFile(uri)
 			}
-			if dialInfo.ReplicaSetName == "" {
-				dialInfo.ReplicaSetName = "standalone"
-			}
+
 			str := fmt.Sprintf("\n%s [%s] Memory - resident: %d, virtual: %d",
-				key, dialInfo.ReplicaSetName, stat.Mem.Resident, stat.Mem.Virtual)
+				key, mapKey, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
@@ -152,14 +147,14 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 					str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
 						(stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
 					str += fmt.Sprintf("%s [%s] CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
-						key, dialInfo.ReplicaSetName, stat.OpCounters.Insert-pstat.OpCounters.Insert,
+						key, mapKey, stat.OpCounters.Insert-pstat.OpCounters.Insert,
 						stat.OpCounters.Query-pstat.OpCounters.Query,
 						stat.OpCounters.Update-pstat.OpCounters.Update,
 						stat.OpCounters.Delete-pstat.OpCounters.Delete,
 						stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
 						stat.OpCounters.Command-pstat.OpCounters.Command)
 					str += fmt.Sprintf("%s [%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
-						key, dialInfo.ReplicaSetName,
+						key, mapKey,
 						float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
 						float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
 						float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
@@ -179,16 +174,13 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 
 // CollectDBStats collects dbStats every 10 seconds
 func (m MongoConn) CollectDBStats(uri string, channel chan string) {
-	fmt.Println("CollectDBStats: connect to", uri)
+	mapKey := getKeyFromReplicaSetName(uri)
+	fmt.Println("CollectDBStats: connect to", mapKey)
 	var docs map[string]interface{}
 	var prevDataSize float64
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	dialInfo, _ := mgo.ParseURL(uri)
-	if dialInfo.ReplicaSetName == "" {
-		dialInfo.ReplicaSetName = "standalone"
-	}
 	for {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
 		if err == nil {
@@ -202,8 +194,8 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string) {
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 1 && delta > .01 {
-				str := fmt.Sprintf("%s [%s] Storage: %.1f -,> %.1f, rate: %.1f MB/sec\n",
-					now.Format(time.RFC3339), dialInfo.ReplicaSetName, prevDataSize/mb, dataSize/mb, delta)
+				str := fmt.Sprintf("%s [%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
+					now.Format(time.RFC3339), mapKey, prevDataSize/mb, dataSize/mb, delta)
 				channel <- str
 			}
 			prevDataSize = dataSize
@@ -234,13 +226,10 @@ func (m MongoConn) PrintServerStatus(uri string) {
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
 func saveServerStatusDocsToFile(uri string) string {
-	dialInfo, _ := mgo.ParseURL(uri)
-	if dialInfo.ReplicaSetName == "" {
-		dialInfo.ReplicaSetName = "standalone"
-	}
+	mapKey := getKeyFromReplicaSetName(uri)
 	bytes, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
-	filename := keyholeStatsDataFile + "-" + dialInfo.ReplicaSetName
+	filename := keyholeStatsDataFile + "-" + mapKey
 	fmt.Println("\nstats written to", filename)
 	f, ferr := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0644)
 	if ferr != nil {
@@ -270,7 +259,7 @@ func (m MongoConn) dbStats(session *mgo.Session) bson.M {
 
 // AnalyzeServerStatus -
 func AnalyzeServerStatus(filename string) {
-	fmt.Println("filename", filename)
+	// fmt.Println("filename", filename)
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	f, err := os.Open(filename)
@@ -289,7 +278,12 @@ func AnalyzeServerStatus(filename string) {
 		json.Unmarshal([]byte(line), &docs)
 		allDocs = append(allDocs, docs...)
 	}
-
+	if len(allDocs) > 0 {
+		stat := ServerStatusDoc{}
+		bytes, _ := json.Marshal(allDocs[0])
+		json.Unmarshal(bytes, &stat)
+		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
+	}
 	PrintStatsDetails(allDocs)
 	PrintLatencyDetails(allDocs)
 	PrintMetricsDetails(allDocs)
@@ -431,4 +425,13 @@ func PrintWiredTigerDetails(docs []ServerStatusDoc) {
 		cnt++
 	}
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
+}
+
+func getKeyFromReplicaSetName(uri string) string {
+	dialInfo, _ := mgo.ParseURL(uri)
+	key := dialInfo.ReplicaSetName
+	if dialInfo.ReplicaSetName == "" {
+		return "standalone"
+	}
+	return key
 }

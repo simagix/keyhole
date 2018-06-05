@@ -39,6 +39,7 @@ func main() {
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
 	view := flag.String("view", "", "server status file")
+	wmajor := flag.Bool("wmajor", false, "{w: majority}")
 
 	flag.Parse()
 	if *quote {
@@ -138,6 +139,9 @@ func main() {
 			stats.ShardCollection(session, stats.DBName+"."+stats.CollectionName)
 		}
 
+		if *wmajor {
+			fmt.Println("{w : majority}")
+		}
 		// Simulation mode
 		// 1st minute - build up data and memory
 		// 2nd and 3rd minutes - normal TPS ops
@@ -153,11 +157,11 @@ func main() {
 				default:
 					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek)
 					if *simonly == false {
-						msim.PopulateData()
+						msim.PopulateData(*wmajor)
 						time.Sleep(time.Second)
 						*duration--
 					}
-					msim.Simulate(*duration)
+					msim.Simulate(*duration, *wmajor)
 					time.Sleep(time.Second)
 				}
 			}()
