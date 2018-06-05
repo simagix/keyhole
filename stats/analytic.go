@@ -115,6 +115,7 @@ type ServerStatusDoc struct {
 
 // CollectServerStatus collects db.serverStatus() every minute
 func (m MongoConn) CollectServerStatus(uri string) {
+	fmt.Println("Connect to", uri)
 	pstat := ServerStatusDoc{}
 	stat := ServerStatusDoc{}
 	var iop int

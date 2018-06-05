@@ -110,7 +110,7 @@ func main() {
 		curi = list[0]
 	}
 
-	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup)
+	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -139,7 +139,6 @@ func main() {
 		// 2nd and 3rd minutes - normal TPS ops
 		// remaining minutes - burst with no delay
 		// last minute - normal TPS ops until exit
-		go m.PrintDBStats()
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
 		m.CreateIndexes()
 		for i := 0; i < *conn; i++ {
@@ -148,7 +147,7 @@ func main() {
 				case <-quit:
 					return
 				default:
-					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup)
+					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek)
 					if *simonly == false {
 						msim.PopulateData()
 						time.Sleep(time.Second)
@@ -161,5 +160,6 @@ func main() {
 		}
 	}
 
+	go m.PrintDBStats()
 	m.CollectServerStatus(curi)
 }
