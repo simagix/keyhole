@@ -155,7 +155,7 @@ keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
 ```
 
 
-For a sharded cluster, *keyhole* connects to the primary node of the first shard.  The reason of doing so is to collect more stats, such as wiredTiger stats data, and provide a partial view of the entire cluster.  To cover all shards, spin up multiple instances of *keyhole* and connect to each shard as connecting to a replica set.
+For a sharded cluster, *keyhole* connects to the primary node of all shards.  The reason of doing so, instead of remaining at `mongos` is to collect more stats, such as wiredTiger stats data, and provide a partial view of the entire cluster.
 
 ### Stats Viewing
 At the end of a *keyhole*, including monitoring and load test, it writes data to a file under system's default temporary directory.  Save the file and you can view the summaries again using *keyhole* with `--view` flag.  For example,
@@ -220,7 +220,7 @@ keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
 
 The above command by default spawns 20 connections and generates 600 transactions per second (TPS) for 5 minutes.  You can change the number of connections by including the `--conn` flag, the TPS from `--tps` flag, and duration from `--duration` flag.
 
-Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.  If you want collect all stats from all `mongod` instances, spin up multiple `keyhole` instances and connect to each `mongod`.
+Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.
 
 ### Design
 There are different stages in a *keyhole* load test run, and they are as following

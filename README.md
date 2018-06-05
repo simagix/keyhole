@@ -52,7 +52,7 @@ Load test a cluster/replica.  A default cycle lasts five minutes with docs using
 keyhole --uri mongodb://localhost/?replicaSet=replset
 ```
 
-It works on standalone, replica, and sharded cluster.  However, for a sharded cluster, it only collects stats from one shard.  To collect stats from all shards, spin up different instances of `keyhole` and connect to each shard.  See [LOADTEST](LOADTEST.md) document for more details.
+It works on standalone, replica, and sharded cluster.  For a sharded cluster, *keyhole* collects stats from the primary node of all shards and display stats individually.  See [LOADTEST](LOADTEST.md) document for more details.
 
 ### Monitoring
 Only collects data from `db.serverStatus()` command.  The [outputs](LOADTEST.md) share the same format from load test.
