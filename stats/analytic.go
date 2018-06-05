@@ -91,10 +91,24 @@ type WiredTigerCacheDoc struct {
 	PagesWrittenFromCache  int `json:"pages written from cache" bson:"pages written from cache"`
 }
 
+// ConcurrentTransactionsCountDoc contains db.serverStatus().wiredTiger.concurrentTransactions.[read|write]
+type ConcurrentTransactionsCountDoc struct {
+	Available    int `json:"available" bson:"available"`
+	Out          int `json:"out" bson:"out"`
+	TotalTickets int `json:"totalTickets" bson:"totalTickets"`
+}
+
+// ConcurrentTransactionsDoc contains db.serverStatus().wiredTiger.concurrentTransactions
+type ConcurrentTransactionsDoc struct {
+	Read  ConcurrentTransactionsCountDoc `json:"read" bson:"read"`
+	Write ConcurrentTransactionsCountDoc `json:"write" bson:"write"`
+}
+
 // WiredTigerDoc containers db.serverStatus().wiredTiger
 type WiredTigerDoc struct {
-	Perf  interface{}        `json:"perf" bson:"perf"`
-	Cache WiredTigerCacheDoc `json:"cache" bson:"cache"`
+	Perf                   interface{}               `json:"perf" bson:"perf"`
+	Cache                  WiredTigerCacheDoc        `json:"cache" bson:"cache"`
+	ConcurrentTransactions ConcurrentTransactionsDoc `json:"concurrentTransactions" bson:"concurrentTransactions"`
 }
 
 // ServerStatusDoc contains docs from db.serverStatus()
@@ -287,7 +301,8 @@ func AnalyzeServerStatus(filename string) {
 	PrintStatsDetails(allDocs)
 	PrintLatencyDetails(allDocs)
 	PrintMetricsDetails(allDocs)
-	PrintWiredTigerDetails(allDocs)
+	PrintWiredTigerCacheDetails(allDocs)
+	PrintWiredTigerConcurrentTransactionsDetails(allDocs)
 }
 
 // PrintStatsDetails -
@@ -398,12 +413,12 @@ func PrintMetricsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
 }
 
-// PrintWiredTigerDetails -
-func PrintWiredTigerDetails(docs []ServerStatusDoc) {
+// PrintWiredTigerCacheDetails prints wiredTiger cache stats
+func PrintWiredTigerCacheDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
-	fmt.Println("\n--- WiredTiger Summary ---")
+	fmt.Println("\n--- WiredTiger Cache Summary ---")
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 	fmt.Printf("|                         | MaxBytes     | Currently    | Unmodified   | Tracked      | PagesRead    | PagesWritten |\n")
 	fmt.Printf("| Date/Time               | Configured   | InCache      | PagesEvicted | DirtyBytes   | IntoCache    | FromCache    |\n")
@@ -422,6 +437,31 @@ func PrintWiredTigerDetails(docs []ServerStatusDoc) {
 				stat2.WiredTiger.Cache.PagesWrittenFromCache-stat1.WiredTiger.Cache.PagesWrittenFromCache)
 		}
 		stat1 = stat2
+		cnt++
+	}
+	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
+}
+
+// PrintWiredTigerConcurrentTransactionsDetails prints wiredTiger concurrentTransactions stats
+func PrintWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
+	stat := ServerStatusDoc{}
+	cnt := 0
+	fmt.Println("\n--- WiredTiger Concurrent Transactions Summary ---")
+	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
+	fmt.Printf("|                         | Read Ticket  | Read Ticket  | Read Ticket  | Write Ticket | Write Ticket | Write Ticket |\n")
+	fmt.Printf("| Date/Time               | Available    | Out          | Total        | Available    | Out          | Total        |\n")
+	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
+	for _, doc := range docs {
+		bytes, _ := json.Marshal(doc)
+		json.Unmarshal(bytes, &stat)
+		fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+			stat.LocalTime.In(loc).Format(time.RFC3339),
+			stat.WiredTiger.ConcurrentTransactions.Read.Available,
+			stat.WiredTiger.ConcurrentTransactions.Read.Out,
+			stat.WiredTiger.ConcurrentTransactions.Read.TotalTickets,
+			stat.WiredTiger.ConcurrentTransactions.Write.Available,
+			stat.WiredTiger.ConcurrentTransactions.Write.Out,
+			stat.WiredTiger.ConcurrentTransactions.Write.TotalTickets)
 		cnt++
 	}
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
