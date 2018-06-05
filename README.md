@@ -19,7 +19,7 @@ Several features are available, and they are
 - [Display average ops time](LOGINFO.md) and query patterns by parsing logs.
 
 ## Use Cases
-Refer to [user's guid](USERSGUIDE.md) for instructions.
+Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 
 ### Write Throughputs Test
 Measure MongoDB write throughputs.
