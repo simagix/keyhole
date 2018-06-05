@@ -64,9 +64,9 @@ func ShardCollection(session *mgo.Session, collname string) {
 	fmt.Println("Shard", collname)
 	result := bson.M{}
 	if err := session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: DBName}}, &result); err != nil {
-		fmt.Println(err)
+		fmt.Println("enableSharding", err)
 	}
 	if err := session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
-		fmt.Println(err)
+		fmt.Println("shardCollection", err)
 	}
 }

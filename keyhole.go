@@ -103,11 +103,11 @@ func main() {
 	}
 	defer session.Close()
 	ssi := stats.ServerInfo(session)
-
-	curi := *uri
+	var uriList []string
+	uriList = append(uriList, *uri)
 	if ssi.Cluster == "sharded" {
 		list := stats.GetShards(session, *uri)
-		curi = list[0]
+		uriList = list
 	}
 
 	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek)
@@ -116,13 +116,17 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
-		m.PrintServerStatus(curi)
+		for _, value := range uriList {
+			m.PrintServerStatus(value)
+		}
 		m.Cleanup()
 		os.Exit(0)
 	}()
 	go func() {
 		<-timer.C
-		m.PrintServerStatus(curi)
+		for _, value := range uriList {
+			m.PrintServerStatus(value)
+		}
 		m.Cleanup()
 		os.Exit(0)
 	}()
@@ -160,6 +164,16 @@ func main() {
 		}
 	}
 
-	go m.PrintDBStats()
-	m.CollectServerStatus(curi)
+	var channel = make(chan string)
+	for _, value := range uriList {
+		go m.CollectDBStats(value, channel)
+		go m.CollectServerStatus(value, channel)
+	}
+
+	// infinite loop waits for goroutine to send messages back
+	for i := 0; ; i++ {
+		msg := <-channel
+		fmt.Print(msg)
+		time.Sleep(time.Second * 1)
+	}
 }

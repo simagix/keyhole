@@ -18,7 +18,7 @@ import (
 var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
-var serverStatusDocs = []bson.M{}
+var serverStatusDocs = map[string][]bson.M{}
 
 // DocumentDoc contains db.serverStatus().document
 type DocumentDoc struct {
@@ -114,12 +114,16 @@ type ServerStatusDoc struct {
 }
 
 // CollectServerStatus collects db.serverStatus() every minute
-func (m MongoConn) CollectServerStatus(uri string) {
-	fmt.Println("Connect to", uri)
+func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
+	fmt.Println("CollectServerStatus: connect to", uri)
 	pstat := ServerStatusDoc{}
 	stat := ServerStatusDoc{}
 	var iop int
 	var piop int
+	dialInfo, _ := mgo.ParseURL(uri)
+	if dialInfo.ReplicaSetName == "" {
+		dialInfo.ReplicaSetName = "standalone"
+	}
 
 	for {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
@@ -129,38 +133,43 @@ func (m MongoConn) CollectServerStatus(uri string) {
 			bytes, _ := json.Marshal(serverStatus)
 			json.Unmarshal(bytes, &stat)
 			key := time.Now().Format(time.RFC3339)
-			serverStatusDocs = append(serverStatusDocs, serverStatus)
+			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 			if len(serverStatusDocs) > 10 {
-				saveServerStatusDocsToFile()
+				saveServerStatusDocsToFile(uri)
 			}
-
-			fmt.Printf("\n%s Memory - resident: %d, virtual: %d", key, stat.Mem.Resident, stat.Mem.Virtual)
+			if dialInfo.ReplicaSetName == "" {
+				dialInfo.ReplicaSetName = "standalone"
+			}
+			str := fmt.Sprintf("\n%s [%s] Memory - resident: %d, virtual: %d",
+				key, dialInfo.ReplicaSetName, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
-			if len(serverStatusDocs) > 1 {
-				bytes, _ = json.Marshal(serverStatusDocs[len(serverStatusDocs)-2])
+			if len(serverStatusDocs[uri]) > 1 {
+				bytes, _ = json.Marshal(serverStatusDocs[uri][len(serverStatusDocs[uri])-2])
 				json.Unmarshal(bytes, &pstat)
 				if stat.Host == pstat.Host {
-					fmt.Printf(", page faults: %d, iops: %.1f\n", (stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
-					fmt.Printf("%s CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
-						key, stat.OpCounters.Insert-pstat.OpCounters.Insert,
+					str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
+						(stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
+					str += fmt.Sprintf("%s [%s] CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
+						key, dialInfo.ReplicaSetName, stat.OpCounters.Insert-pstat.OpCounters.Insert,
 						stat.OpCounters.Query-pstat.OpCounters.Query,
 						stat.OpCounters.Update-pstat.OpCounters.Update,
 						stat.OpCounters.Delete-pstat.OpCounters.Delete,
 						stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
 						stat.OpCounters.Command-pstat.OpCounters.Command)
-					fmt.Printf("%s Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
-						key,
+					str += fmt.Sprintf("%s [%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
+						key, dialInfo.ReplicaSetName,
 						float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
 						float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
 						float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
 				} else {
-					fmt.Println()
+					str += "\n"
 				}
 			} else {
-				fmt.Println()
+				str += "\n"
 			}
+			channel <- str
 			piop = iop
 			session.Close()
 		}
@@ -168,16 +177,20 @@ func (m MongoConn) CollectServerStatus(uri string) {
 	}
 }
 
-// PrintDBStats - Print dbStats every 10 seconds
-func (m MongoConn) PrintDBStats() {
+// CollectDBStats collects dbStats every 10 seconds
+func (m MongoConn) CollectDBStats(uri string, channel chan string) {
+	fmt.Println("CollectDBStats: connect to", uri)
 	var docs map[string]interface{}
 	var prevDataSize float64
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-
+	dialInfo, _ := mgo.ParseURL(uri)
+	if dialInfo.ReplicaSetName == "" {
+		dialInfo.ReplicaSetName = "standalone"
+	}
 	for {
-		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+		session, err := GetSession(uri, m.ssl, m.sslCA)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			stat := m.dbStats(session)
@@ -189,8 +202,9 @@ func (m MongoConn) PrintDBStats() {
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 1 && delta > .01 {
-				fmt.Printf("%s Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
-					now.Format(time.RFC3339), prevDataSize/mb, dataSize/mb, delta)
+				str := fmt.Sprintf("%s [%s] Storage: %.1f -,> %.1f, rate: %.1f MB/sec\n",
+					now.Format(time.RFC3339), dialInfo.ReplicaSetName, prevDataSize/mb, dataSize/mb, delta)
+				channel <- str
 			}
 			prevDataSize = dataSize
 			prevTime = now
@@ -213,25 +227,31 @@ func (m MongoConn) PrintServerStatus(uri string) {
 	serverStatus := m.serverStatus(session)
 	bytes, _ := json.Marshal(serverStatus)
 	json.Unmarshal(bytes, &serverStatus)
-	serverStatusDocs = append(serverStatusDocs, serverStatus)
-	saveServerStatusDocsToFile()
-	AnalyzeServerStatus(keyholeStatsDataFile)
+	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
+	filename := saveServerStatusDocsToFile(uri)
+	AnalyzeServerStatus(filename)
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
-func saveServerStatusDocsToFile() {
-	bytes, _ := json.Marshal(serverStatusDocs)
-	serverStatusDocs = serverStatusDocs[:0]
-	fmt.Println("\nstats written to", keyholeStatsDataFile)
-	f, ferr := os.OpenFile(keyholeStatsDataFile, os.O_WRONLY|os.O_APPEND, 0644)
+func saveServerStatusDocsToFile(uri string) string {
+	dialInfo, _ := mgo.ParseURL(uri)
+	if dialInfo.ReplicaSetName == "" {
+		dialInfo.ReplicaSetName = "standalone"
+	}
+	bytes, _ := json.Marshal(serverStatusDocs[uri])
+	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
+	filename := keyholeStatsDataFile + "-" + dialInfo.ReplicaSetName
+	fmt.Println("\nstats written to", filename)
+	f, ferr := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0644)
 	if ferr != nil {
-		f, _ = os.Create(keyholeStatsDataFile)
+		f, _ = os.Create(filename)
 	}
 	defer f.Close()
 	f.Write(bytes)
 	f.WriteString("\n")
 	f.Sync()
-	serverStatusDocs = serverStatusDocs[:0]
+	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
+	return filename
 }
 
 // serverStatus executes db.serverStatus()
@@ -251,7 +271,7 @@ func (m MongoConn) dbStats(session *mgo.Session) bson.M {
 // AnalyzeServerStatus -
 func AnalyzeServerStatus(filename string) {
 	fmt.Println("filename", filename)
-	var serverStatusDocs = []ServerStatusDoc{}
+	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	f, err := os.Open(filename)
 	if err != nil {
@@ -267,13 +287,13 @@ func AnalyzeServerStatus(filename string) {
 			break
 		}
 		json.Unmarshal([]byte(line), &docs)
-		serverStatusDocs = append(serverStatusDocs, docs...)
+		allDocs = append(allDocs, docs...)
 	}
 
-	PrintStatsDetails(serverStatusDocs)
-	PrintLatencyDetails(serverStatusDocs)
-	PrintMetricsDetails(serverStatusDocs)
-	PrintWiredTigerDetails(serverStatusDocs)
+	PrintStatsDetails(allDocs)
+	PrintLatencyDetails(allDocs)
+	PrintMetricsDetails(allDocs)
+	PrintWiredTigerDetails(allDocs)
 }
 
 // PrintStatsDetails -
