@@ -33,6 +33,20 @@ type ExtraInfoDoc struct {
 	PageFaults int `json:"page_faults" bson:"page_faults"`
 }
 
+// GlobalLockSubDoc contains db.serverStatus().globalLockDoc.[activeClients|currentQueue]
+type GlobalLockSubDoc struct {
+	Readers int `json:"readers" bson:"readers"`
+	Total   int `json:"total" bson:"total"`
+	Writers int `json:"writers" bson:"writers"`
+}
+
+// GlobalLockDoc contains db.serverStatus().globalLockDoc
+type GlobalLockDoc struct {
+	ActiveClients GlobalLockSubDoc `json:"activeClients" bson:"activeClients"`
+	CurrentQueue  GlobalLockSubDoc `json:"currentQueue" bson:"currentQueue"`
+	TotalTime     int              `json:"totalTime" bson:"totalTime"`
+}
+
 // MemDoc containers db.serverStatus().mem
 type MemDoc struct {
 	Resident int `json:"resident" bson:"resident"`
@@ -115,6 +129,7 @@ type WiredTigerDoc struct {
 // ServerStatusDoc contains docs from db.serverStatus()
 type ServerStatusDoc struct {
 	ExtraInfo   ExtraInfoDoc   `json:"extra_info" bson:"extra_info"`
+	GlobalLock  GlobalLockDoc  `json:"globalLock" bson:"globalLock"`
 	Host        string         `json:"host" bson:"host"`
 	LocalTime   time.Time      `json:"localTime" bson:"localTime"`
 	Mem         MemDoc         `json:"Mem" bson:"Mem"`
@@ -300,6 +315,7 @@ func AnalyzeServerStatus(filename string) {
 		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
 	}
 	PrintStatsDetails(allDocs)
+	PrintGlobalLockDetails(allDocs)
 	PrintLatencyDetails(allDocs)
 	PrintMetricsDetails(allDocs)
 	PrintWiredTigerCacheDetails(allDocs)
@@ -414,6 +430,36 @@ func PrintMetricsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
 }
 
+// PrintGlobalLockDetails prints globalLock stats
+func PrintGlobalLockDetails(docs []ServerStatusDoc) {
+	stat1 := ServerStatusDoc{}
+	stat2 := ServerStatusDoc{}
+	cnt := 0
+	fmt.Println("\n--- Global Locks Summary ---")
+	fmt.Printf("+-------------------------+--------------+--------------------------------------------+--------------------------------------------+\n")
+	fmt.Printf("|                         | Total Time   | Active Clients                             | Current Queue                              |\n")
+	fmt.Printf("| Date/Time               | (ms)         | total        | readers      | writers      | total        | readers      | writers      |\n")
+	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
+	for _, doc := range docs {
+		bytes, _ := json.Marshal(doc)
+		json.Unmarshal(bytes, &stat2)
+		if cnt > 0 && stat2.Host == stat1.Host {
+			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+				stat2.LocalTime.In(loc).Format(time.RFC3339),
+				(stat2.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
+				stat2.GlobalLock.CurrentQueue.Total,
+				stat2.GlobalLock.CurrentQueue.Readers,
+				stat2.GlobalLock.CurrentQueue.Writers,
+				stat2.GlobalLock.CurrentQueue.Total,
+				stat2.GlobalLock.CurrentQueue.Readers,
+				stat2.GlobalLock.CurrentQueue.Writers)
+		}
+		stat1 = stat2
+		cnt++
+	}
+	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
+}
+
 // PrintWiredTigerCacheDetails prints wiredTiger cache stats
 func PrintWiredTigerCacheDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
@@ -449,8 +495,8 @@ func PrintWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
 	stat := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- WiredTiger Concurrent Transactions Summary ---")
-	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
-	fmt.Printf("|                         | Read Ticket  | Read Ticket  | Read Ticket  | Write Ticket | Write Ticket | Write Ticket |\n")
+	fmt.Printf("+-------------------------+--------------------------------------------+--------------------------------------------+\n")
+	fmt.Printf("|                         | Read Ticket                                | Write Ticket                               |\n")
 	fmt.Printf("| Date/Time               | Available    | Out          | Total        | Available    | Out          | Total        |\n")
 	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
 	for _, doc := range docs {
