@@ -141,27 +141,44 @@ keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
 ```
 
 ## Monitoring
+There are two ways to begin monitoring, and they are with `--peek` and `--monitor` options, respectively.
+
+### Quick Snapshot `--peek`
 *Keyhole* can collect server status data by issuing `db.serverStatus()` to a node or a cluster with the `--peek` flag.  if *keyhole* connects to a replica set, it will connect to the primary node.  Below is an example of connecting to a standalone instance.
 
 ```
 keyhole --uri mongodb://user:password@localhost:27017?authSource=admin --peek
 ```
 
-By default, *keyhole* runs for a period of 5 minutes and intend to take a "snapshot" of the system performance.  To prolong the monitoring time, include the `--duration` flag.  For example, to monitor a cluster for 60 minutes, do
+By default, *keyhole* runs for a period of 5 minutes and intends to take a "snapshot" of the system performance.  To prolong the monitoring time, include the `--duration` flag.  For example, to monitor a cluster for 60 minutes, do
 
 ```
 keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
     --peek --duration 60
 ```
 
-
-For a sharded cluster, *keyhole* connects to the primary node of all shards.  The reason of doing so, instead of remaining at `mongos` is to collect more stats, such as wiredTiger stats data, and provide a partial view of the entire cluster.
+For a sharded cluster, *keyhole* connects to the primary node of all shards.  The reason of doing so, instead of remaining at `mongos`, is to collect more stats, such as wiredTiger stats data, and provide a partial view of the entire cluster.
 
 ### Stats Viewing
 At the end of a *keyhole*, including monitoring and load test, it writes data to a file under system's default temporary directory.  Save the file and you can view the summaries again using *keyhole* with `--view` flag.  For example,
 
 ```
 keyhole --view /tmp/keyhole_stats.2018-06-04T084021
+```
+
+### Monitor Mode `--monitor`
+With `--monitor` flag, *keyhole* collects server status using `db.serverStats()` every **10 minutes** for, by default, **24 hours**.  At the end of each run, same as using `--peek`, *keyhole* prints a summary and stores server status data in a file.
+
+
+```
+keyhole --uri mongodb://user:password@localhost:27017?authSource=admin --monitor
+```
+
+To change the default duration, include the `--duration` flag (in minutes).
+
+```
+keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+    --monitor --duration 120
 ```
 
 ## Performance Analytic
