@@ -151,6 +151,14 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 	stat := ServerStatusDoc{}
 	var iop int
 	var piop int
+	wMinutes := 1
+	if m.monitor {
+		wMinutes = 10
+	}
+	if m.verbose {
+		rstr := fmt.Sprintf("CollectServerStatus collects every %d minute(s)\n", wMinutes)
+		channel <- rstr
+	}
 
 	for {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
@@ -198,7 +206,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			piop = iop
 			session.Close()
 		}
-		time.Sleep(1 * time.Minute)
+		time.Sleep(time.Duration(wMinutes) * time.Minute)
 	}
 }
 

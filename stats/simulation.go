@@ -57,14 +57,15 @@ type MongoConn struct {
 	verbose  bool
 	cleannUp bool
 	peek     bool
+	monitor  bool
 }
 
 var simDocs []bson.M
 
 // New - Constructor
 func New(uri string, ssl bool, sslCA string, dbName string, tps int,
-	filename string, verbose bool, cleanUp bool, peek bool) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp, peek}
+	filename string, verbose bool, cleanUp bool, peek bool, monitor bool) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp, peek, monitor}
 	m.initSimDocs()
 	return m
 }
@@ -329,7 +330,7 @@ func (m MongoConn) Simulate(duration int, wmajor bool) {
 
 // Cleanup drops the temp database
 func (m MongoConn) Cleanup() {
-	if m.cleannUp == false || m.peek == true {
+	if m.cleannUp == false || m.peek == true || m.monitor == true {
 		return
 	}
 	log.Println("cleanup", m.uri)

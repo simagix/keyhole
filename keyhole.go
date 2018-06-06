@@ -25,7 +25,8 @@ func main() {
 	file := flag.String("file", "", "template file for seedibg data")
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
-	peek := flag.Bool("peek", false, "only collect data")
+	monitor := flag.Bool("monitor", false, "collects server status every 10 minutes for 24 hours")
+	peek := flag.Bool("peek", false, "only collect stats")
 	quote := flag.Bool("quote", false, "print a quote")
 	quotes := flag.Bool("quotes", false, "print all quotes")
 	schema := flag.Bool("schema", false, "print schema")
@@ -42,6 +43,17 @@ func main() {
 	wmajor := flag.Bool("wmajor", false, "{w: majority}")
 
 	flag.Parse()
+
+	flagset := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
+	// if --monitor is set, it collects server status every 10 minutes.
+	// Unless --duration is set, it changes duration to 1440 minutes (24 hours)
+	if *monitor {
+		if flagset["duration"] == false {
+			*duration = 1440
+		}
+	}
+
 	if *quote {
 		stats.PrintQuote()
 		os.Exit(0)
@@ -111,7 +123,8 @@ func main() {
 		uriList = list
 	}
 
-	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek)
+	fmt.Println("Duration in minute(s):", *duration)
+	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -132,7 +145,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	if *peek == false {
+	if *peek == false && *monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
 		m.Cleanup()
 
 		if ssi.Cluster == "sharded" {
@@ -155,7 +168,7 @@ func main() {
 				case <-quit:
 					return
 				default:
-					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek)
+					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor)
 					if *simonly == false {
 						msim.PopulateData(*wmajor)
 						time.Sleep(time.Second)
@@ -170,7 +183,9 @@ func main() {
 
 	var channel = make(chan string)
 	for _, value := range uriList {
-		go m.CollectDBStats(value, channel)
+		if *monitor == false {
+			go m.CollectDBStats(value, channel)
+		}
 		go m.CollectServerStatus(value, channel)
 	}
 
