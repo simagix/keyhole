@@ -85,6 +85,7 @@ type QueryExecutorDoc struct {
 type WiredTigerCacheDoc struct {
 	MaxBytesConfigured     int `json:"maximum bytes configured" bson:"maximum bytes configured"`
 	CurrentlyInCache       int `json:"bytes currently in the cache" bson:"bytes currently in the cache"`
+	ModifiedPagesEvicted   int `json:"modified pages evicted" bson:"modified pages evicted"`
 	UnmodifiedPagesEvicted int `json:"unmodified pages evicted" bson:"unmodified pages evicted"`
 	TrackedDirtyBytes      int `json:"tracked dirty bytes in the cache" bson:"tracked dirty bytes in the cache"`
 	PagesReadIntoCache     int `json:"pages read into cache" bson:"pages read into cache"`
@@ -419,27 +420,28 @@ func PrintWiredTigerCacheDetails(docs []ServerStatusDoc) {
 	stat2 := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- WiredTiger Cache Summary ---")
-	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
-	fmt.Printf("|                         | MaxBytes     | Currently    | Unmodified   | Tracked      | PagesRead    | PagesWritten |\n")
-	fmt.Printf("| Date/Time               | Configured   | InCache      | PagesEvicted | DirtyBytes   | IntoCache    | FromCache    |\n")
-	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
+	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
+	fmt.Printf("|                         | MaxBytes     | Currently    | Tracked      | Modified     | Unmodified   | PagesRead    | PagesWritten |\n")
+	fmt.Printf("| Date/Time               | Configured   | InCache      | DirtyBytes   | PagesEvicted | PagesEvicted | IntoCache    | FromCache    |\n")
+	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
 	for _, doc := range docs {
 		bytes, _ := json.Marshal(doc)
 		json.Unmarshal(bytes, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
-			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
 				stat2.LocalTime.In(loc).Format(time.RFC3339),
 				stat2.WiredTiger.Cache.MaxBytesConfigured,
 				stat2.WiredTiger.Cache.CurrentlyInCache,
-				stat2.WiredTiger.Cache.UnmodifiedPagesEvicted,
 				stat2.WiredTiger.Cache.TrackedDirtyBytes,
+				stat2.WiredTiger.Cache.ModifiedPagesEvicted,
+				stat2.WiredTiger.Cache.UnmodifiedPagesEvicted,
 				stat2.WiredTiger.Cache.PagesReadIntoCache-stat1.WiredTiger.Cache.PagesReadIntoCache,
 				stat2.WiredTiger.Cache.PagesWrittenFromCache-stat1.WiredTiger.Cache.PagesWrittenFromCache)
 		}
 		stat1 = stat2
 		cnt++
 	}
-	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
+	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 }
 
 // PrintWiredTigerConcurrentTransactionsDetails prints wiredTiger concurrentTransactions stats
