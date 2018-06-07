@@ -128,21 +128,23 @@ func main() {
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
-		<-quit
-		for _, value := range uriList {
-			m.PrintServerStatus(value)
+		for {
+			select {
+			case <-quit:
+				for _, value := range uriList {
+					m.PrintServerStatus(value)
+				}
+				os.Exit(0)
+			case <-timer.C:
+				for _, value := range uriList {
+					m.PrintServerStatus(value)
+				}
+				m.Cleanup()
+				os.Exit(0)
+			}
 		}
-		m.Cleanup()
-		os.Exit(0)
-	}()
-	go func() {
-		<-timer.C
-		for _, value := range uriList {
-			m.PrintServerStatus(value)
-		}
-		m.Cleanup()
-		os.Exit(0)
 	}()
 
 	if *peek == false && *monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
@@ -162,21 +164,19 @@ func main() {
 		// last minute - normal TPS ops until exit
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
 		m.CreateIndexes()
+		simTime := *duration
+		if *simonly == false {
+			simTime--
+		}
 		for i := 0; i < *conn; i++ {
 			go func() {
-				select {
-				case <-quit:
-					return
-				default:
-					msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor)
-					if *simonly == false {
-						msim.PopulateData(*wmajor)
-						time.Sleep(time.Second)
-						*duration--
-					}
-					msim.Simulate(*duration, *wmajor)
+				// msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor)
+				if *simonly == false {
+					m.PopulateData(*wmajor)
 					time.Sleep(time.Second)
 				}
+				m.Simulate(simTime, *wmajor)
+				time.Sleep(time.Second)
 			}()
 		}
 	}
@@ -190,7 +190,7 @@ func main() {
 	}
 
 	// infinite loop waits for goroutine to send messages back
-	for i := 0; ; i++ {
+	for {
 		msg := <-channel
 		fmt.Print(msg)
 		time.Sleep(time.Second * 1)
