@@ -18,6 +18,7 @@ import (
 var version string
 
 func main() {
+	bulksize := flag.Int("bulksize", 10, "bulk insert size")
 	conn := flag.Int("conn", 20, "nuumber of connections")
 	nocleanup := flag.Bool("nocleanup", false, "keep keyhole demo database")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -124,7 +125,7 @@ func main() {
 	}
 
 	fmt.Println("Duration in minute(s):", *duration)
-	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor)
+	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor, *bulksize)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -157,12 +158,15 @@ func main() {
 		if *wmajor {
 			fmt.Println("{w : majority}")
 		}
+		if *tps < *bulksize {
+			*bulksize = *tps
+		}
 		// Simulation mode
 		// 1st minute - build up data and memory
 		// 2nd and 3rd minutes - normal TPS ops
 		// remaining minutes - burst with no delay
 		// last minute - normal TPS ops until exit
-		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration = %d (mins)\n", *tps, *conn, *tps**conn, *duration)
+		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n", *tps, *conn, *tps**conn, *duration, *bulksize)
 		m.CreateIndexes()
 		simTime := *duration
 		if *simonly == false {

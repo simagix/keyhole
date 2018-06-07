@@ -58,14 +58,15 @@ type MongoConn struct {
 	cleannUp bool
 	peek     bool
 	monitor  bool
+	bulkSize int
 }
 
 var simDocs []bson.M
 
 // New - Constructor
 func New(uri string, ssl bool, sslCA string, dbName string, tps int,
-	filename string, verbose bool, cleanUp bool, peek bool, monitor bool) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp, peek, monitor}
+	filename string, verbose bool, cleanUp bool, peek bool, monitor bool, bulkSize int) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp, peek, monitor, bulkSize}
 	m.initSimDocs()
 	return m
 }
@@ -184,10 +185,6 @@ func GetRandomDoc() bson.M {
 // }
 func (m MongoConn) PopulateData(wmajor bool) {
 	s := 0
-	batchSize := 20
-	if m.tps < batchSize {
-		batchSize = m.tps
-	}
 	for s < 57 { // 3 seconds less of a minute
 		s++
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
@@ -201,11 +198,14 @@ func (m MongoConn) PopulateData(wmajor bool) {
 			c := session.DB(m.dbName).C(CollectionName)
 			bt := time.Now()
 			bulk := c.Bulk()
+			docidx := 0
 
-			for i := 0; i < m.tps; i += batchSize {
+			for i := 0; i < m.tps; i += m.bulkSize {
 				var contentArray []interface{}
-				for n := 0; n < batchSize; n++ {
-					contentArray = append(contentArray, simDocs[i%len(simDocs)])
+				for n := 0; n < m.bulkSize; n++ {
+					contentArray = append(contentArray, simDocs[docidx%len(simDocs)])
+					// c.Insert(simDocs[docidx%len(simDocs)])
+					docidx++
 				}
 				bulk.Insert(contentArray...)
 				_, err := bulk.Run()
