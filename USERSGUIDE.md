@@ -195,8 +195,19 @@ Analytic summary includes
 - Number of ops from Getmore
 - Number of ops from Insert
 - Number of ops from Query
-- Number of ops from Update 
+- Number of ops from Update
 - IOPS
+
+*Page faults* occurs when `mongod` has to retrieved data from disks because data was not found in the memory.  High number of *Page faults* indicates the amount physical memory installed is not able to hold your working set.  Adding additional memory or scaling MongoDB horizontally is recommended.
+
+### Global Lock Summary
+Global lock includes
+
+- Total time in milliseconds
+- Active Client
+- Current Queue
+
+Growing number of *Current Queue* indicates MongoDB is not processing requests fast enough as they arrive. Scaling up your server can help, such as fast CPU and disk, or caling MongoDB horizontally by adding additional shards.
 
 ### Latencies Summary
 Latencies summary includes
@@ -217,15 +228,28 @@ Metrics summary includes
 - Returned
 - Updated
 
-### WiredTiger Summary
-WireTiger summary includes
+*Scanned* designates the total number of index items scanned during queries and query-plan evaluation.  *ScannedObj* indicates total number of documents scanned during queries and query-plan evaluation.  *ScanAndOrder* means the total number of queries that return sorted numbers that cannot perform the sort operation using an index.  Additional indexes can help if you have high numbers of *ScannedObj* or *ScanAndOrder*.
+
+### WiredTiger Cache Summary
+WireTiger cache summary includes
 
 - MaxBytes Configured
 - Currently InCache   
-- Unmodified PagesEvicted  
-- Tracked DirtyBytes     
+- Tracked DirtyBytes
+- Modified PagesEvicted 
+- Unmodified PagesEvicted     
 - PagesRead IntoCache   
 - PagesWritten FromCache
+
+The value of *Currently InCache* should not be greater than the *MaxBytes Configured* value.  *Tracked DirtyBytes* indicates data in the wiredTiger cache that has been modified but not yet flushed to disk, and should be less than the value of *Currently in cache*. Expanding amounts of dirty data represents a bottleneck where data is written to disk not fast enough.  *Modified PagesEvicted* and *Unmodified PagesEvicted* reveal page eviction statistics.  *PagesRead IntoCache* and *PagesWritten FromCache* provide an overview of the I/O activity.
+
+### WiredTiger Concurrent Transaction Summary
+WireTiger cache summary includes
+
+- Read ticket
+- Write ticket
+
+WiredTiger storage engine uses tickets to control the number of read/write operations simultaneously processed.  When the number of available read or write tickets available reaches zero, new read or write requests are queued until a new read or write ticket is freed up.
 
 ## Load Test
 *Keyhole* can be used as a load testing tool on top of the collecting stats functions.  To load test a standalone server, simply execute it with the `--uri` flag.  Along the way, *keyhole* also collect server status as described in *Monitoring* section and prints summaries at the end of a run.
