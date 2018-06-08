@@ -18,12 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-const keyholeDB = "_KEYHOLE_"
-const x = 1024
-
-// DBName -
-var DBName = fmt.Sprintf("_KEYHOLE_%X", x+x*rand.Intn(x))
-
 // Model - robot model
 type Model struct {
 	ID          string `json:"_id" bson:"_id"`
@@ -80,11 +74,14 @@ func GetDocByTemplate(filename string, meta bool) bson.M {
 //   "batteryPct": float,
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
-func Seed(session *mgo.Session, verbose bool) {
+func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 	session.SetMode(mgo.Primary, true)
-	session.DB(keyholeDB).DropDatabase()
-	modelsCollection := session.DB(keyholeDB).C("models")
-	robotsCollection := session.DB(keyholeDB).C("robots")
+	modelsCollection := session.DB(dbName).C("models")
+	robotsCollection := session.DB(dbName).C("robots")
+	if isDrop {
+		modelsCollection.DropCollection()
+		robotsCollection.DropCollection()
+	}
 
 	for i := 1000; i < 1050; i++ {
 		model := "model-" + fmt.Sprintf("%x", (rand.Intn(5000)+5000)*i)
@@ -124,8 +121,12 @@ func Seed(session *mgo.Session, verbose bool) {
 	styles := []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
 	colors := []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
 
-	carsCollection := session.DB(keyholeDB).C("cars")
-	keyholeCollection := session.DB(keyholeDB).C("keyhole")
+	carsCollection := session.DB(dbName).C("cars")
+	keyholeCollection := session.DB(dbName).C("keyhole")
+	if isDrop {
+		carsCollection.DropCollection()
+		keyholeCollection.DropCollection()
+	}
 	for i := 0; i < 250; i++ {
 		keyholeCollection.Insert(GetRandomDoc())
 		bulk := carsCollection.Bulk()
@@ -147,7 +148,10 @@ func Seed(session *mgo.Session, verbose bool) {
 		}
 	}
 	var contentArray []interface{}
-	numbersCollection := session.DB(keyholeDB).C("numbers")
+	numbersCollection := session.DB(dbName).C("numbers")
+	if isDrop {
+		numbersCollection.DropCollection()
+	}
 	bulk := numbersCollection.Bulk()
 	for n := 0; n < 100000; n++ {
 		contentArray = append(contentArray, bson.M{"a": rand.Intn(100), "b": rand.Intn(50), "c": rand.Intn(1000)})
@@ -165,7 +169,7 @@ func Seed(session *mgo.Session, verbose bool) {
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop bool, verbose bool) {
+func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop bool, dbName string, verbose bool) {
 	sdoc := GetDocByTemplate(filename, true)
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if verbose {
@@ -174,26 +178,37 @@ func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop b
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
 	session.SetMode(mgo.Primary, true)
-	var contentArray []interface{}
-	examplesCollection := session.DB(keyholeDB).C("examples")
+	examplesCollection := session.DB(dbName).C("examples")
 	if isDrop {
 		examplesCollection.DropCollection()
 	}
-	bulk := examplesCollection.Bulk()
-	for n := 0; n < total; n++ {
-		ndoc := make(map[string]interface{})
-		fmt.Fprintf(os.Stderr, "\r%3d%% ", 100*n/total)
-		traverseDocument(&ndoc, doc, false)
-		delete(ndoc, "_id")
-		contentArray = append(contentArray, ndoc)
+	bsize := 100
+	remaining := total
+	for i := 0; i < total; {
+		bulk := examplesCollection.Bulk()
+		num := bsize
+		if remaining < bsize {
+			num = remaining
+		}
+		var contentArray []interface{}
+		for n := 0; n < num; n++ {
+			ndoc := make(map[string]interface{})
+			traverseDocument(&ndoc, doc, false)
+			delete(ndoc, "_id")
+			contentArray = append(contentArray, ndoc)
+			i++
+			remaining--
+		}
+		bulk.Insert(contentArray...)
+		_, err := bulk.Run()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(total))
 	}
-	fmt.Fprintf(os.Stderr, "\r100%% \n")
-	bulk.Insert(contentArray...)
-	_, err := bulk.Run()
-	if err != nil {
-		log.Println(err)
-		return
-	}
+
+	fmt.Fprintf(os.Stderr, "\r100%%   \n")
 	examplesCount, _ := examplesCollection.Count()
 	fmt.Printf("\rSeeded examples: %d, total count: %d\n", total, examplesCount)
 }
