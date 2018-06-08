@@ -158,6 +158,21 @@ keyhole --uri mongodb://localhost/?replicaSet=replset --loginfo ~/ws/demo/mongod
 ```
 
 ## Usages
+### Build
+You need `go` installed and use `dep` to pull down dependencies.
+
+```
+cd $GOPATH/src
+git clone https://github.com/simagix/keyhole.git
+cd keyhole
+
+dep ensure
+go run keyhole.go --help
+
+go build
+./keyhole --help
+```
+
 ### Download
 Download the desired binary.  No other downloads (interpreter or modules) are necessary.  Please note that the builds of the master branch are changed often with new features.  For stable builds, use versioned branches.
 
