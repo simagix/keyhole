@@ -60,10 +60,11 @@ func GetShards(session *mgo.Session, uri string) []string {
 }
 
 // ShardCollection -
-func ShardCollection(session *mgo.Session, collname string) {
+func ShardCollection(session *mgo.Session) {
+	collname := SimDBName + "." + CollectionName
 	fmt.Println("Shard", collname)
 	result := bson.M{}
-	if err := session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: DBName}}, &result); err != nil {
+	if err := session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
 		fmt.Println("enableSharding", err)
 	}
 	if err := session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {

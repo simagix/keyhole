@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/simagix/keyhole/stats"
+	mgo "gopkg.in/mgo.v2"
 )
 
 var version string
@@ -20,13 +21,13 @@ var version string
 func main() {
 	bulksize := flag.Int("bulksize", 10, "bulk insert size")
 	conn := flag.Int("conn", 20, "nuumber of connections")
-	nocleanup := flag.Bool("nocleanup", false, "keep keyhole demo database")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	file := flag.String("file", "", "template file for seedibg data")
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	monitor := flag.Bool("monitor", false, "collects server status every 10 minutes for 24 hours")
+	nocleanup := flag.Bool("nocleanup", false, "keep keyhole demo database")
 	peek := flag.Bool("peek", false, "only collect stats")
 	quote := flag.Bool("quote", false, "print a quote")
 	quotes := flag.Bool("quotes", false, "print all quotes")
@@ -87,6 +88,11 @@ func main() {
 		os.Exit(0)
 	}
 	fmt.Println("MongoDB URI:", *uri)
+	dialInfo, _ := mgo.ParseURL(*uri)
+	dbName := dialInfo.Database
+	if dialInfo.Database == "" {
+		dbName = "_KEYHOLE_"
+	}
 
 	if *info == true {
 		session, err := stats.GetSession(*uri, *ssl, *sslCA)
@@ -104,9 +110,9 @@ func main() {
 		}
 		defer session.Close()
 		if *file == "" {
-			stats.Seed(session, *verbose)
+			stats.Seed(session, *drop, dbName, *verbose)
 		} else {
-			stats.SeedFromTemplate(session, *file, *total, *drop, *verbose)
+			stats.SeedFromTemplate(session, *file, *total, *drop, dbName, *verbose)
 		}
 		os.Exit(0)
 	}
@@ -125,7 +131,7 @@ func main() {
 	}
 
 	fmt.Println("Duration in minute(s):", *duration)
-	m := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor, *bulksize)
+	m := stats.New(*uri, *ssl, *sslCA, *tps, *file, *verbose, !*nocleanup, *peek, *monitor, *bulksize)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -152,7 +158,7 @@ func main() {
 		m.Cleanup()
 
 		if ssi.Cluster == "sharded" {
-			stats.ShardCollection(session, stats.DBName+"."+stats.CollectionName)
+			stats.ShardCollection(session)
 		}
 
 		if *wmajor {
@@ -188,7 +194,11 @@ func main() {
 	var channel = make(chan string)
 	for _, value := range uriList {
 		if *monitor == false {
-			go m.CollectDBStats(value, channel)
+			if *peek == true { // peek mode watch a defined db
+				go m.CollectDBStats(value, channel, dbName)
+			} else { // load test mode watches _KEYHOLE_88000
+				go m.CollectDBStats(value, channel, stats.SimDBName)
+			}
 		}
 		go m.CollectServerStatus(value, channel)
 	}

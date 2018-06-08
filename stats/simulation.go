@@ -16,6 +16,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// SimDBName - db name for simulation
+var SimDBName = fmt.Sprintf("_KEYHOLE_%X", 1024+1024*rand.Intn(1024))
+
 // CollectionName -
 var CollectionName = "keyhole"
 
@@ -51,7 +54,6 @@ type MongoConn struct {
 	uri      string
 	ssl      bool
 	sslCA    string
-	dbName   string
 	tps      int
 	filename string
 	verbose  bool
@@ -64,9 +66,9 @@ type MongoConn struct {
 var simDocs []bson.M
 
 // New - Constructor
-func New(uri string, ssl bool, sslCA string, dbName string, tps int,
+func New(uri string, ssl bool, sslCA string, tps int,
 	filename string, verbose bool, cleanUp bool, peek bool, monitor bool, bulkSize int) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, dbName, tps, filename, verbose, cleanUp, peek, monitor, bulkSize}
+	m := MongoConn{uri, ssl, sslCA, tps, filename, verbose, cleanUp, peek, monitor, bulkSize}
 	m.initSimDocs()
 	return m
 }
@@ -195,7 +197,7 @@ func (m MongoConn) PopulateData(wmajor bool) {
 			} else {
 				session.SetSafe(&mgo.Safe{W: 1})
 			}
-			c := session.DB(m.dbName).C(CollectionName)
+			c := session.DB(SimDBName).C(CollectionName)
 			bt := time.Now()
 			bulk := c.Bulk()
 			docidx := 0
@@ -255,7 +257,7 @@ func (m MongoConn) Simulate(duration int, wmajor bool) {
 			session.SetSafe(&mgo.Safe{W: 1})
 		}
 		if err == nil {
-			c := session.DB(m.dbName).C(CollectionName)
+			c := session.DB(SimDBName).C(CollectionName)
 			var book string
 			var city string
 			var movie string
@@ -340,17 +342,17 @@ func (m MongoConn) Cleanup() {
 	}
 	defer session.Close()
 	time.Sleep(2 * time.Second)
-	log.Println("dropping collection", m.dbName, CollectionName)
-	session.DB(m.dbName).C(CollectionName).DropCollection()
-	log.Println("dropping database", m.dbName)
-	session.DB(m.dbName).DropDatabase()
+	log.Println("dropping collection", SimDBName, CollectionName)
+	session.DB(SimDBName).C(CollectionName).DropCollection()
+	log.Println("dropping database", SimDBName)
+	session.DB(SimDBName).DropDatabase()
 }
 
 // CreateIndexes creates indexes
 func (m MongoConn) CreateIndexes() {
 	session, _ := GetSession(m.uri, m.ssl, m.sslCA)
 	defer session.Close()
-	c := session.DB(m.dbName).C(CollectionName)
+	c := session.DB(SimDBName).C(CollectionName)
 
 	if m.filename == "" {
 		c.EnsureIndexKey("favoriteCity")

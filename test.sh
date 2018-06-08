@@ -24,21 +24,21 @@ go run keyhole.go --schema --file examples/template.json
 
 # Test Info
 echo ; echo "==> Test printing cluster info (--uri <uri> --info)"
-go run keyhole.go --uri mongodb://localhost:33168/ --info
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --info
 
 # Test seed
 # echo ; echo "==> Test seeding default docs (--uri <uri> --seed)"
-# go run keyhole.go --uri mongodb://localhost:33168/ --seed
+# go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed
 # echo ; echo "==> Test seeding default docs after dropping collection (--uri <uri> --drop)"
-# go run keyhole.go --uri mongodb://localhost:33168/ --seed --drop
+# go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --drop
 echo ; echo "==> Test seeding docs from a template (--uri <uri> --file <file>)"
-go run keyhole.go --uri mongodb://localhost:33168/ --seed --file examples/template.json
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --file examples/template.json
 echo ; echo "==> Test seeding docs from a template after dropping collection (--uri <uri> --file <file> --drop)"
-go run keyhole.go --uri mongodb://localhost:33168/ --seed --file examples/template.json --drop
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --file examples/template.json --drop
 
 # Test load test
 echo ; echo "==> Test load from a template (--uri <uri> --file <file>)"
-go run keyhole.go --uri mongodb://localhost:33168/ --file examples/template.json --duration 2 --tps 300 --conn 10
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --file examples/template.json --duration 2 --tps 300 --conn 10
 
 # Test loginfo
 echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
@@ -46,4 +46,3 @@ go run keyhole.go --loginfo data/mongod.log
 
 echo ; echo "Shutdown mongod"
 mongo --port 33168 --eval 'db.getSisterDB("admin").shutdownServer()'
-

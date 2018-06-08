@@ -146,7 +146,7 @@ type ServerStatusDoc struct {
 // CollectServerStatus collects db.serverStatus() every minute
 func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 	mapKey := getKeyFromReplicaSetName(uri)
-	fmt.Println("CollectServerStatus: connect to", mapKey)
+	channel <- "CollectServerStatus: connect to " + mapKey + "\n"
 	pstat := ServerStatusDoc{}
 	stat := ServerStatusDoc{}
 	var iop int
@@ -211,9 +211,9 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 }
 
 // CollectDBStats collects dbStats every 10 seconds
-func (m MongoConn) CollectDBStats(uri string, channel chan string) {
+func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string) {
 	mapKey := getKeyFromReplicaSetName(uri)
-	fmt.Println("CollectDBStats: connect to", mapKey)
+	channel <- "CollectDBStats: connect to " + mapKey + ", " + dbName + "\n"
 	var docs map[string]interface{}
 	var prevDataSize float64
 	var dataSize float64
@@ -223,7 +223,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string) {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
-			stat := m.dbStats(session)
+			stat := m.dbStats(session, dbName)
 			bytes, _ := json.Marshal(stat)
 			json.Unmarshal(bytes, &docs)
 			if docs["dataSize"] != nil {
@@ -289,9 +289,9 @@ func (m MongoConn) serverStatus(session *mgo.Session) bson.M {
 }
 
 // dbStats executes db.Stats()
-func (m MongoConn) dbStats(session *mgo.Session) bson.M {
+func (m MongoConn) dbStats(session *mgo.Session, dbName string) bson.M {
 	result := bson.M{}
-	session.DB(m.dbName).Run("dbStats", &result)
+	session.DB(dbName).Run("dbStats", &result)
 	return result
 }
 
