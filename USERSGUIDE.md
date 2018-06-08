@@ -11,20 +11,20 @@ mongodb://<usern>:<passwd>@<hostname>:<port>/?authSource=<db>
 Once you have a connection string, connect to your cluster with `--uri` and `--info` flag.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin --info
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin --info
 ```
 
 For a sharded cluster, connect to a `mongos` and the command is similar to connecting to a standalone server.  For a replica set, include all replica nodes and replica set name in the connection string.  Below is an example of connecting to a replica set.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017,localhost:27018,localhost,27019?replicaSet=replset\&authSource=admin --info
+keyhole --uri mongodb://user:password@localhost:27017,localhost:27018,localhost,27019/?replicaSet=replset\&authSource=admin --info
 ```
 
 ### TLS/SSL Support
 If inflight encryption is required by your cluster, include `--ssl` and `--sslCAFile` in the command.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --info --ssl --sslCAFile /etc/ssl/certs/ca.crt
 ```
 
@@ -122,21 +122,21 @@ Using a template, *keyhole* is intelligent enough to detect data types.  **More 
 *Keyhole* by default seeds 1,000 documents at a time to namespace `_KEYHOLE_.examples`
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --seed --file template.json
 ```
 
-You can specify the total number of documents to be created by including a `--total` flag.
+You can specify the destination database by including the target database in the connection string and the total number of documents to be created with the `--total` flags.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/EXAMPLEDB?authSource=admin \
     --seed --file template.json --total 5000
 ```
 
-By default, *keyhole* inserts into the `_KEYHOLE_.examples` collection with dropping the collection first.  To drop the `_KEYHOLE_.examples` before any document insertion, include the `--drop` flag.
+The above example writes 5,000 documents to `EXAMPLEDB.examples`.  In addition, *keyhole* inserts into the destination collection without dropping it first.  To drop the `_KEYHOLE_.examples` before any document insertion, include the `--drop` flag.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --seed --file template.json --total 5000 --drop
 ```
 
@@ -147,13 +147,13 @@ There are two ways to begin monitoring, and they are with `--peek` and `--monito
 *Keyhole* can collect server status data by issuing `db.serverStatus()` to a node or a cluster with the `--peek` flag.  if *keyhole* connects to a replica set, it will connect to the primary node.  Below is an example of connecting to a standalone instance.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin --peek
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin --peek
 ```
 
-By default, *keyhole* runs for a period of 5 minutes and intends to take a "snapshot" of the system performance.  To prolong the monitoring time, include the `--duration` flag.  For example, to monitor a cluster for 60 minutes, do
+Note that, the default database *keyhole* collects database stats from is `_KEYHOLE`.  You can include the targe database in the connection string as described in the *Seed Data* section.  By default, *keyhole* runs for a period of 5 minutes and intends to take a "snapshot" of the system performance.  To prolong the monitoring time, include the `--duration` flag.  For example, to monitor a cluster for 60 minutes, do
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --peek --duration 60
 ```
 
@@ -171,13 +171,13 @@ With `--monitor` flag, *keyhole* collects server status using `db.serverStats()`
 
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin --monitor
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin --monitor
 ```
 
 To change the default duration, include the `--duration` flag (in minutes).
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --monitor --duration 120
 ```
 
@@ -255,13 +255,13 @@ WiredTiger storage engine uses tickets to control the number of read/write opera
 *Keyhole* can be used as a load testing tool on top of the collecting stats functions.  To load test a standalone server, simply execute it with the `--uri` flag.  Along the way, *keyhole* also collect server status as described in *Monitoring* section and prints summaries at the end of a run.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --file template.json
 ```
 
 The above command by default spawns 20 connections and generates 600 transactions per second (TPS) for 5 minutes.  You can change the number of connections by including the `--conn` flag, the TPS from `--tps` flag, and duration from `--duration` flag.
 
-Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.
+Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.  Note that under load test mode, *keyhole* ignores the target database in the connection string.  The reason is at the end of run *keyhole* will clean up data and thus it always run against the `_KEYHOLE_88800.keyhole` collection.
 
 ### Design
 There are different stages in a *keyhole* load test run, and they are as following
@@ -282,7 +282,7 @@ The last minute is the teardown period and it removes test data from database.
 *Keyhole* uses 600 TPS by default with a goal of measuring the maximum write throughputs of a cluster.  However, 600 TPS may be too high for some systems due to many factors, such as slower disk, jammed network, and document size.  If testing the bandwith of write throughputs is already done, with pre-populated data, you may want to run *keyhole* in a simulation only mode and lower the TPS.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017?authSource=admin \
+keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --file template.json --simonly --tps 400
 ```
 
