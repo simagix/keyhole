@@ -386,9 +386,11 @@ func (m MongoConn) CreateIndexes(docs []bson.M) {
 	}
 	c.EnsureIndexKey("_search")
 
+	keys := []string{}
 	for _, doc := range docs {
 		for field := range doc {
-			c.EnsureIndexKey(field)
+			keys = append(keys, field)
 		}
+		c.EnsureIndex(mgo.Index{Key: keys})
 	}
 }

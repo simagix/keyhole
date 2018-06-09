@@ -38,7 +38,8 @@ go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --file examples
 
 # Test load test
 echo ; echo "==> Test load from a template (--uri <uri> --file <file>)"
-go run keyhole.go --uri mongodb://localhost:33168/keyhole --file examples/template.json --duration 2 --tps 300 --conn 10
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --file examples/template.json --duration 2 \
+    --tps 300 --conn 10 --tx examples/transactions.json
 
 # Test loginfo
 echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
