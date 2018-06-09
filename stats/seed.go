@@ -237,16 +237,18 @@ func traverseDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 		case float32, float64:
 			(*doc)[key] = rand.Intn(10000)
 		case string:
-			if isHexString(value.(string)) && len(value.(string)) == 24 {
-				(*doc)[key] = bson.NewObjectIdWithTime(time.Now())
-			} else {
-				rstr := getMagicString(value.(string), meta)
-				if isDateString(rstr) {
-					t, _ := time.Parse(rstr, time.RFC3339)
-					(*doc)[key] = t
+			if meta == false {
+				if value.(string) == "$date" || isDateString(value.(string)) {
+					(*doc)[key] = getDate()
+				} else if value.(string) == "$oId" || (len(value.(string)) == 24 && isHexString(value.(string))) {
+					(*doc)[key] = bson.NewObjectIdWithTime(time.Now())
+				} else if isHexString(value.(string)) {
+					(*doc)[key] = getHexString(len(value.(string)))
 				} else {
-					(*doc)[key] = rstr
+					(*doc)[key] = getMagicString(value.(string), meta)
 				}
+			} else {
+				(*doc)[key] = getMagicString(value.(string), meta)
 			}
 		default:
 			(*doc)[key] = value
@@ -295,6 +297,8 @@ func getMagicString(str string, meta bool) string {
 			return "$ip"
 		} else if isDateString(str) {
 			return "$date"
+		} else if isHexString(str) && len(str) == 24 {
+			return "$oId"
 		}
 		return str
 	}
@@ -303,10 +307,6 @@ func getMagicString(str string, meta bool) string {
 		return getEmailAddress()
 	} else if str == "$ip" || isIP(str) {
 		return getIP()
-	} else if str == "$date" || isDateString(str) {
-		return getDateString(len(str))
-	} else if isHexString(str) {
-		return getHexString(len(str))
 	}
 
 	if len(str) < 10 {
@@ -354,7 +354,7 @@ func isHexString(str string) bool {
 }
 
 func getHexString(n int) string {
-	hexstr := "1234567890abcdef"
+	hexstr := "1234567890ABCDEF"
 	hex := ""
 	for len(hex) < n {
 		hex += string(hexstr[rand.Intn(len(hexstr)-1)])
@@ -367,12 +367,12 @@ func isDateString(str string) bool {
 	return matched.MatchString(str)
 }
 
-func getDateString(n int) string {
+func getDate() time.Time {
 	min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
 	max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
 	delta := max - min
 	sec := rand.Int63n(delta) + min
-	return time.Unix(sec, 0).Format(time.RFC3339)
+	return time.Unix(sec, 0)
 }
 
 // PrintQuote print a random quote

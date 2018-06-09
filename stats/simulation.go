@@ -187,9 +187,9 @@ func GetRandomDoc() bson.M {
 // }
 func (m MongoConn) PopulateData(wmajor bool) {
 	s := 0
-	for s < 57 { // 3 seconds less of a minute
-		s++
-		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+	defer session.Close()
+	for s < 55 {
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			if wmajor {
@@ -206,47 +206,42 @@ func (m MongoConn) PopulateData(wmajor bool) {
 				var contentArray []interface{}
 				for n := 0; n < m.bulkSize; n++ {
 					contentArray = append(contentArray, simDocs[docidx%len(simDocs)])
-					// c.Insert(simDocs[docidx%len(simDocs)])
 					docidx++
 				}
 				bulk.Insert(contentArray...)
-				_, err := bulk.Run()
+				_, err = bulk.Run()
 				if err != nil {
 					log.Println(err)
 					session.Close()
-					break
+					panic(err)
 				}
 			}
 
-			t := time.Now()
-			elapsed := t.Sub(bt)
-			if elapsed.Seconds() > time.Second.Seconds() {
+			elapsed := time.Now().Sub(bt)
+			if elapsed > time.Second {
 				x := math.Floor(elapsed.Seconds())
 				s += int(x)
-				elapsed = time.Duration(elapsed.Seconds() - x)
+			} else {
+				s++
 			}
-			et := time.Second.Seconds() - elapsed.Seconds()
-			if et > 0 {
-				time.Sleep(time.Millisecond * time.Duration(int(1000*et)))
-			} else if m.verbose {
-				fmt.Println("Populate", "TPS Overflows", et)
-			}
-			session.Close()
+			time.Sleep(time.Duration(time.Millisecond * 20))
 		} else {
-			time.Sleep(time.Second)
+			panic(err)
 		}
 	}
 }
 
 // Simulate simulates CRUD for load tests
-func (m MongoConn) Simulate(duration int, wmajor bool) {
+func (m MongoConn) Simulate(duration int, txFile string, wmajor bool) {
+	if m.verbose {
+		fmt.Println("Simulate", duration, txFile, wmajor)
+	}
 	var schema = Schema{}
 	results := []bson.M{}
 	change := bson.M{"$set": bson.M{"ts": time.Now()}}
-	waitms := 2
+	waitms := 1
 	isTeardown := false
 	var totalTPS int
-
 	run := 0
 	for run < duration {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
@@ -267,7 +262,9 @@ func (m MongoConn) Simulate(duration int, wmajor bool) {
 			} else {
 				totalTPS = m.tps / 2
 			}
-			for i := 0; i < totalTPS; i++ {
+
+			txCount := 0
+			for i := 0; i < totalTPS && txCount < totalTPS; i++ {
 				doc := simDocs[i%len(simDocs)]
 				bytes, _ := json.Marshal(doc)
 				json.Unmarshal(bytes, &schema)
@@ -276,37 +273,49 @@ func (m MongoConn) Simulate(duration int, wmajor bool) {
 				movie = schema.FavoriteMovie
 
 				if isTeardown {
+					c.Find(bson.M{"COLLSCAN": doc["_search"]}).One(&results) // simulate COLLSCAN
+					txCount++
 					c.RemoveAll(bson.M{"_search": doc["_search"]})
+					txCount++
 					time.Sleep(time.Millisecond * time.Duration(waitms))
+				} else if txFile != "" {
+					txCount += m.processTransactions(txFile, c, doc)
 				} else {
-					_id := bson.NewObjectIdWithTime(time.Now())
-					c.Upsert(_id, doc)
-					time.Sleep(time.Millisecond * time.Duration(waitms))
+					doc := simDocs[i%len(simDocs)]
+					_id := doc["_id"]
+					c.Insert(cloneDoc(doc))
+					txCount++
 					if m.filename == "" {
 						// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
+						// txCount++
 						c.Find(bson.M{"favoriteCity": city}).Limit(20).All(&results)
+						txCount++
 						c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
+						txCount++
 						c.Update(bson.M{"_id": _id}, change)
+						txCount++
 						// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
 						c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
+						txCount++
 						// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
+						// txCount++
 					} else {
 						if i == 20 {
-							c.Find(bson.M{"COLLSCAN": doc["_search"]}).One(&results) // simulate COLLSCAN
-						} else if (i % 21) == 20 {
 							c.Find(bson.M{"_search": doc["_search"]}).Sort("_search").Limit(10).All(&results)
+							txCount++
 						} else {
 							c.Find(bson.M{"_id": _id}).One(&results)
-							time.Sleep(time.Millisecond * time.Duration(waitms))
+							txCount++
 							if (i % 2) == 0 {
 								c.Update(bson.M{"_id": _id}, change)
-							} else {
-								c.Remove(bson.M{"_id": _id})
+								txCount++
 							}
+							c.Remove(bson.M{"_id": _id})
+							txCount++
 						}
 					}
 				}
-				if (i % 21) == 20 {
+				if (i % 11) == 10 {
 					seconds := 1 - time.Now().Sub(beginTime).Seconds()
 					if seconds < 0 {
 						if m.verbose {
@@ -322,12 +331,54 @@ func (m MongoConn) Simulate(duration int, wmajor bool) {
 			} else if m.verbose {
 				fmt.Println("Simulate", "TPS overflows", seconds)
 			}
-			if m.filename == "" {
+			if m.filename == "" && txFile == "" { // demo mode pressure mongod
 				c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteCity").Limit(20).All(&results)
 			}
 			session.Close()
 		}
 	}
+}
+
+// cloneDoc clones a doc and assign a _id
+func cloneDoc(doc bson.M) bson.M {
+	_id := bson.NewObjectId()
+	var ndoc = make(bson.M)
+	bytes, _ := json.Marshal(doc)
+	json.Unmarshal(bytes, &ndoc)
+	ndoc["_id"] = _id
+	return ndoc
+}
+
+func (m MongoConn) processTransactions(txFile string, c *mgo.Collection, doc bson.M) int {
+	transactions := getTransactions(txFile)
+	results := []bson.M{}
+	for _, tx := range transactions {
+		_id := bson.NewObjectIdWithTime(time.Now())
+		if tx.C == "insert" {
+			e := c.Insert(cloneDoc(doc))
+			if e != nil {
+				cnt, _ := c.Count()
+				fmt.Println(_id, cnt)
+				panic(e)
+			}
+		} else if tx.C == "find" {
+			c.Find(tx.Q).All(&results)
+		} else if tx.C == "update" {
+			c.Update(tx.Q, tx.O)
+		} else if tx.C == "remove" {
+			c.Remove(tx.Q)
+		}
+	}
+
+	return len(transactions)
+}
+
+func getQueryFilter(doc interface{}) bson.M {
+	q := bson.M{}
+	bytes, _ := json.Marshal(doc)
+	json.Unmarshal(bytes, &q)
+	fmt.Println("q", q)
+	return q
 }
 
 // Cleanup drops the temp database

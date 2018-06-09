@@ -38,6 +38,7 @@ func main() {
 	sslCA := flag.String("sslCAFile", "", "CA file")
 	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
+	tx := flag.String("tx", "", "file with defined transactions")
 	uri := flag.String("uri", "", "MongoDB URI")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
@@ -172,7 +173,8 @@ func main() {
 		// 2nd and 3rd minutes - normal TPS ops
 		// remaining minutes - burst with no delay
 		// last minute - normal TPS ops until exit
-		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n", *tps, *conn, *tps**conn, *duration, *bulksize)
+		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n",
+			*tps, *conn, *tps**conn, *duration, *bulksize)
 		m.CreateIndexes()
 		simTime := *duration
 		if *simonly == false {
@@ -180,13 +182,11 @@ func main() {
 		}
 		for i := 0; i < *conn; i++ {
 			go func() {
-				// msim := stats.New(*uri, *ssl, *sslCA, stats.DBName, *tps, *file, *verbose, !*nocleanup, *peek, *monitor)
 				if *simonly == false {
 					m.PopulateData(*wmajor)
-					time.Sleep(time.Second)
+					time.Sleep(1 * time.Second)
 				}
-				m.Simulate(simTime, *wmajor)
-				time.Sleep(time.Second)
+				m.Simulate(simTime, *tx, *wmajor)
 			}()
 		}
 	}
