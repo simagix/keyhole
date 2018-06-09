@@ -1,7 +1,7 @@
 {
-	"indexes": [{
-		"email": 1
-	}],
+	"indexes": [
+		{ "email": 1, "hostIp": 1}
+	],
 	"transactions": [{
 			"c": "insert"
 		},

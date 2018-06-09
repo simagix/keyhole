@@ -176,7 +176,7 @@ func main() {
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n",
 			*tps, *conn, *tps**conn, *duration, *bulksize)
 
-		tdoc := stats.GetTransactions(*tx)
+		tdoc := m.GetTransactions(*tx)
 		m.CreateIndexes(tdoc.Indexes)
 		simTime := *duration
 		if *simonly == false {

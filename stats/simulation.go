@@ -211,8 +211,6 @@ func (m MongoConn) PopulateData(wmajor bool) {
 				bulk.Insert(contentArray...)
 				_, err = bulk.Run()
 				if err != nil {
-					log.Println(err)
-					session.Close()
 					panic(err)
 				}
 			}
@@ -353,7 +351,6 @@ func getQueryFilter(doc interface{}) bson.M {
 	q := bson.M{}
 	bytes, _ := json.Marshal(doc)
 	json.Unmarshal(bytes, &q)
-	fmt.Println("q", q)
 	return q
 }
 
@@ -391,6 +388,10 @@ func (m MongoConn) CreateIndexes(docs []bson.M) {
 		for field := range doc {
 			keys = append(keys, field)
 		}
-		c.EnsureIndex(mgo.Index{Key: keys})
+
+		e := c.EnsureIndex(mgo.Index{Key: keys})
+		if e != nil {
+			panic(e)
+		}
 	}
 }

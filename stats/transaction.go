@@ -2,9 +2,7 @@ package stats
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"os"
 
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -19,19 +17,18 @@ type Transaction struct {
 
 // TransactionDoc -
 type TransactionDoc struct {
-	Transactions []Transaction
-	Indexes      []bson.M
+	Transactions []Transaction `json:"transactions" bson:"transactions"`
+	Indexes      []bson.M      `json:"indexes" bson:"indexes"`
 }
 
 // GetTransactions -
-func GetTransactions(filename string) TransactionDoc {
+func (m MongoConn) GetTransactions(filename string) TransactionDoc {
 	if filename == "" {
 		return TransactionDoc{}
 	}
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		panic(err)
 	}
 
 	var doc TransactionDoc
