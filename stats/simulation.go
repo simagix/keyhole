@@ -232,9 +232,9 @@ func (m MongoConn) PopulateData(wmajor bool) {
 }
 
 // Simulate simulates CRUD for load tests
-func (m MongoConn) Simulate(duration int, txFile string, wmajor bool) {
+func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor bool) {
 	if m.verbose {
-		fmt.Println("Simulate", duration, txFile, wmajor)
+		fmt.Println("Simulate", duration, transactions, wmajor)
 	}
 	var schema = Schema{}
 	results := []bson.M{}
@@ -264,7 +264,7 @@ func (m MongoConn) Simulate(duration int, txFile string, wmajor bool) {
 			}
 
 			txCount := 0
-			for i := 0; i < totalTPS && txCount < totalTPS; i++ {
+			for i := 0; txCount < totalTPS; i++ {
 				doc := simDocs[i%len(simDocs)]
 				bytes, _ := json.Marshal(doc)
 				json.Unmarshal(bytes, &schema)
@@ -278,8 +278,8 @@ func (m MongoConn) Simulate(duration int, txFile string, wmajor bool) {
 					c.RemoveAll(bson.M{"_search": doc["_search"]})
 					txCount++
 					time.Sleep(time.Millisecond * time.Duration(waitms))
-				} else if txFile != "" {
-					txCount += m.processTransactions(txFile, c, doc)
+				} else if len(transactions) > 0 {
+					txCount += m.processTransactions(transactions, c, doc)
 				} else {
 					doc := simDocs[i%len(simDocs)]
 					_id := doc["_id"]
@@ -331,7 +331,7 @@ func (m MongoConn) Simulate(duration int, txFile string, wmajor bool) {
 			} else if m.verbose {
 				fmt.Println("Simulate", "TPS overflows", seconds)
 			}
-			if m.filename == "" && txFile == "" { // demo mode pressure mongod
+			if m.filename == "" && len(transactions) == 0 { // demo mode pressure mongod
 				c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteCity").Limit(20).All(&results)
 			}
 			session.Close()
@@ -347,30 +347,6 @@ func cloneDoc(doc bson.M) bson.M {
 	json.Unmarshal(bytes, &ndoc)
 	ndoc["_id"] = _id
 	return ndoc
-}
-
-func (m MongoConn) processTransactions(txFile string, c *mgo.Collection, doc bson.M) int {
-	transactions := getTransactions(txFile)
-	results := []bson.M{}
-	for _, tx := range transactions {
-		_id := bson.NewObjectIdWithTime(time.Now())
-		if tx.C == "insert" {
-			e := c.Insert(cloneDoc(doc))
-			if e != nil {
-				cnt, _ := c.Count()
-				fmt.Println(_id, cnt)
-				panic(e)
-			}
-		} else if tx.C == "find" {
-			c.Find(tx.Q).All(&results)
-		} else if tx.C == "update" {
-			c.Update(tx.Q, tx.O)
-		} else if tx.C == "remove" {
-			c.Remove(tx.Q)
-		}
-	}
-
-	return len(transactions)
 }
 
 func getQueryFilter(doc interface{}) bson.M {
@@ -400,7 +376,7 @@ func (m MongoConn) Cleanup() {
 }
 
 // CreateIndexes creates indexes
-func (m MongoConn) CreateIndexes() {
+func (m MongoConn) CreateIndexes(docs []bson.M) {
 	session, _ := GetSession(m.uri, m.ssl, m.sslCA)
 	defer session.Close()
 	c := session.DB(SimDBName).C(CollectionName)
@@ -409,4 +385,10 @@ func (m MongoConn) CreateIndexes() {
 		c.EnsureIndexKey("favoriteCity")
 	}
 	c.EnsureIndexKey("_search")
+
+	for _, doc := range docs {
+		for field := range doc {
+			c.EnsureIndexKey(field)
+		}
+	}
 }

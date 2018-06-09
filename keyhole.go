@@ -175,7 +175,9 @@ func main() {
 		// last minute - normal TPS ops until exit
 		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n",
 			*tps, *conn, *tps**conn, *duration, *bulksize)
-		m.CreateIndexes()
+
+		tdoc := stats.GetTransactions(*tx)
+		m.CreateIndexes(tdoc.Indexes)
 		simTime := *duration
 		if *simonly == false {
 			simTime--
@@ -186,7 +188,7 @@ func main() {
 					m.PopulateData(*wmajor)
 					time.Sleep(1 * time.Second)
 				}
-				m.Simulate(simTime, *tx, *wmajor)
+				m.Simulate(simTime, tdoc.Transactions, *wmajor)
 			}()
 		}
 	}

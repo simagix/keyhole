@@ -1,0 +1,29 @@
+{
+	"indexes": [{
+		"email": 1
+	}],
+	"transactions": [{
+			"c": "insert"
+		},
+		{
+			"c": "find",
+			"q": {
+				"email": "ken.chen@mongodb.com"
+			}
+		},
+		{
+			"c": "update",
+			"q": {
+				"email": "ken.chen@mongodb.com"
+			},
+			"o": {
+				"$set": {
+					"email": "ken.chen@mongodb.com"
+				}
+			}
+		}, {
+			"c": "remove",
+			"q": "{'email': 'ken.chen@mongodb.com'}"
+		}
+	]
+}
