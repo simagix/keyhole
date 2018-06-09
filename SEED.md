@@ -26,7 +26,7 @@ keyhole -uri=mongodb://localhost/?replicaSet=replset -seed --file file.json [--d
 	"number2": 456,
 	"hex1": "12345678",
 	"hex2": "a1023b435c893d123e567f3487",
-	"lastUpdated": {"$date": "2018-01-01T01:23:45Z"},
+	"lastUpdated": "2018-01-01T01:23:45Z",
 	"array1": [123, 456, 789],
 	"array2": [ "little", "cute", "girl" ],
 	"array3": [
@@ -70,9 +70,7 @@ keyhole -uri=mongodb://localhost/?replicaSet=replset -seed --file file.json [--d
 		6258
 	],
 	"hex2" : "c217da54dcd554c200aa94d6b1",
-	"lastUpdated" : {
-		"$date" : "1988-02-29T00:41:24-05:00"
-	},
+	"lastUpdated" : ISODate("1988-02-29T00:41:24-05:00"),
 	"string1" : "You talkin' to me?",
 	"number2" : 8287,
 	"subdocs" : {

@@ -41,15 +41,15 @@ Seeding data is a very useful feature when you need need to populate data for de
 
 ```
 {
-	"_id": {"$oid": "a1b2c3d4e5f6f7e8d9c0b6a8"},
+	"_id": "a1b2c3d4e5f6f7e8d9c0b6a8",
 	"email": "simagix@gmail.com",
 	"hostIP": "192.168.1.1",
 	"shortString": "Atlanta",
 	"longString": "This is another string value. You can use any field names",
 	"number": 123,
 	"hex": "a1023b435c893d123e567f3487",
-	"objectId": {"$oid": "a1b2c3d4e5f6f7e8d9c0b6a8"},
-	"lastUpdated": {"$date": "2018-01-01T01:23:45Z"},
+	"objectId": "a1b2c3d4e5f6f7e8d9c0b6a8",
+	"lastUpdated": "2018-01-01T01:23:45Z",
 	"array1": [123, 456, 789],
 	"array2": [ "little", "cute", "girl" ],
 	"array3": [
@@ -71,9 +71,7 @@ A example of result is shown as following.
 
 ```
 {
-  "_id": {
-    "$oid": "de763b679dc88d11243b0bc2"
-  },
+  "_id": ObjectId("de763b679dc88d11243b0bc2"),
   "array1": [
     8511,
     8162,
@@ -99,14 +97,10 @@ A example of result is shown as following.
   "email": "Richard.S.Jones@amazon.com",
   "hex": "dcd554c200aa94d6b11729b39b",
   "hostIP": "45.156.103.220",
-  "lastUpdated": {
-    "$date": "1987-09-24T12:43:52-04:00"
-  },
+  "lastUpdated": ISODate("1987-09-24T12:43:52-04:00"),
   "longString": "There's no place like home. All right, Mr. DeMille, I'm",
   "number": 563,
-  "objectId": {
-    "$oid": "d739c08d26448db599b89278"
-  },
+  "objectId": ObjectId("d739c08d26448db599b89278"),
   "shortString": "Richard",
   "subdocs": {
     "attribute1": {
@@ -116,7 +110,7 @@ A example of result is shown as following.
 }
 ```
 
-Using a template, *keyhole* is intelligent enough to detect data types.  **More importantly, for the string type, *keyhole* can detect a few special formats, and they are email address, IP, date/time with `yyyy-MM-ddT\.*` format, and HEX, respectively and then replace their values with randomized values of their formats accordingly.**  Note that `ObjectID()` and `ISODate()` are not valid JSON syntax and you have to change them to a sub document using `$oid` and `$date` keywords.
+Using a template, *keyhole* is intelligent enough to detect data types.  **More importantly, for the string type, *keyhole* can detect a few special formats, and they are email address, IP, date/time with `yyyy-MM-ddT\.*` format, and HEX, respectively and then replace their values with randomized values of their formats accordingly.**  Note that `ObjectID()` and `ISODate()` are not valid JSON syntax and you have to change them to a sub document using a 24 bytes HEX string and ISO date string format begins with "yyyy-MM-ddT", for example `2018-06-06T12:34:56Z`.
 
 ### Document Creation
 *Keyhole* by default seeds 1,000 documents at a time to namespace `_KEYHOLE_.examples`
