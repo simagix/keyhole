@@ -8,22 +8,22 @@
 		{
 			"c": "find",
 			"q": {
-				"email": "ken.chen@mongodb.com"
+				"email": "simagix@example.com"
 			}
 		},
 		{
 			"c": "update",
 			"q": {
-				"email": "ken.chen@mongodb.com"
+				"email": "simagix@example.com"
 			},
 			"o": {
 				"$set": {
-					"email": "ken.chen@mongodb.com"
+					"email": "simagix@example.com"
 				}
 			}
 		}, {
 			"c": "remove",
-			"q": "{'email': 'ken.chen@mongodb.com'}"
+			"q": "{'email': 'simagix@example.com'}"
 		}
 	]
 }
