@@ -237,7 +237,17 @@ func traverseDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 		case float32, float64:
 			(*doc)[key] = rand.Intn(10000)
 		case string:
-			(*doc)[key] = getMagicString(value.(string), meta)
+			if isHexString(value.(string)) && len(value.(string)) == 24 {
+				(*doc)[key] = bson.NewObjectIdWithTime(time.Now())
+			} else {
+				rstr := getMagicString(value.(string), meta)
+				if isDateString(rstr) {
+					t, _ := time.Parse(rstr, time.RFC3339)
+					(*doc)[key] = t
+				} else {
+					(*doc)[key] = rstr
+				}
+			}
 		default:
 			(*doc)[key] = value
 		}
@@ -353,7 +363,7 @@ func getHexString(n int) string {
 }
 
 func isDateString(str string) bool {
-	var matched = regexp.MustCompile(`^\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])T.*Z$`)
+	var matched = regexp.MustCompile(`^\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])T.*$`)
 	return matched.MatchString(str)
 }
 
