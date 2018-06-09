@@ -219,8 +219,9 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	for {
-		session, err := GetSession(uri, m.ssl, m.sslCA)
+	session, err := GetSession(uri, m.ssl, m.sslCA)
+	defer session.Close()
+	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			stat := dbStats(session, dbName)
@@ -239,10 +240,10 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 			prevDataSize = dataSize
 			prevTime = now
 			now = time.Now()
-			session.Close()
 		}
 		time.Sleep(10 * time.Second)
 	}
+	channel <- "CollectDBStats exiting...\n"
 }
 
 // PrintServerStatus prints serverStatusDocs summary for the duration

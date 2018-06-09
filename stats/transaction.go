@@ -50,7 +50,7 @@ func execTXForDemo(c *mgo.Collection, doc bson.M) int {
 	movie := schema.FavoriteMovie
 	txCount := 0
 
-	c.Insert(cloneDoc(doc))
+	c.Insert(doc)
 	txCount++
 	// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
 	// txCount++
@@ -76,21 +76,30 @@ func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transac
 
 	for _, tx := range transactions {
 		if tx.C == "insert" {
-			c.Insert(cloneDoc(doc))
+			c.Insert(doc)
 		} else {
 			bytes, _ := json.Marshal(tx.Q)
 			json.Unmarshal(bytes, &cmd)
 			traverseDocument(&qfilter, cmd, false)
 
 			if tx.C == "find" {
-				c.Find(qfilter).All(&results)
+				c.Find(qfilter).Limit(20).All(&results)
+			} else if tx.C == "findOne" {
+				c.Find(qfilter).One(&results)
 			} else if tx.C == "update" {
 				bytes, _ = json.Marshal(tx.O)
 				json.Unmarshal(bytes, &op)
 				traverseDocument(&qfilter, op, false)
 				c.Update(qfilter, op)
+			} else if tx.C == "updateAll" {
+				bytes, _ = json.Marshal(tx.O)
+				json.Unmarshal(bytes, &op)
+				traverseDocument(&qfilter, op, false)
+				c.UpdateAll(qfilter, op)
 			} else if tx.C == "remove" {
 				c.Remove(qfilter)
+			} else if tx.C == "removeAll" {
+				c.RemoveAll(qfilter)
 			}
 		}
 	}
@@ -103,7 +112,7 @@ func execTXByTemplate(c *mgo.Collection, doc bson.M) int {
 	change := bson.M{"$set": bson.M{"ts": time.Now()}}
 	_id := doc["_id"]
 	txCount := 0
-	c.Insert(cloneDoc(doc))
+	c.Insert(doc)
 	txCount++
 	c.Find(bson.M{"_id": _id}).One(&results)
 	txCount++

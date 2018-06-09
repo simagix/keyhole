@@ -255,6 +255,7 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
 
 The above command by default spawns 20 connections and generates 600 transactions per second (TPS) for 5 minutes.  You can change the number of connections by including the `--conn` flag, the TPS from `--tps` flag, and duration from `--duration` flag.
 
+### Transactions Template
 You can load test with pre-defined transactions and indexes with `--tx` flag.
 
 ```
@@ -267,7 +268,7 @@ In the template file, you can define *indexes* and *transactions* as following e
 ```
 {
 	"indexes": [{
-		"email": 1
+		"email": 1, "hostIP": 1
 	}],
 	"transactions": [{
 			"c": "insert"
@@ -295,6 +296,16 @@ In the template file, you can define *indexes* and *transactions* as following e
 	]
 }
 ```
+
+Both single field and compound indexes are supported.  In addition, supported commands are
+
+- insert
+- find
+- findOne
+- update
+- updateAll
+- remove
+- removeAll
 
 Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.  Note that under load test mode, *keyhole* ignores the target database in the connection string.  The reason is at the end of run *keyhole* will clean up data and thus it always run against the `_KEYHOLE_88800.keyhole` collection.
 
