@@ -222,7 +222,10 @@ func (m MongoConn) PopulateData(wmajor bool) {
 			} else {
 				s++
 			}
-			time.Sleep(time.Duration(time.Millisecond * 20))
+			et := time.Second.Seconds() - elapsed.Seconds()
+			if et > 0 {
+				time.Sleep(time.Duration(et))
+			}
 		} else {
 			panic(err)
 		}

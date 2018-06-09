@@ -27,10 +27,10 @@ echo ; echo "==> Test printing cluster info (--uri <uri> --info)"
 go run keyhole.go --uri mongodb://localhost:33168/keyhole --info
 
 # Test seed
-# echo ; echo "==> Test seeding default docs (--uri <uri> --seed)"
-# go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed
-# echo ; echo "==> Test seeding default docs after dropping collection (--uri <uri> --drop)"
-# go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --drop
+echo ; echo "==> Test seeding default docs (--uri <uri> --seed)"
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed
+echo ; echo "==> Test seeding default docs after dropping collection (--uri <uri> --drop)"
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --drop
 echo ; echo "==> Test seeding docs from a template (--uri <uri> --file <file>)"
 go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --file examples/template.json
 echo ; echo "==> Test seeding docs from a template after dropping collection (--uri <uri> --file <file> --drop)"
@@ -39,6 +39,9 @@ go run keyhole.go --uri mongodb://localhost:33168/keyhole --seed --file examples
 # Test load test
 echo ; echo "==> Test load from a template (--uri <uri> --file <file>)"
 go run keyhole.go --uri mongodb://localhost:33168/keyhole --file examples/template.json --duration 2 \
+    --tps 300 --conn 10 --simonly
+
+go run keyhole.go --uri mongodb://localhost:33168/keyhole --file examples/template.json --duration 3 \
     --tps 300 --conn 10 --tx examples/transactions.json
 
 # Test loginfo
