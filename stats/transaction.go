@@ -1,8 +1,11 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package stats
 
 import (
 	"encoding/json"
 	"io/ioutil"
+	"time"
 
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -22,7 +25,7 @@ type TransactionDoc struct {
 }
 
 // GetTransactions -
-func (m MongoConn) GetTransactions(filename string) TransactionDoc {
+func GetTransactions(filename string) TransactionDoc {
 	if filename == "" {
 		return TransactionDoc{}
 	}
@@ -36,7 +39,36 @@ func (m MongoConn) GetTransactions(filename string) TransactionDoc {
 	return doc
 }
 
-func (m MongoConn) processTransactions(transactions []Transaction, c *mgo.Collection, doc bson.M) int {
+func execTXForDemo(c *mgo.Collection, doc bson.M) int {
+	schema := Schema{}
+	results := []bson.M{}
+	change := bson.M{"$set": bson.M{"ts": time.Now()}}
+	bytes, _ := json.Marshal(doc)
+	json.Unmarshal(bytes, &schema)
+	city := schema.FavoriteCity
+	book := schema.FavoriteBook
+	movie := schema.FavoriteMovie
+	txCount := 0
+
+	c.Insert(cloneDoc(doc))
+	txCount++
+	// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
+	// txCount++
+	c.Find(bson.M{"favoriteCity": city}).Limit(20).All(&results)
+	txCount++
+	c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
+	txCount++
+	c.Update(bson.M{"_id": doc["_id"]}, change)
+	txCount++
+	// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
+	c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
+	txCount++
+	// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
+	// txCount++
+	return txCount
+}
+
+func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transaction) int {
 	results := []bson.M{}
 	qfilter := make(map[string]interface{})
 	var cmd = make(map[string]interface{})
@@ -64,4 +96,22 @@ func (m MongoConn) processTransactions(transactions []Transaction, c *mgo.Collec
 	}
 
 	return len(transactions)
+}
+
+func execTXByTemplate(c *mgo.Collection, doc bson.M) int {
+	results := []bson.M{}
+	change := bson.M{"$set": bson.M{"ts": time.Now()}}
+	_id := doc["_id"]
+	txCount := 0
+	c.Insert(cloneDoc(doc))
+	txCount++
+	c.Find(bson.M{"_id": _id}).One(&results)
+	txCount++
+	c.Update(bson.M{"_id": _id}, change)
+	txCount++
+	c.Find(bson.M{"_search": doc["_search"]}).Sort("_search").Limit(10).All(&results)
+	txCount++
+	c.Remove(bson.M{"_id": _id})
+	txCount++
+	return txCount
 }

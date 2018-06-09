@@ -164,7 +164,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 		session, err := GetSession(uri, m.ssl, m.sslCA)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
-			serverStatus := m.serverStatus(session)
+			serverStatus := serverStatus(session)
 			bytes, _ := json.Marshal(serverStatus)
 			json.Unmarshal(bytes, &stat)
 			key := time.Now().Format(time.RFC3339)
@@ -223,7 +223,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 		session, err := GetSession(uri, m.ssl, m.sslCA)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
-			stat := m.dbStats(session, dbName)
+			stat := dbStats(session, dbName)
 			bytes, _ := json.Marshal(stat)
 			json.Unmarshal(bytes, &docs)
 			if docs["dataSize"] != nil {
@@ -254,7 +254,7 @@ func (m MongoConn) PrintServerStatus(uri string) {
 	defer session.Close()
 	session.SetMode(mgo.Primary, true)
 
-	serverStatus := m.serverStatus(session)
+	serverStatus := serverStatus(session)
 	bytes, _ := json.Marshal(serverStatus)
 	json.Unmarshal(bytes, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
@@ -282,14 +282,14 @@ func saveServerStatusDocsToFile(uri string) string {
 }
 
 // serverStatus executes db.serverStatus()
-func (m MongoConn) serverStatus(session *mgo.Session) bson.M {
+func serverStatus(session *mgo.Session) bson.M {
 	result := bson.M{}
 	session.DB("admin").Run("serverStatus", &result)
 	return result
 }
 
 // dbStats executes db.Stats()
-func (m MongoConn) dbStats(session *mgo.Session, dbName string) bson.M {
+func dbStats(session *mgo.Session, dbName string) bson.M {
 	result := bson.M{}
 	session.DB(dbName).Run("dbStats", &result)
 	return result
@@ -322,16 +322,16 @@ func AnalyzeServerStatus(filename string) {
 		json.Unmarshal(bytes, &stat)
 		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
 	}
-	PrintStatsDetails(allDocs)
-	PrintGlobalLockDetails(allDocs)
-	PrintLatencyDetails(allDocs)
-	PrintMetricsDetails(allDocs)
-	PrintWiredTigerCacheDetails(allDocs)
-	PrintWiredTigerConcurrentTransactionsDetails(allDocs)
+	printStatsDetails(allDocs)
+	printGlobalLockDetails(allDocs)
+	printLatencyDetails(allDocs)
+	printMetricsDetails(allDocs)
+	printWiredTigerCacheDetails(allDocs)
+	printWiredTigerConcurrentTransactionsDetails(allDocs)
 }
 
-// PrintStatsDetails -
-func PrintStatsDetails(docs []ServerStatusDoc) {
+// printStatsDetails -
+func printStatsDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -374,8 +374,8 @@ func PrintStatsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+-------+-------+------+--------+--------+--------+--------+--------+--------+--------+\n")
 }
 
-// PrintLatencyDetails -
-func PrintLatencyDetails(docs []ServerStatusDoc) {
+// printLatencyDetails -
+func printLatencyDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -408,8 +408,8 @@ func PrintLatencyDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+----------+----------+----------+\n")
 }
 
-// PrintMetricsDetails -
-func PrintMetricsDetails(docs []ServerStatusDoc) {
+// printMetricsDetails -
+func printMetricsDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -438,8 +438,8 @@ func PrintMetricsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
 }
 
-// PrintGlobalLockDetails prints globalLock stats
-func PrintGlobalLockDetails(docs []ServerStatusDoc) {
+// printGlobalLockDetails prints globalLock stats
+func printGlobalLockDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -468,8 +468,8 @@ func PrintGlobalLockDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 }
 
-// PrintWiredTigerCacheDetails prints wiredTiger cache stats
-func PrintWiredTigerCacheDetails(docs []ServerStatusDoc) {
+// printWiredTigerCacheDetails prints wiredTiger cache stats
+func printWiredTigerCacheDetails(docs []ServerStatusDoc) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -498,8 +498,8 @@ func PrintWiredTigerCacheDetails(docs []ServerStatusDoc) {
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 }
 
-// PrintWiredTigerConcurrentTransactionsDetails prints wiredTiger concurrentTransactions stats
-func PrintWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
+// printWiredTigerConcurrentTransactionsDetails prints wiredTiger concurrentTransactions stats
+func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
 	stat := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- WiredTiger Concurrent Transactions Summary ---")

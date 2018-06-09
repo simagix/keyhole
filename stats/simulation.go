@@ -234,10 +234,7 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 	if m.verbose {
 		fmt.Println("Simulate", duration, transactions, wmajor)
 	}
-	var schema = Schema{}
 	results := []bson.M{}
-	change := bson.M{"$set": bson.M{"ts": time.Now()}}
-	waitms := 1
 	isTeardown := false
 	var totalTPS int
 	run := 0
@@ -251,9 +248,6 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 		}
 		if err == nil {
 			c := session.DB(SimDBName).C(CollectionName)
-			var book string
-			var city string
-			var movie string
 			beginTime := time.Now()
 			if run > 0 && run < (duration-1) {
 				totalTPS = m.tps
@@ -264,54 +258,18 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 			txCount := 0
 			for i := 0; txCount < totalTPS; i++ {
 				doc := simDocs[i%len(simDocs)]
-				bytes, _ := json.Marshal(doc)
-				json.Unmarshal(bytes, &schema)
-				city = schema.FavoriteCity
-				book = schema.FavoriteBook
-				movie = schema.FavoriteMovie
 
 				if isTeardown {
 					c.Find(bson.M{"COLLSCAN": doc["_search"]}).One(&results) // simulate COLLSCAN
 					txCount++
 					c.RemoveAll(bson.M{"_search": doc["_search"]})
 					txCount++
-					time.Sleep(time.Millisecond * time.Duration(waitms))
-				} else if len(transactions) > 0 {
-					txCount += m.processTransactions(transactions, c, doc)
-				} else {
-					doc := simDocs[i%len(simDocs)]
-					_id := doc["_id"]
-					c.Insert(cloneDoc(doc))
-					txCount++
-					if m.filename == "" {
-						// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
-						// txCount++
-						c.Find(bson.M{"favoriteCity": city}).Limit(20).All(&results)
-						txCount++
-						c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
-						txCount++
-						c.Update(bson.M{"_id": _id}, change)
-						txCount++
-						// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
-						c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
-						txCount++
-						// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
-						// txCount++
-					} else {
-						if i == 20 {
-							c.Find(bson.M{"_search": doc["_search"]}).Sort("_search").Limit(10).All(&results)
-							txCount++
-						} else {
-							c.Find(bson.M{"_id": _id}).One(&results)
-							txCount++
-							if (i % 2) == 0 {
-								c.Update(bson.M{"_id": _id}, change)
-								txCount++
-							}
-							c.Remove(bson.M{"_id": _id})
-							txCount++
-						}
-					}
+				} else if m.filename == "" {
+					txCount += execTXForDemo(c, cloneDoc(doc))
+				} else if len(transactions) == 0 { // --file
+					txCount += execTXByTemplate(c, cloneDoc(doc))
+				} else if len(transactions) > 0 { // --file and --tx
+					txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
 				}
 				if (i % 11) == 10 {
 					seconds := 1 - time.Now().Sub(beginTime).Seconds()
@@ -328,9 +286,6 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 				time.Sleep(time.Millisecond * time.Duration(int(1000*seconds)))
 			} else if m.verbose {
 				fmt.Println("Simulate", "TPS overflows", seconds)
-			}
-			if m.filename == "" && len(transactions) == 0 { // demo mode pressure mongod
-				c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Sort("favoriteCity").Limit(20).All(&results)
 			}
 			session.Close()
 		}
