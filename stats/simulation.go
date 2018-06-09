@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"strconv"
 	"time"
@@ -186,47 +185,30 @@ func GetRandomDoc() bson.M {
 //	favoriteSports3
 // }
 func (m MongoConn) PopulateData(wmajor bool) {
-	s := 0
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+	if err != nil {
+		panic(err)
+	}
+	session.SetMode(mgo.Primary, true)
+	if wmajor {
+		session.SetSafe(&mgo.Safe{WMode: "majority"})
+	} else {
+		session.SetSafe(&mgo.Safe{W: 1})
+	}
 	defer session.Close()
-	for s < 55 {
-		if err == nil {
-			session.SetMode(mgo.Primary, true)
-			if wmajor {
-				session.SetSafe(&mgo.Safe{WMode: "majority"})
-			} else {
-				session.SetSafe(&mgo.Safe{W: 1})
-			}
-			c := session.DB(SimDBName).C(CollectionName)
-			bt := time.Now()
-			bulk := c.Bulk()
-			docidx := 0
-
-			for i := 0; i < m.tps; i += m.bulkSize {
-				var contentArray []interface{}
-				for n := 0; n < m.bulkSize; n++ {
-					contentArray = append(contentArray, simDocs[docidx%len(simDocs)])
-					docidx++
-				}
-				bulk.Insert(contentArray...)
-				_, err = bulk.Run()
-				if err != nil {
-					panic(err)
-				}
-			}
-
-			elapsed := time.Now().Sub(bt)
-			if elapsed > time.Second {
-				x := math.Floor(elapsed.Seconds())
-				s += int(x)
-			} else {
-				s++
-			}
-			et := time.Second.Seconds() - elapsed.Seconds()
-			if et > 0 {
-				time.Sleep(time.Duration(et))
-			}
-		} else {
+	c := session.DB(SimDBName).C(CollectionName)
+	docidx := 0
+	btime := time.Now()
+	for time.Now().Sub(btime) < time.Minute {
+		bulk := c.Bulk()
+		var contentArray []interface{}
+		for i := 0; i < m.bulkSize; i++ {
+			contentArray = append(contentArray, simDocs[docidx%len(simDocs)])
+			docidx++
+		}
+		bulk.Insert(contentArray...)
+		_, err = bulk.Run()
+		if err != nil {
 			panic(err)
 		}
 	}

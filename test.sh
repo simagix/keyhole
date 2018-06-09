@@ -4,6 +4,7 @@
 echo ; echo "Spin up mongod"
 mongod --version
 mkdir -p data/db
+rm -rf data/db/*
 mongod --port 33168 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB .5
 
 # Test version
