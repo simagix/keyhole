@@ -32,16 +32,16 @@ By default, it writes 2K size documents at 60 transactions per second from 10 di
 
 ```
 Duration in minute(s): 5
-Total TPS: 60 (tps) * 10 (conns) = 600, duration: 5 (mins), bulk size: 512
-CollectServerStatus: connect to replset
-CollectDBStats: connect to replset, _KEYHOLE_88800
+...
+Total TPS: 300 (tps) * 10 (conns) = 3000, duration: 5 (mins), bulk size: 512
+...
 
-2018-06-10T07:26:11-04:00 [replset] Memory - resident: 1428, virtual: 6457
-2018-06-10T07:26:22-04:00 [replset] Storage: 8857.6 -> 9182.2, rate: 32.3 MB/sec
-2018-06-10T07:26:32-04:00 [replset] Storage: 9182.2 -> 9430.3, rate: 24.8 MB/sec
-2018-06-10T07:26:42-04:00 [replset] Storage: 9430.3 -> 9729.8, rate: 29.5 MB/sec
-2018-06-10T07:26:52-04:00 [replset] Storage: 9729.8 -> 9970.3, rate: 23.9 MB/sec
-2018-06-10T07:27:02-04:00 [replset] Storage: 9970.3 -> 10167.1, rate: 19.5 MB/sec
+2018-06-10T14:40:25-04:00 [replset] Memory - resident: 1067, virtual: 6100
+2018-06-10T14:40:36-04:00 [replset] Storage: 460.6 -> 809.3, rate: 34.8 MB/sec
+2018-06-10T14:40:46-04:00 [replset] Storage: 809.3 -> 1091.8, rate: 28.1 MB/sec
+2018-06-10T14:40:56-04:00 [replset] Storage: 1091.8 -> 1375.6, rate: 28.2 MB/sec
+2018-06-10T14:41:06-04:00 [replset] Storage: 1375.6 -> 1662.1, rate: 28.2 MB/sec
+2018-06-10T14:41:16-04:00 [replset] Storage: 1662.1 -> 1869.0, rate: 20.6 MB/sec
 ```
 
 ### Load Test

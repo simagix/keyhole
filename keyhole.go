@@ -36,7 +36,7 @@ func main() {
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
-	tps := flag.Int("tps", 60, "number of trasaction per second per connection")
+	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
 	uri := flag.String("uri", "", "MongoDB URI")

@@ -253,7 +253,7 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --file template.json
 ```
 
-The above command by default spawns 30 connections and generates 60 transactions per second (TPS) for 5 minutes.  You can change the number of connections by including the `--conn` flag, the TPS from `--tps` flag, and duration from `--duration` flag.
+The above command by default spawns 10 connections and generates 300 transactions per second (TPS) for 5 minutes.  You can change the number of connections by including the `--conn` flag, the TPS from `--tps` flag, and duration from `--duration` flag.
 
 ### Transactions Template
 You can load test with pre-defined transactions and indexes with `--tx` flag.
@@ -316,10 +316,10 @@ There are different stages in a *keyhole* load test run, and they are as followi
 In the first minute of a load test run, *keyhole* insert documents into database.  The purposes of doing such are three folds.  First, we want to measure the throughputs of a MongoDB cluster in MB per second.  Secondly, by having the first minute activities, we can bring the `mongod` instances from "cold" to "hot".  Lastly, we should have enough data to work with at the end of the first minute.
 
 #### Normal Ops
-The minute following data population, It executes half of defined TPS.  In other words, with 60 TPS and 30 connections, there are a total of 900 (30 * 60 / 2) transactions.
+The minute following data population, It executes half of defined TPS.  In other words, with 300 TPS and 10 connections, there are a total of 1,500 (10 * 300 / 2) transactions.
 
 #### Thrashing
-The period follows *normal ops* and before *teardown* are the thrashing period.  The system is in full throttle of 1,800 (30 * 60) transactions.  If your server can't achieve the desired TPS, it will adjust and display a message of adjusted TPS.
+The period follows *normal ops* and before *teardown* are the thrashing period.  The system is in full throttle of 3,000 (10 * 300) transactions.  If your server can't achieve the desired TPS, it will adjust and display a message of adjusted TPS.
 
 #### Teardown
 The last minute is the teardown period and it removes test data from database.

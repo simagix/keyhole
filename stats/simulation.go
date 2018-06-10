@@ -75,6 +75,9 @@ func New(uri string, ssl bool, sslCA string, tps int,
 // read the sample json and replace them with random values.  Otherwise, use the demo
 // example.
 func (m MongoConn) initSimDocs() {
+	if m.verbose {
+		fmt.Println("initSimDocs")
+	}
 	rand.Seed(time.Now().Unix())
 	total := 512
 	if m.filename == "" {
@@ -184,6 +187,9 @@ func GetRandomDoc() bson.M {
 //	favoriteSports3
 // }
 func (m MongoConn) PopulateData(wmajor bool) {
+	if m.verbose {
+		fmt.Println("PopulateData", wmajor)
+	}
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
@@ -220,7 +226,6 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 	}
 	isTeardown := false
 	var totalTPS int
-	var averageTPS int
 
 	for run := 0; run < duration; run++ {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
@@ -230,74 +235,70 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 		} else {
 			session.SetSafe(&mgo.Safe{W: 1})
 		}
-		if err == nil {
-			c := session.DB(SimDBName).C(CollectionName)
-			beginTime := time.Now()
-			stage := "setup"
-			if run == (duration - 1) {
-				stage = "teardown"
-				isTeardown = true
-			}
-			if run > 0 && run < (duration-1) {
-				stage = "thrashing"
-				totalTPS = m.tps
-			} else {
-				totalTPS = m.tps / 2
-			}
-			totalCount := 0
-			for sec := 0; sec < 60; sec++ {
-				txCount := 0
-				innerTime := time.Now()
-				for i := 0; txCount < totalTPS; i++ {
-					doc := simDocs[i%len(simDocs)]
-					if isTeardown {
-						// results := []bson.M{}
-						// c.Find(bson.M{}).Limit(1204).All(&results) // simulate COLLSCAN
-						// txCount++
-						// for _, val := range results {
-						// 	c.Remove(bson.M{"_id": val["_id"]})
-						// 	txCount++
-						// }
-						n, _ := c.RemoveAll(bson.M{"_search": doc["_search"]})
-						txCount += n.Removed
-					} else if m.filename == "" {
-						txCount += execTXForDemo(c, cloneDoc(doc))
-					} else if len(transactions) == 0 { // --file
-						txCount += execTXByTemplate(c, cloneDoc(doc))
-					} else if len(transactions) > 0 { // --file and --tx
-						txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
-					}
-					elap := time.Now().Sub(innerTime).Seconds()
-					if 1-elap > 0 {
-						sleepTime := (1 - elap) * 1000
-						time.Sleep(time.Duration(int64(sleepTime)) * time.Millisecond)
-					}
-					if (i % 11) == 10 {
-						seconds := 1 - time.Now().Sub(innerTime).Seconds()
-						if seconds < 0 {
-							if m.verbose {
-								fmt.Println("Simulate", "TPS overflows and break out of loop", seconds)
-							}
-							break
-						}
-					}
-				} // for i := 0; txCount < totalTPS; i++ {
-				totalCount += txCount
-			} //for sec := 0; sec < 60; sec++
-
-			if totalCount/60 < totalTPS && totalCount/60 != averageTPS {
-				fmt.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/60, totalTPS)
-				averageTPS = totalCount / 60
-			}
-			seconds := 60 - time.Now().Sub(beginTime).Seconds()
-			if seconds > 0 {
-				time.Sleep(time.Duration(seconds))
-			} else if m.verbose {
-				fmt.Println("Simulate", "TPS overflows", seconds)
-			}
-			session.Close()
+		if err != nil {
+			continue
 		}
-	}
+
+		// be a minute transactions
+		c := session.DB(SimDBName).C(CollectionName)
+		stage := "setup"
+		if run == (duration - 1) {
+			stage = "teardown"
+			isTeardown = true
+			totalTPS = m.tps
+		} else if run > 0 && run < (duration-1) {
+			stage = "thrashing"
+			totalTPS = m.tps
+		} else {
+			totalTPS = m.tps / 2
+		}
+
+		batchCount := 0
+		totalCount := 0
+		beginTime := time.Now()
+		counter := 0
+		for time.Now().Sub(beginTime) < time.Minute {
+			innerTime := time.Now()
+			txCount := 0
+			for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS {
+				doc := simDocs[batchCount%len(simDocs)]
+				batchCount++
+				if isTeardown {
+					c.RemoveAll(bson.M{"_search": doc["_search"]})
+				} else if m.filename == "" {
+					txCount += execTXForDemo(c, cloneDoc(doc))
+				} else if len(transactions) == 0 { // --file
+					txCount += execTXByTemplate(c, cloneDoc(doc))
+				} else if len(transactions) > 0 { // --file and --tx
+					txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
+				}
+				time.Sleep(1 * time.Millisecond)
+			} // for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS
+			totalCount += txCount
+			counter++
+			seconds := 1 - time.Now().Sub(innerTime).Seconds()
+			if seconds > 0 {
+				time.Sleep(time.Duration(seconds) * time.Second)
+			}
+		} // for time.Now().Sub(beginTime) < time.Minute
+
+		if m.verbose {
+			fmt.Println("=>", time.Now().Sub(beginTime), time.Now().Sub(beginTime) > time.Minute,
+				totalCount, totalCount/counter < totalTPS, counter)
+		}
+		if m.verbose || totalCount/counter < totalTPS {
+			fmt.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
+		}
+
+		seconds := 60 - time.Now().Sub(beginTime).Seconds()
+		if seconds > 0 {
+			time.Sleep(time.Duration(seconds) * time.Second)
+		}
+		session.Close()
+		if m.verbose {
+			fmt.Println("=>", time.Now().Sub(beginTime))
+		}
+	} //for run := 0; run < duration; run++
 }
 
 // cloneDoc clones a doc and assign a _id
