@@ -19,15 +19,15 @@ import (
 var version string
 
 func main() {
-	bulksize := flag.Int("bulksize", 10, "bulk insert size")
-	conn := flag.Int("conn", 20, "nuumber of connections")
+	bulksize := flag.Int("bulksize", 512, "bulk insert size")
+	cleanup := flag.Bool("cleanup", false, "clean up demo database")
+	conn := flag.Int("conn", 10, "nuumber of connections")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	file := flag.String("file", "", "template file for seedibg data")
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	monitor := flag.Bool("monitor", false, "collects server status every 10 minutes for 24 hours")
-	nocleanup := flag.Bool("nocleanup", false, "keep keyhole demo database")
 	peek := flag.Bool("peek", false, "only collect stats")
 	quote := flag.Bool("quote", false, "print a quote")
 	quotes := flag.Bool("quotes", false, "print all quotes")
@@ -36,7 +36,7 @@ func main() {
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
-	tps := flag.Int("tps", 600, "number of trasaction per second per connection")
+	tps := flag.Int("tps", 60, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
 	uri := flag.String("uri", "", "MongoDB URI")
@@ -132,7 +132,7 @@ func main() {
 	}
 
 	fmt.Println("Duration in minute(s):", *duration)
-	m := stats.New(*uri, *ssl, *sslCA, *tps, *file, *verbose, !*nocleanup, *peek, *monitor, *bulksize)
+	m := stats.New(*uri, *ssl, *sslCA, *tps, *file, *verbose, *peek, *monitor, *bulksize)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -144,19 +144,26 @@ func main() {
 				for _, value := range uriList {
 					m.PrintServerStatus(value)
 				}
+				if *cleanup {
+					m.Cleanup()
+				}
 				os.Exit(0)
 			case <-timer.C:
 				for _, value := range uriList {
 					m.PrintServerStatus(value)
 				}
-				m.Cleanup()
+				if *cleanup {
+					m.Cleanup()
+				}
 				os.Exit(0)
 			}
 		}
 	}()
 
 	if *peek == false && *monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
-		m.Cleanup()
+		if *drop {
+			m.Cleanup()
+		}
 
 		if ssi.Cluster == "sharded" {
 			stats.ShardCollection(session)
@@ -164,9 +171,6 @@ func main() {
 
 		if *wmajor {
 			fmt.Println("{w : majority}")
-		}
-		if *tps < *bulksize {
-			*bulksize = *tps
 		}
 		// Simulation mode
 		// 1st minute - build up data and memory
@@ -188,6 +192,7 @@ func main() {
 					m.PopulateData(*wmajor)
 					time.Sleep(1 * time.Second)
 				}
+
 				m.Simulate(simTime, tdoc.Transactions, *wmajor)
 			}()
 		}

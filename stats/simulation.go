@@ -56,7 +56,6 @@ type MongoConn struct {
 	tps      int
 	filename string
 	verbose  bool
-	cleannUp bool
 	peek     bool
 	monitor  bool
 	bulkSize int
@@ -66,8 +65,8 @@ var simDocs []bson.M
 
 // New - Constructor
 func New(uri string, ssl bool, sslCA string, tps int,
-	filename string, verbose bool, cleanUp bool, peek bool, monitor bool, bulkSize int) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, tps, filename, verbose, cleanUp, peek, monitor, bulkSize}
+	filename string, verbose bool, peek bool, monitor bool, bulkSize int) MongoConn {
+	m := MongoConn{uri, ssl, sslCA, tps, filename, verbose, peek, monitor, bulkSize}
 	m.initSimDocs()
 	return m
 }
@@ -219,11 +218,11 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 	if m.verbose {
 		fmt.Println("Simulate", duration, transactions, wmajor)
 	}
-	results := []bson.M{}
 	isTeardown := false
 	var totalTPS int
-	run := 0
-	for run < duration {
+	var averageTPS int
+
+	for run := 0; run < duration; run++ {
 		session, err := GetSession(m.uri, m.ssl, m.sslCA)
 		session.SetMode(mgo.Primary, true)
 		if wmajor {
@@ -234,41 +233,65 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 		if err == nil {
 			c := session.DB(SimDBName).C(CollectionName)
 			beginTime := time.Now()
+			stage := "setup"
+			if run == (duration - 1) {
+				stage = "teardown"
+				isTeardown = true
+			}
 			if run > 0 && run < (duration-1) {
+				stage = "thrashing"
 				totalTPS = m.tps
 			} else {
 				totalTPS = m.tps / 2
 			}
-
-			txCount := 0
-			for i := 0; txCount < totalTPS; i++ {
-				doc := simDocs[i%len(simDocs)]
-
-				if isTeardown {
-					c.Find(bson.M{"COLLSCAN": doc["_search"]}).One(&results) // simulate COLLSCAN
-					txCount++
-					c.RemoveAll(bson.M{"_search": doc["_search"]})
-					txCount++
-				} else if m.filename == "" {
-					txCount += execTXForDemo(c, cloneDoc(doc))
-				} else if len(transactions) == 0 { // --file
-					txCount += execTXByTemplate(c, cloneDoc(doc))
-				} else if len(transactions) > 0 { // --file and --tx
-					txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
-				}
-				if (i % 11) == 10 {
-					seconds := 1 - time.Now().Sub(beginTime).Seconds()
-					if seconds < 0 {
-						if m.verbose {
-							fmt.Println("Simulate", "TPS overflows and break out of loop", seconds)
-						}
-						break
+			totalCount := 0
+			for sec := 0; sec < 60; sec++ {
+				txCount := 0
+				innerTime := time.Now()
+				for i := 0; txCount < totalTPS; i++ {
+					doc := simDocs[i%len(simDocs)]
+					if isTeardown {
+						// results := []bson.M{}
+						// c.Find(bson.M{}).Limit(1204).All(&results) // simulate COLLSCAN
+						// txCount++
+						// for _, val := range results {
+						// 	c.Remove(bson.M{"_id": val["_id"]})
+						// 	txCount++
+						// }
+						n, _ := c.RemoveAll(bson.M{"_search": doc["_search"]})
+						txCount += n.Removed
+					} else if m.filename == "" {
+						txCount += execTXForDemo(c, cloneDoc(doc))
+					} else if len(transactions) == 0 { // --file
+						txCount += execTXByTemplate(c, cloneDoc(doc))
+					} else if len(transactions) > 0 { // --file and --tx
+						txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
 					}
-				}
+					elap := time.Now().Sub(innerTime).Seconds()
+					if 1-elap > 0 {
+						sleepTime := (1 - elap) * 1000
+						time.Sleep(time.Duration(int64(sleepTime)) * time.Millisecond)
+					}
+					if (i % 11) == 10 {
+						seconds := 1 - time.Now().Sub(innerTime).Seconds()
+						if seconds < 0 {
+							if m.verbose {
+								fmt.Println("Simulate", "TPS overflows and break out of loop", seconds)
+							}
+							break
+						}
+					}
+				} // for i := 0; txCount < totalTPS; i++ {
+				totalCount += txCount
+			} //for sec := 0; sec < 60; sec++
+
+			if totalCount/60 < totalTPS && totalCount/60 != averageTPS {
+				fmt.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/60, totalTPS)
+				averageTPS = totalCount / 60
 			}
-			seconds := 1 - time.Now().Sub(beginTime).Seconds()
+			seconds := 60 - time.Now().Sub(beginTime).Seconds()
 			if seconds > 0 {
-				time.Sleep(time.Millisecond * time.Duration(int(1000*seconds)))
+				time.Sleep(time.Duration(seconds))
 			} else if m.verbose {
 				fmt.Println("Simulate", "TPS overflows", seconds)
 			}
@@ -296,16 +319,12 @@ func getQueryFilter(doc interface{}) bson.M {
 
 // Cleanup drops the temp database
 func (m MongoConn) Cleanup() {
-	if m.cleannUp == false || m.peek == true || m.monitor == true {
-		return
-	}
 	log.Println("cleanup", m.uri)
 	session, err := GetSession(m.uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
 	}
 	defer session.Close()
-	time.Sleep(2 * time.Second)
 	log.Println("dropping collection", SimDBName, CollectionName)
 	session.DB(SimDBName).C(CollectionName).DropCollection()
 	log.Println("dropping database", SimDBName)
