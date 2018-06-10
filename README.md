@@ -1,5 +1,5 @@
 # Keyhole - MongoDB Performance Analytic
-Keyhole is a performance meansuring tool, written in GO (Golang), to collect stats from MongoDB instances and to meansure performance of a MongoDB cluster.  It can also be configured as stats collecting agents and be expanded to a MongoDB instances monitoring tool.  Golang was chosen to eliminate the needs to install an intepreter (such as Java) or 3pp modules (such as Python or Node.js).  
+Keyhole is a performance measuring tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  It can also be configured as stats collecting agents and be expanded to a MongoDB instances monitoring tool.  Golang was chosen to eliminate the needs to install an interpreter (such as Java) or 3pp modules (such as Python or Node.js).  
 
 With Keyhole, experienced users should be able to spot performance issues and to determine whether upgrades are needed quickly from a few minutes of testing and analyzing the results.  Keyhole supports TLS/SSL connections.
 
@@ -11,9 +11,9 @@ Several features are available, and they are
   - Executor and ops
   - Latency: read, write, and command
   - Metrics: index keys examined, collection scan, in-memory sort, and ops
-  - WiredTiger analytic 
+  - WiredTiger analytic
 - Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](LOADTEST.md) for details).
-- **Monitoring** mode to collcet stats (see above) from `mongod` periodically.  Detail analytic results are displayed when the tool exists or can be viewed at a later time.
+- **Monitoring** mode to collect stats (see above) from `mongod` periodically.  Detail analytic results are displayed when the tool exists or can be viewed at a later time.
 - **Cluster Info** to display information of a cluster including stats to help determine physical memory size.
 - [**Seed data**](SEED.md) for demo and educational purposes as a trainer.
 - [Display average ops time](LOGINFO.md) and query patterns by parsing logs.
@@ -28,16 +28,20 @@ Measure MongoDB write throughputs.
 keyhole --uri mongodb://localhost/?replicaSet=replset --duration 1
 ```
 
-By default, it writes 4K size documents at 600 transactions per second from 20 different threads.  See sample outputs below.
+By default, it writes 2K size documents at 60 transactions per second from 10 different threads, a total of 600 TPS.  See sample outputs below.
 
 ```
-Total TPS: 600 (tps) * 20 (conns) = 12000, duration = 1 (mins)
+Duration in minute(s): 5
+Total TPS: 60 (tps) * 10 (conns) = 600, duration: 5 (mins), bulk size: 512
+CollectServerStatus: connect to replset
+CollectDBStats: connect to replset, _KEYHOLE_88800
 
-2018-05-28T08:16:03-04:00 Memory - resident:     789, virtual:    5855
-2018-05-28T08:16:13-04:00 Storage:  401.0 ->  730.4, rate   32.8 MB/sec
-2018-05-28T08:16:23-04:00 Storage:  730.4 -> 1098.6, rate   36.5 MB/sec
-2018-05-28T08:16:33-04:00 Storage: 1098.6 -> 1363.5, rate   26.4 MB/sec
-2018-05-28T08:16:43-04:00 Storage: 1363.5 -> 1690.3, rate   31.4 MB/sec
+2018-06-10T07:26:11-04:00 [replset] Memory - resident: 1428, virtual: 6457
+2018-06-10T07:26:22-04:00 [replset] Storage: 8857.6 -> 9182.2, rate: 32.3 MB/sec
+2018-06-10T07:26:32-04:00 [replset] Storage: 9182.2 -> 9430.3, rate: 24.8 MB/sec
+2018-06-10T07:26:42-04:00 [replset] Storage: 9430.3 -> 9729.8, rate: 29.5 MB/sec
+2018-06-10T07:26:52-04:00 [replset] Storage: 9729.8 -> 9970.3, rate: 23.9 MB/sec
+2018-06-10T07:27:02-04:00 [replset] Storage: 9970.3 -> 10167.1, rate: 19.5 MB/sec
 ```
 
 ### Load Test
@@ -46,7 +50,7 @@ Load test a cluster/replica.  A default cycle lasts five minutes with docs using
 - Populate data in first minute
 - Perform CRUD operations during the second minutes
 - Burst test until before the last minute
-- Perform cleanup ops in the last minute
+- Perform teardown ops in the last minute
 
 ```
 keyhole --uri mongodb://localhost/?replicaSet=replset
@@ -138,7 +142,7 @@ keyhole --uri mongodb://localhost/?replicaSet=replset --info
 ```
 
 ### Seed Data
-Populate a small amount of data to *\_KEYHOLE\_* databse for [demo](SEED.md) and educational purposes such as CRUD, `$elemMatch`, `$lookup` (outer left join), indexes, and aggregation framework.
+Populate a small amount of data to *\_KEYHOLE\_* database for [demo](SEED.md) and educational purposes such as CRUD, `$elemMatch`, `$lookup` (outer left join), indexes, and aggregation framework.
 
 ```
 keyhole --uri mongodb://localhost/?replicaSet=replset --seed
