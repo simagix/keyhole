@@ -171,7 +171,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			json.Unmarshal(buf, &stat)
 			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-			if len(serverStatusDocs) > 10 {
+			if len(serverStatusDocs[uri]) > 10 {
 				saveServerStatusDocsToFile(uri)
 			}
 
