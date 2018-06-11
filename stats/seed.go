@@ -126,7 +126,7 @@ func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 		keyholeCollection.DropCollection()
 	}
 	for i := 0; i < 250; i++ {
-		keyholeCollection.Insert(GetRandomDoc())
+		keyholeCollection.Insert(utils.GetDemoDoc())
 		bulk := carsCollection.Bulk()
 		var contentArray []interface{}
 		for n := 0; n < 1000; n++ {

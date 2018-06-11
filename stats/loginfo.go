@@ -3,10 +3,7 @@
 package stats
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"sort"
@@ -38,7 +35,7 @@ func LogInfo(filename string) {
 	}
 	defer file.Close()
 	reader := utils.NewReader(file)
-	lineCounts, _ := countLines(reader)
+	lineCounts, _ := utils.CountLines(reader)
 	file.Seek(0, 0)
 	reader = utils.NewReader(file)
 	index := 0
@@ -199,23 +196,4 @@ func hasFilter(op string) bool {
 		}
 	}
 	return false
-}
-
-// count number of '\n'
-func countLines(reader *bufio.Reader) (int, error) {
-	buf := make([]byte, 32*1024)
-	lineSep := []byte{'\n'}
-	lineCounts := 0
-	for {
-		c, err := reader.Read(buf)
-		lineCounts += bytes.Count(buf[:c], lineSep)
-
-		switch {
-		case err == io.EOF:
-			return lineCounts, err
-
-		case err != nil:
-			return lineCounts, err
-		}
-	}
 }

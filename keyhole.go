@@ -75,7 +75,7 @@ func main() {
 		os.Exit(0)
 	} else if *schema {
 		if *file == "" {
-			bytes, _ := json.MarshalIndent(stats.GetRandomDoc(), "", "  ")
+			bytes, _ := json.MarshalIndent(utils.GetDemoDoc(), "", "  ")
 			doc := strings.Replace(string(bytes), "mongodb.", "", -1)
 			doc = strings.Replace(doc, "simagix.", "", -1)
 			fmt.Println(doc)
