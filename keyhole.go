@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/simagix/keyhole/stats"
+	"github.com/simagix/keyhole/utils"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -58,10 +59,10 @@ func main() {
 	}
 
 	if *quote {
-		stats.PrintQuote()
+		utils.PrintQuote()
 		os.Exit(0)
 	} else if *quotes {
-		stats.PrintQuotes()
+		utils.PrintQuotes()
 		os.Exit(0)
 	} else if *view != "" {
 		stats.AnalyzeServerStatus(*view)

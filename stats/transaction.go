@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/simagix/keyhole/utils"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -83,7 +84,7 @@ func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transac
 		} else {
 			bytes, _ := json.Marshal(tx.Filter)
 			json.Unmarshal(bytes, &cmd)
-			traverseDocument(&filter, cmd, false)
+			utils.RandomizeDocument(&filter, cmd, false)
 
 			if tx.C == "find" {
 				c.Find(filter).Limit(20).All(&results)
@@ -92,12 +93,12 @@ func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transac
 			} else if tx.C == "update" {
 				bytes, _ = json.Marshal(tx.Op)
 				json.Unmarshal(bytes, &op)
-				traverseDocument(&filter, op, false)
+				utils.RandomizeDocument(&filter, op, false)
 				c.Update(filter, op)
 			} else if tx.C == "updateAll" {
 				bytes, _ = json.Marshal(tx.Op)
 				json.Unmarshal(bytes, &op)
-				traverseDocument(&filter, op, false)
+				utils.RandomizeDocument(&filter, op, false)
 				c.UpdateAll(filter, op)
 			} else if tx.C == "remove" {
 				c.Remove(filter)
@@ -110,7 +111,7 @@ func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transac
 					for k, v := range p {
 						if k == "$match" {
 							q := make(map[string]interface{})
-							traverseDocument(&q, v, false)
+							utils.RandomizeDocument(&q, v, false)
 							pipeline = append(pipeline, bson.M{"$match": q})
 						} else {
 							pipeline = append(pipeline, p)

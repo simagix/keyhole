@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/simagix/keyhole/utils"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -97,7 +98,7 @@ func (m MongoConn) initSimDocs() {
 
 	for len(simDocs) < total {
 		ndoc := make(map[string]interface{})
-		traverseDocument(&ndoc, doc, false)
+		utils.RandomizeDocument(&ndoc, doc, false)
 		delete(ndoc, "_id")
 		ndoc["_search"] = strconv.FormatInt(rand.Int63(), 16)
 		simDocs = append(simDocs, ndoc)
