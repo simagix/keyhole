@@ -6,6 +6,7 @@ mongod --version
 mkdir -p data/db
 rm -rf data/db/*
 mongod --port 33168 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB .5
+mongo --port 33168 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 20})"
 
 # Test version
 echo ; echo "==> Test version (--version)"
