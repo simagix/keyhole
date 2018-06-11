@@ -127,8 +127,7 @@ func main() {
 	var uriList []string
 	uriList = append(uriList, *uri)
 	if ssi.Cluster == "sharded" {
-		list := stats.GetShards(session, *uri)
-		uriList = list
+		uriList = stats.GetShards(session, *uri)
 	}
 
 	fmt.Println("Duration in minute(s):", *duration)

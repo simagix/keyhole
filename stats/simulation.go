@@ -19,7 +19,7 @@ import (
 var SimDBName = fmt.Sprintf("_KEYHOLE_%X", 1024+1024*rand.Intn(1024))
 
 // CollectionName -
-var CollectionName = "keyhole"
+var CollectionName = "examples"
 
 // Schema -
 type Schema struct {
@@ -272,7 +272,7 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 				} else if len(transactions) > 0 { // --file and --tx
 					txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
 				}
-				time.Sleep(1 * time.Millisecond)
+				// time.Sleep(1 * time.Millisecond)
 			} // for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS
 			totalCount += txCount
 			counter++

@@ -13,9 +13,10 @@ import (
 
 // Transaction -
 type Transaction struct {
-	C string `json:"c"`
-	Q bson.M `json:"q"`
-	O bson.M `json:"o"`
+	C      string   `json:"c"`
+	Filter bson.M   `json:"filter"`
+	Op     bson.M   `json:"op"`
+	Pipe   []bson.M `json:"pipe"`
 }
 
 // TransactionDoc -
@@ -70,36 +71,53 @@ func execTXForDemo(c *mgo.Collection, doc bson.M) int {
 
 func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transaction) int {
 	results := []bson.M{}
-	qfilter := make(map[string]interface{})
+	filter := make(map[string]interface{})
 	var cmd = make(map[string]interface{})
 	var op = make(map[string]interface{})
+	var pipe []map[string]interface{}
+	var pipeline []map[string]interface{}
 
 	for _, tx := range transactions {
 		if tx.C == "insert" {
 			c.Insert(doc)
 		} else {
-			bytes, _ := json.Marshal(tx.Q)
+			bytes, _ := json.Marshal(tx.Filter)
 			json.Unmarshal(bytes, &cmd)
-			traverseDocument(&qfilter, cmd, false)
+			traverseDocument(&filter, cmd, false)
 
 			if tx.C == "find" {
-				c.Find(qfilter).Limit(20).All(&results)
+				c.Find(filter).Limit(20).All(&results)
 			} else if tx.C == "findOne" {
-				c.Find(qfilter).One(&results)
+				c.Find(filter).One(&results)
 			} else if tx.C == "update" {
-				bytes, _ = json.Marshal(tx.O)
+				bytes, _ = json.Marshal(tx.Op)
 				json.Unmarshal(bytes, &op)
-				traverseDocument(&qfilter, op, false)
-				c.Update(qfilter, op)
+				traverseDocument(&filter, op, false)
+				c.Update(filter, op)
 			} else if tx.C == "updateAll" {
-				bytes, _ = json.Marshal(tx.O)
+				bytes, _ = json.Marshal(tx.Op)
 				json.Unmarshal(bytes, &op)
-				traverseDocument(&qfilter, op, false)
-				c.UpdateAll(qfilter, op)
+				traverseDocument(&filter, op, false)
+				c.UpdateAll(filter, op)
 			} else if tx.C == "remove" {
-				c.Remove(qfilter)
+				c.Remove(filter)
 			} else if tx.C == "removeAll" {
-				c.RemoveAll(qfilter)
+				c.RemoveAll(filter)
+			} else if tx.C == "aggregate" {
+				bytes, _ := json.Marshal(tx.Pipe)
+				json.Unmarshal(bytes, &pipe)
+				for _, p := range pipe {
+					for k, v := range p {
+						if k == "$match" {
+							q := make(map[string]interface{})
+							traverseDocument(&q, v, false)
+							pipeline = append(pipeline, bson.M{"$match": q})
+						} else {
+							pipeline = append(pipeline, p)
+						}
+					}
+				}
+				c.Pipe(pipeline).All(&results)
 			}
 		}
 	}

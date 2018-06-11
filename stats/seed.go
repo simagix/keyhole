@@ -232,10 +232,12 @@ func traverseDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 				b = false
 			}
 			(*doc)[key] = b
-		case int, int8, int16, int32, int64:
-			(*doc)[key] = rand.Intn(10000)
-		case float32, float64:
-			(*doc)[key] = rand.Intn(10000)
+		case int, int8, int16, int32, int64, float32, float64:
+			if value.(int) == 1 { // 1 may have special meaning of true
+				(*doc)[key] = 1
+			} else {
+				(*doc)[key] = rand.Intn(10000)
+			}
 		case string:
 			if meta == false {
 				if value.(string) == "$date" || isDateString(value.(string)) {
