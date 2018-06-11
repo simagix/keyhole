@@ -5,7 +5,6 @@ package stats
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/simagix/keyhole/utils"
 )
 
 // OpPerformanceDoc stores performance data
@@ -36,28 +37,10 @@ func LogInfo(filename string) {
 		return
 	}
 	defer file.Close()
-
-	var lineCounts int
-	reader := bufio.NewReader(file)
-	bytes, _ := reader.Peek(2)
+	reader := utils.NewReader(file)
+	lineCounts, _ := countLines(reader)
 	file.Seek(0, 0)
-
-	if bytes[0] == 31 && bytes[1] == 139 {
-		r, _ := gzip.NewReader(file)
-		reader = bufio.NewReader(r)
-	} else {
-		reader = bufio.NewReader(file)
-	}
-
-	lineCounts, _ = countLines(reader)
-	file.Seek(0, 0)
-
-	if bytes[0] == 31 && bytes[1] == 139 {
-		r, _ := gzip.NewReader(file)
-		reader = bufio.NewReader(r)
-	} else {
-		reader = bufio.NewReader(file)
-	}
+	reader = utils.NewReader(file)
 	index := 0
 
 	for {
