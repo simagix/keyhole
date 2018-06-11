@@ -10,7 +10,7 @@ Load test a cluster/replica.  A default cycle last six minutes.
 Keyhole uses a template to read in a sample document and then generates randomized documents based on the template (see [SEED.md](SEED,md) for details.  To execute a load test with a template, do
 
 ```
-keyhole -uri=mongodb://localhost/?replicaSet=replset --file example/seedkeys.json
+keyhole -uri=mongodb://localhost/?replicaSet=replset --file example/template.json
 ```
 
 To execute a demo load test, run it without the `--file` flag.
@@ -134,7 +134,7 @@ $ keyhole --uri mongodb://localhost/?replicaSet=replset --drop --cleanup
 MongoDB URI: mongodb://localhost/?replicaSet=replset
 Duration in minute(s): 5
 2018/06/10 14:40:24 cleanup mongodb://localhost/?replicaSet=replset
-2018/06/10 14:40:24 dropping collection _KEYHOLE_88800 keyhole
+2018/06/10 14:40:24 dropping collection _KEYHOLE_88800 examples
 2018/06/10 14:40:24 dropping database _KEYHOLE_88800
 Total TPS: 300 (tps) * 10 (conns) = 3000, duration: 5 (mins), bulk size: 512
 CollectServerStatus: connect to replset

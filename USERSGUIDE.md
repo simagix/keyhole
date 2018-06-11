@@ -263,41 +263,7 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
     --file template.json --tx transactions.json
 ```
 
-In the template file, you can define *indexes* and *transactions* as following example:
-
-```
-{
-	"indexes": [{
-		"email": 1, "hostIP": 1
-	}],
-	"transactions": [{
-			"c": "insert"
-		},
-		{
-			"c": "find",
-			"q": {
-				"email": "simagix@example.com"
-			}
-		},
-		{
-			"c": "update",
-			"q": {
-				"email": "simagix@example.com"
-			},
-			"o": {
-				"$set": {
-					"email": "simagix@example.com"
-				}
-			}
-		}, {
-			"c": "remove",
-			"q": "{'email': 'simagix@example.com'}"
-		}
-	]
-}
-```
-
-Both single field and compound indexes are supported.  In addition, supported commands are
+In the template file, you can define *indexes* and *transactions*.  Both single field and compound indexes are supported.  In addition, supported commands are
 
 - insert
 - find
@@ -306,8 +272,71 @@ Both single field and compound indexes are supported.  In addition, supported co
 - updateAll
 - remove
 - removeAll
+- aggregate
 
-Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.  Note that under load test mode, *keyhole* ignores the target database in the connection string.  The reason is at the end of run *keyhole* will clean up data and thus it always run against the `_KEYHOLE_88800.keyhole` collection.
+Below is as example.
+
+```
+{
+	"indexes": [{
+		"email": 1,
+		"hostIp": 1
+	}],
+	"transactions": [{
+		"c": "insert"
+	}, {
+		"c": "find",
+		"filter": {
+			"email": "simagix@example.com"
+		}
+	}, {
+		"c": "findOne",
+		"filter": {
+			"email": "simagix@example.com"
+		}
+	}, {
+		"c": "update",
+		"filter": {
+			"email": "simagix@example.com"
+		},
+		"op": {
+			"$set": {
+				"email": "simagix@example.com"
+			}
+		}
+	}, {
+		"c": "updateAll",
+		"filter": {
+			"email": "simagix@example.com"
+		},
+		"op": {
+			"$set": {
+				"email": "simagix@example.com"
+			}
+		}
+	}, {
+		"c": "remove",
+		"filter": "{'email': 'simagix@example.com'}"
+	}, {
+		"c": "removeAll",
+		"filter": "{'email': 'simagix@example.com'}"
+	}, {
+		"c": "aggregate",
+		"pipe": [{
+			"$match": {
+				"email": "simagix@example.com"
+			}
+		}, {
+			"$project": {
+				"email": 1,
+				"lastUpdated": 1
+			}
+		}]
+	}]
+}
+```
+
+Load test a replica or a sharded cluster, the connecting behavior works the same way as in monitoring mode.  Note that under load test mode, *keyhole* ignores the target database in the connection string.  The reason is at the end of run *keyhole* will clean up data and thus it always run against the `_KEYHOLE_88800.examples` collection.
 
 ### Design
 There are different stages in a *keyhole* load test run, and they are as following
