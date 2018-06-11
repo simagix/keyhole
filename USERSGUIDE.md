@@ -154,10 +154,10 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
 For a sharded cluster, *keyhole* connects to the primary node of all shards.  The reason of doing so, instead of remaining at `mongos`, is to collect more stats, such as wiredTiger stats data, and provide a partial view of the entire cluster.
 
 ### Stats Viewing
-At the end of a *keyhole*, including monitoring and load test, it writes data to a file under system's default temporary directory.  Save the file and you can view the summaries again using *keyhole* with `--view` flag.  For example,
+At the end of a *keyhole*, including monitoring and load test, it writes data to a file under system's default temporary directory.  Save the file and you can view the summaries again using *keyhole* with `--diag` flag.  For example,
 
 ```
-keyhole --view /tmp/keyhole_stats.2018-06-04T084021
+keyhole --diag /tmp/keyhole_stats.2018-06-04T084021-shard01.gz
 ```
 
 ### Monitor Mode `--monitor`

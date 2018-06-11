@@ -68,7 +68,7 @@ keyhole --uri mongodb://localhost/?replicaSet=replset --peek
 Collected server status data is saved to a file and can be viewed later using the command below.
 
 ```
-keyhole --view your_db_stats_file
+keyhole --diag your_db_stats_file
 ```
 
 ### Cluster Info

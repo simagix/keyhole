@@ -3,7 +3,8 @@
 package stats
 
 import (
-	"bufio"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/simagix/keyhole/utils"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -165,8 +167,8 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			serverStatus := serverStatus(session)
-			bytes, _ := json.Marshal(serverStatus)
-			json.Unmarshal(bytes, &stat)
+			buf, _ := json.Marshal(serverStatus)
+			json.Unmarshal(buf, &stat)
 			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 			if len(serverStatusDocs) > 10 {
@@ -179,8 +181,8 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
 			if len(serverStatusDocs[uri]) > 1 {
-				bytes, _ = json.Marshal(serverStatusDocs[uri][len(serverStatusDocs[uri])-2])
-				json.Unmarshal(bytes, &pstat)
+				buf, _ = json.Marshal(serverStatusDocs[uri][len(serverStatusDocs[uri])-2])
+				json.Unmarshal(buf, &pstat)
 				if stat.Host == pstat.Host {
 					str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
 						(stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
@@ -225,8 +227,8 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			stat := dbStats(session, dbName)
-			bytes, _ := json.Marshal(stat)
-			json.Unmarshal(bytes, &docs)
+			buf, _ := json.Marshal(stat)
+			json.Unmarshal(buf, &docs)
 			if docs["dataSize"] != nil {
 				dataSize = docs["dataSize"].(float64)
 			}
@@ -256,8 +258,8 @@ func (m MongoConn) PrintServerStatus(uri string) {
 	session.SetMode(mgo.Primary, true)
 
 	serverStatus := serverStatus(session)
-	bytes, _ := json.Marshal(serverStatus)
-	json.Unmarshal(bytes, &serverStatus)
+	buf, _ := json.Marshal(serverStatus)
+	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 	filename := saveServerStatusDocsToFile(uri)
 	AnalyzeServerStatus(filename)
@@ -266,17 +268,22 @@ func (m MongoConn) PrintServerStatus(uri string) {
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
 func saveServerStatusDocsToFile(uri string) string {
 	mapKey := getKeyFromReplicaSetName(uri)
-	bytes, _ := json.Marshal(serverStatusDocs[uri])
+	buf, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
-	filename := keyholeStatsDataFile + "-" + mapKey
+	filename := keyholeStatsDataFile + "-" + mapKey + ".gz"
 	fmt.Println("\nstats written to", filename)
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	gz.Write(buf)
+	gz.Write([]byte{'\n'})
+	gz.Close() // close this before flushing the bytes to the buffer.
+
 	f, ferr := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0644)
 	if ferr != nil {
 		f, _ = os.Create(filename)
 	}
 	defer f.Close()
-	f.Write(bytes)
-	f.WriteString("\n")
+	f.Write(b.Bytes())
 	f.Sync()
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
 	return filename
@@ -308,7 +315,7 @@ func AnalyzeServerStatus(filename string) {
 	}
 	defer f.Close()
 
-	r := bufio.NewReader(f)
+	r := utils.NewReader(f)
 	for {
 		line, ferr := r.ReadString('\n') // 0x0A separator = newline
 		if ferr == io.EOF {
@@ -319,8 +326,8 @@ func AnalyzeServerStatus(filename string) {
 	}
 	if len(allDocs) > 0 {
 		stat := ServerStatusDoc{}
-		bytes, _ := json.Marshal(allDocs[0])
-		json.Unmarshal(bytes, &stat)
+		buf, _ := json.Marshal(allDocs[0])
+		json.Unmarshal(buf, &stat)
 		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
 	}
 	printStatsDetails(allDocs)
@@ -341,8 +348,8 @@ func printStatsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("| Date/Time               | res   | virt  | fault| Command| Delete | Getmore| Insert | Query  | Update | iops   |\n")
 	fmt.Printf("|-------------------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
 	for _, doc := range docs {
-		bytes, _ := json.Marshal(doc)
-		json.Unmarshal(bytes, &stat2)
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
 			iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
@@ -385,8 +392,8 @@ func printLatencyDetails(docs []ServerStatusDoc) {
 	fmt.Printf("| Date/Time               | reads    | writes   | commands |\n")
 	fmt.Printf("|-------------------------|----------|----------|----------|\n")
 	for _, doc := range docs {
-		bytes, _ := json.Marshal(doc)
-		json.Unmarshal(bytes, &stat2)
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			r := stat2.OpLatencies.Reads.Ops - stat1.OpLatencies.Reads.Ops
 			if r > 0 {
@@ -419,8 +426,8 @@ func printMetricsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("| Date/Time               | Scanned  | ScannedObj |ScanAndOrder|WriteConflicts| Deleted  | Inserted | Returned | Updated  |\n")
 	fmt.Printf("|-------------------------|----------|------------|------------|--------------|----------|----------|----------|----------|\n")
 	for _, doc := range docs {
-		bytes, _ := json.Marshal(doc)
-		json.Unmarshal(bytes, &stat2)
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
 				stat2.LocalTime.In(loc).Format(time.RFC3339),
@@ -450,8 +457,8 @@ func printGlobalLockDetails(docs []ServerStatusDoc) {
 	fmt.Printf("| Date/Time               | (ms)         | total        | readers      | writers      | total        | readers      | writers      |\n")
 	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
 	for _, doc := range docs {
-		bytes, _ := json.Marshal(doc)
-		json.Unmarshal(bytes, &stat2)
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
 				stat2.LocalTime.In(loc).Format(time.RFC3339),
@@ -480,8 +487,8 @@ func printWiredTigerCacheDetails(docs []ServerStatusDoc) {
 	fmt.Printf("| Date/Time               | Configured   | InCache      | DirtyBytes   | PagesEvicted | PagesEvicted | IntoCache    | FromCache    |\n")
 	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
 	for _, doc := range docs {
-		bytes, _ := json.Marshal(doc)
-		json.Unmarshal(bytes, &stat2)
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
 				stat2.LocalTime.In(loc).Format(time.RFC3339),
@@ -509,8 +516,8 @@ func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("| Date/Time               | Available    | Out          | Total        | Available    | Out          | Total        |\n")
 	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
 	for _, doc := range docs {
-		bytes, _ := json.Marshal(doc)
-		json.Unmarshal(bytes, &stat)
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat)
 		fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
 			stat.LocalTime.In(loc).Format(time.RFC3339),
 			stat.WiredTiger.ConcurrentTransactions.Read.Available,

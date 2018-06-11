@@ -23,6 +23,7 @@ func main() {
 	bulksize := flag.Int("bulksize", 512, "bulk insert size")
 	cleanup := flag.Bool("cleanup", false, "clean up demo database")
 	conn := flag.Int("conn", 10, "nuumber of connections")
+	diag := flag.String("diag", "", "diagnosis of server status")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	file := flag.String("file", "", "template file for seedibg data")
@@ -43,7 +44,6 @@ func main() {
 	uri := flag.String("uri", "", "MongoDB URI")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
-	view := flag.String("view", "", "server status file")
 	wmajor := flag.Bool("wmajor", false, "{w: majority}")
 
 	flag.Parse()
@@ -64,8 +64,8 @@ func main() {
 	} else if *quotes {
 		utils.PrintQuotes()
 		os.Exit(0)
-	} else if *view != "" {
-		stats.AnalyzeServerStatus(*view)
+	} else if *diag != "" {
+		stats.AnalyzeServerStatus(*diag)
 		os.Exit(0)
 	} else if *loginfo != "" {
 		stats.LogInfo(*loginfo)
