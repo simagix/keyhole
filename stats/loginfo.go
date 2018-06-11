@@ -5,6 +5,7 @@ package stats
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -35,9 +36,28 @@ func LogInfo(filename string) {
 		return
 	}
 	defer file.Close()
-	lineCounts, _ := countLines(file)
-	file.Seek(0, 0)
+
+	var lineCounts int
 	reader := bufio.NewReader(file)
+	bytes, _ := reader.Peek(2)
+	file.Seek(0, 0)
+
+	if bytes[0] == 31 && bytes[1] == 139 {
+		r, _ := gzip.NewReader(file)
+		reader = bufio.NewReader(r)
+	} else {
+		reader = bufio.NewReader(file)
+	}
+
+	lineCounts, _ = countLines(reader)
+	file.Seek(0, 0)
+
+	if bytes[0] == 31 && bytes[1] == 139 {
+		r, _ := gzip.NewReader(file)
+		reader = bufio.NewReader(r)
+	} else {
+		reader = bufio.NewReader(file)
+	}
 	index := 0
 
 	for {
@@ -199,8 +219,7 @@ func hasFilter(op string) bool {
 }
 
 // count number of '\n'
-func countLines(file *os.File) (int, error) {
-	reader := bufio.NewReader(file)
+func countLines(reader *bufio.Reader) (int, error) {
 	buf := make([]byte, 32*1024)
 	lineSep := []byte{'\n'}
 	lineCounts := 0
