@@ -4,7 +4,9 @@ package utils
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
+	"io"
 	"os"
 )
 
@@ -22,4 +24,23 @@ func NewReader(file *os.File) *bufio.Reader {
 	}
 
 	return reader
+}
+
+// CountLines count number of '\n'
+func CountLines(reader *bufio.Reader) (int, error) {
+	buf := make([]byte, 32*1024)
+	lineSep := []byte{'\n'}
+	lineCounts := 0
+	for {
+		c, err := reader.Read(buf)
+		lineCounts += bytes.Count(buf[:c], lineSep)
+
+		switch {
+		case err == io.EOF:
+			return lineCounts, err
+
+		case err != nil:
+			return lineCounts, err
+		}
+	}
 }
