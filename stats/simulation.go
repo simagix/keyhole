@@ -21,16 +21,6 @@ var SimDBName = fmt.Sprintf("_KEYHOLE_%X", 1024+1024*rand.Intn(1024))
 // CollectionName -
 var CollectionName = "examples"
 
-// Schema -
-type Schema struct {
-	ID            string `json:"_id" bson:"_id"`
-	FavoriteBook  string `json:"favoriteBook" bson:"favoriteBook"`
-	FavoriteCity  string `json:"favoriteCity" bson:"favoriteCity"`
-	FavoriteMovie string `json:"favoriteMovie" bson:"favoriteMovie"`
-	FavoriteMusic string `json:"favoriteMusic" bson:"favoriteMusic"`
-	FavoriteSport string `json:"favoriteSport" bson:"favoriteSport"`
-}
-
 // MongoConn -
 type MongoConn struct {
 	uri      string

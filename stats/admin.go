@@ -14,8 +14,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// ServerStatusInfo constains info from db.serverStatus()
-type ServerStatusInfo struct {
+// MongoServerInfo constains server info from db.serverStatus()
+type MongoServerInfo struct {
 	Cluster     string      `json:"cluster" bson:"cluster"`
 	Host        string      `json:"host" bson:"host"`
 	Process     string      `json:"process" bson:"process"`
@@ -69,13 +69,13 @@ func IsMaster(session *mgo.Session) bson.M {
 	return AdminCommand(session, "isMaster")
 }
 
-// ServerInfo returns ServerStatusInfo from db.serverStatus()
-func ServerInfo(session *mgo.Session) ServerStatusInfo {
+// GetMongoServerInfo returns MongoServerInfo from db.serverStatus()
+func GetMongoServerInfo(session *mgo.Session) MongoServerInfo {
 	result := AdminCommand(session, "serverStatus")
 	bytes, _ := json.Marshal(result)
 	stat := ServerStatusDoc{}
 	json.Unmarshal(bytes, &stat)
-	info := ServerStatusInfo{}
+	info := MongoServerInfo{}
 
 	info.Host = stat.Host
 	info.Process = stat.Process

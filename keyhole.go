@@ -96,21 +96,16 @@ func main() {
 		dbName = "_KEYHOLE_"
 	}
 
+	session, err := stats.GetSession(*uri, *ssl, *sslCA)
+	if err != nil {
+		panic(err)
+	}
+	defer session.Close()
 	if *info == true {
-		session, err := stats.GetSession(*uri, *ssl, *sslCA)
-		if err != nil {
-			panic(err)
-		}
-		bytes, _ := json.MarshalIndent(stats.ServerInfo(session), "", "  ")
+		bytes, _ := json.MarshalIndent(stats.GetMongoServerInfo(session), "", "  ")
 		fmt.Println(string(bytes))
-		session.Close()
 		os.Exit(0)
 	} else if *seed == true {
-		session, err := stats.GetSession(*uri, *ssl, *sslCA)
-		if err != nil {
-			panic(err)
-		}
-		defer session.Close()
 		if *file == "" {
 			stats.Seed(session, *drop, dbName, *verbose)
 		} else {
@@ -119,12 +114,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	session, err := stats.GetSession(*uri, *ssl, *sslCA)
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-	ssi := stats.ServerInfo(session)
+	ssi := stats.GetMongoServerInfo(session)
 	var uriList []string
 	uriList = append(uriList, *uri)
 	if ssi.Cluster == "sharded" {

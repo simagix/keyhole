@@ -11,6 +11,16 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// FavoritesSchema -
+type FavoritesSchema struct {
+	ID            string `json:"_id" bson:"_id"`
+	FavoriteBook  string `json:"favoriteBook" bson:"favoriteBook"`
+	FavoriteCity  string `json:"favoriteCity" bson:"favoriteCity"`
+	FavoriteMovie string `json:"favoriteMovie" bson:"favoriteMovie"`
+	FavoriteMusic string `json:"favoriteMusic" bson:"favoriteMusic"`
+	FavoriteSport string `json:"favoriteSport" bson:"favoriteSport"`
+}
+
 // Favorites -
 type Favorites struct {
 	Sports []string

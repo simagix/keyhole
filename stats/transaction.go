@@ -42,7 +42,7 @@ func GetTransactions(filename string) TransactionDoc {
 }
 
 func execTXForDemo(c *mgo.Collection, doc bson.M) int {
-	schema := Schema{}
+	schema := utils.FavoritesSchema{}
 	results := []bson.M{}
 	change := bson.M{"$set": bson.M{"ts": time.Now()}}
 	bytes, _ := json.Marshal(doc)

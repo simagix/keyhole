@@ -362,8 +362,8 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
 ```
 
 ## Log Analytic
-*Keyhole* can identify slow operations and queries with collections scans by analyzing a log file.  Run *keyhole* command with a `--loginfo` flag and it will display average execution time by query patterns and sorted by execution in descending order.
+*Keyhole* can identify slow operations and queries with collections scans by analyzing a log file, either plain or gzip compressed.  Run *keyhole* command with a `--loginfo` flag and it will display average execution time by query patterns and sorted by execution in descending order.
 
 ```
-keyhole --loginfo /var/log/mongodb/mongod.log
+keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz
 ```
