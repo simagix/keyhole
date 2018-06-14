@@ -4,7 +4,7 @@ Build docker image for *keyhole*.
 ## Docker Build
 
 ```
-$ docker build -t simagix/keyhole .
+$ docker build -t simagix/keyhole build
 
 REPOSITORY                         TAG                 IMAGE ID            CREATED             SIZE
 simagix/keyhole                    latest              1fc381cbafd7        14 minutes ago      9.75MB
