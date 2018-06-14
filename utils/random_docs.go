@@ -3,7 +3,10 @@
 package utils
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -13,10 +16,35 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// GetDocByTemplate returns a bson.M document
+func GetDocByTemplate(filename string, meta bool) bson.M {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	var f interface{}
+	err = json.Unmarshal(bytes, &f)
+	if err != nil {
+		fmt.Println("Error parsing JSON: ", err)
+		panic(err)
+	}
+	doc := make(map[string]interface{})
+	RandomizeDocument(&doc, f, meta)
+	return doc
+}
+
 // RandomizeDocument traverses a doc and replace values with random values according to their data type.
 func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 	elems := f.(map[string]interface{})
 	for key, value := range elems {
+		if meta {
+			_, ok := value.(string)
+			if !ok {
+				(*doc)[key] = value
+				continue
+			}
+		}
 		switch o := value.(type) {
 		case map[string]interface{}:
 			subdoc := make(map[string]interface{})
@@ -27,11 +55,8 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 			getArrayOfRandomDocs(o, &subdoc, meta)
 			(*doc)[key] = subdoc
 		case bool:
-			b := true
-			if rand.Int()%2 == 0 {
-				b = false
-			}
-			(*doc)[key] = b
+			randBool = !randBool
+			(*doc)[key] = randBool
 		case int, int8, int16, int32, int64:
 			if value.(int) == 1 { // 1 may have special meaning of true
 				(*doc)[key] = 1
@@ -50,7 +75,7 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 					(*doc)[key] = getDate()
 				} else if value.(string) == "$oId" || (len(value.(string)) == 24 && isHexString(value.(string))) {
 					(*doc)[key] = bson.NewObjectIdWithTime(time.Now())
-				} else if isHexString(value.(string)) {
+				} else if value.(string) == "$hex" || isHexString(value.(string)) {
 					(*doc)[key] = getHexString(len(value.(string)))
 				} else {
 					(*doc)[key] = getMagicString(value.(string), meta)
@@ -64,19 +89,18 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 	}
 }
 
+var randBool bool
+
 func getArrayOfRandomDocs(obj []interface{}, subdoc *[]interface{}, meta bool) {
 	for key, value := range obj {
 		switch o := value.(type) {
 		case bool:
-			b := true
-			if rand.Int()%2 == 0 {
-				b = false
-			}
-			(*subdoc)[key] = b
+			randBool = !randBool
+			(*subdoc)[key] = randBool
 		case int, int8, int16, int32, int64:
-			(*subdoc)[key] = rand.Intn(10000)
+			(*subdoc)[key] = rand.Intn(1000)
 		case float32, float64:
-			(*subdoc)[key] = rand.Intn(10000)
+			(*subdoc)[key] = rand.Intn(1000)
 		case string:
 			(*subdoc)[key] = getMagicString(value.(string), meta)
 		case []interface{}:
@@ -107,6 +131,8 @@ func getMagicString(str string, meta bool) string {
 			return "$date"
 		} else if isHexString(str) && len(str) == 24 {
 			return "$oId"
+		} else if isHexString(str) {
+			return "$hex"
 		}
 		return str
 	}
@@ -118,20 +144,19 @@ func getMagicString(str string, meta bool) string {
 	}
 
 	if len(str) < 10 {
-		return fnames[rand.Intn(len(fnames))]
+		return lnames[rand.Intn(len(lnames))]
 	}
 	quote := ""
 	for len(quote) < len(str) {
 		quote += quotes[rand.Intn(len(quotes))] + " "
 	}
 	quote = quote[:len(str)]
-	quote = strings.Trim(quote, " ")
 	idx := strings.LastIndex(quote, " ")
 	if idx < 0 {
-		return quote
+		return strings.Trim(quote, " ")
 	}
 
-	return quote[:idx]
+	return strings.Trim(quote[:idx], " ")
 }
 
 func isEmailAddress(str string) bool {
@@ -162,12 +187,11 @@ func isHexString(str string) bool {
 }
 
 func getHexString(n int) string {
-	hexstr := "1234567890ABCDEF"
-	hex := ""
-	for len(hex) < n {
-		hex += string(hexstr[rand.Intn(len(hexstr)-1)])
+	bytes := make([]byte, n/2)
+	if _, err := rand.Read(bytes); err != nil {
+		return ""
 	}
-	return hex
+	return hex.EncodeToString(bytes)
 }
 
 func isDateString(str string) bool {

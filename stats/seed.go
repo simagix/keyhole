@@ -5,7 +5,6 @@ package stats
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -37,24 +36,6 @@ type Robot struct {
 	Notes      string  `json:"notes" bson:"notes"`
 	BatteryPct float32 `json:"batteryPct,omitempty" bson:"batteryPct,omitempty"`
 	Tasks      []Task  `json:"tasks" bson:"tasks"`
-}
-
-// GetDocByTemplate returns a bson.M document
-func GetDocByTemplate(filename string, meta bool) bson.M {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-
-	var f interface{}
-	err = json.Unmarshal(bytes, &f)
-	if err != nil {
-		fmt.Println("Error parsing JSON: ", err)
-		panic(err)
-	}
-	doc := make(map[string]interface{})
-	utils.RandomizeDocument(&doc, f, meta)
-	return doc
 }
 
 // Seed - seed data for demo
@@ -168,7 +149,7 @@ func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 
 // SeedFromTemplate seeds data from a template in a file
 func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop bool, dbName string, verbose bool) {
-	sdoc := GetDocByTemplate(filename, true)
+	sdoc := utils.GetDocByTemplate(filename, true)
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if verbose {
 		fmt.Println(string(bytes))

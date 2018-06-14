@@ -5,7 +5,7 @@
 	"shortString": "Atlanta",
 	"longString": "This is another string value. You can use any field names",
 	"number": 123,
-	"hex": "A1B2C3D4",
+	"hex": "a1b2c3d4",
 	"objectId": "a1b2c3d4e5f6f7e8d9c0b6a8",
 	"lastUpdated": "2018-01-01T01:23:45Z",
 	"array1": [123, 456, 789],
@@ -15,5 +15,6 @@
 		{"city1": "Chicago", "city2": "Dallas", "city3": "Houston"} ],
 	"subdocs": {
 		"attribute1": {"email": "ken.chen@mongodb.com"}
-	}
+	},
+	"active": true
 }

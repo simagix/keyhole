@@ -80,7 +80,7 @@ func main() {
 			doc = strings.Replace(doc, "simagix.", "", -1)
 			fmt.Println(doc)
 		} else {
-			bytes, _ := json.MarshalIndent(stats.GetDocByTemplate(*file, false), "", "  ")
+			bytes, _ := json.MarshalIndent(utils.GetDocByTemplate(*file, false), "", "  ")
 			fmt.Println(string(bytes))
 		}
 		os.Exit(0)

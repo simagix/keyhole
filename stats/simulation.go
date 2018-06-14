@@ -60,7 +60,7 @@ func (m MongoConn) initSimDocs() {
 		return
 	}
 
-	sdoc := GetDocByTemplate(m.filename, true)
+	sdoc := utils.GetDocByTemplate(m.filename, true)
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if m.verbose {
 		fmt.Println(string(bytes))
