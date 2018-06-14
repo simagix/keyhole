@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/globalsign/mgo"
 	"github.com/simagix/keyhole/stats"
 	"github.com/simagix/keyhole/utils"
-	mgo "gopkg.in/mgo.v2"
 )
 
 var version string

@@ -10,8 +10,8 @@ import (
 	"io/ioutil"
 	"net"
 
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 )
 
 // MongoServerInfo constains server info from db.serverStatus()
