@@ -153,12 +153,9 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 	stat := ServerStatusDoc{}
 	var iop int
 	var piop int
-	wMinutes := 1
-	if m.monitor {
-		wMinutes = 10
-	}
+	wSeconds := 10
 	if m.verbose {
-		rstr := fmt.Sprintf("CollectServerStatus collects every %d minute(s)\n", wMinutes)
+		rstr := fmt.Sprintf("CollectServerStatus collects every %d seconds(s)\n", wSeconds)
 		channel <- rstr
 	}
 
@@ -171,7 +168,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			json.Unmarshal(buf, &stat)
 			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-			if len(serverStatusDocs[uri]) > 10 {
+			if len(serverStatusDocs[uri]) > 12 {
 				saveServerStatusDocsToFile(uri)
 			}
 
@@ -180,8 +177,8 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
-			if len(serverStatusDocs[uri]) > 1 {
-				buf, _ = json.Marshal(serverStatusDocs[uri][len(serverStatusDocs[uri])-2])
+			if len(serverStatusDocs[uri]) > 6 && len(serverStatusDocs[uri])%6 == 1 {
+				buf, _ = json.Marshal(serverStatusDocs[uri][len(serverStatusDocs[uri])-7])
 				json.Unmarshal(buf, &pstat)
 				if stat.Host == pstat.Host {
 					str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
@@ -204,11 +201,13 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			} else {
 				str += "\n"
 			}
-			channel <- str
+			if m.monitor == false && len(serverStatusDocs[uri])%6 == 1 {
+				channel <- str
+			}
 			piop = iop
 			session.Close()
 		}
-		time.Sleep(time.Duration(wMinutes) * time.Minute)
+		time.Sleep(time.Duration(wSeconds) * time.Second)
 	}
 }
 
@@ -249,7 +248,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 }
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
-func (m MongoConn) PrintServerStatus(uri string) {
+func (m MongoConn) PrintServerStatus(uri string, span int) {
 	session, err := GetSession(uri, m.ssl, m.sslCA)
 	if err != nil {
 		panic(err)
@@ -262,7 +261,7 @@ func (m MongoConn) PrintServerStatus(uri string) {
 	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 	filename := saveServerStatusDocsToFile(uri)
-	AnalyzeServerStatus(filename)
+	AnalyzeServerStatus(filename, span)
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
@@ -304,7 +303,7 @@ func dbStats(session *mgo.Session, dbName string) bson.M {
 }
 
 // AnalyzeServerStatus -
-func AnalyzeServerStatus(filename string) {
+func AnalyzeServerStatus(filename string, span int) {
 	// fmt.Println("filename", filename)
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
@@ -330,16 +329,16 @@ func AnalyzeServerStatus(filename string) {
 		json.Unmarshal(buf, &stat)
 		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
 	}
-	printStatsDetails(allDocs)
-	printGlobalLockDetails(allDocs)
-	printLatencyDetails(allDocs)
-	printMetricsDetails(allDocs)
-	printWiredTigerCacheDetails(allDocs)
-	printWiredTigerConcurrentTransactionsDetails(allDocs)
+	printStatsDetails(allDocs, span)
+	printGlobalLockDetails(allDocs, span)
+	printLatencyDetails(allDocs, span)
+	printMetricsDetails(allDocs, span)
+	printWiredTigerCacheDetails(allDocs, span)
+	printWiredTigerConcurrentTransactionsDetails(allDocs, span)
 }
 
 // printStatsDetails -
-func printStatsDetails(docs []ServerStatusDoc) {
+func printStatsDetails(docs []ServerStatusDoc, span int) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -352,38 +351,42 @@ func printStatsDetails(docs []ServerStatusDoc) {
 		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
 			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
-			iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
-				stat2.OpCounters.Delete - stat1.OpCounters.Delete +
-				stat2.OpCounters.Getmore - stat1.OpCounters.Getmore +
-				stat2.OpCounters.Insert - stat1.OpCounters.Insert +
-				stat2.OpCounters.Query - stat1.OpCounters.Query +
-				stat2.OpCounters.Update - stat1.OpCounters.Update
-			if d > 0 {
-				iops = iops / d
-			} else {
-				iops = 0
-			}
+			if cnt == len(docs)-1 || d >= span {
+				iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
+					stat2.OpCounters.Delete - stat1.OpCounters.Delete +
+					stat2.OpCounters.Getmore - stat1.OpCounters.Getmore +
+					stat2.OpCounters.Insert - stat1.OpCounters.Insert +
+					stat2.OpCounters.Query - stat1.OpCounters.Query +
+					stat2.OpCounters.Update - stat1.OpCounters.Update
+				if d > 0 {
+					iops = iops / d
+				} else {
+					iops = 0
+				}
 
-			fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339),
-				stat2.Mem.Resident,
-				stat2.Mem.Virtual,
-				stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
-				stat2.OpCounters.Command-stat1.OpCounters.Command,
-				stat2.OpCounters.Delete-stat1.OpCounters.Delete,
-				stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
-				stat2.OpCounters.Insert-stat1.OpCounters.Insert,
-				stat2.OpCounters.Query-stat1.OpCounters.Query,
-				stat2.OpCounters.Update-stat1.OpCounters.Update, iops)
+				fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339),
+					stat2.Mem.Resident,
+					stat2.Mem.Virtual,
+					stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
+					stat2.OpCounters.Command-stat1.OpCounters.Command,
+					stat2.OpCounters.Delete-stat1.OpCounters.Delete,
+					stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
+					stat2.OpCounters.Insert-stat1.OpCounters.Insert,
+					stat2.OpCounters.Query-stat1.OpCounters.Query,
+					stat2.OpCounters.Update-stat1.OpCounters.Update, iops)
+				stat1 = stat2
+			}
+		} else if cnt == 0 {
+			stat1 = stat2
 		}
-		stat1 = stat2
 		cnt++
 	}
 	fmt.Printf("+-------------------------+-------+-------+------+--------+--------+--------+--------+--------+--------+--------+\n")
 }
 
 // printLatencyDetails -
-func printLatencyDetails(docs []ServerStatusDoc) {
+func printLatencyDetails(docs []ServerStatusDoc, span int) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -395,29 +398,34 @@ func printLatencyDetails(docs []ServerStatusDoc) {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
-			r := stat2.OpLatencies.Reads.Ops - stat1.OpLatencies.Reads.Ops
-			if r > 0 {
-				r = (stat2.OpLatencies.Reads.Latency - stat1.OpLatencies.Reads.Latency) / r
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if cnt == len(docs)-1 || d >= span {
+				r := stat2.OpLatencies.Reads.Ops - stat1.OpLatencies.Reads.Ops
+				if r > 0 {
+					r = (stat2.OpLatencies.Reads.Latency - stat1.OpLatencies.Reads.Latency) / r
+				}
+				w := stat2.OpLatencies.Writes.Ops - stat1.OpLatencies.Writes.Ops
+				if w > 0 {
+					w = (stat2.OpLatencies.Writes.Latency - stat1.OpLatencies.Writes.Latency) / w
+				}
+				c := stat2.OpLatencies.Commands.Ops - stat1.OpLatencies.Commands.Ops
+				if c > 0 {
+					c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
+				}
+				fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
+				stat1 = stat2
 			}
-			w := stat2.OpLatencies.Writes.Ops - stat1.OpLatencies.Writes.Ops
-			if w > 0 {
-				w = (stat2.OpLatencies.Writes.Latency - stat1.OpLatencies.Writes.Latency) / w
-			}
-			c := stat2.OpLatencies.Commands.Ops - stat1.OpLatencies.Commands.Ops
-			if c > 0 {
-				c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
-			}
-			fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
+		} else if cnt == 0 {
+			stat1 = stat2
 		}
-		stat1 = stat2
 		cnt++
 	}
 	fmt.Printf("+-------------------------+----------+----------+----------+\n")
 }
 
 // printMetricsDetails -
-func printMetricsDetails(docs []ServerStatusDoc) {
+func printMetricsDetails(docs []ServerStatusDoc, span int) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -429,25 +437,30 @@ func printMetricsDetails(docs []ServerStatusDoc) {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
-			fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339),
-				stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
-				stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
-				stat2.Metrics.Operation.ScanAndOrder-stat1.Metrics.Operation.ScanAndOrder,
-				stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts,
-				stat2.Metrics.Document.Deleted-stat1.Metrics.Document.Deleted,
-				stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted,
-				stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
-				stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated)
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if cnt == len(docs)-1 || d >= span {
+				fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339),
+					stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
+					stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
+					stat2.Metrics.Operation.ScanAndOrder-stat1.Metrics.Operation.ScanAndOrder,
+					stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts,
+					stat2.Metrics.Document.Deleted-stat1.Metrics.Document.Deleted,
+					stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted,
+					stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
+					stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated)
+				stat1 = stat2
+			}
+		} else if cnt == 0 {
+			stat1 = stat2
 		}
-		stat1 = stat2
 		cnt++
 	}
 	fmt.Printf("+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+\n")
 }
 
 // printGlobalLockDetails prints globalLock stats
-func printGlobalLockDetails(docs []ServerStatusDoc) {
+func printGlobalLockDetails(docs []ServerStatusDoc, span int) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -460,24 +473,29 @@ func printGlobalLockDetails(docs []ServerStatusDoc) {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
-			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339),
-				(stat2.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
-				stat2.GlobalLock.CurrentQueue.Total,
-				stat2.GlobalLock.CurrentQueue.Readers,
-				stat2.GlobalLock.CurrentQueue.Writers,
-				stat2.GlobalLock.CurrentQueue.Total,
-				stat2.GlobalLock.CurrentQueue.Readers,
-				stat2.GlobalLock.CurrentQueue.Writers)
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if cnt == len(docs)-1 || d >= span {
+				fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339),
+					(stat2.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
+					stat2.GlobalLock.CurrentQueue.Total,
+					stat2.GlobalLock.CurrentQueue.Readers,
+					stat2.GlobalLock.CurrentQueue.Writers,
+					stat2.GlobalLock.CurrentQueue.Total,
+					stat2.GlobalLock.CurrentQueue.Readers,
+					stat2.GlobalLock.CurrentQueue.Writers)
+				stat1 = stat2
+			}
+		} else if cnt == 0 {
+			stat1 = stat2
 		}
-		stat1 = stat2
 		cnt++
 	}
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 }
 
 // printWiredTigerCacheDetails prints wiredTiger cache stats
-func printWiredTigerCacheDetails(docs []ServerStatusDoc) {
+func printWiredTigerCacheDetails(docs []ServerStatusDoc, span int) {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -490,25 +508,31 @@ func printWiredTigerCacheDetails(docs []ServerStatusDoc) {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
 		if cnt > 0 && stat2.Host == stat1.Host {
-			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339),
-				stat2.WiredTiger.Cache.MaxBytesConfigured,
-				stat2.WiredTiger.Cache.CurrentlyInCache,
-				stat2.WiredTiger.Cache.TrackedDirtyBytes,
-				stat2.WiredTiger.Cache.ModifiedPagesEvicted,
-				stat2.WiredTiger.Cache.UnmodifiedPagesEvicted,
-				stat2.WiredTiger.Cache.PagesReadIntoCache-stat1.WiredTiger.Cache.PagesReadIntoCache,
-				stat2.WiredTiger.Cache.PagesWrittenFromCache-stat1.WiredTiger.Cache.PagesWrittenFromCache)
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if cnt == len(docs)-1 || d >= span {
+				fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339),
+					stat2.WiredTiger.Cache.MaxBytesConfigured,
+					stat2.WiredTiger.Cache.CurrentlyInCache,
+					stat2.WiredTiger.Cache.TrackedDirtyBytes,
+					stat2.WiredTiger.Cache.ModifiedPagesEvicted,
+					stat2.WiredTiger.Cache.UnmodifiedPagesEvicted,
+					stat2.WiredTiger.Cache.PagesReadIntoCache-stat1.WiredTiger.Cache.PagesReadIntoCache,
+					stat2.WiredTiger.Cache.PagesWrittenFromCache-stat1.WiredTiger.Cache.PagesWrittenFromCache)
+				stat1 = stat2
+			}
+		} else if cnt == 0 {
+			stat1 = stat2
 		}
-		stat1 = stat2
 		cnt++
 	}
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 }
 
 // printWiredTigerConcurrentTransactionsDetails prints wiredTiger concurrentTransactions stats
-func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
-	stat := ServerStatusDoc{}
+func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc, span int) {
+	stat1 := ServerStatusDoc{}
+	stat2 := ServerStatusDoc{}
 	cnt := 0
 	fmt.Println("\n--- WiredTiger Concurrent Transactions Summary ---")
 	fmt.Printf("+-------------------------+--------------------------------------------+--------------------------------------------+\n")
@@ -517,15 +541,23 @@ func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc) {
 	fmt.Printf("|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
 	for _, doc := range docs {
 		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
-		fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
-			stat.LocalTime.In(loc).Format(time.RFC3339),
-			stat.WiredTiger.ConcurrentTransactions.Read.Available,
-			stat.WiredTiger.ConcurrentTransactions.Read.Out,
-			stat.WiredTiger.ConcurrentTransactions.Read.TotalTickets,
-			stat.WiredTiger.ConcurrentTransactions.Write.Available,
-			stat.WiredTiger.ConcurrentTransactions.Write.Out,
-			stat.WiredTiger.ConcurrentTransactions.Write.TotalTickets)
+		json.Unmarshal(buf, &stat2)
+		if cnt > 0 && stat2.Host == stat1.Host {
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if cnt == len(docs)-1 || d >= span {
+				fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339),
+					stat2.WiredTiger.ConcurrentTransactions.Read.Available,
+					stat2.WiredTiger.ConcurrentTransactions.Read.Out,
+					stat2.WiredTiger.ConcurrentTransactions.Read.TotalTickets,
+					stat2.WiredTiger.ConcurrentTransactions.Write.Available,
+					stat2.WiredTiger.ConcurrentTransactions.Write.Out,
+					stat2.WiredTiger.ConcurrentTransactions.Write.TotalTickets)
+				stat1 = stat2
+			}
+		} else if cnt == 0 {
+			stat1 = stat2
+		}
 		cnt++
 	}
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")

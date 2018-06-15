@@ -36,6 +36,7 @@ func main() {
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
+	span := flag.Int("span", 60, "granunarity for summary")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
@@ -65,7 +66,7 @@ func main() {
 		utils.PrintQuotes()
 		os.Exit(0)
 	} else if *diag != "" {
-		stats.AnalyzeServerStatus(*diag)
+		stats.AnalyzeServerStatus(*diag, *span)
 		os.Exit(0)
 	} else if *loginfo != "" {
 		stats.LogInfo(*loginfo)
@@ -132,7 +133,7 @@ func main() {
 			select {
 			case <-quit:
 				for _, value := range uriList {
-					m.PrintServerStatus(value)
+					m.PrintServerStatus(value, *span)
 				}
 				if *cleanup {
 					m.Cleanup()
@@ -140,7 +141,7 @@ func main() {
 				os.Exit(0)
 			case <-timer.C:
 				for _, value := range uriList {
-					m.PrintServerStatus(value)
+					m.PrintServerStatus(value, *span)
 				}
 				if *cleanup {
 					m.Cleanup()
