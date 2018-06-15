@@ -160,6 +160,12 @@ At the end of a *keyhole*, including monitoring and load test, it writes data to
 keyhole --diag /tmp/keyhole_stats.2018-06-04T084021-shard01.gz
 ```
 
+*Keyhole* collects server status every 10 seconds, but by default the granularity is 1 minute when using `--diag` flag.  You can adjust the granularity by adding the `--span` flag.  For example, to view stats in a 10 seconds interval, do
+
+```
+keyhole --diag /tmp/keyhole_stats.2018-06-04T084021-shard01.gz --span 10
+```
+
 ### Monitor Mode `--monitor`
 With `--monitor` flag, *keyhole* collects server status using `db.serverStats()` every **10 minutes** for, by default, **24 hours**.  At the end of each run, same as using `--peek`, *keyhole* prints a summary and stores server status data in a file.
 
