@@ -48,7 +48,8 @@ func GetDemoDoc() bson.M {
 	favoriteCities := []string{Favorites.Cities[rand.Intn(n)], Favorites.Cities[rand.Intn(n)], Favorites.Cities[rand.Intn(n)]}
 	favoriteCities = unique(append(favoriteCities, Favorites.Cities[0:3]...))
 	n = len(Favorites.Books)
-	favoriteBooks := []string{Favorites.Books[rand.Intn(n)], Favorites.Books[rand.Intn(n)], Favorites.Books[rand.Intn(n)]}
+	x := rand.Intn(n)
+	favoriteBooks := []string{Favorites.Books[x], Favorites.Books[rand.Intn(n)], Favorites.Books[rand.Intn(n)]}
 	favoriteBooks = unique(append(favoriteBooks, Favorites.Books[0:3]...))
 	n = len(Favorites.Movies)
 	favoriteMovies := []string{Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)]}
@@ -82,6 +83,7 @@ func GetDemoDoc() bson.M {
 		"favoriteMusic":  favoriteMusic[0],
 		"favoriteCity":   favoriteCities[0],
 		"favoriteBook":   favoriteBooks[0],
+		"favoriteBookId": 1100 + x,
 		"favoriteMovie":  favoriteMovies[0],
 		"filler1":        filler1.String(),
 		"filler2":        filler2.String(),

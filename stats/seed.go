@@ -8,7 +8,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/globalsign/mgo"
@@ -63,11 +62,11 @@ func Seed(session *mgo.Session, total int, isDrop bool, dbName string, verbose b
 	}
 
 	for i := 0; i < 10; i++ {
-		c.Insert(bson.M{"_id": "sports-" + strconv.Itoa(i), "type": "sports", "name": utils.Favorites.Sports[i]})
-		c.Insert(bson.M{"_id": "book-" + strconv.Itoa(i), "type": "book", "name": utils.Favorites.Books[i]})
-		c.Insert(bson.M{"_id": "movie-" + strconv.Itoa(i), "type": "movie", "name": utils.Favorites.Movies[i]})
-		c.Insert(bson.M{"_id": "city-" + strconv.Itoa(i), "type": "city", "name": utils.Favorites.Cities[i]})
-		c.Insert(bson.M{"_id": "music-" + strconv.Itoa(i), "type": "music", "name": utils.Favorites.Music[i]})
+		c.Insert(bson.M{"_id": i + 1000, "type": "sports", "name": utils.Favorites.Sports[i]})
+		c.Insert(bson.M{"_id": i + 1100, "type": "book", "name": utils.Favorites.Books[i]})
+		c.Insert(bson.M{"_id": i + 1200, "type": "movie", "name": utils.Favorites.Movies[i]})
+		c.Insert(bson.M{"_id": i + 1300, "type": "city", "name": utils.Favorites.Cities[i]})
+		c.Insert(bson.M{"_id": i + 1400, "type": "music", "name": utils.Favorites.Music[i]})
 	}
 
 	modelsCollection := session.DB(dbName).C("models")
