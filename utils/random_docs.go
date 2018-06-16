@@ -164,6 +164,11 @@ func isEmailAddress(str string) bool {
 	return matched.MatchString(str)
 }
 
+// GetEmailAddress exposes getEmailAddress()
+func GetEmailAddress() string {
+	return getEmailAddress()
+}
+
 func getEmailAddress() string {
 	return fnames[rand.Intn(len(fnames)-1)] + "." +
 		string(fnames[rand.Intn(len(fnames)-1)][0]) + "." +

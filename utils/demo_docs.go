@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/globalsign/mgo/bson"
@@ -21,8 +22,8 @@ type FavoritesSchema struct {
 	FavoriteSport string `json:"favoriteSport" bson:"favoriteSport"`
 }
 
-// Favorites -
-type Favorites struct {
+// FavoritesDoc -
+type FavoritesDoc struct {
 	Sports []string
 	Music  []string
 	Cities []string
@@ -37,30 +38,34 @@ func GetDemoDoc() bson.M {
 		filler1.WriteString("simagix.")
 		filler2.WriteString("mongodb.")
 	}
-	var n = len(favorites.Sports)
-	favoriteSports := []string{favorites.Sports[rand.Intn(n)], favorites.Sports[rand.Intn(n)], favorites.Sports[rand.Intn(n)]}
-	favoriteSports = unique(append(favoriteSports, favorites.Sports[0:3]...))
-	n = len(favorites.Music)
-	favoriteMusic := []string{favorites.Music[rand.Intn(n)], favorites.Music[rand.Intn(n)], favorites.Music[rand.Intn(n)]}
-	favoriteMusic = unique(append(favoriteMusic, favorites.Music[0:3]...))
-	n = len(favorites.Cities)
-	favoriteCities := []string{favorites.Cities[rand.Intn(n)], favorites.Cities[rand.Intn(n)], favorites.Cities[rand.Intn(n)]}
-	favoriteCities = unique(append(favoriteCities, favorites.Cities[0:3]...))
-	n = len(favorites.Books)
-	favoriteBooks := []string{favorites.Books[rand.Intn(n)], favorites.Books[rand.Intn(n)], favorites.Books[rand.Intn(n)]}
-	favoriteBooks = unique(append(favoriteBooks, favorites.Books[0:3]...))
-	n = len(favorites.Movies)
-	favoriteMovies := []string{favorites.Movies[rand.Intn(n)], favorites.Movies[rand.Intn(n)], favorites.Movies[rand.Intn(n)]}
-	favoriteMovies = unique(append(favoriteMovies, favorites.Movies[0:3]...))
+	var n = len(Favorites.Sports)
+	favoriteSports := []string{Favorites.Sports[rand.Intn(n)], Favorites.Sports[rand.Intn(n)], Favorites.Sports[rand.Intn(n)]}
+	favoriteSports = unique(append(favoriteSports, Favorites.Sports[0:3]...))
+	n = len(Favorites.Music)
+	favoriteMusic := []string{Favorites.Music[rand.Intn(n)], Favorites.Music[rand.Intn(n)], Favorites.Music[rand.Intn(n)]}
+	favoriteMusic = unique(append(favoriteMusic, Favorites.Music[0:3]...))
+	n = len(Favorites.Cities)
+	favoriteCities := []string{Favorites.Cities[rand.Intn(n)], Favorites.Cities[rand.Intn(n)], Favorites.Cities[rand.Intn(n)]}
+	favoriteCities = unique(append(favoriteCities, Favorites.Cities[0:3]...))
+	n = len(Favorites.Books)
+	favoriteBooks := []string{Favorites.Books[rand.Intn(n)], Favorites.Books[rand.Intn(n)], Favorites.Books[rand.Intn(n)]}
+	favoriteBooks = unique(append(favoriteBooks, Favorites.Books[0:3]...))
+	n = len(Favorites.Movies)
+	favoriteMovies := []string{Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)]}
+	favoriteMovies = unique(append(favoriteMovies, Favorites.Movies[0:3]...))
 	favoritesList := []bson.M{
 		bson.M{"sport": favoriteSports[0], "music": favoriteMusic[0], "city": favoriteCities[0], "book": favoriteBooks[0], "movie": favoriteMovies[0]},
 		bson.M{"sport": favoriteSports[1], "music": favoriteMusic[1], "city": favoriteCities[1], "book": favoriteBooks[1], "movie": favoriteMovies[1]},
 		bson.M{"sport": favoriteSports[2], "music": favoriteMusic[2], "city": favoriteCities[2], "book": favoriteBooks[2], "movie": favoriteMovies[2]},
 	}
-
+	email := GetEmailAddress()
+	s := strings.Split(strings.Split(email, "@")[0], ".")
 	doc := bson.M{
-		"_search": strconv.FormatInt(rand.Int63(), 16),
-		"favorites": bson.M{
+		"_search":   strconv.FormatInt(rand.Int63(), 16),
+		"email":     email,
+		"firstName": s[0],
+		"lastName":  s[2],
+		"Favorites": bson.M{
 			"sports": favoriteSports, "sport": favoriteSports[0],
 			"musics": favoriteMusic, "music": favoriteMusic[0],
 			"cities": favoriteCities, "city": favoriteCities[0],
@@ -101,7 +106,8 @@ func unique(s []string) []string {
 	return us[:3]
 }
 
-var favorites = Favorites{
+// Favorites constance
+var Favorites = FavoritesDoc{
 	Sports: []string{"Baseball", "Boxing", "Dodgeball", "Figure skating", "Football", "Horse racing", "Mountaineering", "Skateboard", "Ski", "Soccer"},
 	Music:  []string{"Blues", "Classical", "Country", "Easy Listening", "Electronic", "Hip Pop", "Jazz", "Opera", "Soul", "Rock"},
 	Cities: []string{"Atlanta", "Bangkok", "Beijing", "London", "Paris", "Singapore", "New York", "Istanbul", "Dubai", "Taipei"},

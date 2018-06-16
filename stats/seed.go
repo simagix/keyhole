@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/globalsign/mgo"
@@ -53,8 +54,22 @@ type Robot struct {
 //   "batteryPct": float,
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
-func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
+func Seed(session *mgo.Session, total int, isDrop bool, dbName string, verbose bool) {
 	session.SetMode(mgo.Primary, true)
+
+	c := session.DB(dbName).C("lookups")
+	if isDrop {
+		c.DropCollection()
+	}
+
+	for i := 0; i < 10; i++ {
+		c.Insert(bson.M{"_id": "sports-" + strconv.Itoa(i), "type": "sports", "name": utils.Favorites.Sports[i]})
+		c.Insert(bson.M{"_id": "book-" + strconv.Itoa(i), "type": "book", "name": utils.Favorites.Books[i]})
+		c.Insert(bson.M{"_id": "movie-" + strconv.Itoa(i), "type": "movie", "name": utils.Favorites.Movies[i]})
+		c.Insert(bson.M{"_id": "city-" + strconv.Itoa(i), "type": "city", "name": utils.Favorites.Cities[i]})
+		c.Insert(bson.M{"_id": "music-" + strconv.Itoa(i), "type": "music", "name": utils.Favorites.Music[i]})
+	}
+
 	modelsCollection := session.DB(dbName).C("models")
 	robotsCollection := session.DB(dbName).C("robots")
 	if isDrop {
@@ -62,7 +77,7 @@ func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 		robotsCollection.DropCollection()
 	}
 
-	for i := 1000; i < 1050; i++ {
+	for i := 1000; i < 1010; i++ {
 		model := "model-" + fmt.Sprintf("%x", (rand.Intn(5000)+5000)*i)
 		name := fmt.Sprintf("Robo %d-%x", i, rand.Intn(1000000))
 		descr := fmt.Sprintf("%s %s", model, name)
@@ -72,7 +87,7 @@ func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 			log.Fatal(err)
 		}
 
-		for r := 0; r < 20+rand.Intn(30); r++ {
+		for r := 0; r < 2+rand.Intn(20); r++ {
 			id := "robot-" + fmt.Sprintf("%x", (rand.Intn(5000)+5000)*r)
 			notes := fmt.Sprintf("%s %s", id, model)
 			pct := rand.Float32()
@@ -94,45 +109,14 @@ func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 	}
 	modelsCount, _ := modelsCollection.Count()
 	robotsCount, _ := robotsCollection.Count()
-	fmt.Printf("Seeded models: %d, robots: %d\n", modelsCount, robotsCount)
 
-	isNew := []bool{true, false}
-	styles := []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
-	colors := []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
-
-	carsCollection := session.DB(dbName).C("cars")
-	keyholeCollection := session.DB(dbName).C("keyhole")
-	if isDrop {
-		carsCollection.DropCollection()
-		keyholeCollection.DropCollection()
-	}
-	for i := 0; i < 250; i++ {
-		keyholeCollection.Insert(utils.GetDemoDoc())
-		bulk := carsCollection.Bulk()
-		var contentArray []interface{}
-		for n := 0; n < 1000; n++ {
-			contentArray = append(contentArray,
-				bson.M{
-					"isNew": isNew[rand.Intn(len(isNew))],
-					"style": styles[rand.Intn(len(styles))],
-					"color": colors[rand.Intn(len(colors))],
-				})
-		}
-
-		bulk.Insert(contentArray...)
-		_, err := bulk.Run()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
 	var contentArray []interface{}
 	numbersCollection := session.DB(dbName).C("numbers")
 	if isDrop {
 		numbersCollection.DropCollection()
 	}
 	bulk := numbersCollection.Bulk()
-	for n := 0; n < 100000; n++ {
+	for n := 0; n < 1000; n++ {
 		contentArray = append(contentArray, bson.M{"a": rand.Intn(100), "b": rand.Intn(50), "c": rand.Intn(1000)})
 	}
 	bulk.Insert(contentArray...)
@@ -141,10 +125,64 @@ func Seed(session *mgo.Session, isDrop bool, dbName string, verbose bool) {
 		log.Println(err)
 		return
 	}
-	carsCount, _ := carsCollection.Count()
-	keyholeCount, _ := keyholeCollection.Count()
 	numbersCount, _ := numbersCollection.Count()
-	fmt.Printf("Seeded cars: %d, keyhole: %d, numbers: %d\n", carsCount, keyholeCount, numbersCount)
+	fmt.Printf("Seeded models: %d, robots: %d, numbers: %d\n", modelsCount, robotsCount, numbersCount)
+
+	carsCollection := session.DB(dbName).C("cars")
+	favoritesCollection := session.DB(dbName).C("favorites")
+	if isDrop {
+		carsCollection.DropCollection()
+		favoritesCollection.DropCollection()
+	}
+
+	carsCount := seedCollection(carsCollection, total, 1)
+	fmt.Printf("Seeded cars: %d\n", carsCount)
+	favoritesCount := seedCollection(favoritesCollection, total, 2)
+	fmt.Printf("Seeded favorites: %d\n", favoritesCount)
+}
+
+var isNew = []bool{true, false}
+var styles = []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
+var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
+
+func getCar() bson.M {
+	return bson.M{
+		"isNew": isNew[rand.Intn(len(isNew))],
+		"style": styles[rand.Intn(len(styles))],
+		"color": colors[rand.Intn(len(colors))],
+	}
+}
+
+func seedCollection(c *mgo.Collection, total int, fnum int) int {
+	bsize := 100
+	remaining := total
+	for i := 0; i < total; {
+		bulk := c.Bulk()
+		num := bsize
+		if remaining < bsize {
+			num = remaining
+		}
+		var contentArray []interface{}
+		for n := 0; n < num; n++ {
+			if fnum == 1 {
+				contentArray = append(contentArray, getCar())
+			} else if fnum == 2 {
+				contentArray = append(contentArray, utils.GetDemoDoc())
+			}
+			i++
+			remaining--
+		}
+		bulk.Insert(contentArray...)
+		_, err := bulk.Run()
+		if err != nil {
+			log.Println(err)
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(total))
+	}
+	fmt.Fprintf(os.Stderr, "\r100%%\r     \r")
+	cnt, _ := c.Count()
+	return cnt
 }
 
 // SeedFromTemplate seeds data from a template in a file

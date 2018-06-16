@@ -108,7 +108,7 @@ func main() {
 		os.Exit(0)
 	} else if *seed == true {
 		if *file == "" {
-			stats.Seed(session, *drop, dbName, *verbose)
+			stats.Seed(session, *total, *drop, dbName, *verbose)
 		} else {
 			stats.SeedFromTemplate(session, *file, *total, *drop, dbName, *verbose)
 		}
