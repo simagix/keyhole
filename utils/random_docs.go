@@ -127,6 +127,10 @@ func getMagicString(str string, meta bool) string {
 			return "$mail"
 		} else if isIP(str) {
 			return "$ip"
+		} else if isSSN(str) {
+			return "$ssn"
+		} else if isPhoneNumber(str) {
+			return "$tel"
 		} else if isDateString(str) {
 			return "$date"
 		} else if isHexString(str) && len(str) == 24 {
@@ -141,6 +145,10 @@ func getMagicString(str string, meta bool) string {
 		return getEmailAddress()
 	} else if str == "$ip" || isIP(str) {
 		return getIP()
+	} else if str == "$ssn" || isSSN(str) {
+		return getSSN()
+	} else if str == "$tel" || isPhoneNumber(str) {
+		return getPhoneNumber()
 	}
 
 	if len(str) < 10 {
@@ -184,6 +192,26 @@ func isIP(str string) bool {
 func getIP() string {
 	return strconv.Itoa(rand.Intn(255)) + "." + strconv.Itoa(rand.Intn(255)) + "." +
 		strconv.Itoa(rand.Intn(255)) + "." + strconv.Itoa(rand.Intn(255))
+}
+
+func isSSN(str string) bool {
+	var matched = regexp.MustCompile(`^(\d{3}-?\d{2}-?\d{4}|XXX-XX-XXXX)$`)
+	return matched.MatchString(str)
+}
+
+func getSSN() string {
+	return strconv.Itoa(100+rand.Intn(899)) + "-" + strconv.Itoa(10+rand.Intn(89)) + "-" +
+		strconv.Itoa(1000+rand.Intn(8999))
+}
+
+func isPhoneNumber(str string) bool {
+	var matched = regexp.MustCompile(`^(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}$`)
+	return matched.MatchString(str)
+}
+
+func getPhoneNumber() string {
+	return "(" + strconv.Itoa(100+rand.Intn(899)) + ") " + strconv.Itoa(100+rand.Intn(899)) + "-" +
+		strconv.Itoa(1000+rand.Intn(8999))
 }
 
 func isHexString(str string) bool {
