@@ -178,22 +178,22 @@ go build
 ```
 
 ### Download
-Download the desired binary.  No other downloads (interpreter or modules) are necessary.  Please note that the builds of the master branch are changed often with new features.  For stable builds, use versioned branches.
+Download the desired binary.  No other downloads (interpreter or modules) are necessary.
 
-#### MacOS
-```
-curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-osx-x64 > keyhole ; chmod +x keyhole
-```
 #### Linux
 ```
 curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-linux-x64 > keyhole ; chmod +x keyhole
 ```
-#### Windows
-The download link is as below.
+
+#### MacOS
+Download [keyhole](https://github.com/simagix/keyhole/raw/master/build/keyhole-win-x64.exe) for macOS, or,
 
 ```
-https://github.com/simagix/keyhole/raw/master/build/keyhole-win-x64.exe
+curl -L https://github.com/simagix/keyhole/raw/master/build/keyhole-osx-x64 > keyhole ; chmod +x keyhole
 ```
+
+#### Windows
+Download [Windows  executable](https://github.com/simagix/keyhole/raw/master/build/keyhole-win-x64.exe).
 
 ### Usage
 ```
