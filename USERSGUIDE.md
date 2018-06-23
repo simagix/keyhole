@@ -373,3 +373,11 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
 ```
 keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz
 ```
+
+## View Schema
+*Keyhole* is able to connection to retrieve the first document of a collection and returns a masked document as its schema view.  For example,
+
+```
+keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin \
+    --schema --collection examples
+```
