@@ -23,6 +23,35 @@ type OpPerformanceDoc struct {
 	Scan      string // COLLSCAN
 }
 
+func getDocByField(str string, field string) string {
+	i := strings.Index(str, field)
+	if i < 0 {
+		return ""
+	}
+	str = strings.Trim(str[i+len(field):], " ")
+	isFound := false
+	bpos := 0 // begin position
+	epos := 0 // end position
+	for _, r := range str {
+		epos++
+		if isFound == false && r == '{' {
+			isFound = true
+			bpos++
+		} else if isFound == true {
+			if r == '{' {
+				bpos++
+			} else if r == '}' {
+				bpos--
+			}
+		}
+
+		if isFound == true && bpos == 0 {
+			break
+		}
+	}
+	return str[bpos:epos]
+}
+
 // LogInfo -
 func LogInfo(filename string) {
 	var opsMap map[string]OpPerformanceDoc
@@ -41,7 +70,9 @@ func LogInfo(filename string) {
 	index := 0
 
 	for {
-		fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
+		if index%25 == 1 {
+			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
+		}
 		buf, _, err := reader.ReadLine() // 0x0A separator = newline
 		index++
 		scan := ""
@@ -92,15 +123,52 @@ func LogInfo(filename string) {
 				continue
 			}
 
+			if op == "delete" && strings.Index(filter, "writeConcern:") >= 0 {
+				continue
+			} else if op == "find" {
+				nstr := "{ }"
+				s := getDocByField(filter, "filter: ")
+				if s != "" {
+					nstr = s
+				}
+				s = getDocByField(filter, "sort: ")
+				if s != "" {
+					nstr = nstr + ", sort: " + s
+				}
+				filter = nstr
+			} else if op == "count" {
+				nstr := ""
+				s := getDocByField(filter, "query: ")
+				if s != "" {
+					nstr = s
+				} else {
+					fmt.Println(op)
+					fmt.Println(filter)
+					os.Exit(0)
+				}
+				filter = nstr
+			} else if op == "delete" || op == "update" || op == "remove" {
+				s := getDocByField(filter, "q: ")
+				if s != "" {
+					filter = s
+				}
+			} else {
+				fmt.Println(op)
+				fmt.Println(filter)
+				os.Exit(0)
+			}
+
 			// remove unneeded info
-			re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|bypassDocumentValidation: \w+, |ordered: \w+, |, shardVersion: \[.*\]`)
-			filter = re.ReplaceAllString(filter, "")
+			// re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|bypassDocumentValidation: \w+, |ordered: \w+, |, shardVersion: \[.*\]`)
+			// filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ": 1")
+			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
+			filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`(ObjectId\('\S+'\))`)
 			filter = re.ReplaceAllString(filter, "1")
-			re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
-			filter = re.ReplaceAllString(filter, "$1")
+			// re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
+			// filter = re.ReplaceAllString(filter, "$1")
 			filter = removeInElements(filter)
 			key := op + "." + filter
 			_, ok := opsMap[key]
