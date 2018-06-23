@@ -195,7 +195,7 @@ func LogInfo(filename string) {
 
 	fmt.Fprintf(os.Stderr, "\r100%% \n")
 	fmt.Println("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
-	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
+	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern")
 	fmt.Println("|-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|")
 	for _, value := range arr {
 		str := value.Filter
