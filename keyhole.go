@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -22,6 +21,7 @@ var version string
 func main() {
 	bulksize := flag.Int("bulksize", 512, "bulk insert size")
 	cleanup := flag.Bool("cleanup", false, "clean up demo database")
+	collection := flag.String("collection", "", "collection name to print schema")
 	conn := flag.Int("conn", 10, "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -74,15 +74,11 @@ func main() {
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)
 		os.Exit(0)
-	} else if *schema {
+	} else if *schema && *uri == "" {
 		if *file == "" {
-			bytes, _ := json.MarshalIndent(utils.GetDemoDoc(), "", "  ")
-			doc := strings.Replace(string(bytes), "mongodb.", "", -1)
-			doc = strings.Replace(doc, "simagix.", "", -1)
-			fmt.Println(doc)
+			fmt.Println(stats.GetDemoSchema())
 		} else {
-			bytes, _ := json.MarshalIndent(utils.GetDocByTemplate(*file, false), "", "  ")
-			fmt.Println(string(bytes))
+			fmt.Println(stats.GetDemoFromFile(*file))
 		}
 		os.Exit(0)
 	} else if len(*uri) == 0 {
@@ -112,6 +108,13 @@ func main() {
 		} else {
 			stats.SeedFromTemplate(session, *file, *total, *drop, dbName, *verbose)
 		}
+		os.Exit(0)
+	} else if *schema == true {
+		if *collection == "" {
+			fmt.Println("usage: keyhole --schema [--file filename | --url connection_uri --collection collection_name]")
+			os.Exit(0)
+		}
+		fmt.Println(stats.GetSchemaFromCollection(session, dbName, *collection, *verbose))
 		os.Exit(0)
 	}
 
