@@ -15,12 +15,13 @@ import (
 
 // OpPerformanceDoc stores performance data
 type OpPerformanceDoc struct {
-	Command   string // count, delete, find, remove, and update
-	Namespace string // database.collectin
-	Filter    string // query pattern
-	Milli     int    // millisecond
-	Count     int    // number of ops
-	Scan      string // COLLSCAN
+	Command    string // count, delete, find, remove, and update
+	Count      int    // number of ops
+	Filter     string // query pattern
+	MaxMilli   int    // max millisecond
+	Namespace  string // database.collectin
+	Scan       string // COLLSCAN
+	TotalMilli int    // total milliseconds
 }
 
 func getDocByField(str string, field string) string {
@@ -152,33 +153,34 @@ func LogInfo(filename string) {
 				if s != "" {
 					filter = s
 				}
-			} else {
-				fmt.Println(op)
-				fmt.Println(filter)
-				os.Exit(0)
 			}
 
 			// remove unneeded info
 			// re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|bypassDocumentValidation: \w+, |ordered: \w+, |, shardVersion: \[.*\]`)
 			// filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\)|: true|: false)`)
-			filter = re.ReplaceAllString(filter, ": 1")
+			filter = re.ReplaceAllString(filter, ":1")
 			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
 			filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`(ObjectId\('\S+'\))`)
+			re = regexp.MustCompile(`( ObjectId\('\S+'\))|( Timestamp\(\d+, \d+\))`)
 			filter = re.ReplaceAllString(filter, "1")
 			// re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
 			// filter = re.ReplaceAllString(filter, "$1")
 			filter = removeInElements(filter)
+			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 			key := op + "." + filter
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
 			if ok {
-				x := opsMap[key].Milli + milli
+				max := opsMap[key].MaxMilli
+				if milli > max {
+					max = milli
+				}
+				x := opsMap[key].TotalMilli + milli
 				y := opsMap[key].Count + 1
-				opsMap[key] = OpPerformanceDoc{Command: opsMap[key].Command, Namespace: ns, Filter: opsMap[key].Filter, Milli: x, Count: y, Scan: scan}
+				opsMap[key] = OpPerformanceDoc{Command: opsMap[key].Command, Namespace: ns, Filter: opsMap[key].Filter, MaxMilli: max, TotalMilli: x, Count: y, Scan: scan}
 			} else {
-				opsMap[key] = OpPerformanceDoc{Command: op, Namespace: ns, Filter: filter, Milli: milli, Count: 1, Scan: scan}
+				opsMap[key] = OpPerformanceDoc{Command: op, Namespace: ns, Filter: filter, TotalMilli: milli, MaxMilli: milli, Count: 1, Scan: scan}
 			}
 		}
 	}
@@ -188,13 +190,13 @@ func LogInfo(filename string) {
 		arr = append(arr, value)
 	}
 	sort.Slice(arr, func(i, j int) bool {
-		return float64(arr[i].Milli)/float64(arr[i].Count) > float64(arr[j].Milli)/float64(arr[j].Count)
+		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
 	})
 
 	fmt.Fprintf(os.Stderr, "\r100%% \n")
-	fmt.Println("\r+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
-	fmt.Printf("|Command|COLLSCAN| avg ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
-	fmt.Println("|-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------|")
+	fmt.Println("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
+	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-69s|\n", "Namespace", "Query Pattern")
+	fmt.Println("|-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|")
 	for _, value := range arr {
 		str := value.Filter
 		if len(value.Command) > 13 {
@@ -209,24 +211,25 @@ func LogInfo(filename string) {
 			idx := strings.LastIndex(str, " ")
 			str = value.Filter[:idx]
 		}
-		fmt.Printf("|%-7s|%8s|%7.0f|%6d|%-33s|%-70s|\n", value.Command, value.Scan, float64(value.Milli)/float64(value.Count), value.Count, value.Namespace, str)
+		fmt.Printf("|%-7s %8s %7.0f %7d %6d %-33s %-71s|\n", value.Command, value.Scan,
+			float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
 		if len(value.Filter) > 70 {
 			remaining := value.Filter[len(str):]
 			for i := 0; i < len(remaining); i += 70 {
 				epos := i + 70
 				if epos > len(remaining) {
 					epos = len(remaining)
-					fmt.Printf("|%65s %-70s|\n", " ", remaining[i:epos])
+					fmt.Printf("|%72s   %-70s|\n", " ", remaining[i:epos])
 				} else {
 					str = remaining[i:epos]
 					idx := strings.LastIndex(str, " ")
-					fmt.Printf("|%65s %-70s|\n", " ", str[:idx])
+					fmt.Printf("|%72s   %-70s|\n", " ", str[:idx])
 					i -= (70 - idx)
 				}
 			}
 		}
 	}
-	fmt.Println("+-------+--------+-------+------+---------------------------------+----------------------------------------------------------------------+")
+	fmt.Println("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
 }
 
 // convert $in: [...] to $in: [ ]
@@ -251,7 +254,7 @@ func removeInElements(str string) string {
 
 	}
 
-	str = str[:idx] + " " + str[epos:]
+	str = str[:idx] + "..." + str[epos:]
 	return str
 }
 
