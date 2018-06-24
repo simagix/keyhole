@@ -15,6 +15,9 @@ import (
 	"github.com/simagix/keyhole/utils"
 )
 
+// COLLSCAN constance
+const COLLSCAN = "COLLSCAN"
+
 // OpPerformanceDoc stores performance data
 type OpPerformanceDoc struct {
 	Command    string // count, delete, find, remove, and update
@@ -108,7 +111,7 @@ func LogInfo(filename string) {
 		} else if matched.MatchString(string(buf)) == true {
 			str := string(buf)
 			if strings.Index(str, "COLLSCAN") >= 0 {
-				scan = "COLLSCAN"
+				scan = COLLSCAN
 			}
 			result := matched.FindStringSubmatch(str)
 			isFound := false
@@ -237,20 +240,31 @@ func LogInfo(filename string) {
 			idx := strings.LastIndex(str, " ")
 			str = value.Filter[:idx]
 		}
-		fmt.Printf("|%-7s %8s %7.0f %7d %6d %-33s %-71s|\n", value.Command, value.Scan,
-			float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
+		if value.Scan == COLLSCAN {
+			fmt.Printf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s \x1b[31;1m%-71s\x1b[0m|\n", value.Command, value.Scan,
+				float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
+		} else {
+			fmt.Printf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s %-71s|\n", value.Command, value.Scan,
+				float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
+		}
 		if len(value.Filter) > 70 {
 			remaining := value.Filter[len(str):]
 			for i := 0; i < len(remaining); i += 70 {
 				epos := i + 70
+				var pstr string
 				if epos > len(remaining) {
 					epos = len(remaining)
-					fmt.Printf("|%72s   %-70s|\n", " ", remaining[i:epos])
+					pstr = remaining[i:epos]
 				} else {
 					str = remaining[i:epos]
 					idx := strings.LastIndex(str, " ")
-					fmt.Printf("|%72s   %-70s|\n", " ", str[:idx])
+					pstr = str[:idx]
 					i -= (70 - idx)
+				}
+				if value.Scan == COLLSCAN {
+					fmt.Printf("|%72s   \x1b[31;1m%-70s\x1b[0m||\n", " ", pstr)
+				} else {
+					fmt.Printf("|%72s   %-70s|\n", " ", pstr)
 				}
 			}
 		}
