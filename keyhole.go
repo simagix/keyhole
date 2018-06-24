@@ -14,6 +14,7 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/simagix/keyhole/stats"
 	"github.com/simagix/keyhole/utils"
+	"github.com/simagix/keyhole/web"
 )
 
 var version string
@@ -29,7 +30,7 @@ func main() {
 	file := flag.String("file", "", "template file for seedibg data")
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
-	monitor := flag.Bool("monitor", false, "collects server status every 10 minutes for 24 hours")
+	monitor := flag.Bool("monitor", false, "collects server status every 10 seconds")
 	peek := flag.Bool("peek", false, "only collect stats")
 	quote := flag.Bool("quote", false, "print a quote")
 	quotes := flag.Bool("quotes", false, "print all quotes")
@@ -45,19 +46,12 @@ func main() {
 	uri := flag.String("uri", "", "MongoDB URI")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
+	webserver := flag.Bool("web", false, "enable web server")
 	wmajor := flag.Bool("wmajor", false, "{w: majority}")
 
 	flag.Parse()
-
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
-	// if --monitor is set, it collects server status every 10 minutes.
-	// Unless --duration is set, it changes duration to 1440 minutes (24 hours)
-	if *monitor {
-		if flagset["duration"] == false {
-			*duration = 1440
-		}
-	}
 
 	if *quote {
 		utils.PrintQuote()
@@ -125,7 +119,14 @@ func main() {
 		uriList = stats.GetShards(session, *uri)
 	}
 
-	fmt.Println("Duration in minute(s):", *duration)
+	if *monitor == true {
+		*duration = 0
+		if *webserver {
+			go web.HTTPServer(5408)
+		}
+	} else {
+		fmt.Println("Duration in minute(s):", *duration)
+	}
 	m := stats.New(*uri, *ssl, *sslCA, *tps, *file, *verbose, *peek, *monitor, *bulksize)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
@@ -143,13 +144,15 @@ func main() {
 				}
 				os.Exit(0)
 			case <-timer.C:
-				for _, value := range uriList {
-					m.PrintServerStatus(value, *span)
+				if *monitor == false {
+					for _, value := range uriList {
+						m.PrintServerStatus(value, *span)
+					}
+					if *cleanup {
+						m.Cleanup()
+					}
+					os.Exit(0)
 				}
-				if *cleanup {
-					m.Cleanup()
-				}
-				os.Exit(0)
 			}
 		}
 	}()
