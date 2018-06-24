@@ -3,6 +3,8 @@
 package stats
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -57,7 +59,6 @@ func getDocByField(str string, field string) string {
 func LogInfo(filename string) {
 	var opsMap map[string]OpPerformanceDoc
 	opsMap = make(map[string]OpPerformanceDoc)
-	var matched = regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("error opening file ", err)
@@ -66,6 +67,31 @@ func LogInfo(filename string) {
 	defer file.Close()
 	reader := utils.NewReader(file)
 	lineCounts, _ := utils.CountLines(reader)
+
+	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
+	file.Seek(0, 0)
+	reader = utils.NewReader(file)
+	for {
+		buf, _, err := reader.ReadLine() // 0x0A separator = newline
+		if err != nil {
+			break
+		} else if matched.MatchString(string(buf)) == true {
+			result := matched.FindStringSubmatch(string(buf))
+			if result[1] == "db" {
+				fmt.Println("db", result[3])
+			} else if result[1] == "options:" {
+				re := regexp.MustCompile(`((\S+):)`)
+				body := re.ReplaceAllString(result[3], "\"$1\":")
+				var buf bytes.Buffer
+				json.Indent(&buf, []byte(body), "", "  ")
+				fmt.Println("config options:")
+				fmt.Println(string(buf.Bytes()))
+				break
+			}
+		}
+	}
+
+	matched = regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
 	file.Seek(0, 0)
 	reader = utils.NewReader(file)
 	index := 0
@@ -193,7 +219,7 @@ func LogInfo(filename string) {
 		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
 	})
 
-	fmt.Fprintf(os.Stderr, "\r100%% \n")
+	fmt.Fprintf(os.Stderr, "\r100%% ")
 	fmt.Println("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
 	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern")
 	fmt.Println("|-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|")

@@ -8,6 +8,40 @@ keyhole --uri mongodb://localhost/?replicaSet=replset --loginfo mongod.log
 Below are sample outputs.
 
 ```
+db version v3.4.10
+config options:
+{
+  "config:": "/var/lib/mongodb/automation-mongod.conf",
+  "net:": {
+    "bindIp:": "0.0.0.0",
+    "port:": 27017
+  },
+  "processManagement:": {
+    "fork:": true
+  },
+  "replication:": {
+    "replSetName:": "rs0"
+  },
+  "security:": {
+    "authorization:": "enabled",
+    "keyFile:": "/var/lib/mongodb-mms-automation/keyfile"
+  },
+  "sharding:": {
+    "clusterRole:": "shardsvr"
+  },
+  "storage:": {
+    "dbPath:": "/var/lib/mongodb",
+    "engine:": "wiredTiger",
+    "journal:": {
+      "enabled:": true
+    }
+  },
+  "systemLog:": {
+    "destination:": "file",
+    "logAppend:": true,
+    "path:": "/var/log/mongodb/mongodb.log"
+  }
+}
 +-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+
 |Command|COLLSCAN| avg ms| max ms| Count| Namespace                       | Query Pattern                                                         |
 |-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|
