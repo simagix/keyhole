@@ -75,11 +75,15 @@ func main() {
 			fmt.Println(stats.GetDemoFromFile(*file))
 		}
 		os.Exit(0)
+	} else if *webserver && *file != "" {
+		stats.AnalyzeServerStatus(*file, 10, true)
+		charts.HTTPServer(5408)
 	} else if len(*uri) == 0 {
 		fmt.Println("Missing --uri")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
+
 	fmt.Println("MongoDB URI:", *uri)
 	dialInfo, _ := mgo.ParseURL(*uri)
 	dbName := dialInfo.Database
@@ -110,9 +114,6 @@ func main() {
 		}
 		fmt.Println(stats.GetSchemaFromCollection(session, dbName, *collection, *verbose))
 		os.Exit(0)
-	} else if *webserver && *file != "" {
-		stats.AnalyzeServerStatus(*file, 10, true)
-		charts.HTTPServer(5408)
 	}
 
 	ssi := stats.GetMongoServerInfo(session)
@@ -122,7 +123,8 @@ func main() {
 		uriList = stats.GetShards(session, *uri)
 	}
 
-	if *monitor == true {
+	if *webserver || *monitor == true { // web server enabled will be in monitor mode
+		*monitor = true
 		*duration = 0
 		if *webserver {
 			go charts.HTTPServer(5408)

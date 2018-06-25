@@ -401,6 +401,5 @@ To view near real time performance charts, used
 Use flags `--file` and `--web` to enable HTTP server on port 5408.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin \
-    --file /tmp/keyhole_stats.2018-06-25T075012-replset.gz --web
+keyhole --file /tmp/keyhole_stats.2018-06-25T075012-replset.gz --web
 ```
