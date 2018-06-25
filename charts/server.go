@@ -51,13 +51,13 @@ func HTTPServer(port int) {
 // GetMemoryTSV -
 func GetMemoryTSV() []string {
 	var docs []string
-	docs = append(docs, "date\tResident\tVirtual")
+	docs = append(docs, "date\tResident")
 	for _, value := range stats.ChartsDocs {
 		stat := stats.ServerStatusDoc{}
 		for _, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
-			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.Mem.Resident)+"\t"+strconv.Itoa(stat.Mem.Virtual))
+			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.Mem.Resident))
 		}
 		break
 	}
