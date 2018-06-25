@@ -21,6 +21,7 @@ var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(ti
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = map[string][]bson.M{}
+var ChartsDocs = map[string][]bson.M{}
 
 // DocumentDoc contains db.serverStatus().document
 type DocumentDoc struct {
@@ -168,6 +169,12 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			json.Unmarshal(buf, &stat)
 			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
+			dialInfo, _ := mgo.ParseURL(uri)
+			dkey := dialInfo.ReplicaSetName + "/" + strings.Join(dialInfo.Addrs[:], ",")
+			ChartsDocs[dkey] = append(ChartsDocs[dkey], serverStatus)
+			for len(ChartsDocs[dkey]) > 60 { // shift
+				ChartsDocs[dkey] = ChartsDocs[dkey][1:]
+			}
 			if len(serverStatusDocs[uri]) > 12 {
 				saveServerStatusDocsToFile(uri)
 			}
@@ -261,6 +268,7 @@ func (m MongoConn) PrintServerStatus(uri string, span int) {
 	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 	filename := saveServerStatusDocsToFile(uri)
+	fmt.Println("\nstats written to", filename)
 	AnalyzeServerStatus(filename, span)
 }
 
@@ -270,7 +278,6 @@ func saveServerStatusDocsToFile(uri string) string {
 	buf, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
 	filename := keyholeStatsDataFile + "-" + mapKey + ".gz"
-	fmt.Println("\nstats written to", filename)
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
 	gz.Write(buf)
