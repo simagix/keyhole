@@ -21,6 +21,8 @@ var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(ti
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = map[string][]bson.M{}
+
+// ChartsDocs for drawing charts
 var ChartsDocs = map[string][]bson.M{}
 
 // DocumentDoc contains db.serverStatus().document
@@ -269,7 +271,7 @@ func (m MongoConn) PrintServerStatus(uri string, span int) {
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 	filename := saveServerStatusDocsToFile(uri)
 	fmt.Println("\nstats written to", filename)
-	AnalyzeServerStatus(filename, span)
+	AnalyzeServerStatus(filename, span, false)
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
@@ -310,10 +312,11 @@ func dbStats(session *mgo.Session, dbName string) bson.M {
 }
 
 // AnalyzeServerStatus -
-func AnalyzeServerStatus(filename string, span int) {
+func AnalyzeServerStatus(filename string, span int, isWeb bool) {
 	// fmt.Println("filename", filename)
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
+	var bmap = []bson.M{}
 	f, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("error opening file ", err)
@@ -329,6 +332,13 @@ func AnalyzeServerStatus(filename string, span int) {
 		}
 		json.Unmarshal([]byte(line), &docs)
 		allDocs = append(allDocs, docs...)
+	}
+
+	buf, _ := json.Marshal(allDocs)
+	json.Unmarshal(buf, &bmap)
+	ChartsDocs["replset"] = bmap
+	if isWeb {
+		return
 	}
 	if len(allDocs) > 0 {
 		stat := ServerStatusDoc{}

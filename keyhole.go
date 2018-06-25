@@ -60,7 +60,7 @@ func main() {
 		utils.PrintQuotes()
 		os.Exit(0)
 	} else if *diag != "" {
-		stats.AnalyzeServerStatus(*diag, *span)
+		stats.AnalyzeServerStatus(*diag, *span, false)
 		os.Exit(0)
 	} else if *loginfo != "" {
 		stats.LogInfo(*loginfo)
@@ -110,6 +110,9 @@ func main() {
 		}
 		fmt.Println(stats.GetSchemaFromCollection(session, dbName, *collection, *verbose))
 		os.Exit(0)
+	} else if *webserver && *file != "" {
+		stats.AnalyzeServerStatus(*file, 10, true)
+		charts.HTTPServer(5408)
 	}
 
 	ssi := stats.GetMongoServerInfo(session)
