@@ -14,8 +14,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, strings.Replace(str, "__MODULE__", "memory", -1))
 	} else if r.URL.Path[1:] == "memory/index.js" {
 		fmt.Fprintf(w, MemoryJS)
-	} else if r.URL.Path[1:] == "v1/memory/csv" {
-		fmt.Fprintf(w, strings.Join(GetMemoryCSV()[:], "\n"))
+	} else if r.URL.Path[1:] == "v1/memory/tsv" {
+		fmt.Fprintf(w, strings.Join(GetMemoryTSV()[:], "\n"))
 	} else {
 		fmt.Fprintf(w, "Keyhole Performance Charts!  Unknow API!")
 	}
@@ -31,17 +31,20 @@ var indexHTML = `
 <!DOCTYPE html>
 <meta charset="utf-8">
 <meta http-equiv="refresh" content="30">
-<style> /* set the CSS */
+<style>
+  .axis--x path {
+    display: none;
+  }
 
-.line {
-  fill: none;
-  stroke: steelblue;
-  stroke-width: 2px;
-}
-
+  .line {
+    fill: none;
+    stroke: steelblue;
+    stroke-width: 1.5px;
+  }
 </style>
 <body>
 <h1>__TITLE__</h1>
+<svg width="800" height="400"></svg>
 <!-- load the d3.js library -->
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script src="__MODULE__/index.js"></script>
