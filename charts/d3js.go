@@ -1,31 +1,7 @@
 package charts
 
-import (
-	"encoding/json"
-	"strconv"
-
-	"github.com/simagix/keyhole/stats"
-)
-
-// GetMemoryTSV -
-func GetMemoryTSV() []string {
-	var docs []string
-	docs = append(docs, "date\tResident\tVirtual")
-	for _, value := range stats.ChartsDocs {
-		stat := stats.ServerStatusDoc{}
-		for _, doc := range value {
-			buf, _ := json.Marshal(doc)
-			json.Unmarshal(buf, &stat)
-			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.Mem.Resident)+"\t"+strconv.Itoa(stat.Mem.Virtual))
-		}
-		break
-	}
-
-	return docs
-}
-
-// MemoryJS =
-var MemoryJS = `
+// D3JS draws charts
+var D3JS = `
 var svg = d3.select("svg"),
     margin = {top: 20, right: 80, bottom: 30, left: 50},
     width = svg.attr("width") - margin.left - margin.right,
@@ -39,17 +15,17 @@ var x = d3.scaleTime().range([0, width]),
 var line = d3.line()
     .curve(d3.curveBasis)
     .x(function(d) { return x(d.date); })
-    .y(function(d) { return y(d.memory); });
+    .y(function(d) { return y(d.total); });
 
 // Get the data
-d3.tsv("v1/memory/tsv", type, function(error, data) {
+d3.tsv("__API__", type, function(error, data) {
 	if (error) throw error;
 
-  var mems = data.columns.slice(1).map(function(id) {
+  var stats = data.columns.slice(1).map(function(id) {
     return {
       id: id,
       values: data.map(function(d) {
-        return {date: d.date, memory: d[id]};
+        return {date: d.date, total: d[id]};
       })
     };
   });
@@ -57,11 +33,11 @@ d3.tsv("v1/memory/tsv", type, function(error, data) {
   x.domain(d3.extent(data, function(d) { return d.date; }));
 
   y.domain([
-    d3.min(mems, function(c) { return d3.min(c.values, function(d) { return d.memory; }); }),
-    d3.max(mems, function(c) { return d3.max(c.values, function(d) { return d.memory; }); })
+    d3.min(stats, function(c) { return d3.min(c.values, function(d) { return d.total; }); }),
+    d3.max(stats, function(c) { return d3.max(c.values, function(d) { return d.total; }); })
   ]);
 
-  z.domain(mems.map(function(c) { return c.id; }));
+  z.domain(stats.map(function(c) { return c.id; }));
 
   g.append("g")
       .attr("class", "axis axis--x")
@@ -76,21 +52,21 @@ d3.tsv("v1/memory/tsv", type, function(error, data) {
       .attr("y", 6)
       .attr("dy", "0.71em")
       .attr("fill", "#000")
-      .text("Memory, MB");
+      // .text("Memory, MB");
 
-  var city = g.selectAll(".city")
-    .data(mems)
+  var stat = g.selectAll(".stat")
+    .data(stats)
     .enter().append("g")
-      .attr("class", "city");
+      .attr("class", "stat");
 
-  city.append("path")
+  stat.append("path")
       .attr("class", "line")
       .attr("d", function(d) { return line(d.values); })
       .style("stroke", function(d) { return z(d.id); });
 
-  city.append("text")
+  stat.append("text")
       .datum(function(d) { return {id: d.id, value: d.values[d.values.length - 1]}; })
-      .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.memory) + ")"; })
+      .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.total) + ")"; })
       .attr("x", 3)
       .attr("dy", "0.35em")
       .style("font", "10px sans-serif")
@@ -102,4 +78,29 @@ function type(d, _, columns) {
   for (var i = 1, n = columns.length, c; i < n; ++i) d[c = columns[i]] = +d[c];
   return d;
 }
+`
+
+//IndexHTML -
+var IndexHTML = `
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="30">
+<style>
+  .axis--x path {
+    display: none;
+  }
+
+  .line {
+    fill: none;
+    stroke: steelblue;
+    stroke-width: 1.5px;
+  }
+</style>
+<body>
+<h1>__TITLE__</h1>
+<svg width="640" height="320"></svg>
+<!-- load the d3.js library -->
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="__MODULE__/index.js"></script>
+</body>
 `

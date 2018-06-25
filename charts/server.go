@@ -1,21 +1,42 @@
 package charts
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/simagix/keyhole/stats"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+
 	if r.URL.Path[1:] == "memory" {
-		str := strings.Replace(indexHTML, "__TITLE__", "Memory Stats Charts", -1)
+		str := strings.Replace(IndexHTML, "__TITLE__", "Memory Stats Charts", -1)
 		fmt.Fprintf(w, strings.Replace(str, "__MODULE__", "memory", -1))
 	} else if r.URL.Path[1:] == "memory/index.js" {
-		fmt.Fprintf(w, MemoryJS)
+		fmt.Fprintf(w, strings.Replace(D3JS, "__API__", "v1/memory/tsv", -1))
 	} else if r.URL.Path[1:] == "v1/memory/tsv" {
 		fmt.Fprintf(w, strings.Join(GetMemoryTSV()[:], "\n"))
+
+	} else if r.URL.Path[1:] == "wiredtiger_cache" {
+		str := strings.Replace(IndexHTML, "__TITLE__", "WiredTiger Cache Charts", -1)
+		fmt.Fprintf(w, strings.Replace(str, "__MODULE__", "wiredtiger_cache", -1))
+	} else if r.URL.Path[1:] == "wiredtiger_cache/index.js" {
+		fmt.Fprintf(w, strings.Replace(D3JS, "__API__", "v1/wiredtiger_cache/tsv", -1))
+	} else if r.URL.Path[1:] == "v1/wiredtiger_cache/tsv" {
+		fmt.Fprintf(w, strings.Join(GetWiredTigerCacheTSV()[:], "\n"))
+
+	} else if r.URL.Path[1:] == "wiredtiger_tickets" {
+		str := strings.Replace(IndexHTML, "__TITLE__", "WiredTiger Concurrent Transactions Charts", -1)
+		fmt.Fprintf(w, strings.Replace(str, "__MODULE__", "wiredtiger_tickets", -1))
+	} else if r.URL.Path[1:] == "wiredtiger_tickets/index.js" {
+		fmt.Fprintf(w, strings.Replace(D3JS, "__API__", "v1/wiredtiger_tickets/tsv", -1))
+	} else if r.URL.Path[1:] == "v1/wiredtiger_tickets/tsv" {
+		fmt.Fprintf(w, strings.Join(GetWiredTigerTicketsTSV()[:], "\n"))
+
 	} else {
 		fmt.Fprintf(w, "Keyhole Performance Charts!  Unknow API!")
 	}
@@ -27,26 +48,53 @@ func HTTPServer(port int) {
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }
 
-var indexHTML = `
-<!DOCTYPE html>
-<meta charset="utf-8">
-<meta http-equiv="refresh" content="30">
-<style>
-  .axis--x path {
-    display: none;
-  }
+// GetMemoryTSV -
+func GetMemoryTSV() []string {
+	var docs []string
+	docs = append(docs, "date\tResident\tVirtual")
+	for _, value := range stats.ChartsDocs {
+		stat := stats.ServerStatusDoc{}
+		for _, doc := range value {
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &stat)
+			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.Mem.Resident)+"\t"+strconv.Itoa(stat.Mem.Virtual))
+		}
+		break
+	}
 
-  .line {
-    fill: none;
-    stroke: steelblue;
-    stroke-width: 1.5px;
-  }
-</style>
-<body>
-<h1>__TITLE__</h1>
-<svg width="800" height="400"></svg>
-<!-- load the d3.js library -->
-<script src="https://d3js.org/d3.v4.min.js"></script>
-<script src="__MODULE__/index.js"></script>
-</body>
-`
+	return docs
+}
+
+// GetWiredTigerCacheTSV -
+func GetWiredTigerCacheTSV() []string {
+	var docs []string
+	docs = append(docs, "date\tMax Bytes(MB)\tIn Cache(MB)\tDirty Bytes(MB)")
+	for _, value := range stats.ChartsDocs {
+		stat := stats.ServerStatusDoc{}
+		for _, doc := range value {
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &stat)
+			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.WiredTiger.Cache.MaxBytesConfigured/(1024*1024))+"\t"+strconv.Itoa(stat.WiredTiger.Cache.CurrentlyInCache/(1024*1024))+"\t"+strconv.Itoa(stat.WiredTiger.Cache.TrackedDirtyBytes/(1024*1024)))
+		}
+		break
+	}
+
+	return docs
+}
+
+// GetWiredTigerTicketsTSV -
+func GetWiredTigerTicketsTSV() []string {
+	var docs []string
+	docs = append(docs, "date\tRead Avail\tWrite Avail")
+	for _, value := range stats.ChartsDocs {
+		stat := stats.ServerStatusDoc{}
+		for _, doc := range value {
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &stat)
+			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.WiredTiger.ConcurrentTransactions.Read.Available)+"\t"+strconv.Itoa(stat.WiredTiger.ConcurrentTransactions.Write.Available))
+		}
+		break
+	}
+
+	return docs
+}
