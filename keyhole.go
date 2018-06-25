@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
+	"github.com/simagix/keyhole/charts"
 	"github.com/simagix/keyhole/stats"
 	"github.com/simagix/keyhole/utils"
-	"github.com/simagix/keyhole/web"
 )
 
 var version string
@@ -122,7 +122,7 @@ func main() {
 	if *monitor == true {
 		*duration = 0
 		if *webserver {
-			go web.HTTPServer(5408)
+			go charts.HTTPServer(5408)
 		}
 	} else {
 		fmt.Println("Duration in minute(s):", *duration)
