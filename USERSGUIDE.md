@@ -381,3 +381,17 @@ keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz
 keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin \
     --schema --collection examples
 ```
+
+## Performance Charts POC
+Use flags `--monitor` and `--web` to enable HTTP server on port 5408.
+
+```
+keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin \
+    --monitor --web
+```
+
+To view near real time performance charts, used
+
+- Memory, http://localhost:5408/memory
+- WiredTiger Cache, http://localhost:5408/wiredtiger_cache
+- WiredTiger Concurrent Transactions (Read/Write Tickets), http://localhost:5408/wiredtiger_tickets
