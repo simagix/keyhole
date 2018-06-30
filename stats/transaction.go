@@ -72,8 +72,6 @@ func execTXForDemo(c *mgo.Collection, doc bson.M) int {
 
 func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transaction) int {
 	results := []bson.M{}
-	filter := make(map[string]interface{})
-	var cmd = make(map[string]interface{})
 	var op = make(map[string]interface{})
 	var pipe []map[string]interface{}
 	var pipeline []map[string]interface{}
@@ -83,6 +81,8 @@ func execTXByTemplateAndTX(c *mgo.Collection, doc bson.M, transactions []Transac
 			c.Insert(doc)
 		} else {
 			bytes, _ := json.Marshal(tx.Filter)
+			cmd := make(map[string]interface{})
+			filter := make(map[string]interface{})
 			json.Unmarshal(bytes, &cmd)
 			utils.RandomizeDocument(&filter, cmd, false)
 

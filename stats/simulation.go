@@ -167,12 +167,12 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 				batchCount++
 				if isTeardown {
 					c.RemoveAll(bson.M{"_search": doc["_search"]})
-				} else if m.filename == "" {
-					txCount += execTXForDemo(c, cloneDoc(doc))
-				} else if len(transactions) == 0 { // --file
-					txCount += execTXByTemplate(c, cloneDoc(doc))
 				} else if len(transactions) > 0 { // --file and --tx
 					txCount += execTXByTemplateAndTX(c, cloneDoc(doc), transactions)
+				} else if len(transactions) == 0 { // --file
+					txCount += execTXByTemplate(c, cloneDoc(doc))
+				} else if m.filename == "" {
+					txCount += execTXForDemo(c, cloneDoc(doc))
 				}
 				// time.Sleep(1 * time.Millisecond)
 			} // for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS
@@ -240,13 +240,13 @@ func (m MongoConn) CreateIndexes(docs []bson.M) {
 	defer session.Close()
 	c := session.DB(SimDBName).C(CollectionName)
 
-	if m.filename == "" {
+	if len(docs) == 0 {
 		c.EnsureIndexKey("favoriteCity")
 	}
 	c.EnsureIndexKey("_search")
 
-	keys := []string{}
 	for _, doc := range docs {
+		keys := []string{}
 		for field := range doc {
 			keys = append(keys, field)
 		}
