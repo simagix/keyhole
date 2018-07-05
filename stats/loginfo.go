@@ -166,36 +166,51 @@ func LogInfo(filename string) {
 					nstr = nstr + ", sort: " + s
 				}
 				filter = nstr
-			} else if op == "count" {
+			} else if op == "count" || op == "distinct" {
 				nstr := ""
 				s := getDocByField(filter, "query: ")
 				if s != "" {
 					nstr = s
-				} else {
-					fmt.Println(op)
-					fmt.Println(filter)
-					os.Exit(0)
 				}
 				filter = nstr
 			} else if op == "delete" || op == "update" || op == "remove" {
-				s := getDocByField(filter, "q: ")
+				var s string
+				if result[1] == "WRITE" {
+					s = getDocByField(filter, "query: ")
+				} else {
+					s = getDocByField(filter, "q: ")
+				}
 				if s != "" {
 					filter = s
 				}
 			}
 
-			// remove unneeded info
-			// re = regexp.MustCompile(`(createIndexes: "\w+", |count: "\w+", |find: "\w+", |delete: "\w+", |update: "\w+", |, \$db: "\w+" |,? ?skip: \d+|, limit: \d+|, batchSize: \d+|, singleBatch: \w+)|, multi: \w+|, upsert: \w+|bypassDocumentValidation: \w+, |ordered: \w+, |, shardVersion: \[.*\]`)
-			// filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`(: "[^"]*"|: \d+|: new Date\(\d+?\)|: true|: false)`)
+			filter = removeInElements(filter, "$in: [ ")
+			filter = removeInElements(filter, "$nin: [ ")
+			filter = removeInElements(filter, "$in: [ ")
+			filter = removeInElements(filter, "$nin: [ ")
+			fmt.Println(filter)
+			os.Exit(0)
+
+			isRegex := strings.Index(filter, "{ $regex: ")
+			if isRegex >= 0 {
+				cnt := 0
+				for _, r := range filter[isRegex:] {
+					if r == '}' {
+						break
+					}
+					cnt++
+				}
+				filter = filter[:(isRegex+10)] + "/.../.../" + filter[(isRegex+cnt):]
+			}
+
+			re = regexp.MustCompile(`(: "[^"]*"|: -?\d+|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ":1")
 			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
 			filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`( ObjectId\('\S+'\))|( Timestamp\(\d+, \d+\))`)
 			filter = re.ReplaceAllString(filter, "1")
-			// re = regexp.MustCompile(`(q: {.*}), u: {.*}`)
-			// filter = re.ReplaceAllString(filter, "$1")
-			filter = removeInElements(filter)
+
 			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 			key := op + "." + filter
 			_, ok := opsMap[key]
@@ -235,7 +250,6 @@ func LogInfo(filename string) {
 			value.Namespace = value.Namespace[:33]
 		}
 		if len(str) > 70 {
-			// fmt.Println(value.Filter)
 			str = value.Filter[:70]
 			idx := strings.LastIndex(str, " ")
 			str = value.Filter[:idx]
@@ -256,10 +270,12 @@ func LogInfo(filename string) {
 					epos = len(remaining)
 					pstr = remaining[i:epos]
 				} else {
-					str = remaining[i:epos]
+					str = strings.Trim(remaining[i:epos], " ")
 					idx := strings.LastIndex(str, " ")
-					pstr = str[:idx]
-					i -= (70 - idx)
+					if idx > 0 {
+						pstr = str[:idx]
+						i -= (70 - idx)
+					}
 				}
 				if value.Scan == COLLSCAN {
 					fmt.Printf("|%72s   \x1b[31;1m%-70s\x1b[0m||\n", " ", pstr)
@@ -273,14 +289,14 @@ func LogInfo(filename string) {
 }
 
 // convert $in: [...] to $in: [ ]
-func removeInElements(str string) string {
-	idx := strings.Index(str, "$in: [")
+func removeInElements(str string, instr string) string {
+	idx := strings.Index(str, instr)
 	if idx < 0 {
 		return str
 	}
 
-	idx += 6
-	cnt, epos := 0, 0
+	idx += len(instr) - 1
+	cnt, epos := -1, -1
 	for _, r := range str {
 		if cnt < idx {
 			cnt++
@@ -291,10 +307,13 @@ func removeInElements(str string) string {
 			break
 		}
 		cnt++
-
 	}
 
-	str = str[:idx] + "..." + str[epos:]
+	if epos == -1 {
+		str = str[:idx] + "...]"
+	} else {
+		str = str[:idx] + "..." + str[epos:]
+	}
 	return str
 }
 
