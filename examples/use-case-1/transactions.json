@@ -1,0 +1,34 @@
+{
+	"indexes": [{
+			"a": 1
+		},
+		{
+			"w": 1
+		}
+	],
+	"transactions": [{
+			"c": "find",
+			"filter": {
+				"a": "ken.chen@mongodb.com"
+			}
+		},
+		{
+			"c": "find",
+			"filter": {
+				"w": "ken.chen@mongodb.com"
+			}
+		},
+		{
+			"c": "find",
+			"filter": {
+				"b": "ken.chen@mongodb.com"
+			}
+		},
+		{
+			"c": "find",
+			"filter": {
+				"x": "ken.chen@mongodb.com"
+			}
+		}
+	]
+}
