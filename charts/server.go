@@ -21,6 +21,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path[1:] == "v1/memory/tsv" {
 		fmt.Fprintf(w, strings.Join(GetMemoryTSV()[:], "\n"))
 
+	} else if r.URL.Path[1:] == "page_faults" {
+		str := strings.Replace(IndexHTML, "__TITLE__", "Page Faults Charts", -1)
+		fmt.Fprintf(w, strings.Replace(str, "__MODULE__", "page_faults", -1))
+	} else if r.URL.Path[1:] == "page_faults/index.js" {
+		fmt.Fprintf(w, strings.Replace(D3JS, "__API__", "v1/page_faults/tsv", -1))
+	} else if r.URL.Path[1:] == "v1/page_faults/tsv" {
+		fmt.Fprintf(w, strings.Join(GetPageFaultsTSV()[:], "\n"))
+
 	} else if r.URL.Path[1:] == "wiredtiger_cache" {
 		str := strings.Replace(IndexHTML, "__TITLE__", "WiredTiger Cache Charts", -1)
 		fmt.Fprintf(w, strings.Replace(str, "__MODULE__", "wiredtiger_cache", -1))
@@ -58,6 +66,28 @@ func GetMemoryTSV() []string {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.Mem.Resident))
+		}
+		break
+	}
+
+	return docs
+}
+
+// GetPageFaultsTSV -
+func GetPageFaultsTSV() []string {
+	var docs []string
+	pstat := stats.ServerStatusDoc{}
+	docs = append(docs, "date\tPage Faults")
+	for _, value := range stats.ChartsDocs {
+		stat := stats.ServerStatusDoc{}
+		for i, doc := range value {
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &stat)
+			n := stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults
+			if i > 0 {
+				docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(n))
+			}
+			pstat = stat
 		}
 		break
 	}
