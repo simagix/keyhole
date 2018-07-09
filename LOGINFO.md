@@ -2,7 +2,7 @@
 Display ops average execution with query patterns using `--loginfo` flag.
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --loginfo mongod.log
+keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz
 ```
 
 Below are sample outputs.
@@ -127,4 +127,11 @@ config options:
 |                                                                            {spamazon.statusNextCheck: {$exists:1}}, {spamazon.statusNextCheck:  |
 |                                                                            {$lt:1}} ]}                                                          |
 +-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+
+```
+
+## Prints COLLSCAN Only
+With `--collscan` flag, *keyhole* only prints those with *COLLSCAN*.
+
+```
+keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz --collscan
 ```

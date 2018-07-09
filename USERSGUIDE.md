@@ -374,6 +374,12 @@ keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
 keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz
 ```
 
+With `--collscan` flag, *keyhole* only prints those with *COLLSCAN*.
+
+```
+keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz --collscan
+```
+
 ## View Schema
 *Keyhole* is able to connection to retrieve the first document of a collection and returns a masked document as its schema view.  For example,
 
@@ -394,6 +400,7 @@ To view near real time performance charts, used
 
 - Memory, http://localhost:5408/memory
 - Page Faults, http://localhost:5408/page_faults
+- Keys and Documents Scanned (Examined), http://localhost:5408/scanned
 - WiredTiger Cache, http://localhost:5408/wiredtiger_cache
 - WiredTiger Concurrent Transactions (Read/Write Tickets), http://localhost:5408/wiredtiger_tickets
 
