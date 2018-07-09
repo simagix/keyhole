@@ -23,6 +23,7 @@ func main() {
 	bulksize := flag.Int("bulksize", 512, "bulk insert size")
 	cleanup := flag.Bool("cleanup", false, "clean up demo database")
 	collection := flag.String("collection", "", "collection name to print schema")
+	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	conn := flag.Int("conn", 10, "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -63,7 +64,7 @@ func main() {
 		stats.AnalyzeServerStatus(*diag, *span, false)
 		os.Exit(0)
 	} else if *loginfo != "" {
-		stats.LogInfo(*loginfo)
+		stats.LogInfo(*loginfo, *collscan)
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)

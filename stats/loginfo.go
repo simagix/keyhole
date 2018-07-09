@@ -59,7 +59,7 @@ func getDocByField(str string, field string) string {
 }
 
 // LogInfo -
-func LogInfo(filename string) {
+func LogInfo(filename string, collscan bool) {
 	var opsMap map[string]OpPerformanceDoc
 	opsMap = make(map[string]OpPerformanceDoc)
 	file, err := os.Open(filename)
@@ -112,6 +112,9 @@ func LogInfo(filename string) {
 			str := string(buf)
 			if strings.Index(str, "COLLSCAN") >= 0 {
 				scan = COLLSCAN
+			}
+			if collscan == true && scan != COLLSCAN {
+				continue
 			}
 			result := matched.FindStringSubmatch(str)
 			isFound := false
@@ -189,8 +192,6 @@ func LogInfo(filename string) {
 			filter = removeInElements(filter, "$nin: [ ")
 			filter = removeInElements(filter, "$in: [ ")
 			filter = removeInElements(filter, "$nin: [ ")
-			fmt.Println(filter)
-			os.Exit(0)
 
 			isRegex := strings.Index(filter, "{ $regex: ")
 			if isRegex >= 0 {
