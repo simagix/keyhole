@@ -66,16 +66,29 @@ func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
 
 	for _, coll := range cl.Cursor.FirstBatch {
 		if coll["type"] == "collection" {
-			buffer.WriteString(coll["name"].(string))
 			buffer.WriteString("\n")
+			buffer.WriteString(coll["name"].(string))
+			buffer.WriteString(":\n")
 			indexes, _ := session.DB(dbName).C(coll["name"].(string)).Indexes()
 			var list []string
 			for _, idx := range indexes {
-				list = append(list, strings.Join(idx.Key, ",")+"\tname: "+idx.Name)
+				var strbuf bytes.Buffer
+				for n, key := range idx.Key {
+					if n == 0 {
+						strbuf.WriteString("{ ")
+					}
+					strbuf.WriteString(getIndexKey(key))
+					if n == len(idx.Key)-1 {
+						strbuf.WriteString(" }")
+					} else {
+						strbuf.WriteString(", ")
+					}
+				}
+				list = append(list, strbuf.String())
 			}
 			sort.Strings(list)
 			for _, str := range list {
-				buffer.WriteString("\tkeys: ")
+				buffer.WriteString("\t")
 				buffer.WriteString(str)
 				buffer.WriteString("\n")
 			}
@@ -83,4 +96,11 @@ func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
 	}
 
 	return buffer.String()
+}
+
+func getIndexKey(key string) string {
+	if strings.Index(key, "-") == 0 {
+		return key[1:] + ": -1"
+	}
+	return key + ": 1"
 }
