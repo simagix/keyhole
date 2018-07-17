@@ -3,8 +3,10 @@
 package stats
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/globalsign/mgo"
@@ -44,4 +46,41 @@ func GetSchemaFromCollection(session *mgo.Session, dbName string, collection str
 	utils.RandomizeDocument(&doc, f, false)
 	buf, _ = json.MarshalIndent(doc, "", "   ")
 	return string(buf)
+}
+
+type CollectionList struct {
+	Cursor Cursors
+}
+
+type Cursors struct {
+	FirstBatch []bson.M
+}
+
+// GetIndexes -
+func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
+	doc := AdminCommandOnDB(session, "listCollections", dbName)
+	buf, _ := json.Marshal(doc)
+	cl := CollectionList{}
+	json.Unmarshal(buf, &cl)
+	var buffer bytes.Buffer
+
+	for _, coll := range cl.Cursor.FirstBatch {
+		if coll["type"] == "collection" {
+			buffer.WriteString(coll["name"].(string))
+			buffer.WriteString("\n")
+			indexes, _ := session.DB(dbName).C(coll["name"].(string)).Indexes()
+			var list []string
+			for _, idx := range indexes {
+				list = append(list, strings.Join(idx.Key, ",")+"\tname: "+idx.Name)
+			}
+			sort.Strings(list)
+			for _, str := range list {
+				buffer.WriteString("\tkeys: ")
+				buffer.WriteString(str)
+				buffer.WriteString("\n")
+			}
+		}
+	}
+
+	return buffer.String()
 }

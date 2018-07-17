@@ -29,6 +29,7 @@ func main() {
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	file := flag.String("file", "", "template file for seedibg data")
+	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	monitor := flag.Bool("monitor", false, "collects server status every 10 seconds")
@@ -114,6 +115,9 @@ func main() {
 			os.Exit(0)
 		}
 		fmt.Println(stats.GetSchemaFromCollection(session, dbName, *collection, *verbose))
+		os.Exit(0)
+	} else if *index == true {
+		fmt.Println(stats.GetIndexes(session, dbName, *verbose))
 		os.Exit(0)
 	}
 
