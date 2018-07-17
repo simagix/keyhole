@@ -388,6 +388,24 @@ keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin
     --schema --collection examples
 ```
 
+## List indexes
+*Keyhole* can print all indexes of collections of a database.  This is useful to evaluate redundant indexes of a collection.  Below is an example.
+
+```
+$ keyhole --uri mongodb://localhost/keyhole --index
+MongoDB URI: mongodb://localhost/keyhole
+
+cars:
+    { _id: 1 }
+    { color: -1 }
+    { color: 1 }
+    { style: 1 }
+    { style: 1, color: 1 }
+
+system.views:
+    { _id: 1 }
+```
+
 ## Performance Charts POC
 ### Live Stats Collecting
 Use flags `--monitor` and `--web` to enable HTTP server on port 5408.
