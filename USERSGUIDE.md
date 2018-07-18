@@ -392,20 +392,29 @@ keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin
 *Keyhole* can print all indexes of collections of a database.  This is useful to evaluate redundant indexes of a collection.  Below is an example.
 
 ```
-MongoDB URI: mongodb://localhost/keyhole
+$ keyhole --uri mongodb://localhost/keyhole --index
 
-cars:
+keyhole.cars:
+    { color: -1 }
+    { color: 1 }
+    { style: 1 }
+    { style: 1, color: 1 }
+```
+
+Note that the index `{ _id: 1 }` is ignore.  Include *-v* to print all indexes.
+
+```
+$ keyhole --uri mongodb://localhost/keyhole --index -v
+
+keyhole.cars:
     { _id: 1 }
     { color: -1 }
     { color: 1 }
     { style: 1 }
     { style: 1, color: 1 }
-
-system.views:
-    { _id: 1 }
 ```
 
-Without including database, *keyhole* will print all indexes from all databases except admin, config, and local databases.
+Without including database in the connection string, *keyhole* prints all indexes from **all databases** except admin, config, and local databases.
 
 ```
 $ keyhole --uri mongodb://localhost/ --index

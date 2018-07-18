@@ -14,16 +14,6 @@ import (
 	"github.com/simagix/keyhole/utils"
 )
 
-// CollectionsList -
-type CollectionsList struct {
-	Cursor CursorDoc `json:"cursor" bson:"cursor"`
-}
-
-// CursorDoc -
-type CursorDoc struct {
-	FirstBatch []bson.M `json:"firstBatch" bson:"firstBatch"`
-}
-
 // GetDemoSchema returns a demo doc
 func GetDemoSchema() string {
 	bytes, _ := json.MarshalIndent(utils.GetDemoDoc(), "", "  ")
@@ -65,10 +55,8 @@ func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
 	}
 
 	var buffer bytes.Buffer
-	doc := AdminCommand(session, "listDatabases")
-	for _, db := range doc["databases"].([]interface{}) {
-		m := db.(bson.M)
-		name := m["name"].(string)
+	dbNames, _ := session.DatabaseNames()
+	for _, name := range dbNames {
 		if name == "admin" || name == "config" || name == "local" {
 			continue
 		}
@@ -79,42 +67,48 @@ func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
 
 // GetIndexesFromDB list all indexes of collections of a database
 func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string {
-	doc := AdminCommandOnDB(session, "listCollections", dbName)
-	buf, _ := json.Marshal(doc)
-	collectionsList := CollectionsList{}
-	json.Unmarshal(buf, &collectionsList)
 	var buffer bytes.Buffer
+	collNames, _ := session.DB(dbName).CollectionNames()
 
-	for _, coll := range collectionsList.Cursor.FirstBatch {
-		if coll["type"] == "collection" {
-			buffer.WriteString("\n")
-			buffer.WriteString(dbName)
-			buffer.WriteString(".")
-			buffer.WriteString(coll["name"].(string))
-			buffer.WriteString(":\n")
-			indexes, _ := session.DB(dbName).C(coll["name"].(string)).Indexes()
-			var list []string
-			for _, idx := range indexes {
-				var strbuf bytes.Buffer
-				for n, key := range idx.Key {
-					if n == 0 {
-						strbuf.WriteString("{ ")
-					}
-					strbuf.WriteString(getIndexKey(key))
-					if n == len(idx.Key)-1 {
-						strbuf.WriteString(" }")
-					} else {
-						strbuf.WriteString(", ")
-					}
+	for _, coll := range collNames {
+		if strings.Index(coll, "system.") == 0 {
+			continue
+		}
+		indexes, _ := session.DB(dbName).C(coll).Indexes()
+		if len(indexes) == 1 && !verbose {
+			continue
+		}
+		buffer.WriteString("\n")
+		buffer.WriteString(dbName)
+		buffer.WriteString(".")
+		buffer.WriteString(coll)
+		buffer.WriteString(":\n")
+		var list []string
+
+		for _, idx := range indexes {
+			var strbuf bytes.Buffer
+			for n, key := range idx.Key {
+				if n == 0 {
+					strbuf.WriteString("{ ")
 				}
-				list = append(list, strbuf.String())
+				strbuf.WriteString(getIndexKey(key))
+				if n == len(idx.Key)-1 {
+					strbuf.WriteString(" }")
+				} else {
+					strbuf.WriteString(", ")
+				}
 			}
-			sort.Strings(list)
-			for _, str := range list {
-				buffer.WriteString("\t")
-				buffer.WriteString(str)
-				buffer.WriteString("\n")
+			list = append(list, strbuf.String())
+		}
+
+		sort.Strings(list)
+		for _, str := range list {
+			if str == "{ _id: 1 }" && !verbose {
+				continue
 			}
+			buffer.WriteString("\t")
+			buffer.WriteString(str)
+			buffer.WriteString("\n")
 		}
 	}
 
