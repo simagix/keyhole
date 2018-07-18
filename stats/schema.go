@@ -10,9 +10,19 @@ import (
 	"strings"
 
 	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 	"github.com/simagix/keyhole/utils"
-	"gopkg.in/mgo.v2/bson"
 )
+
+// CollectionsList -
+type CollectionsList struct {
+	Cursor CursorDoc `json:"cursor" bson:"cursor"`
+}
+
+// CursorDoc -
+type CursorDoc struct {
+	FirstBatch []bson.M `json:"firstBatch" bson:"firstBatch"`
+}
 
 // GetDemoSchema returns a demo doc
 func GetDemoSchema() string {
@@ -48,25 +58,38 @@ func GetSchemaFromCollection(session *mgo.Session, dbName string, collection str
 	return string(buf)
 }
 
-type CollectionList struct {
-	Cursor Cursors
-}
-
-type Cursors struct {
-	FirstBatch []bson.M
-}
-
-// GetIndexes -
+// GetIndexes list all indexes of collections of databases
 func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
+	if dbName != "" {
+		return GetIndexesFromDB(session, dbName, verbose)
+	}
+
+	var buffer bytes.Buffer
+	doc := AdminCommand(session, "listDatabases")
+	for _, db := range doc["databases"].([]interface{}) {
+		m := db.(bson.M)
+		name := m["name"].(string)
+		if name == "admin" || name == "config" || name == "local" {
+			continue
+		}
+		buffer.WriteString(GetIndexesFromDB(session, name, verbose))
+	}
+	return buffer.String()
+}
+
+// GetIndexesFromDB list all indexes of collections of a database
+func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string {
 	doc := AdminCommandOnDB(session, "listCollections", dbName)
 	buf, _ := json.Marshal(doc)
-	cl := CollectionList{}
-	json.Unmarshal(buf, &cl)
+	collectionsList := CollectionsList{}
+	json.Unmarshal(buf, &collectionsList)
 	var buffer bytes.Buffer
 
-	for _, coll := range cl.Cursor.FirstBatch {
+	for _, coll := range collectionsList.Cursor.FirstBatch {
 		if coll["type"] == "collection" {
 			buffer.WriteString("\n")
+			buffer.WriteString(dbName)
+			buffer.WriteString(".")
 			buffer.WriteString(coll["name"].(string))
 			buffer.WriteString(":\n")
 			indexes, _ := session.DB(dbName).C(coll["name"].(string)).Indexes()

@@ -89,7 +89,7 @@ func main() {
 	fmt.Println("MongoDB URI:", *uri)
 	dialInfo, _ := mgo.ParseURL(*uri)
 	dbName := dialInfo.Database
-	if dialInfo.Database == "" {
+	if dialInfo.Database == "" && *index == false {
 		dbName = "_KEYHOLE_"
 	}
 
