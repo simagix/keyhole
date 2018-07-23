@@ -8,6 +8,8 @@ Seed data by reading a template from a file.  Key characters of random values ar
 - Random HEX strings
 - Random strings having the similar length of the original string
 - Radnom numbers
+- Random SSN
+- Random US phone numbers
 
 ```
 keyhole -uri=mongodb://localhost/?replicaSet=replset -seed --file file.json [--drop]
