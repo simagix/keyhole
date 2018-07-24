@@ -111,7 +111,7 @@ func GetMongoServerInfo(session *mgo.Session) MongoServerInfo {
 		list = append(list, bson.M{"db": dbStats.DB, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
 	}
 
-	info.StorageSize = bson.M{"totalDataSize": dataSize, "totalIndexSize": indexSize, "statsDetails": list}
+	info.StorageSize = bson.M{"totalDataSize (MB)": dataSize / 1024 / 1024, "totalIndexSize (MB)": indexSize / 1024 / 1024, "statsDetails": list}
 	return info
 }
 
