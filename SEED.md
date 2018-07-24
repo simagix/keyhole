@@ -10,7 +10,7 @@ Seed data by reading a template from a file.  Key characters of random values ar
 - Radnom numbers
 
 ```
-keyhole -uri=mongodb://localhost/?replicaSet=replset -seed --file file.json [--drop]
+keyhole -uri=mongodb://localhost/_KEYHOLE_?replicaSet=replset -seed [--total <num>] [--file <file>.json] [--drop]
 ```
 
 
@@ -85,35 +85,39 @@ keyhole -uri=mongodb://localhost/?replicaSet=replset -seed --file file.json [--d
 ## Seed data for demo.
 
 ```
-keyhole -uri=mongodb://localhost/?replicaSet=replset -seed
+keyhole -uri=mongodb://localhost/_KEYHOLE_?replicaSet=replset -seed
 ```
 
 ### Collections
 #### models
 
 ```
+db.models.findOne()
 {
-    "name" : "String(15)",
-	"description" : "String(28)",
-	"year" : 0
+	"_id" : "model-785898",
+	"name" : "Robo 1000-20307",
+	"description" : "model-785898 Robo 1000-20307",
+	"year" : 2014
 }
 ```
 
 #### robots
 
 ```
+db.robots.findOne()
 {
-	"modelId" : "String(12)",
-	"notes" : "String(20)",
-	"batteryPct" : 0,
+	"_id" : "robot-0",
+	"modelId" : "model-785898",
+	"notes" : "robot-0 model-785898",
+	"batteryPct" : 0.0656370222568512,
 	"tasks" : [
 		{
-			"for" : "String(8)",
-			"minutesUsed" : 0
+			"for" : "Business",
+			"minutesUsed" : 30
 		},
 		{
-			"for" : "String(4)",
-			"minutesUsed" : 0
+			"for" : "Home",
+			"minutesUsed" : 26
 		}
 	]
 }
@@ -144,7 +148,7 @@ db.getSisterDB("_KEYHOLE_").robots.find(
 db.getSisterDB("_KEYHOLE_").robots.find(
     { "_id" : { $in: ["robot-1540a", "robot-22713"] }}
 )
-    
+
 
 db.getSisterDB("_KEYHOLE_").robots.find(
     { "_id" : { $nin: ["robot-1540a", "robot-22713"] }})
