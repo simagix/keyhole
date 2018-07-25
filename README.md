@@ -206,3 +206,8 @@ An example connecting to Atlas
 ```
 keyhole --uri mongodb://user:secret@cluster0-shard-00-01-nhftn.mongodb.net.:27017,cluster0-shard-00-02-nhftn.mongodb.net.:27017,cluster0-shard-00-00-nhftn.mongodb.net.:27017/test?replicaSet=Cluster0-shard-0\&authSource=admin --ssl --info
 ```
+
+### TLS/SSL Mode
+```
+keyhole --uri mongodb://user:password@localhost/keyhole?authSource=admin --info --ssl --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem
+```
