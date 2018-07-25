@@ -163,7 +163,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 	}
 
 	for {
-		session, err := GetSession(uri, m.ssl, m.sslCA)
+		session, err := GetSession(uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			serverStatus := serverStatus(session)
@@ -229,7 +229,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	session, err := GetSession(uri, m.ssl, m.sslCA)
+	session, err := GetSession(uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
@@ -258,7 +258,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
 func (m MongoConn) PrintServerStatus(uri string, span int) {
-	session, err := GetSession(uri, m.ssl, m.sslCA)
+	session, err := GetSession(uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}

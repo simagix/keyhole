@@ -33,23 +33,35 @@ type DBStats struct {
 }
 
 // GetSession returns a MongoDB session
-func GetSession(uri string, ssl bool, sslCA string) (*mgo.Session, error) {
+func GetSession(uri string, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
 	var session *mgo.Session
 	var err error
 
 	if ssl {
-		roots := x509.NewCertPool()
-		if ca, ferr := ioutil.ReadFile(sslCA); ferr == nil {
-			roots.AppendCertsFromPEM(ca)
-		}
 		tlsConfig := &tls.Config{}
-		tlsConfig.RootCAs = roots
+		tlsConfig.InsecureSkipVerify = true
+		if sslPEMKeyFile != "" {
+			clientCertPEM, _ := ioutil.ReadFile(sslPEMKeyFile)
+			clientKeyPEM, _ := ioutil.ReadFile(sslPEMKeyFile)
+			clientCert, _ := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
+			clientCert.Leaf, _ = x509.ParseCertificate(clientCert.Certificate[0])
+			tlsConfig.Certificates = []tls.Certificate{clientCert}
+		}
+
+		if sslCA != "" {
+			var roots *x509.CertPool
+			if ca, ferr := ioutil.ReadFile(sslCA); ferr == nil {
+				roots = x509.NewCertPool()
+				roots.AppendCertsFromPEM(ca)
+			}
+			tlsConfig.RootCAs = roots
+		}
+
 		dialInfo, perr := mgo.ParseURL(uri)
 		if perr != nil {
 			panic(perr)
 		}
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
-			tlsConfig := &tls.Config{}
 			conn, derr := tls.Dial("tcp", addr.String(), tlsConfig)
 			if derr != nil {
 				panic(derr)

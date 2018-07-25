@@ -42,6 +42,7 @@ func main() {
 	span := flag.Int("span", 60, "granunarity for summary")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCA := flag.String("sslCAFile", "", "CA file")
+	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
@@ -54,6 +55,12 @@ func main() {
 	flag.Parse()
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
+
+	if *ssl && (len(*sslCA) == 0 || len(*sslPEMKeyFile) == 0) {
+		if len(*sslCA) != len(*sslPEMKeyFile) {
+			panic("need both CA and PEM files")
+		}
+	}
 
 	if *quote {
 		utils.PrintQuote()
@@ -93,7 +100,7 @@ func main() {
 		dbName = "_KEYHOLE_"
 	}
 
-	session, err := stats.GetSession(*uri, *ssl, *sslCA)
+	session, err := stats.GetSession(*uri, *ssl, *sslCA, *sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +144,7 @@ func main() {
 	} else {
 		fmt.Println("Duration in minute(s):", *duration)
 	}
-	m := stats.New(*uri, *ssl, *sslCA, *tps, *file, *verbose, *peek, *monitor, *bulksize)
+	m := stats.New(*uri, *ssl, *sslCA, *sslPEMKeyFile, *tps, *file, *verbose, *peek, *monitor, *bulksize)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)

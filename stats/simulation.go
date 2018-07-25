@@ -23,23 +23,24 @@ var CollectionName = "examples"
 
 // MongoConn -
 type MongoConn struct {
-	uri      string
-	ssl      bool
-	sslCA    string
-	tps      int
-	filename string
-	verbose  bool
-	peek     bool
-	monitor  bool
-	bulkSize int
+	uri           string
+	ssl           bool
+	sslCA         string
+	sslPEMKeyFile string
+	tps           int
+	filename      string
+	verbose       bool
+	peek          bool
+	monitor       bool
+	bulkSize      int
 }
 
 var simDocs []bson.M
 
 // New - Constructor
-func New(uri string, ssl bool, sslCA string, tps int,
+func New(uri string, ssl bool, sslCA string, sslPEMKeyFile string, tps int,
 	filename string, verbose bool, peek bool, monitor bool, bulkSize int) MongoConn {
-	m := MongoConn{uri, ssl, sslCA, tps, filename, verbose, peek, monitor, bulkSize}
+	m := MongoConn{uri, ssl, sslCA, sslPEMKeyFile, tps, filename, verbose, peek, monitor, bulkSize}
 	m.initSimDocs()
 	return m
 }
@@ -92,7 +93,7 @@ func (m MongoConn) PopulateData(wmajor bool) {
 	if m.verbose {
 		fmt.Println("PopulateData", wmajor)
 	}
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +131,7 @@ func (m MongoConn) Simulate(duration int, transactions []Transaction, wmajor boo
 	var totalTPS int
 
 	for run := 0; run < duration; run++ {
-		session, err := GetSession(m.uri, m.ssl, m.sslCA)
+		session, err := GetSession(m.uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 		session.SetMode(mgo.Primary, true)
 		if wmajor {
 			session.SetSafe(&mgo.Safe{WMode: "majority"})
@@ -223,7 +224,7 @@ func getQueryFilter(doc interface{}) bson.M {
 // Cleanup drops the temp database
 func (m MongoConn) Cleanup() {
 	log.Println("cleanup", m.uri)
-	session, err := GetSession(m.uri, m.ssl, m.sslCA)
+	session, err := GetSession(m.uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}
@@ -236,7 +237,7 @@ func (m MongoConn) Cleanup() {
 
 // CreateIndexes creates indexes
 func (m MongoConn) CreateIndexes(docs []bson.M) {
-	session, _ := GetSession(m.uri, m.ssl, m.sslCA)
+	session, _ := GetSession(m.uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
 	defer session.Close()
 	c := session.DB(SimDBName).C(CollectionName)
 
