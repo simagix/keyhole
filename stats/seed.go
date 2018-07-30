@@ -185,7 +185,7 @@ func seedCollection(c *mgo.Collection, total int, fnum int) int {
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop bool, dbName string, verbose bool) {
+func SeedFromTemplate(session *mgo.Session, filename string, collName string, total int, isDrop bool, dbName string, verbose bool) {
 	sdoc := utils.GetDocByTemplate(filename, true)
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if verbose {
@@ -194,7 +194,11 @@ func SeedFromTemplate(session *mgo.Session, filename string, total int, isDrop b
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
 	session.SetMode(mgo.Primary, true)
-	examplesCollection := session.DB(dbName).C("examples")
+	if collName == "" {
+		collName = "examples"
+	}
+	fmt.Println("Seed data to collection", collName)
+	examplesCollection := session.DB(dbName).C(collName)
 	if isDrop {
 		examplesCollection.DropCollection()
 	}

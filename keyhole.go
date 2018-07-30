@@ -93,7 +93,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	fmt.Println("MongoDB URI:", *uri)
+	if *verbose {
+		fmt.Println("MongoDB URI:", *uri)
+	}
 	dialInfo, _ := mgo.ParseURL(*uri)
 	dbName := dialInfo.Database
 	if dialInfo.Database == "" && *index == false {
@@ -113,12 +115,16 @@ func main() {
 		if *file == "" {
 			stats.Seed(session, *total, *drop, dbName, *verbose)
 		} else {
-			stats.SeedFromTemplate(session, *file, *total, *drop, dbName, *verbose)
+			if *collection == "" {
+				fmt.Println("usage: keyhole --uri connection_uri --seed [--file filename --collection collection_name]")
+				os.Exit(0)
+			}
+			stats.SeedFromTemplate(session, *file, *collection, *total, *drop, dbName, *verbose)
 		}
 		os.Exit(0)
 	} else if *schema == true {
 		if *collection == "" {
-			fmt.Println("usage: keyhole --schema [--file filename | --url connection_uri --collection collection_name]")
+			fmt.Println("usage: keyhole --schema [--file filename | --uri connection_uri --collection collection_name]")
 			os.Exit(0)
 		}
 		fmt.Println(stats.GetSchemaFromCollection(session, dbName, *collection, *verbose))
