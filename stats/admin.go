@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"runtime"
+	"syscall"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // MongoServerInfo constains server info from db.serverStatus()
@@ -34,8 +37,16 @@ type DBStats struct {
 
 // GetSession returns a MongoDB session
 func GetSession(uri string, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
-	var session *mgo.Session
-	var err error
+	dialInfo, err := mgo.ParseURL(uri)
+	if err != nil {
+		panic(err)
+	}
+	if dialInfo.Username != "" && dialInfo.Password == "" && (runtime.GOOS == "darwin" || runtime.GOOS == "linux") {
+		fmt.Print("Enter Password: ")
+		bytePassword, _ := terminal.ReadPassword(int(syscall.Stdin))
+		dialInfo.Password = string(bytePassword)
+		fmt.Println("")
+	}
 
 	if ssl {
 		tlsConfig := &tls.Config{}
@@ -57,10 +68,6 @@ func GetSession(uri string, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.
 			tlsConfig.RootCAs = roots
 		}
 
-		dialInfo, perr := mgo.ParseURL(uri)
-		if perr != nil {
-			panic(perr)
-		}
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
 			conn, derr := tls.Dial("tcp", addr.String(), tlsConfig)
 			if derr != nil {
@@ -68,12 +75,8 @@ func GetSession(uri string, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.
 			}
 			return conn, derr
 		}
-		session, err = mgo.DialWithInfo(dialInfo)
-	} else {
-		session, err = mgo.Dial(uri)
 	}
-
-	return session, err
+	return mgo.DialWithInfo(dialInfo)
 }
 
 // IsMaster executes dbisMaster()
