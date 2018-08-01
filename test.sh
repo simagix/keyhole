@@ -33,10 +33,10 @@ echo ; echo "==> Test seeding default docs (--uri <uri> --seed)"
 go run keyhole.go --uri mongodb://localhost:30097/KEYHOLEDB --seed
 echo ; echo "==> Test seeding default docs after dropping collection (--uri <uri> --drop)"
 go run keyhole.go --uri mongodb://localhost:30097/KEYHOLEDB --seed --drop
-echo ; echo "==> Test seeding docs from a template (--uri <uri> --file <file>)"
-go run keyhole.go --uri mongodb://localhost:30097/KEYHOLEDB --seed --file examples/template.json
-echo ; echo "==> Test seeding docs from a template after dropping collection (--uri <uri> --file <file> --drop)"
-go run keyhole.go --uri mongodb://localhost:30097/KEYHOLEDB --seed --file examples/template.json --drop
+echo ; echo "==> Test seeding docs from a template (--uri <uri> --file <file> --collection <collection>)"
+go run keyhole.go --uri mongodb://localhost:30097/KEYHOLEDB --seed --file examples/template.json --collection template
+echo ; echo "==> Test seeding docs from a template after dropping collection (--uri <uri> --file <file> --collection <collection> --drop)"
+go run keyhole.go --uri mongodb://localhost:30097/KEYHOLEDB --seed --file examples/template.json --collection template --drop
 
 # Test load test
 echo ; echo "==> Test load from a template (--uri <uri> --file <file>)"

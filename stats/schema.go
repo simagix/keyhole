@@ -69,9 +69,15 @@ func GetIndexes(session *mgo.Session, dbName string, verbose bool) string {
 func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string {
 	var buffer bytes.Buffer
 	collNames, _ := session.DB(dbName).CollectionNames()
+	pipeline := [1]bson.M{bson.M{"$indexStats": bson.M{}}}
 
 	for _, coll := range collNames {
 		if strings.Index(coll, "system.") == 0 {
+			continue
+		}
+		results := []bson.M{}
+		session.DB(dbName).C(coll).Pipe(pipeline).All(&results)
+		if len(results) < 1 || (len(results) == 1 && !verbose) {
 			continue
 		}
 		indexes, _ := session.DB(dbName).C(coll).Indexes()
@@ -98,15 +104,26 @@ func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string 
 					strbuf.WriteString(", ")
 				}
 			}
-			list = append(list, strbuf.String())
+			if strbuf.String() == "{ _id: 1 }" && !verbose {
+				continue
+			}
+
+			keystr := fmt.Sprintf("%-50s ", strbuf.String())
+			for _, result := range results {
+				if result["name"].(string) == idx.Name {
+					accesses := result["accesses"].(bson.M)
+					ops, _ := json.Marshal(accesses["ops"])
+					since, _ := json.Marshal(accesses["since"])
+					keystr += "ops: " + string(ops) + ", since: " + string(since)
+					break
+				}
+			}
+			list = append(list, keystr)
 		}
 
 		sort.Strings(list)
 		for _, str := range list {
-			if str == "{ _id: 1 }" && !verbose {
-				continue
-			}
-			buffer.WriteString("\t")
+			buffer.WriteString("  ")
 			buffer.WriteString(str)
 			buffer.WriteString("\n")
 		}
