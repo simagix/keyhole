@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/simagix/keyhole/charts"
 	"github.com/simagix/keyhole/stats"
 	"github.com/simagix/keyhole/utils"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var version string
@@ -41,7 +43,7 @@ func main() {
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	span := flag.Int("span", 60, "granunarity for summary")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
-	sslCA := flag.String("sslCAFile", "", "CA file")
+	sslCAFile := flag.String("sslCAFile", "", "CA file")
 	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
@@ -56,8 +58,8 @@ func main() {
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 
-	if *ssl && (len(*sslCA) == 0 || len(*sslPEMKeyFile) == 0) {
-		if len(*sslCA) != len(*sslPEMKeyFile) {
+	if *ssl && (len(*sslCAFile) == 0 || len(*sslPEMKeyFile) == 0) {
+		if len(*sslCAFile) != len(*sslPEMKeyFile) {
 			panic("need both CA and PEM files")
 		}
 	}
@@ -96,13 +98,23 @@ func main() {
 	if *verbose {
 		fmt.Println("MongoDB URI:", *uri)
 	}
-	dialInfo, _ := mgo.ParseURL(*uri)
+	dialInfo, err := mgo.ParseURL(*uri)
+	if err != nil {
+		panic(err)
+	}
+	if dialInfo.Username != "" && dialInfo.Password == "" && (runtime.GOOS == "darwin" || runtime.GOOS == "linux") {
+		fmt.Print("Enter Password: ")
+		bytePassword, _ := terminal.ReadPassword(int(syscall.Stdin))
+		dialInfo.Password = string(bytePassword)
+		fmt.Println("")
+	}
+
 	dbName := dialInfo.Database
 	if dialInfo.Database == "" && *index == false {
 		dbName = "_KEYHOLE_"
 	}
 
-	session, err := stats.GetSession(*uri, *ssl, *sslCA, *sslPEMKeyFile)
+	session, err := stats.GetSession(dialInfo, *ssl, *sslCAFile, *sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}
@@ -150,7 +162,7 @@ func main() {
 	} else {
 		fmt.Println("Duration in minute(s):", *duration)
 	}
-	m := stats.New(*uri, *ssl, *sslCA, *sslPEMKeyFile, *tps, *file, *verbose, *peek, *monitor, *bulksize)
+	m := stats.New(dialInfo, *uri, *ssl, *sslCAFile, *sslPEMKeyFile, *tps, *file, *verbose, *peek, *monitor, *bulksize)
 	timer := time.NewTimer(time.Duration(*duration) * time.Minute)
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)

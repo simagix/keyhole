@@ -9,12 +9,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"runtime"
-	"syscall"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 // MongoServerInfo constains server info from db.serverStatus()
@@ -36,18 +33,7 @@ type DBStats struct {
 }
 
 // GetSession returns a MongoDB session
-func GetSession(uri string, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
-	dialInfo, err := mgo.ParseURL(uri)
-	if err != nil {
-		panic(err)
-	}
-	if dialInfo.Username != "" && dialInfo.Password == "" && (runtime.GOOS == "darwin" || runtime.GOOS == "linux") {
-		fmt.Print("Enter Password: ")
-		bytePassword, _ := terminal.ReadPassword(int(syscall.Stdin))
-		dialInfo.Password = string(bytePassword)
-		fmt.Println("")
-	}
-
+func GetSession(dialInfo *mgo.DialInfo, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
 	if ssl {
 		tlsConfig := &tls.Config{}
 		tlsConfig.InsecureSkipVerify = true

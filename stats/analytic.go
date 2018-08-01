@@ -163,7 +163,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 	}
 
 	for {
-		session, err := GetSession(uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
+		session, err := GetSession(m.dialInfo, m.ssl, m.sslCAFile, m.sslPEMKeyFile)
 		if err == nil {
 			session.SetMode(mgo.Primary, true)
 			serverStatus := serverStatus(session)
@@ -171,8 +171,7 @@ func (m MongoConn) CollectServerStatus(uri string, channel chan string) {
 			json.Unmarshal(buf, &stat)
 			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-			dialInfo, _ := mgo.ParseURL(uri)
-			dkey := dialInfo.ReplicaSetName + "/" + strings.Join(dialInfo.Addrs[:], ",")
+			dkey := m.dialInfo.ReplicaSetName + "/" + strings.Join(m.dialInfo.Addrs[:], ",")
 			ChartsDocs[dkey] = append(ChartsDocs[dkey], serverStatus)
 			for len(ChartsDocs[dkey]) > 60 { // shift
 				ChartsDocs[dkey] = ChartsDocs[dkey][1:]
@@ -229,7 +228,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	session, err := GetSession(uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
+	session, err := GetSession(m.dialInfo, m.ssl, m.sslCAFile, m.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
@@ -258,7 +257,7 @@ func (m MongoConn) CollectDBStats(uri string, channel chan string, dbName string
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
 func (m MongoConn) PrintServerStatus(uri string, span int) {
-	session, err := GetSession(uri, m.ssl, m.sslCA, m.sslPEMKeyFile)
+	session, err := GetSession(m.dialInfo, m.ssl, m.sslCAFile, m.sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}
