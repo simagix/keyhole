@@ -76,8 +76,10 @@ func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string 
 			continue
 		}
 		results := []bson.M{}
-		session.DB(dbName).C(coll).Pipe(pipeline).All(&results)
-		if len(results) < 1 || (len(results) == 1 && !verbose) {
+		err := session.DB(dbName).C(coll).Pipe(pipeline).All(&results)
+		if err != nil {
+			fmt.Println(err)
+		} else if len(results) < 1 || (len(results) == 1 && !verbose) {
 			continue
 		}
 		indexes, _ := session.DB(dbName).C(coll).Indexes()
