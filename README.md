@@ -1,5 +1,5 @@
 # Keyhole - MongoDB Performance Analytic
-Keyhole is a performance measuring tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  It can also be configured as stats collecting agents and be expanded to a MongoDB instances monitoring tool.  Golang was chosen to eliminate the needs to install an interpreter (such as Java) or 3pp modules (such as Python or Node.js).  
+Keyhole is a performance measuring tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  It can also be configured as stats collecting agents and be expanded to a MongoDB instances monitoring tool.  Golang was chosen to eliminate the needs to install an interpreter (such as Java) or 3pp modules (such as Python or Node.js).  [Download executable](https://github.com/simagix/keyhole#download).
 
 With Keyhole, experienced users should be able to spot performance issues and to determine whether upgrades are needed quickly from a few minutes of testing and analyzing the results.  Keyhole supports TLS/SSL connections.
 
