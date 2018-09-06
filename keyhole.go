@@ -48,13 +48,16 @@ func main() {
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
-	uri := flag.String("uri", "", "MongoDB URI")
+	uri := flag.String("uri", "", "MongoDB URI") // orverides connection uri from args
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
 	webserver := flag.Bool("web", false, "enable web server")
 	wmajor := flag.Bool("wmajor", false, "{w: majority}")
 
 	flag.Parse()
+	if *uri == "" && len(flag.Args()) > 0 {
+		*uri = flag.Arg(0)
+	}
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 
@@ -90,7 +93,8 @@ func main() {
 		stats.AnalyzeServerStatus(*file, 10, true)
 		charts.HTTPServer(5408)
 	} else if len(*uri) == 0 {
-		fmt.Println("Missing --uri")
+		fmt.Println("Missing connection string")
+		fmt.Println("Usage: keyhole [opts] uri")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
