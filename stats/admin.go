@@ -30,6 +30,7 @@ type DBStats struct {
 	DB        string `json:"db" bson:"db"`
 	DataSize  int    `json:"dataSize" bson:"dataSize"`
 	IndexSize int    `json:"indexSize" bson:"indexSize"`
+	Objects   int    `json:"objects" bson:"objects"`
 }
 
 // GetSession returns a MongoDB session
@@ -109,7 +110,7 @@ func GetMongoServerInfo(session *mgo.Session) MongoServerInfo {
 		json.Unmarshal(bytes, &dbStats)
 		dataSize += dbStats.DataSize
 		indexSize += dbStats.IndexSize
-		list = append(list, bson.M{"db": dbStats.DB, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
+		list = append(list, bson.M{"db": dbStats.DB, "objects": dbStats.Objects, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
 	}
 
 	info.StorageSize = bson.M{"totalDataSize (MB)": dataSize / 1024 / 1024, "totalIndexSize (MB)": indexSize / 1024 / 1024, "statsDetails": list}
