@@ -204,6 +204,12 @@ $ keyhole --help
 An example connecting to Atlas
 
 ```
+keyhole --info "mongodb+srv://user:secret@cluster0-v7due.gcp.mongodb.net/test"
+```
+
+or
+
+```
 keyhole --info "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net:27017,cluster0-shard-00-01-v7due.gcp.mongodb.net:27017,cluster0-shard-00-02-v7due.gcp.mongodb.net:27017/test?replicaSet=Cluster0-shard-0&authSource=admin&ssl=true"
 ```
 

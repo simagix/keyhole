@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -102,7 +104,30 @@ func main() {
 	if *verbose {
 		fmt.Println("MongoDB URI:", *uri)
 	}
+	isSRV := false
+	if strings.Index(*uri, "mongodb+srv://") == 0 {
+		isSRV = true
+		*uri = "mongodb://" + (*uri)[14:]
+	}
 	dialInfo, err := mgo.ParseURL(*uri)
+	if isSRV == true {
+		*ssl = true
+		params, _ := net.LookupTXT(dialInfo.Addrs[0])
+		*uri = *uri + "?" + params[0]
+		dial, _ := mgo.ParseURL(*uri)
+		dialInfo.ReplicaSetName = dial.ReplicaSetName
+		dialInfo.Source = dial.Source
+		_, addrs, lerr := net.LookupSRV("mongodb", "tcp", dialInfo.Addrs[0])
+		if lerr != nil {
+			panic(lerr)
+		}
+		hosts := make([]string, len(addrs))
+		for i, address := range addrs {
+			addr := strings.TrimSuffix(address.Target, ".")
+			hosts[i] = fmt.Sprintf("%s:%d", addr, address.Port)
+		}
+		dialInfo.Addrs = hosts
+	}
 	if err != nil {
 		panic(err)
 	}
