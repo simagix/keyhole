@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"time"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
@@ -64,7 +63,7 @@ func GetSession(dialInfo *mgo.DialInfo, ssl bool, sslCA string, sslPEMKeyFile st
 			return conn, derr
 		}
 	}
-	dialInfo.Timeout = time.Duration(10 * time.Second)
+	// dialInfo.Timeout = time.Duration(10 * time.Second)
 	return mgo.DialWithInfo(dialInfo)
 }
 
