@@ -9,7 +9,7 @@ keyhole --loginfo log_filename[.gz] [--collscan] [-v]
 
 - Can read gzip compressed file
 - with `--collscan` prints filter patterns without an indexes (COLLSCAN only)
-- with `-v` or `--verbose` prints indexes used for each filter pattern
+- with `-v` prints indexes used for each filter pattern
 
 ## Analyze Logs
 Use `--loginfo` to view max and average query time, and query pattern.
