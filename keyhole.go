@@ -76,7 +76,7 @@ func main() {
 		stats.AnalyzeServerStatus(*diag, *span, false)
 		os.Exit(0)
 	} else if *loginfo != "" {
-		stats.LogInfo(*loginfo, *collscan)
+		stats.LogInfo(*loginfo, *collscan, *verbose)
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)

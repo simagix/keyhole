@@ -1,6 +1,19 @@
 # Ops Performance Analytic
 Display ops average execution with query patterns using `--loginfo` flag.
 
+## Usage
+
+```
+keyhole --loginfo log_filename[.gz] [--collscan] [-v]
+```
+
+- Can read gzip compressed file
+- with `--collscan` prints filter patterns without an indexes (COLLSCAN only)
+- with `-v` or `--verbose` prints indexes used for each filter pattern
+
+## Analyze Logs
+Use `--loginfo` to view max and average query time, and query pattern.
+
 ```
 keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz
 ```

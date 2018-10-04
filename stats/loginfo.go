@@ -27,6 +27,7 @@ type OpPerformanceDoc struct {
 	Namespace  string // database.collectin
 	Scan       string // COLLSCAN
 	TotalMilli int    // total milliseconds
+	Index      string // index used
 }
 
 func getDocByField(str string, field string) string {
@@ -59,7 +60,7 @@ func getDocByField(str string, field string) string {
 }
 
 // LogInfo -
-func LogInfo(filename string, collscan bool) {
+func LogInfo(filename string, collscan bool, verbose bool) {
 	var opsMap map[string]OpPerformanceDoc
 	opsMap = make(map[string]OpPerformanceDoc)
 	file, err := os.Open(filename)
@@ -187,7 +188,7 @@ func LogInfo(filename string, collscan bool) {
 					filter = s
 				}
 			}
-
+			index := getDocByField(str, "planSummary: IXSCAN")
 			filter = removeInElements(filter, "$in: [ ")
 			filter = removeInElements(filter, "$nin: [ ")
 			filter = removeInElements(filter, "$in: [ ")
@@ -223,9 +224,9 @@ func LogInfo(filename string, collscan bool) {
 				}
 				x := opsMap[key].TotalMilli + milli
 				y := opsMap[key].Count + 1
-				opsMap[key] = OpPerformanceDoc{Command: opsMap[key].Command, Namespace: ns, Filter: opsMap[key].Filter, MaxMilli: max, TotalMilli: x, Count: y, Scan: scan}
+				opsMap[key] = OpPerformanceDoc{Command: opsMap[key].Command, Namespace: ns, Filter: opsMap[key].Filter, MaxMilli: max, TotalMilli: x, Count: y, Scan: scan, Index: index}
 			} else {
-				opsMap[key] = OpPerformanceDoc{Command: op, Namespace: ns, Filter: filter, TotalMilli: milli, MaxMilli: milli, Count: 1, Scan: scan}
+				opsMap[key] = OpPerformanceDoc{Command: op, Namespace: ns, Filter: filter, TotalMilli: milli, MaxMilli: milli, Count: 1, Scan: scan, Index: index}
 			}
 		}
 	}
@@ -284,6 +285,9 @@ func LogInfo(filename string, collscan bool) {
 					fmt.Printf("|%72s   %-70s|\n", " ", pstr)
 				}
 			}
+		}
+		if verbose == true && value.Index != "" {
+			fmt.Printf("|------- index: \x1b[32;1m%-71s\x1b[0m\n\n", value.Index)
 		}
 	}
 	fmt.Println("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
