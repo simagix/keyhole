@@ -59,20 +59,27 @@ func ParseDialInfo(uri string) (*mgo.DialInfo, error) {
 		srvAddr := dialInfo.Addrs[0]
 		params, pe := net.LookupTXT(srvAddr)
 		if pe != nil {
-			panic(pe)
+			fmt.Println("Error:", pe)
+			fmt.Println("dialInfo.Addrs:", dialInfo.Addrs)
+			return nil, pe
 		}
 		if strings.Index(uri, "?") < 0 {
 			uri = uri + "?" + params[0]
 		} else {
 			uri = uri + "&" + params[0]
 		}
+		fmt.Println("uri:", uri)
 		dialInfo, err = mgo.ParseURL(uri)
 		if err != nil {
+			fmt.Println("Error:", err)
+			fmt.Println("uri:", uri)
 			return dialInfo, err
 		}
 		_, addrs, le := net.LookupSRV("mongodb", "tcp", srvAddr)
 		if le != nil {
-			panic(le)
+			fmt.Println("Error:", le)
+			fmt.Println("dialInfo.Addrs:", dialInfo.Addrs)
+			return nil, le
 		}
 		addresses := make([]string, len(addrs))
 		for i, addr := range addrs {
