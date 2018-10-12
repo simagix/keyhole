@@ -155,7 +155,11 @@ func main() {
 	var uriList []string
 	uriList = append(uriList, *uri)
 	if ssi.Cluster == "sharded" {
-		uriList = stats.GetShards(session, *uri)
+		var e error
+		uriList, e = stats.GetShards(session, *uri)
+		if e != nil {
+			panic(e)
+		}
 	}
 
 	if *webserver || *monitor == true { // web server enabled will be in monitor mode

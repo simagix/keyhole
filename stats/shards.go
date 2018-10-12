@@ -25,13 +25,18 @@ type ShardList struct {
 }
 
 // GetShards -
-func GetShards(session *mgo.Session, uri string) []string {
+func GetShards(session *mgo.Session, uri string) ([]string, error) {
 	var list []string
 	result := bson.M{}
 	if err := session.DB("admin").Run("listShards", &result); err != nil {
-		panic(err)
+		return list, err
 	}
 
+	isSRV := false
+	if strings.Index(uri, "mongodb+srv") == 0 {
+		isSRV = true
+		uri = strings.Replace(uri, "mongodb+srv", "mongodb", 1)
+	}
 	dialInfo, _ := mgo.ParseURL(uri)
 	shards := ShardList{}
 	bytes, _ := json.Marshal(result)
@@ -45,13 +50,16 @@ func GetShards(session *mgo.Session, uri string) []string {
 		if dialInfo.Username != "" {
 			ruri = ruri + dialInfo.Username + ":" + dialInfo.Password + "@"
 		}
-		ruri = ruri + s[1] + "?replicaSet=" + dialInfo.ReplicaSetName
+		ruri = ruri + s[1] + "/?replicaSet=" + dialInfo.ReplicaSetName
 		if dialInfo.Source != "" {
 			ruri = ruri + "&authSource=" + dialInfo.Source
 		}
+		if isSRV == true {
+			ruri = ruri + "&authSource=admin&ssl=true"
+		}
 		list = append(list, ruri)
 	}
-	return list
+	return list, nil
 }
 
 // ShardCollection -
