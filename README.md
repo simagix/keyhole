@@ -6,17 +6,17 @@ With Keyhole, experienced users should be able to spot performance issues and to
 Several features are available, and they are
 
 - **Write Throughputs Test** measures the MongoDB performance by writing documents at a high rate to a MongoDB cluster.
-- [**Load test**](LOADTEST.md) extends the *Write throughputs test* by issuing different ops against a MongoDB cluster.  Stats analytic is also provided
+- [**Load test**](docs/LOADTEST.md) extends the *Write throughputs test* by issuing different ops against a MongoDB cluster.  Stats analytic is also provided
   - Memory: resident, virtual, and page faults
   - Executor and ops
   - Latency: read, write, and command
   - Metrics: index keys examined, collection scan, in-memory sort, and ops
   - WiredTiger analytic
-- Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](LOADTEST.md) for details).
+- Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](docs/LOADTEST.md) for details).
 - **Monitoring** mode to collect stats (see above) from `mongod` periodically.  Detail analytic results are displayed when the tool exists or can be viewed at a later time.
 - **Cluster Info** to display information of a cluster including stats to help determine physical memory size.
-- [**Seed data**](SEED.md) for demo and educational purposes as a trainer.
-- [Display average ops time](LOGINFO.md) and query patterns by parsing logs.
+- [**Seed data**](docs/SEED.md) for demo and educational purposes as a trainer.
+- [Display average ops time](docs/LOGINFO.md) and query patterns by parsing logs.
 
 ## Use Cases
 Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
@@ -25,7 +25,7 @@ Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 Measure MongoDB write throughputs.
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --duration 1
+keyhole --duration 1 mongodb://localhost/?replicaSet=replset
 ```
 
 By default, it writes 2K size documents at 60 transactions per second from 10 different threads, a total of 600 TPS.  See sample outputs below.
@@ -45,7 +45,7 @@ Total TPS: 300 (tps) * 10 (conns) = 3000, duration: 5 (mins), bulk size: 512
 ```
 
 ### Load Test
-Load test a cluster/replica.  A default cycle lasts five minutes with docs using in this [schema](LOADTEST.md).
+Load test a cluster/replica.  A default cycle lasts five minutes with docs using in this [schema](docs/LOADTEST.md).
 
 - Populate data in first minute
 - Perform CRUD operations during the second minutes
@@ -53,16 +53,16 @@ Load test a cluster/replica.  A default cycle lasts five minutes with docs using
 - Perform teardown ops in the last minute
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset
+keyhole mongodb://localhost/?replicaSet=replset
 ```
 
-It works on standalone, replica, and sharded cluster.  For a sharded cluster, *keyhole* collects stats from the primary node of all shards and display stats individually.  See [LOADTEST](LOADTEST.md) document for more details.
+It works on standalone, replica, and sharded cluster.  For a sharded cluster, *keyhole* collects stats from the primary node of all shards and display stats individually.  See [LOADTEST](docs/LOADTEST.md) document for more details.
 
 ### Monitoring
-Only collects data from `db.serverStatus()` command.  The [outputs](LOADTEST.md) share the same format from load test.
+Only collects data from `db.serverStatus()` command.  The [outputs](docs/LOADTEST.md) share the same format from load test.
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --peek
+keyhole --peek mongodb://localhost/?replicaSet=replset
 ```
 
 Collected server status data is saved to a file and can be viewed later using the command below.
@@ -79,7 +79,7 @@ Collect cluster information:
 - Standalone
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --info
+keyhole --info mongodb://localhost/?replicaSet=replset
 ```
 
 **The command also displays total data and indexes sizes to help determine physical memory requirement from indexes and working set data size.**  Here is an example from a MongoDB Atlas cluster.
@@ -142,23 +142,23 @@ keyhole --uri mongodb://localhost/?replicaSet=replset --info
 ```
 
 ### Seed Data
-Populate a small amount of data to *\_KEYHOLE\_* database for [demo](SEED.md) and educational purposes such as CRUD, `$elemMatch`, `$lookup` (outer left join), indexes, and aggregation framework.
+Populate a small amount of data to *\_KEYHOLE\_* database for [demo](docs/SEED.md) and educational purposes such as CRUD, `$elemMatch`, `$lookup` (outer left join), indexes, and aggregation framework.
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --seed
+keyhole --seed mongodb://localhost/?replicaSet=replset
 ```
 
-Seeding data from a template is also supported, see [document](SEED.md) for details.
+Seeding data from a template is also supported, see [document](docs/SEED.md) for details.
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --seed --file <json_file> [--drop]
+keyhole] --seed --file <json_file> [--drop] mongodb://localhost/?replicaSet=replset
 ```
 
 ### Ops Performance Analytic
-Display ops average execution with query patterns using `--loginfo` flag.  See [LOGINFO.md](LOGINFO.md) for details.
+Display ops average execution with query patterns using `--loginfo` flag.  See [LOGINFO.md](docs/LOGINFO.md) for details.
 
 ```
-keyhole --uri mongodb://localhost/?replicaSet=replset --loginfo ~/ws/demo/mongod.log
+keyhole --loginfo ~/ws/demo/mongod.log
 ```
 
 ## Usages
@@ -216,10 +216,10 @@ keyhole --info "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net
 or
 
 ```
-keyhole --uri "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net:27017,cluster0-shard-00-01-v7due.gcp.mongodb.net:27017,cluster0-shard-00-02-v7due.gcp.mongodb.net:27017/test?replicaSet=Cluster0-shard-0&authSource=admin" --ssl --info
+keyhole  --ssl --info  "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net:27017,cluster0-shard-00-01-v7due.gcp.mongodb.net:27017,cluster0-shard-00-02-v7due.gcp.mongodb.net:27017/test?replicaSet=Cluster0-shard-0&authSource=admin"
 ```
 
 ### TLS/SSL Mode
 ```
-keyhole --uri mongodb://user:password@localhost/keyhole?authSource=admin --info --ssl --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem
+keyhole --info --ssl --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem "mongodb://user:password@localhost/keyhole?authSource=admin"
 ```
