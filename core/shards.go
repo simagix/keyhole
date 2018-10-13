@@ -63,14 +63,27 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 }
 
 // ShardCollection -
-func ShardCollection(session *mgo.Session) {
+func ShardCollection(session *mgo.Session) error {
+	var err error
+	// db := session.DB(SimDBName)
+	// coll := db.C(CollectionName)
+	// coll.DropCollection()
+	ssi, err = GetMongoServerInfo(session)
+	if err != nil {
+		return err
+	}
+	if ssi.Cluster != SHARDED {
+		return nil
+	}
+
 	collname := SimDBName + "." + CollectionName
-	fmt.Println("Shard", collname)
+	fmt.Println("Sharding collection:", collname)
 	result := bson.M{}
-	if err := session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
-		fmt.Println("enableSharding", err)
+	if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
+		return err
 	}
-	if err := session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
-		fmt.Println("shardCollection", err)
+	if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
+		return err
 	}
+	return nil
 }

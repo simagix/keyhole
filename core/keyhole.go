@@ -63,19 +63,19 @@ func (b Base) getURIList(session *mgo.Session) ([]string, error) {
 		return uriList, err
 	}
 	uriList = append(uriList, b.uri)
-	if ssi.Cluster == "sharded" {
+	if ssi.Cluster == SHARDED {
 		var e error
 		uriList, e = GetShards(session, b.uri)
 		if e != nil {
 			return uriList, err
 		}
-		ShardCollection(session)
 	}
 	return uriList, err
 }
 
 // Start process requests
 func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
+	var err error
 	uriList, err := b.getURIList(session)
 	if err != nil {
 		fmt.Println(err)
@@ -87,6 +87,11 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
 	if b.peek == false && b.monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
 		if b.drop {
 			b.Cleanup()
+		}
+
+		if err = ShardCollection(session); err != nil {
+			fmt.Println(err)
+			return
 		}
 
 		if b.wmajor {

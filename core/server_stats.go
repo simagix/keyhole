@@ -22,6 +22,9 @@ var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = map[string][]bson.M{}
 
+// SHARDED cluster
+const SHARDED = "sharded"
+
 // STANDALONE cluster
 const STANDALONE = "standalone"
 
@@ -252,7 +255,7 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 			}
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
-			if sec > 1 && delta > .01 {
+			if sec > 1 && delta >= 0 {
 				str := fmt.Sprintf("%s [%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
 					now.Format(time.RFC3339), mapKey, prevDataSize/mb, dataSize/mb, delta)
 				channel <- str

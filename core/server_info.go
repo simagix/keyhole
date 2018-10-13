@@ -96,11 +96,11 @@ func GetMongoServerInfo(session *mgo.Session) (MongoServerInfo, error) {
 	}
 
 	if stat.Process == "mongos" {
-		info.Cluster = "sharded"
+		info.Cluster = SHARDED
 	} else if stat.Repl != nil {
 		info.Cluster = "replica"
 	} else {
-		info.Cluster = "standalone"
+		info.Cluster = STANDALONE
 	}
 
 	names, _ := session.DatabaseNames()
