@@ -3,6 +3,7 @@
 package keyhole
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -58,23 +59,30 @@ func getDocByField(str string, field string) string {
 }
 
 // LogInfo -
-func LogInfo(filename string, collscan bool, verbose bool) {
+func LogInfo(filename string, collscan bool, verbose bool) error {
+	var err error
+	var reader *bufio.Reader
+	var file *os.File
 	var opsMap map[string]OpPerformanceDoc
+	var buf []byte
+
 	opsMap = make(map[string]OpPerformanceDoc)
-	file, err := os.Open(filename)
+	file, err = os.Open(filename)
 	if err != nil {
-		fmt.Println("error opening file ", err)
-		return
+		return err
 	}
 	defer file.Close()
-	reader := NewReader(file)
+	reader, err = NewReader(file)
+	if err != nil {
+		return err
+	}
 	lineCounts, _ := CountLines(reader)
 
 	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
 	file.Seek(0, 0)
-	reader = NewReader(file)
+	reader, _ = NewReader(file)
 	for {
-		buf, _, err := reader.ReadLine() // 0x0A separator = newline
+		buf, _, err = reader.ReadLine() // 0x0A separator = newline
 		if err != nil {
 			break
 		} else if matched.MatchString(string(buf)) == true {
@@ -95,7 +103,10 @@ func LogInfo(filename string, collscan bool, verbose bool) {
 
 	matched = regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
 	file.Seek(0, 0)
-	reader = NewReader(file)
+	reader, err = NewReader(file)
+	if err != nil {
+		return err
+	}
 	index := 0
 
 	for {
@@ -289,6 +300,7 @@ func LogInfo(filename string, collscan bool, verbose bool) {
 		}
 	}
 	fmt.Println("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
+	return nil
 }
 
 // convert $in: [...] to $in: [ ]

@@ -58,11 +58,18 @@ func main() {
 		}
 	}
 
+	var err error
 	if *diag != "" {
-		keyhole.AnalyzeServerStatus(*diag, *span, false)
+		err = keyhole.AnalyzeServerStatus(*diag, *span, false)
+		if err != nil {
+			fmt.Println(err)
+		}
 		os.Exit(0)
 	} else if *loginfo != "" {
-		keyhole.LogInfo(*loginfo, *collscan, *verbose)
+		err = keyhole.LogInfo(*loginfo, *collscan, *verbose)
+		if err != nil {
+			fmt.Println(err)
+		}
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)
@@ -75,7 +82,11 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *webserver && *file != "" {
-		keyhole.AnalyzeServerStatus(*file, 10, true)
+		err = keyhole.AnalyzeServerStatus(*file, 10, true)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(0)
+		}
 		charts.HTTPServer(5408)
 	} else if len(*uri) == 0 {
 		fmt.Println("Missing connection string")
@@ -86,6 +97,7 @@ func main() {
 
 	dialInfo, err := keyhole.ParseDialInfo(*uri)
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
 

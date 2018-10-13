@@ -3,6 +3,7 @@
 package keyhole
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -12,7 +13,8 @@ func TestParseDialInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(dialInfo.Addrs)
+	bytes, _ := json.MarshalIndent(dialInfo.Addrs, "", "  ")
+	t.Log(string(bytes))
 }
 
 func TestParseDialInfoSrv(t *testing.T) {
@@ -21,5 +23,12 @@ func TestParseDialInfoSrv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(dialInfo.Addrs)
+	bytes, _ := json.MarshalIndent(dialInfo.Addrs, "", "  ")
+	t.Log(string(bytes))
+}
+
+func TestNewReader(t *testing.T) {
+}
+
+func TestCountLines(t *testing.T) {
 }

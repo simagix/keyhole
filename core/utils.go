@@ -81,19 +81,28 @@ func ParseDialInfo(uri string) (*mgo.DialInfo, error) {
 }
 
 // NewReader returns a reader from either a gzip or plain file
-func NewReader(file *os.File) *bufio.Reader {
-	reader := bufio.NewReader(file)
-	bytes, _ := reader.Peek(2)
+func NewReader(file *os.File) (*bufio.Reader, error) {
+	var buf []byte
+	var err error
+	var reader *bufio.Reader
+
+	reader = bufio.NewReader(file)
+	if buf, err = reader.Peek(2); err != nil {
+		return reader, err
+	}
 	file.Seek(0, 0)
 
-	if bytes[0] == 31 && bytes[1] == 139 {
-		r, _ := gzip.NewReader(file)
-		reader = bufio.NewReader(r)
+	if buf[0] == 31 && buf[1] == 139 {
+		var zreader *gzip.Reader
+		if zreader, err = gzip.NewReader(file); err != nil {
+			return reader, err
+		}
+		reader = bufio.NewReader(zreader)
 	} else {
 		reader = bufio.NewReader(file)
 	}
 
-	return reader
+	return reader, nil
 }
 
 // CountLines count number of '\n'

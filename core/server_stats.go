@@ -3,6 +3,7 @@
 package keyhole
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -20,6 +21,9 @@ var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(ti
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = map[string][]bson.M{}
+
+// STANDALONE cluster
+const STANDALONE = "standalone"
 
 // ChartsDocs for drawing charts
 var ChartsDocs = map[string][]bson.M{}
@@ -149,8 +153,6 @@ type ServerStatusDoc struct {
 
 // CollectServerStatus collects db.serverStatus() every minute
 func (b Base) CollectServerStatus(uri string, channel chan string) {
-	mapKey := b.getKeyFromReplicaSetName()
-	channel <- "CollectServerStatus: connect to " + mapKey + "\n"
 	pstat := ServerStatusDoc{}
 	stat := ServerStatusDoc{}
 	var iop int
@@ -162,6 +164,11 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	}
 
 	dialInfo, _ := ParseDialInfo(uri)
+	mapKey := dialInfo.ReplicaSetName
+	if mapKey == "" {
+		mapKey = STANDALONE
+	}
+	channel <- "CollectServerStatus: connect to " + mapKey + "\n"
 	for {
 		session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
@@ -221,14 +228,17 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 
 // CollectDBStats collects dbStats every 10 seconds
 func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
-	mapKey := b.getKeyFromReplicaSetName()
-	channel <- "CollectDBStats: connect to " + mapKey + ", " + dbName + "\n"
 	var docs map[string]interface{}
 	var prevDataSize float64
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
 	dialInfo, _ := ParseDialInfo(uri)
+	mapKey := dialInfo.ReplicaSetName
+	if mapKey == "" {
+		mapKey = STANDALONE
+	}
+	channel <- "CollectDBStats: connect to " + mapKey + "\n"
 	session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
@@ -277,7 +287,11 @@ func (b Base) PrintServerStatus(uri string, span int) {
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
 func (b Base) saveServerStatusDocsToFile(uri string) string {
-	mapKey := b.getKeyFromReplicaSetName()
+	dialInfo, _ := ParseDialInfo(uri)
+	mapKey := dialInfo.ReplicaSetName
+	if mapKey == "" {
+		mapKey = STANDALONE
+	}
 	buf, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
 	filename := keyholeStatsDataFile + "-" + mapKey + ".gz"
@@ -313,21 +327,27 @@ func dbStats(session *mgo.Session, dbName string) bson.M {
 }
 
 // AnalyzeServerStatus -
-func AnalyzeServerStatus(filename string, span int, isWeb bool) {
+func AnalyzeServerStatus(filename string, span int, isWeb bool) error {
+	var err error
+	var file *os.File
+	var reader *bufio.Reader
 	// fmt.Println("filename", filename)
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	var bmap = []bson.M{}
-	f, err := os.Open(filename)
+	file, err = os.Open(filename)
 	if err != nil {
-		fmt.Println("error opening file ", err)
-		return
+		return err
 	}
-	defer f.Close()
+	defer file.Close()
 
-	r := NewReader(f)
+	reader, err = NewReader(file)
+	if err != nil {
+		return err
+	}
+
 	for {
-		line, ferr := r.ReadString('\n') // 0x0A separator = newline
+		line, ferr := reader.ReadString('\n') // 0x0A separator = newline
 		if ferr == io.EOF {
 			break
 		}
@@ -339,7 +359,7 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) {
 	json.Unmarshal(buf, &bmap)
 	ChartsDocs["replset"] = bmap
 	if isWeb {
-		return
+		return nil
 	}
 	if len(allDocs) > 0 {
 		stat := ServerStatusDoc{}
@@ -353,6 +373,7 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) {
 	printMetricsDetails(allDocs, span)
 	printWiredTigerCacheDetails(allDocs, span)
 	printWiredTigerConcurrentTransactionsDetails(allDocs, span)
+	return nil
 }
 
 // printStatsDetails -
@@ -579,12 +600,4 @@ func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc, span i
 		cnt++
 	}
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
-}
-
-func (b Base) getKeyFromReplicaSetName() string {
-	key := b.dialInfo.ReplicaSetName
-	if b.dialInfo.ReplicaSetName == "" {
-		return "standalone"
-	}
-	return key
 }
