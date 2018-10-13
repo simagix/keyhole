@@ -149,7 +149,7 @@ type ServerStatusDoc struct {
 
 // CollectServerStatus collects db.serverStatus() every minute
 func (b Base) CollectServerStatus(uri string, channel chan string) {
-	mapKey := getKeyFromReplicaSetName(uri)
+	mapKey := b.getKeyFromReplicaSetName()
 	channel <- "CollectServerStatus: connect to " + mapKey + "\n"
 	pstat := ServerStatusDoc{}
 	stat := ServerStatusDoc{}
@@ -177,7 +177,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 				ChartsDocs[dkey] = ChartsDocs[dkey][1:]
 			}
 			if len(serverStatusDocs[uri]) > 12 {
-				saveServerStatusDocsToFile(uri)
+				b.saveServerStatusDocsToFile(uri)
 			}
 
 			str := fmt.Sprintf("\n%s [%s] Memory - resident: %d, virtual: %d",
@@ -221,7 +221,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 
 // CollectDBStats collects dbStats every 10 seconds
 func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
-	mapKey := getKeyFromReplicaSetName(uri)
+	mapKey := b.getKeyFromReplicaSetName()
 	channel <- "CollectDBStats: connect to " + mapKey + ", " + dbName + "\n"
 	var docs map[string]interface{}
 	var prevDataSize float64
@@ -270,19 +270,19 @@ func (b Base) PrintServerStatus(uri string, span int) {
 	buf, _ := json.Marshal(serverStatus)
 	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-	filename := saveServerStatusDocsToFile(uri)
+	filename := b.saveServerStatusDocsToFile(uri)
 	fmt.Println("\nstats written to", filename)
 	AnalyzeServerStatus(filename, span, false)
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
-func saveServerStatusDocsToFile(uri string) string {
-	mapKey := getKeyFromReplicaSetName(uri)
+func (b Base) saveServerStatusDocsToFile(uri string) string {
+	mapKey := b.getKeyFromReplicaSetName()
 	buf, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
 	filename := keyholeStatsDataFile + "-" + mapKey + ".gz"
-	var b bytes.Buffer
-	gz := gzip.NewWriter(&b)
+	var bbuf bytes.Buffer
+	gz := gzip.NewWriter(&bbuf)
 	gz.Write(buf)
 	gz.Write([]byte{'\n'})
 	gz.Close() // close this before flushing the bytes to the buffer.
@@ -292,7 +292,7 @@ func saveServerStatusDocsToFile(uri string) string {
 		f, _ = os.Create(filename)
 	}
 	defer f.Close()
-	f.Write(b.Bytes())
+	f.Write(bbuf.Bytes())
 	f.Sync()
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
 	return filename
@@ -581,10 +581,9 @@ func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc, span i
 	fmt.Printf("+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+\n")
 }
 
-func getKeyFromReplicaSetName(uri string) string {
-	dialInfo, _ := mgo.ParseURL(uri)
-	key := dialInfo.ReplicaSetName
-	if dialInfo.ReplicaSetName == "" {
+func (b Base) getKeyFromReplicaSetName() string {
+	key := b.dialInfo.ReplicaSetName
+	if b.dialInfo.ReplicaSetName == "" {
 		return "standalone"
 	}
 	return key
