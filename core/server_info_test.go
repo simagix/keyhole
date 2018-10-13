@@ -20,7 +20,7 @@ func TestGetSession(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if dialInfo, err = mgo.ParseURL(uri); err != nil {
+	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		t.Fatal(err)
 	}
 	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
@@ -41,7 +41,7 @@ func TestGetMongoServerInfo(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if dialInfo, err = mgo.ParseURL(uri); err != nil {
+	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		t.Fatal(err)
 	}
 	if session, err = GetSession(dialInfo, false, "", ""); err != nil {

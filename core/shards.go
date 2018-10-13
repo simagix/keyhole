@@ -37,7 +37,7 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 		isSRV = true
 		uri = strings.Replace(uri, "mongodb+srv", "mongodb", 1)
 	}
-	dialInfo, _ := mgo.ParseURL(uri)
+	dialInfo, _ := ParseDialInfo(uri)
 	shards := ShardList{}
 	bytes, _ := json.Marshal(result)
 	json.Unmarshal(bytes, &shards)

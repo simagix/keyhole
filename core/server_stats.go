@@ -161,7 +161,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 		channel <- rstr
 	}
 
-	dialInfo, _ := mgo.ParseURL(uri)
+	dialInfo, _ := ParseDialInfo(uri)
 	for {
 		session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
@@ -228,7 +228,7 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	dialInfo, _ := mgo.ParseURL(uri)
+	dialInfo, _ := ParseDialInfo(uri)
 	session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
@@ -258,7 +258,7 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
 func (b Base) PrintServerStatus(uri string, span int) {
-	dialInfo, _ := mgo.ParseURL(uri)
+	dialInfo, _ := ParseDialInfo(uri)
 	session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	if err != nil {
 		panic(err)
