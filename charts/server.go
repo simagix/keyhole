@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/simagix/keyhole/stats"
+	keyhole "github.com/simagix/keyhole/core"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -68,8 +68,8 @@ func HTTPServer(port int) {
 func GetMemoryTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tResident")
-	for _, value := range stats.ChartsDocs {
-		stat := stats.ServerStatusDoc{}
+	for _, value := range keyhole.ChartsDocs {
+		stat := keyhole.ServerStatusDoc{}
 		for _, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
@@ -84,10 +84,10 @@ func GetMemoryTSV() []string {
 // GetPageFaultsTSV -
 func GetPageFaultsTSV() []string {
 	var docs []string
-	pstat := stats.ServerStatusDoc{}
+	pstat := keyhole.ServerStatusDoc{}
 	docs = append(docs, "date\tPage Faults")
-	for _, value := range stats.ChartsDocs {
-		stat := stats.ServerStatusDoc{}
+	for _, value := range keyhole.ChartsDocs {
+		stat := keyhole.ServerStatusDoc{}
 		for i, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
@@ -106,10 +106,10 @@ func GetPageFaultsTSV() []string {
 // GetScannedTSV -
 func GetScannedTSV() []string {
 	var docs []string
-	pstat := stats.ServerStatusDoc{}
+	pstat := keyhole.ServerStatusDoc{}
 	docs = append(docs, "date\tScanned Keys\tScanned Objects")
-	for _, value := range stats.ChartsDocs {
-		stat := stats.ServerStatusDoc{}
+	for _, value := range keyhole.ChartsDocs {
+		stat := keyhole.ServerStatusDoc{}
 		for i, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
@@ -130,8 +130,8 @@ func GetScannedTSV() []string {
 func GetWiredTigerCacheTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tMax Bytes(MB)\tIn Cache(MB)\tDirty Bytes(MB)")
-	for _, value := range stats.ChartsDocs {
-		stat := stats.ServerStatusDoc{}
+	for _, value := range keyhole.ChartsDocs {
+		stat := keyhole.ServerStatusDoc{}
 		for _, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
@@ -147,8 +147,8 @@ func GetWiredTigerCacheTSV() []string {
 func GetWiredTigerTicketsTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tRead Avail\tWrite Avail")
-	for _, value := range stats.ChartsDocs {
-		stat := stats.ServerStatusDoc{}
+	for _, value := range keyhole.ChartsDocs {
+		stat := keyhole.ServerStatusDoc{}
 		for _, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
