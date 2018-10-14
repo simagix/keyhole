@@ -23,7 +23,27 @@ func TestGetSession(t *testing.T) {
 	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, false, false, "", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(session)
+}
+
+func TestGetSessionTLS(t *testing.T) {
+	var err error
+	var dialInfo *mgo.DialInfo
+	var session *mgo.Session
+
+	uri := "mongodb://localhost/"
+	if os.Getenv("DATABASE_URL") != "" {
+		uri = os.Getenv("DATABASE_URL")
+	}
+
+	if dialInfo, err = ParseDialInfo(uri); err != nil {
+		t.Fatal(err)
+	}
+	if session, err = GetSession(dialInfo, false, false, "/etc/ssl/certs/ca.pem", "/etc/ssl/certs/server.pem"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -44,7 +64,7 @@ func TestGetMongoServerInfo(t *testing.T) {
 	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, false, false, "", ""); err != nil {
 		t.Fatal(err)
 	}
 

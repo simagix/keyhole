@@ -173,9 +173,8 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	}
 	channel <- "CollectServerStatus: connect to " + mapKey + "\n"
 	for {
-		session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
-			session.SetMode(mgo.Primary, true)
 			serverStatus := serverStatus(session)
 			buf, _ := json.Marshal(serverStatus)
 			json.Unmarshal(buf, &stat)
@@ -242,11 +241,10 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 		mapKey = STANDALONE
 	}
 	channel <- "CollectDBStats: connect to " + mapKey + "\n"
-	session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+	session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
-			session.SetMode(mgo.Primary, true)
 			stat := dbStats(session, dbName)
 			buf, _ := json.Marshal(stat)
 			json.Unmarshal(buf, &docs)
@@ -270,15 +268,13 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 }
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
-func (b Base) PrintServerStatus(uri string, span int) {
+func (b Base) PrintServerStatus(uri string, span int) error {
 	dialInfo, _ := ParseDialInfo(uri)
-	session, err := GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+	session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer session.Close()
-	session.SetMode(mgo.Primary, true)
-
 	serverStatus := serverStatus(session)
 	buf, _ := json.Marshal(serverStatus)
 	json.Unmarshal(buf, &serverStatus)
@@ -286,6 +282,7 @@ func (b Base) PrintServerStatus(uri string, span int) {
 	filename := b.saveServerStatusDocsToFile(uri)
 	fmt.Println("\nstats written to", filename)
 	AnalyzeServerStatus(filename, span, false)
+	return nil
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file

@@ -23,7 +23,7 @@ func getSession() (*mgo.Session, error) {
 	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		return session, err
 	}
-	return GetSession(dialInfo, false, "", "")
+	return GetSession(dialInfo, false, false, "", "")
 }
 
 func TestAdminCommand(t *testing.T) {

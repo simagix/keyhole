@@ -105,7 +105,7 @@ func main() {
 		fmt.Println("MongoDB URI:", *uri)
 	}
 
-	session, err := keyhole.GetSession(dialInfo, *ssl, *sslCAFile, *sslPEMKeyFile)
+	session, err := keyhole.GetSession(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile)
 	if err != nil {
 		panic(err)
 	}

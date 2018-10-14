@@ -34,7 +34,6 @@ func GetSchemaFromCollection(session *mgo.Session, dbName string, collection str
 		return "", errors.New("usage: keyhole --schema [--file filename | --uri connection_uri --collection collection_name]")
 	}
 	result := bson.M{}
-	session.SetMode(mgo.Primary, true)
 	c := session.DB(dbName).C(collection)
 	c.Find(bson.M{}).One(&result)
 

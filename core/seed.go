@@ -84,8 +84,6 @@ func (sb SeedBase) SeedData(session *mgo.Session) error {
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
 func (sb SeedBase) seed(session *mgo.Session) {
-	session.SetMode(mgo.Primary, true)
-
 	c := session.DB(sb.DBName).C("lookups")
 	if sb.IsDrop {
 		c.DropCollection()
@@ -223,7 +221,6 @@ func (sb SeedBase) seedFromTemplate(session *mgo.Session) {
 	}
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
-	session.SetMode(mgo.Primary, true)
 	collName := sb.Collection
 	if collName == "" {
 		collName = "examples"

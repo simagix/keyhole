@@ -22,7 +22,7 @@ func TestSeed(t *testing.T) {
 	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, false, false, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	defer session.Close()
@@ -62,7 +62,7 @@ func TestSeedFromTemplate(t *testing.T) {
 	if dialInfo, err = ParseDialInfo(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, false, false, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	defer session.Close()

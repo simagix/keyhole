@@ -14,7 +14,6 @@ func AdminCommand(session *mgo.Session, command string) (bson.M, error) {
 
 // AdminCommandOnDB execute admin Command at given database
 func AdminCommandOnDB(session *mgo.Session, command string, db string) (bson.M, error) {
-	session.SetMode(mgo.Primary, true)
 	result := bson.M{}
 	if err := session.DB(db).Run(command, &result); err != nil {
 		return nil, err

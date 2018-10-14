@@ -67,14 +67,8 @@ func (b Base) PopulateData(wmajor bool) error {
 	if b.verbose {
 		fmt.Println("PopulateData", wmajor)
 	}
-	if session, err = GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, err = GetSession(b.dialInfo, wmajor, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return err
-	}
-	session.SetMode(mgo.Primary, true)
-	if wmajor {
-		session.SetSafe(&mgo.Safe{WMode: "majority"})
-	} else {
-		session.SetSafe(&mgo.Safe{W: 1})
 	}
 	defer session.Close()
 	c := session.DB(SimDBName).C(CollectionName)
@@ -104,20 +98,16 @@ func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
 	isTeardown := false
 	var totalTPS int
 
-	for run := 0; run < duration; run++ {
-		session, err := GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
-		session.SetMode(mgo.Primary, true)
-		if wmajor {
-			session.SetSafe(&mgo.Safe{WMode: "majority"})
-		} else {
-			session.SetSafe(&mgo.Safe{W: 1})
-		}
-		if err != nil {
-			continue
-		}
+	var session *mgo.Session
+	var err error
+	if session, err = GetSession(b.dialInfo, wmajor, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return
+	}
+	defer session.Close()
+	c := session.DB(SimDBName).C(CollectionName)
 
+	for run := 0; run < duration; run++ {
 		// be a minute transactions
-		c := session.DB(SimDBName).C(CollectionName)
 		stage := "setup"
 		if run == (duration - 1) {
 			stage = "teardown"
@@ -171,11 +161,12 @@ func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
 		if seconds > 0 {
 			time.Sleep(time.Duration(seconds) * time.Second)
 		}
-		session.Close()
 		if b.verbose {
 			fmt.Println("=>", time.Now().Sub(beginTime))
 		}
 	} //for run := 0; run < duration; run++
+
+	c.DropCollection()
 }
 
 // cloneDoc clones a doc and assign a _id
@@ -196,24 +187,29 @@ func getQueryFilter(doc interface{}) bson.M {
 }
 
 // Cleanup drops the temp database
-func (b Base) Cleanup() {
+func (b Base) Cleanup() error {
 	var err error
 	var session *mgo.Session
 
 	log.Println("cleanup", b.uri)
-	if session, err = GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
-		return
+	if session, err = GetSession(b.dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return err
 	}
 	defer session.Close()
 	log.Println("dropping collection", SimDBName, CollectionName)
 	session.DB(SimDBName).C(CollectionName).DropCollection()
 	log.Println("dropping database", SimDBName)
 	session.DB(SimDBName).DropDatabase()
+	return nil
 }
 
 // CreateIndexes creates indexes
-func (b Base) CreateIndexes(docs []bson.M) {
-	session, _ := GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+func (b Base) CreateIndexes(docs []bson.M) error {
+	var session *mgo.Session
+	var err error
+	if session, _ = GetSession(b.dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return err
+	}
 	defer session.Close()
 	c := session.DB(SimDBName).C(CollectionName)
 
@@ -228,9 +224,11 @@ func (b Base) CreateIndexes(docs []bson.M) {
 			keys = append(keys, field)
 		}
 
-		e := c.EnsureIndex(mgo.Index{Key: keys})
-		if e != nil {
-			panic(e)
+		err = c.EnsureIndex(mgo.Index{Key: keys})
+		if err != nil {
+			return err
 		}
 	}
+
+	return err
 }
