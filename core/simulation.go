@@ -60,13 +60,15 @@ func (b Base) initSimDocs() {
 //	favoriteSports2
 //	favoriteSports3
 // }
-func (b Base) PopulateData(wmajor bool) {
+func (b Base) PopulateData(wmajor bool) error {
+	var session *mgo.Session
+	var err error
+
 	if b.verbose {
 		fmt.Println("PopulateData", wmajor)
 	}
-	session, err := GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
-	if err != nil {
-		panic(err)
+	if session, err = GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return err
 	}
 	session.SetMode(mgo.Primary, true)
 	if wmajor {
@@ -76,21 +78,22 @@ func (b Base) PopulateData(wmajor bool) {
 	}
 	defer session.Close()
 	c := session.DB(SimDBName).C(CollectionName)
-	docidx := 0
 	btime := time.Now()
 	for time.Now().Sub(btime) < time.Minute {
 		bulk := c.Bulk()
 		var contentArray []interface{}
+		docidx := 0
 		for i := 0; i < b.bulkSize; i++ {
 			contentArray = append(contentArray, simDocs[docidx%len(simDocs)])
 			docidx++
 		}
 		bulk.Insert(contentArray...)
-		_, err = bulk.Run()
-		if err != nil {
-			panic(err)
+		if _, err = bulk.Run(); err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
 // Simulate simulates CRUD for load tests
@@ -194,10 +197,12 @@ func getQueryFilter(doc interface{}) bson.M {
 
 // Cleanup drops the temp database
 func (b Base) Cleanup() {
+	var err error
+	var session *mgo.Session
+
 	log.Println("cleanup", b.uri)
-	session, err := GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
-	if err != nil {
-		panic(err)
+	if session, err = GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return
 	}
 	defer session.Close()
 	log.Println("dropping collection", SimDBName, CollectionName)

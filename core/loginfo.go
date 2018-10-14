@@ -58,29 +58,12 @@ func getDocByField(str string, field string) string {
 	return str[bpos:epos]
 }
 
-// LogInfo -
-func LogInfo(filename string, collscan bool, verbose bool) error {
-	var err error
-	var reader *bufio.Reader
-	var file *os.File
-	var opsMap map[string]OpPerformanceDoc
-	var buf []byte
-
-	opsMap = make(map[string]OpPerformanceDoc)
-	file, err = os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	reader, err = NewReader(file)
-	if err != nil {
-		return err
-	}
-	lineCounts, _ := CountLines(reader)
-
+func getConfigOptions(reader *bufio.Reader) []string {
 	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
-	file.Seek(0, 0)
-	reader, _ = NewReader(file)
+	var err error
+	var buf []byte
+	var strs []string
+
 	for {
 		buf, _, err = reader.ReadLine() // 0x0A separator = newline
 		if err != nil {
@@ -88,27 +71,56 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 		} else if matched.MatchString(string(buf)) == true {
 			result := matched.FindStringSubmatch(string(buf))
 			if result[1] == "db" {
-				fmt.Println("db", result[3])
+				s := "db " + result[3]
+				strs = append(strs, s)
 			} else if result[1] == "options:" {
 				re := regexp.MustCompile(`((\S+):)`)
 				body := re.ReplaceAllString(result[3], "\"$1\":")
 				var buf bytes.Buffer
 				json.Indent(&buf, []byte(body), "", "  ")
-				fmt.Println("config options:")
-				fmt.Println(string(buf.Bytes()))
-				break
+
+				strs = append(strs, "config options:")
+				strs = append(strs, string(buf.Bytes()))
+				return strs
 			}
 		}
 	}
+	return strs
+}
 
-	matched = regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
-	file.Seek(0, 0)
-	reader, err = NewReader(file)
-	if err != nil {
+// LogInfo -
+func LogInfo(filename string, collscan bool, verbose bool) error {
+	var err error
+	var reader *bufio.Reader
+	var file *os.File
+	var opsMap map[string]OpPerformanceDoc
+
+	opsMap = make(map[string]OpPerformanceDoc)
+	if file, err = os.Open(filename); err != nil {
 		return err
 	}
-	index := 0
+	defer file.Close()
 
+	if reader, err = NewReader(file); err != nil {
+		return err
+	}
+	lineCounts, _ := CountLines(reader)
+
+	file.Seek(0, 0)
+	reader, _ = NewReader(file)
+	if strs := getConfigOptions(reader); len(strs) > 0 {
+		for _, s := range strs {
+			fmt.Println(s)
+		}
+	}
+
+	matched := regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
+	file.Seek(0, 0)
+	if reader, err = NewReader(file); err != nil {
+		return err
+	}
+
+	index := 0
 	for {
 		if index%25 == 1 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
@@ -247,7 +259,11 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
 	})
+	printLogsSummary(arr, verbose)
+	return nil
+}
 
+func printLogsSummary(arr []OpPerformanceDoc, verbose bool) {
 	fmt.Fprintf(os.Stderr, "\r100%% ")
 	fmt.Println("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
 	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern")
@@ -300,7 +316,6 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 		}
 	}
 	fmt.Println("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
-	return nil
 }
 
 // convert $in: [...] to $in: [ ]

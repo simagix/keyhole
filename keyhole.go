@@ -15,7 +15,7 @@ import (
 var version string
 
 func main() {
-	bulksize := flag.Int("bulksize", 512, "bulk insert size")
+	bulksize := flag.Int("bulksize", 100, "bulk insert size")
 	cleanup := flag.Bool("cleanup", false, "clean up demo database")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")

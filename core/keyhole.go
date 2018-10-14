@@ -55,17 +55,17 @@ func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, ssl
 	return runner
 }
 
-func (b Base) getURIList(session *mgo.Session) ([]string, error) {
+func getShardsURIList(session *mgo.Session, uri string) ([]string, error) {
 	var uriList []string
 	var err error
 	ssi, err = GetMongoServerInfo(session)
 	if err != nil {
 		return uriList, err
 	}
-	uriList = append(uriList, b.uri)
+	uriList = append(uriList, uri)
 	if ssi.Cluster == SHARDED {
 		var e error
-		uriList, e = GetShards(session, b.uri)
+		uriList, e = GetShards(session, uri)
 		if e != nil {
 			return uriList, err
 		}
@@ -76,7 +76,7 @@ func (b Base) getURIList(session *mgo.Session) ([]string, error) {
 // Start process requests
 func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
 	var err error
-	uriList, err := b.getURIList(session)
+	uriList, err := getShardsURIList(session, b.uri)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -114,8 +114,10 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
 		for i := 0; i < conn; i++ {
 			go func() {
 				if simonly == false {
-					b.PopulateData(b.wmajor)
-					time.Sleep(1 * time.Second)
+					if err = b.PopulateData(b.wmajor); err != nil {
+						panic(err)
+					}
+					time.Sleep(10 * time.Millisecond)
 				}
 
 				b.Simulate(simTime, tdoc.Transactions, b.wmajor)
@@ -123,7 +125,7 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
 		}
 	}
 
-	b.collectServerStatus(uriList)
+	b.collectServerStatus(uriList, simonly)
 }
 
 func (b Base) printStats(uriList []string) {
@@ -157,13 +159,13 @@ func (b Base) printStats(uriList []string) {
 	}()
 }
 
-func (b Base) collectServerStatus(uriList []string) {
+func (b Base) collectServerStatus(uriList []string, simonly bool) {
 	var channel = make(chan string)
 	for _, value := range uriList {
 		if b.monitor == false {
 			if b.peek == true { // peek mode watch a defined db
 				go b.CollectDBStats(value, channel, b.dbName)
-			} else { // load test mode watches _KEYHOLE_88000
+			} else if simonly == false { // load test mode watches _KEYHOLE_88000
 				go b.CollectDBStats(value, channel, SimDBName)
 			}
 		}

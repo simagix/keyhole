@@ -255,7 +255,7 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 			}
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
-			if sec > 1 && delta >= 0 {
+			if sec > 5 && delta >= 0 {
 				str := fmt.Sprintf("%s [%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
 					now.Format(time.RFC3339), mapKey, prevDataSize/mb, dataSize/mb, delta)
 				channel <- str
