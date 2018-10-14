@@ -11,21 +11,21 @@ mongodb://<usern>:<passwd>@<hostname>:<port>/?authSource=<db>
 Once you have a connection string, connect to your cluster with `--uri` and `--info` flag.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin --info
+keyhole --info mongodb://user:password@localhost:27017/?authSource=admin
 ```
 
 For a sharded cluster, connect to a `mongos` and the command is similar to connecting to a standalone server.  For a replica set, include all replica nodes and replica set name in the connection string.  Below is an example of connecting to a replica set.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017,localhost:27018,localhost,27019/?replicaSet=replset\&authSource=admin --info
+keyhole --info "mongodb://user:password@host1,host2,host3/?replicaSet=replset&authSource=admin"
 ```
 
 ### TLS/SSL Support
 If inflight encryption is required by your cluster, include `--ssl` and `--sslCAFile` in the command.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --info --ssl --sslCAFile /etc/ssl/certs/ca.crt
+keyhole --info --ssl --sslCAFile /etc/ssl/certs/ca.crt \
+   "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 In the following sections, I will cover use cases of how Keyhole is used for performance analytic.
@@ -116,22 +116,24 @@ Using a template, *keyhole* is intelligent enough to detect data types.  **More 
 *Keyhole* by default seeds 1,000 documents at a time to namespace `_KEYHOLE_.examples`
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --seed --file template.json
+keyhole --seed --file template.json "mongodb://user:password@localhost:27017/?authSource=admin"
+
 ```
 
 You can specify the destination database by including the target database in the connection string and the total number of documents to be created with the `--total` flags.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/EXAMPLEDB?authSource=admin \
-    --seed --file template.json --total 5000
+keyhole --seed --file template.json --total 5000 \
+  "mongodb://user:password@localhost:27017/EXAMPLEDB?authSource=admin"
+
 ```
 
 The above example writes 5,000 documents to `EXAMPLEDB.examples`.  In addition, *keyhole* inserts into the destination collection without dropping it first.  To drop the `_KEYHOLE_.examples` before any document insertion, include the `--drop` flag.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --seed --file template.json --total 5000 --drop
+keyhole --seed --file template.json --total 5000 --drop \
+  "mongodb://user:password@localhost:27017/?authSource=admin"
+
 ```
 
 ## Monitoring
@@ -141,14 +143,13 @@ There are two ways to begin monitoring, and they are with `--peek` and `--monito
 *Keyhole* can collect server status data by issuing `db.serverStatus()` to a node or a cluster with the `--peek` flag.  if *keyhole* connects to a replica set, it will connect to the primary node.  Below is an example of connecting to a standalone instance.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin --peek
+keyhole --peek "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 Note that, the default database *keyhole* collects database stats from is `_KEYHOLE`.  You can include the targe database in the connection string as described in the *Seed Data* section.  By default, *keyhole* runs for a period of 5 minutes and intends to take a "snapshot" of the system performance.  To prolong the monitoring time, include the `--duration` flag.  For example, to monitor a cluster for 60 minutes, do
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --peek --duration 60
+keyhole --peek --duration 60 "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 For a sharded cluster, *keyhole* connects to the primary node of all shards.  The reason of doing so, instead of remaining at `mongos`, is to collect more stats, such as wiredTiger stats data, and provide a partial view of the entire cluster.
@@ -171,14 +172,13 @@ With `--monitor` flag, *keyhole* collects server status using `db.serverStats()`
 
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin --monitor
+keyhole --monitor "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 To change the default duration, include the `--duration` flag (in minutes).
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --monitor --duration 120
+keyhole --monitor --duration 120 "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 ## Performance Analytic
@@ -255,8 +255,7 @@ WiredTiger storage engine uses tickets to control the number of read/write opera
 *Keyhole* can be used as a load testing tool on top of the collecting stats functions.  To load test a standalone server, simply execute it with the `--uri` flag.  Along the way, *keyhole* also collect server status as described in *Monitoring* section and prints summaries at the end of a run.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --file template.json
+keyhole --file template.json "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 The above command by default spawns 10 connections and generates 300 transactions per second (TPS) for 5 minutes.  You can change the number of connections by including the `--conn` flag, the TPS from `--tps` flag, and duration from `--duration` flag.
@@ -265,8 +264,8 @@ The above command by default spawns 10 connections and generates 300 transaction
 You can load test with pre-defined transactions and indexes with `--tx` flag.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --file template.json --tx transactions.json
+keyhole --file template.json --tx transactions.json \
+  "mongodb://user:password@localhost:27017/?authSource=admin"
 ```
 
 In the template file, you can define *indexes* and *transactions*.  Both single field and compound indexes are supported.  In addition, supported commands are
@@ -363,8 +362,9 @@ The last minute is the teardown period and it removes test data from database.
 *Keyhole* can run in a simulation only mode without populating data first.  This is especially useful when you already have data ready to test with.  If testing the bandwidth of write throughputs is already done, with pre-populated data, you may want to run *keyhole* in a simulation only mode and lower the TPS.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/?authSource=admin \
-    --file template.json --simonly --tps 40
+keyhole --file template.json --simonly --tps 40 \
+  "mongodb://user:password@localhost:27017/?authSource=admin"
+
 ```
 
 ## Log Analytic
@@ -384,15 +384,14 @@ keyhole --loginfo /var/log/mongodb/mongod.log.2018-06-07T11-08-32.gz --collscan
 *Keyhole* is able to connection to retrieve the first document of a collection and returns a masked document as its schema view.  For example,
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin \
-    --schema --collection examples
+keyhole --schema --collection examples "mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin"
 ```
 
 ## List indexes
 *Keyhole* can print all indexes of collections of a database.  This is useful to evaluate redundant indexes of a collection.  Below is an example.
 
 ```
-$ keyhole --uri mongodb://localhost/keyhole --index
+$ keyhole --index "mongodb://localhost/keyhole"
 
 keyhole.cars:
     { color: -1 }
@@ -404,7 +403,7 @@ keyhole.cars:
 Note that the index `{ _id: 1 }` is ignore.  Include *-v* to print all indexes.
 
 ```
-$ keyhole --uri mongodb://localhost/keyhole --index -v
+$ keyhole --index -v "mongodb://localhost/keyhole"
 
 keyhole.cars:
     { _id: 1 }
@@ -421,11 +420,11 @@ $ keyhole --uri mongodb://localhost/ --index
 ```
 
 ## Performance Charts POC
-### Live Stats Collecting
-Use flags `--monitor` and `--web` to enable HTTP server on port 5408.
+### Read Stats From a File
+Use flags `--file` and `--web` to enable HTTP server on port 5408.
 
 ```
-keyhole --uri mongodb://user:password@localhost:27017/KEYHOLEDB?authSource=admin --web
+keyhole --file /tmp/keyhole_stats.2018-06-25T075012-replset.gz --web
 ```
 
 To view near real time performance charts, used
@@ -435,10 +434,3 @@ To view near real time performance charts, used
 - Keys and Documents Scanned (Examined), http://localhost:5408/scanned
 - WiredTiger Cache, http://localhost:5408/wiredtiger_cache
 - WiredTiger Concurrent Transactions (Read/Write Tickets), http://localhost:5408/wiredtiger_tickets
-
-### Read Stats From a File
-Use flags `--file` and `--web` to enable HTTP server on port 5408.
-
-```
-keyhole --file /tmp/keyhole_stats.2018-06-25T075012-replset.gz --web
-```

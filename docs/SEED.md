@@ -12,8 +12,8 @@ Seed data by reading a template from a file.  Key characters of random values ar
 - Random US phone numbers
 
 ```
-keyhole -uri=mongodb://localhost/_KEYHOLE_?replicaSet=replset -seed \
-	--file <file>.json --collection <collection_name> [--total <num>] [--drop]
+keyhole -seed [--file <file>.json --collection <collection_name>] [--total <num>] [--drop] \
+	mongodb://localhost/_KEYHOLE_?replicaSet=replset
 ```
 
 
@@ -88,7 +88,7 @@ keyhole -uri=mongodb://localhost/_KEYHOLE_?replicaSet=replset -seed \
 ## Seed data for demo.
 
 ```
-keyhole -uri=mongodb://localhost/_KEYHOLE_?replicaSet=replset -seed --drop [--total <num>]
+keyhole -seed --drop [--total <num>] "mongodb://localhost/_KEYHOLE_?replicaSet=replset"
 ```
 
 ### Collections
