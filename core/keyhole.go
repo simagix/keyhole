@@ -4,6 +4,7 @@ package keyhole
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -74,35 +75,30 @@ func getShardsURIList(session *mgo.Session, uri string) ([]string, error) {
 }
 
 // Start process requests
-func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
+func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) error {
 	var err error
 	uriList, err := getShardsURIList(session, b.uri)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
-	fmt.Println("Duration in minute(s):", b.duration)
-	b.printStats(uriList)
+	log.Println("Duration in minute(s):", b.duration)
+	b.printStats(uriList, session)
 
 	if b.peek == false && b.monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
 		if b.drop {
-			b.Cleanup()
+			Cleanup(session)
 		}
 
 		if err = ShardCollection(session); err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 
-		if b.wmajor {
-			fmt.Println("{w : majority}")
-		}
 		// Simulation mode
 		// 1st minute - build up data and memory
 		// 2nd and 3rd minutes - normal TPS ops
 		// remaining minutes - burst with no delay
 		// last minute - normal TPS ops until exit
-		fmt.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n",
+		log.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins), bulk size: %d\n",
 			b.tps, conn, b.tps*conn, b.duration, b.bulkSize)
 
 		tdoc := GetTransactions(tx)
@@ -126,37 +122,41 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) {
 	}
 
 	b.collectServerStatus(uriList, simonly)
+	return err
 }
 
-func (b Base) printStats(uriList []string) {
+func (b Base) printStats(uriList []string, session *mgo.Session) {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	timer := time.NewTimer(time.Duration(b.duration) * time.Minute)
 
-	go func() {
+	go func(session *mgo.Session, uriList []string) {
 		for {
 			select {
 			case <-quit:
-				for _, value := range uriList {
-					b.PrintServerStatus(value, b.span)
-				}
-				if b.cleanup {
-					b.Cleanup()
-				}
-				os.Exit(0)
+				b.preTermination(session, uriList)
 			case <-timer.C:
 				if b.monitor == false {
-					for _, value := range uriList {
-						b.PrintServerStatus(value, b.span)
-					}
-					if b.cleanup {
-						b.Cleanup()
-					}
-					os.Exit(0)
+					b.preTermination(session, uriList)
 				}
 			}
 		}
-	}()
+	}(session, uriList)
+}
+
+func (b Base) preTermination(session *mgo.Session, uriList []string) {
+	var filenames []string
+	for _, value := range uriList {
+		filename, _ := b.PrintServerStatus(value, b.span)
+		filenames = append(filenames, filename)
+	}
+	for _, filename := range filenames {
+		log.Println("stats written to", filename)
+	}
+	if b.cleanup {
+		Cleanup(session)
+	}
+	os.Exit(0)
 }
 
 func (b Base) collectServerStatus(uriList []string, simonly bool) {
@@ -175,7 +175,7 @@ func (b Base) collectServerStatus(uriList []string, simonly bool) {
 	// infinite loop waits for goroutine to send messages back
 	for {
 		msg := <-channel
-		fmt.Print(msg)
+		log.Print(msg)
 		time.Sleep(time.Second * 1)
 	}
 }

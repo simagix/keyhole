@@ -176,14 +176,13 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	if mapKey == "" {
 		mapKey = STANDALONE
 	}
-	channel <- "CollectServerStatus: connect to " + mapKey + "\n"
+	channel <- "[" + mapKey + "] CollectServerStatus begins\n"
 	for {
 		session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
 			serverStatus := serverStatus(session)
 			buf, _ := json.Marshal(serverStatus)
 			json.Unmarshal(buf, &stat)
-			key := time.Now().Format(time.RFC3339)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
 			dkey := dialInfo.ReplicaSetName + "/" + strings.Join(dialInfo.Addrs[:], ",")
 			ChartsDocs[dkey] = append(ChartsDocs[dkey], serverStatus)
@@ -194,8 +193,9 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 				b.saveServerStatusDocsToFile(uri)
 			}
 
-			str := fmt.Sprintf("\n%s [%s] Memory - resident: %d, virtual: %d",
-				key, mapKey, stat.Mem.Resident, stat.Mem.Virtual)
+			var msg1, msg2 string
+			str := fmt.Sprintf("[%s] Memory - resident: %d, virtual: %d",
+				mapKey, stat.Mem.Resident, stat.Mem.Virtual)
 			iop = stat.Metrics.Document.Inserted + stat.Metrics.Document.Returned +
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
@@ -205,15 +205,15 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 				if stat.Host == pstat.Host {
 					str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
 						(stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
-					str += fmt.Sprintf("%s [%s] CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
-						key, mapKey, stat.OpCounters.Insert-pstat.OpCounters.Insert,
+					msg1 = fmt.Sprintf("[%s] CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
+						mapKey, stat.OpCounters.Insert-pstat.OpCounters.Insert,
 						stat.OpCounters.Query-pstat.OpCounters.Query,
 						stat.OpCounters.Update-pstat.OpCounters.Update,
 						stat.OpCounters.Delete-pstat.OpCounters.Delete,
 						stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
 						stat.OpCounters.Command-pstat.OpCounters.Command)
-					str += fmt.Sprintf("%s [%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
-						key, mapKey,
+					msg2 = fmt.Sprintf("[%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
+						mapKey,
 						float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
 						float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
 						float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
@@ -225,6 +225,12 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 			}
 			if b.monitor == false && len(serverStatusDocs[uri])%6 == 1 {
 				channel <- str
+				if msg1 != "" {
+					channel <- msg1
+				}
+				if msg2 != "" {
+					channel <- msg2
+				}
 			}
 			piop = iop
 			session.Close()
@@ -245,7 +251,7 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 	if mapKey == "" {
 		mapKey = STANDALONE
 	}
-	channel <- "CollectDBStats: connect to " + mapKey + "\n"
+	channel <- "[" + mapKey + "] CollectDBStats begins\n"
 	session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
@@ -259,8 +265,8 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 5 && delta >= 0 {
-				str := fmt.Sprintf("%s [%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
-					now.Format(time.RFC3339), mapKey, prevDataSize/mb, dataSize/mb, delta)
+				str := fmt.Sprintf("[%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
+					mapKey, prevDataSize/mb, dataSize/mb, delta)
 				channel <- str
 			}
 			prevDataSize = dataSize
@@ -269,25 +275,26 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 		}
 		time.Sleep(10 * time.Second)
 	}
-	channel <- "CollectDBStats exiting...\n"
+	channel <- "[" + mapKey + "] CollectDBStats exiting...\n"
 }
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
-func (b Base) PrintServerStatus(uri string, span int) error {
+func (b Base) PrintServerStatus(uri string, span int) (string, error) {
+	var session *mgo.Session
+	var err error
+	var filename string
 	dialInfo, _ := ParseDialInfo(uri)
-	session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
-	if err != nil {
-		return err
+	if session, err = GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return filename, err
 	}
 	defer session.Close()
 	serverStatus := serverStatus(session)
 	buf, _ := json.Marshal(serverStatus)
 	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-	filename := b.saveServerStatusDocsToFile(uri)
-	fmt.Println("\nstats written to", filename)
+	filename = b.saveServerStatusDocsToFile(uri)
 	AnalyzeServerStatus(filename, span, false)
-	return nil
+	return filename, err
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
@@ -336,7 +343,6 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) error {
 	var err error
 	var file *os.File
 	var reader *bufio.Reader
-	// fmt.Println("filename", filename)
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	var bmap = []bson.M{}
