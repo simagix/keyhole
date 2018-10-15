@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -24,7 +25,12 @@ func GetDemoSchema() string {
 
 // GetDemoFromFile returns a doc from a template
 func GetDemoFromFile(filename string) string {
-	buf, _ := json.MarshalIndent(GetDocByTemplate(filename, false), "", "  ")
+	var doc bson.M
+	var err error
+	if doc, err = GetDocByTemplate(filename, false); err != nil {
+		return ""
+	}
+	buf, _ := json.MarshalIndent(doc, "", "  ")
 	return string(buf)
 }
 
@@ -78,7 +84,7 @@ func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string 
 		results := []bson.M{}
 		err := session.DB(dbName).C(coll).Pipe(pipeline).All(&results)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		} else if len(results) < 1 || (len(results) == 1 && !verbose) {
 			continue
 		}

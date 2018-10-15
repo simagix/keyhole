@@ -129,9 +129,9 @@ func (sb SeedBase) seed(session *mgo.Session) {
 			modelRes := Model{}
 			robotRes := []Robot{}
 			_ = modelsCollection.Find(bson.M{"_id": model}).One(&modelRes)
-			fmt.Println(modelRes)
+			log.Println(modelRes)
 			_ = robotsCollection.Find(bson.M{"modelId": model}).All(&robotRes)
-			fmt.Println(robotRes)
+			log.Println(robotRes)
 		}
 	}
 	modelsCount, _ := modelsCollection.Count()
@@ -214,10 +214,14 @@ func (sb SeedBase) seedCollection(c *mgo.Collection, total int, fnum int) int {
 
 // SeedFromTemplate seeds data from a template in a file
 func (sb SeedBase) seedFromTemplate(session *mgo.Session) {
-	sdoc := GetDocByTemplate(sb.File, true)
+	var sdoc bson.M
+	var err error
+	if sdoc, err = GetDocByTemplate(sb.File, true); err != nil {
+		return
+	}
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if sb.Verbose {
-		fmt.Println(string(bytes))
+		log.Println(string(bytes))
 	}
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
@@ -225,7 +229,7 @@ func (sb SeedBase) seedFromTemplate(session *mgo.Session) {
 	if collName == "" {
 		collName = "examples"
 	}
-	fmt.Println("Seed data to collection", collName)
+	log.Println("Seed data to collection", collName)
 	examplesCollection := session.DB(sb.DBName).C(collName)
 	if sb.IsDrop {
 		examplesCollection.DropCollection()

@@ -8,6 +8,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"runtime"
@@ -43,8 +44,8 @@ func ParseDialInfo(uri string) (*mgo.DialInfo, error) {
 		srvAddr := dialInfo.Addrs[0]
 		params, pe := net.LookupTXT(srvAddr)
 		if pe != nil {
-			fmt.Println("Error:", pe)
-			fmt.Println("dialInfo.Addrs:", dialInfo.Addrs)
+			log.Println("Error:", pe)
+			log.Println("dialInfo.Addrs:", dialInfo.Addrs)
 			return nil, pe
 		}
 		if strings.Index(uri, "?") < 0 {
@@ -55,13 +56,13 @@ func ParseDialInfo(uri string) (*mgo.DialInfo, error) {
 
 		dialInfo, err = mgo.ParseURL(uri)
 		if err != nil {
-			fmt.Println("Error:", err)
+			log.Println("Error:", err)
 			return dialInfo, err
 		}
 		_, addrs, le := net.LookupSRV("mongodb", "tcp", srvAddr)
 		if le != nil {
-			fmt.Println("Error:", le)
-			fmt.Println("dialInfo.Addrs:", dialInfo.Addrs)
+			log.Println("Error:", le)
+			log.Println("dialInfo.Addrs:", dialInfo.Addrs)
 			return nil, le
 		}
 		addresses := make([]string, len(addrs))

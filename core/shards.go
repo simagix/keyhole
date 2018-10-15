@@ -4,7 +4,7 @@ package keyhole
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"strings"
 
 	"github.com/globalsign/mgo"
@@ -83,7 +83,7 @@ func ShardCollection(session *mgo.Session) error {
 	}
 
 	collname := SimDBName + "." + CollectionName
-	fmt.Println("Sharding collection:", collname)
+	log.Println("Sharding collection:", collname)
 	result := bson.M{}
 	if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
 		return err

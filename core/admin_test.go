@@ -58,3 +58,14 @@ func TestAdminCommandOnDB(t *testing.T) {
 	bytes, _ := json.MarshalIndent(m, "", "  ")
 	t.Log(string(bytes))
 }
+
+func TestCleanup(t *testing.T) {
+	var err error
+	var session *mgo.Session
+	if session, err = getSession(); err != nil {
+		t.Fatal(err)
+	}
+	if err = Cleanup(session); err != nil {
+		t.Fatal(err)
+	}
+}

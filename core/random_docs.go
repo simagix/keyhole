@@ -5,7 +5,6 @@ package keyhole
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"regexp"
@@ -17,21 +16,22 @@ import (
 )
 
 // GetDocByTemplate returns a bson.M document
-func GetDocByTemplate(filename string, meta bool) bson.M {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		panic(err)
+func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
+	var buf []byte
+	var err error
+
+	if buf, err = ioutil.ReadFile(filename); err != nil {
+		return nil, err
 	}
 
 	var f interface{}
-	err = json.Unmarshal(bytes, &f)
+	err = json.Unmarshal(buf, &f)
 	if err != nil {
-		fmt.Println("Error parsing JSON: ", err)
-		panic(err)
+		return nil, err
 	}
 	doc := make(map[string]interface{})
 	RandomizeDocument(&doc, f, meta)
-	return doc
+	return doc, err
 }
 
 // RandomizeDocument traverses a doc and replace values with random values according to their data type.
@@ -112,7 +112,6 @@ func getArrayOfRandomDocs(obj []interface{}, subdoc *[]interface{}, meta bool) {
 			RandomizeDocument(&subdoc1, value, meta)
 			(*subdoc)[key] = subdoc1
 		case interface{}:
-			fmt.Println("=>", o)
 			(*subdoc)[key] = value
 		default:
 		}
