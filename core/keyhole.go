@@ -111,7 +111,7 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 			go func() {
 				if simonly == false {
 					if err = b.PopulateData(b.wmajor); err != nil {
-						panic(err)
+						return
 					}
 					time.Sleep(10 * time.Millisecond)
 				}

@@ -69,7 +69,7 @@ func TestGetMongoServerInfo(t *testing.T) {
 	}
 
 	if info, err = GetMongoServerInfo(session); err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	if err != nil {
 		t.Fatal(err)

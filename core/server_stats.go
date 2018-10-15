@@ -169,7 +169,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	var dialInfo *mgo.DialInfo
 	var err error
 	if dialInfo, err = ParseDialInfo(uri); err != nil {
-		panic(err)
+		return
 	}
 
 	mapKey := dialInfo.ReplicaSetName

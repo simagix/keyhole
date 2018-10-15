@@ -32,7 +32,7 @@ func GetTransactions(filename string) TransactionDoc {
 	}
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
-		panic(err)
+		return TransactionDoc{}
 	}
 
 	var doc TransactionDoc

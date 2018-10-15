@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/simagix/keyhole/charts"
@@ -97,7 +98,6 @@ func main() {
 
 	dialInfo, err := keyhole.ParseDialInfo(*uri)
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
 
@@ -146,5 +146,7 @@ func main() {
 		*tps, *file, *verbose, *peek, *monitor,
 		*bulksize, *duration, *span, *cleanup, *drop,
 		*wmajor, dbName)
-	runner.Start(session, *conn, *tx, *simonly)
+	if err = runner.Start(session, *conn, *tx, *simonly); err != nil {
+		log.Println(err)
+	}
 }
