@@ -40,20 +40,20 @@ func GetDemoDoc() bson.M {
 	}
 	var n = len(Favorites.Sports)
 	favoriteSports := []string{Favorites.Sports[rand.Intn(n)], Favorites.Sports[rand.Intn(n)], Favorites.Sports[rand.Intn(n)]}
-	favoriteSports = unique(append(favoriteSports, Favorites.Sports[0:3]...))
+	favoriteSports = unique(append(favoriteSports, Favorites.Sports[0:3]...), 3)
 	n = len(Favorites.Music)
 	favoriteMusic := []string{Favorites.Music[rand.Intn(n)], Favorites.Music[rand.Intn(n)], Favorites.Music[rand.Intn(n)]}
-	favoriteMusic = unique(append(favoriteMusic, Favorites.Music[0:3]...))
+	favoriteMusic = unique(append(favoriteMusic, Favorites.Music[0:3]...), 3)
 	n = len(Favorites.Cities)
 	favoriteCities := []string{Favorites.Cities[rand.Intn(n)], Favorites.Cities[rand.Intn(n)], Favorites.Cities[rand.Intn(n)]}
-	favoriteCities = unique(append(favoriteCities, Favorites.Cities[0:3]...))
+	favoriteCities = unique(append(favoriteCities, Favorites.Cities[0:3]...), 3)
 	n = len(Favorites.Books)
 	x := rand.Intn(n)
 	favoriteBooks := []string{Favorites.Books[x], Favorites.Books[rand.Intn(n)], Favorites.Books[rand.Intn(n)]}
-	favoriteBooks = unique(append(favoriteBooks, Favorites.Books[0:3]...))
+	favoriteBooks = unique(append(favoriteBooks, Favorites.Books[0:3]...), 3)
 	n = len(Favorites.Movies)
 	favoriteMovies := []string{Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)]}
-	favoriteMovies = unique(append(favoriteMovies, Favorites.Movies[0:3]...))
+	favoriteMovies = unique(append(favoriteMovies, Favorites.Movies[0:3]...), 3)
 	favoritesList := []bson.M{
 		bson.M{"sport": favoriteSports[0], "music": favoriteMusic[0], "city": favoriteCities[0], "book": favoriteBooks[0], "movie": favoriteMovies[0]},
 		bson.M{"sport": favoriteSports[1], "music": favoriteMusic[1], "city": favoriteCities[1], "book": favoriteBooks[1], "movie": favoriteMovies[1]},
@@ -94,18 +94,18 @@ func GetDemoDoc() bson.M {
 	return doc
 }
 
-func unique(s []string) []string {
-	unique := make(map[string]bool, len(s))
-	us := make([]string, len(unique))
+func unique(s []string, n int) []string {
+	arr := make(map[string]bool, len(s))
+	us := make([]string, len(arr))
 	for _, elem := range s {
 		if len(elem) != 0 {
-			if !unique[elem] {
+			if !arr[elem] {
 				us = append(us, elem)
-				unique[elem] = true
+				arr[elem] = true
 			}
 		}
 	}
-	return us[:3]
+	return us[:n]
 }
 
 // Favorites constance

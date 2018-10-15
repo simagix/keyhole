@@ -180,7 +180,8 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	for {
 		session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
-			serverStatus := serverStatus(session)
+			serverStatus := bson.M{}
+			session.DB("admin").Run("serverStatus", &serverStatus)
 			buf, _ := json.Marshal(serverStatus)
 			json.Unmarshal(buf, &stat)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
@@ -256,7 +257,8 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
-			stat := dbStats(session, dbName)
+			stat := bson.M{}
+			session.DB(dbName).Run("dbStats", &stat)
 			buf, _ := json.Marshal(stat)
 			json.Unmarshal(buf, &docs)
 			if docs["dataSize"] != nil {
@@ -288,17 +290,23 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 		return filename, err
 	}
 	defer session.Close()
-	serverStatus := serverStatus(session)
+	serverStatus := bson.M{}
+	session.DB("admin").Run("serverStatus", &serverStatus)
 	buf, _ := json.Marshal(serverStatus)
 	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-	filename = b.saveServerStatusDocsToFile(uri)
+	if filename, err = b.saveServerStatusDocsToFile(uri); err != nil {
+		return filename, err
+	}
 	AnalyzeServerStatus(filename, span, false)
 	return filename, err
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
-func (b Base) saveServerStatusDocsToFile(uri string) string {
+func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
+	var file *os.File
+	var err error
+	var filename string
 	dialInfo, _ := ParseDialInfo(uri)
 	mapKey := dialInfo.ReplicaSetName
 	if mapKey == "" {
@@ -306,36 +314,22 @@ func (b Base) saveServerStatusDocsToFile(uri string) string {
 	}
 	buf, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
-	filename := keyholeStatsDataFile + "-" + mapKey + ".gz"
+	filename = keyholeStatsDataFile + "-" + mapKey + ".gz"
 	var bbuf bytes.Buffer
 	gz := gzip.NewWriter(&bbuf)
 	gz.Write(buf)
 	gz.Write([]byte{'\n'})
 	gz.Close() // close this before flushing the bytes to the buffer.
 
-	f, ferr := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0644)
-	if ferr != nil {
-		f, _ = os.Create(filename)
+	if file, err = os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0644); err != nil {
+		if file, err = os.Create(filename); err != nil {
+			return filename, err
+		}
 	}
-	defer f.Close()
-	f.Write(bbuf.Bytes())
-	f.Sync()
-	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
-	return filename
-}
-
-// serverStatus executes db.serverStatus()
-func serverStatus(session *mgo.Session) bson.M {
-	result := bson.M{}
-	session.DB("admin").Run("serverStatus", &result)
-	return result
-}
-
-// dbStats executes db.Stats()
-func dbStats(session *mgo.Session, dbName string) bson.M {
-	result := bson.M{}
-	session.DB(dbName).Run("dbStats", &result)
-	return result
+	defer file.Close()
+	file.Write(bbuf.Bytes())
+	file.Sync()
+	return filename, err
 }
 
 // AnalyzeServerStatus -

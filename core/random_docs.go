@@ -141,7 +141,7 @@ func getMagicString(str string, meta bool) string {
 	}
 
 	if str == "$mail" || isEmailAddress(str) {
-		return getEmailAddress()
+		return GetEmailAddress()
 	} else if str == "$ip" || isIP(str) {
 		return getIP()
 	} else if str == "$ssn" || isSSN(str) {
@@ -173,10 +173,6 @@ func isEmailAddress(str string) bool {
 
 // GetEmailAddress exposes getEmailAddress()
 func GetEmailAddress() string {
-	return getEmailAddress()
-}
-
-func getEmailAddress() string {
 	return fnames[rand.Intn(len(fnames)-1)] + "." +
 		string(fnames[rand.Intn(len(fnames)-1)][0]) + "." +
 		lnames[rand.Intn(len(lnames)-1)] + "@" +

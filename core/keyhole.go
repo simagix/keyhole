@@ -146,8 +146,13 @@ func (b Base) printStats(uriList []string, session *mgo.Session) {
 
 func (b Base) preTermination(session *mgo.Session, uriList []string) {
 	var filenames []string
+	var filename string
+	var err error
+
 	for _, value := range uriList {
-		filename, _ := b.PrintServerStatus(value, b.span)
+		if filename, err = b.PrintServerStatus(value, b.span); err != nil {
+			continue
+		}
 		filenames = append(filenames, filename)
 	}
 	for _, filename := range filenames {

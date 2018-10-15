@@ -22,7 +22,7 @@ func TestGetShards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log("===========", list)
+	t.Log(list)
 }
 
 func TestShardCollection(t *testing.T) {
