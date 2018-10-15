@@ -4,7 +4,6 @@ package keyhole
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -20,8 +19,11 @@ var simDocs []bson.M
 // read the sample json and replace them with random values.  Otherwise, use the demo
 // example.
 func (b Base) initSimDocs() {
+	var err error
+	var sdoc bson.M
+
 	if b.verbose {
-		fmt.Println("initSimDocs")
+		log.Println("initSimDocs")
 	}
 	rand.Seed(time.Now().Unix())
 	total := 512
@@ -32,10 +34,12 @@ func (b Base) initSimDocs() {
 		return
 	}
 
-	sdoc := GetDocByTemplate(b.filename, true)
+	if sdoc, err = GetDocByTemplate(b.filename, true); err != nil {
+		return
+	}
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	if b.verbose {
-		fmt.Println(string(bytes))
+		log.Println(string(bytes))
 	}
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
@@ -65,7 +69,7 @@ func (b Base) PopulateData(wmajor bool) error {
 	var err error
 
 	if b.verbose {
-		fmt.Println("PopulateData", wmajor)
+		log.Println("PopulateData", wmajor)
 	}
 	if session, err = GetSession(b.dialInfo, wmajor, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return err
@@ -93,7 +97,7 @@ func (b Base) PopulateData(wmajor bool) error {
 // Simulate simulates CRUD for load tests
 func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
 	if b.verbose {
-		fmt.Println("Simulate", duration, transactions, wmajor)
+		log.Println("Simulate", duration, transactions, wmajor)
 	}
 	isTeardown := false
 	var totalTPS int
@@ -150,11 +154,11 @@ func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
 		} // for time.Now().Sub(beginTime) < time.Minute
 
 		if b.verbose {
-			fmt.Println("=>", time.Now().Sub(beginTime), time.Now().Sub(beginTime) > time.Minute,
+			log.Println("=>", time.Now().Sub(beginTime), time.Now().Sub(beginTime) > time.Minute,
 				totalCount, totalCount/counter < totalTPS, counter)
 		}
 		if b.verbose || totalCount/counter < totalTPS {
-			fmt.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
+			log.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
 		}
 
 		seconds := 60 - time.Now().Sub(beginTime).Seconds()
@@ -162,7 +166,7 @@ func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
 			time.Sleep(time.Duration(seconds) * time.Second)
 		}
 		if b.verbose {
-			fmt.Println("=>", time.Now().Sub(beginTime))
+			log.Println("=>", time.Now().Sub(beginTime))
 		}
 	} //for run := 0; run < duration; run++
 
@@ -177,30 +181,6 @@ func cloneDoc(doc bson.M) bson.M {
 	json.Unmarshal(bytes, &ndoc)
 	ndoc["_id"] = _id
 	return ndoc
-}
-
-func getQueryFilter(doc interface{}) bson.M {
-	q := bson.M{}
-	bytes, _ := json.Marshal(doc)
-	json.Unmarshal(bytes, &q)
-	return q
-}
-
-// Cleanup drops the temp database
-func (b Base) Cleanup() error {
-	var err error
-	var session *mgo.Session
-
-	log.Println("cleanup", b.uri)
-	if session, err = GetSession(b.dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
-		return err
-	}
-	defer session.Close()
-	log.Println("dropping collection", SimDBName, CollectionName)
-	session.DB(SimDBName).C(CollectionName).DropCollection()
-	log.Println("dropping database", SimDBName)
-	session.DB(SimDBName).DropDatabase()
-	return nil
 }
 
 // CreateIndexes creates indexes

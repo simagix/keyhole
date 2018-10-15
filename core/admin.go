@@ -3,6 +3,8 @@
 package keyhole
 
 import (
+	"log"
+
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 )
@@ -19,4 +21,14 @@ func AdminCommandOnDB(session *mgo.Session, command string, db string) (bson.M, 
 		return nil, err
 	}
 	return result, nil
+}
+
+// Cleanup drops the temp database
+func Cleanup(session *mgo.Session) error {
+	var err error
+	log.Println("dropping collection", SimDBName, CollectionName)
+	session.DB(SimDBName).C(CollectionName).DropCollection()
+	log.Println("dropping database", SimDBName)
+	session.DB(SimDBName).DropDatabase()
+	return err
 }
