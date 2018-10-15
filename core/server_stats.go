@@ -166,7 +166,12 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 		channel <- rstr
 	}
 
-	dialInfo, _ := ParseDialInfo(uri)
+	var dialInfo *mgo.DialInfo
+	var err error
+	if dialInfo, err = ParseDialInfo(uri); err != nil {
+		panic(err)
+	}
+
 	mapKey := dialInfo.ReplicaSetName
 	if mapKey == "" {
 		mapKey = STANDALONE

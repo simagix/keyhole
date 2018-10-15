@@ -45,12 +45,18 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 	for s := range shards.Shards {
 		host := shards.Shards[s].Host
 		s := strings.Split(host, "/")
-		dialInfo.ReplicaSetName = s[0]
+		if len(s) > 1 {
+			dialInfo.ReplicaSetName = s[0]
+		}
 		ruri := "mongodb://"
 		if dialInfo.Username != "" {
 			ruri = ruri + dialInfo.Username + ":" + dialInfo.Password + "@"
 		}
-		ruri = ruri + s[1] + "/?replicaSet=" + dialInfo.ReplicaSetName
+		if len(s) == 1 {
+			ruri = ruri + s[0] + "/?"
+		} else {
+			ruri = ruri + s[1] + "/?replicaSet=" + dialInfo.ReplicaSetName
+		}
 		if dialInfo.Source != "" {
 			ruri = ruri + "&authSource=" + dialInfo.Source
 		}

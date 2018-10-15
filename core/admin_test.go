@@ -10,17 +10,18 @@ import (
 	"github.com/globalsign/mgo"
 )
 
+var unitTestURI = "mongodb://localhost/"
+
 func getSession() (*mgo.Session, error) {
 	var err error
 	var dialInfo *mgo.DialInfo
 	var session *mgo.Session
 
-	uri := "mongodb://localhost/"
 	if os.Getenv("DATABASE_URL") != "" {
-		uri = os.Getenv("DATABASE_URL")
+		unitTestURI = os.Getenv("DATABASE_URL")
 	}
 
-	if dialInfo, err = ParseDialInfo(uri); err != nil {
+	if dialInfo, err = ParseDialInfo(unitTestURI); err != nil {
 		return session, err
 	}
 	return GetSession(dialInfo, false, false, "", "")
