@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/simagix/keyhole/charts"
@@ -147,6 +146,6 @@ func main() {
 		*bulksize, *duration, *span, *cleanup, *drop,
 		*wmajor, dbName)
 	if err = runner.Start(session, *conn, *tx, *simonly); err != nil {
-		log.Println(err)
+		panic(err)
 	}
 }
