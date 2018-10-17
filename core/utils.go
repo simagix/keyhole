@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -73,11 +74,6 @@ func ParseDialInfo(uri string) (*mgo.DialInfo, error) {
 		dialInfo.Addrs = addresses
 	}
 
-	if dialInfo.Username != "" && dialInfo.Password == "" && (runtime.GOOS == "darwin" || runtime.GOOS == "linux") {
-		fmt.Print("Enter Password: ")
-		bytePassword, _ := terminal.ReadPassword(int(syscall.Stdin))
-		dialInfo.Password = string(bytePassword)
-	}
 	return dialInfo, err
 }
 
@@ -123,4 +119,18 @@ func CountLines(reader *bufio.Reader) (int, error) {
 			return lineCounts, err
 		}
 	}
+}
+
+// ReadPasswordFromStdin reads password from stdin
+func ReadPasswordFromStdin() (string, error) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		return "", errors.New("Missing password")
+	}
+	var buffer []byte
+	var err error
+	fmt.Print("Enter Password: ")
+	if buffer, err = terminal.ReadPassword(int(syscall.Stdin)); err != nil {
+		return "", err
+	}
+	return string(buffer), err
 }

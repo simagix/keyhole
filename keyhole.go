@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 
+	"github.com/globalsign/mgo"
 	"github.com/simagix/keyhole/charts"
 	keyhole "github.com/simagix/keyhole/core"
 )
@@ -95,13 +98,22 @@ func main() {
 		os.Exit(0)
 	}
 
-	dialInfo, err := keyhole.ParseDialInfo(*uri)
-	if err != nil {
+	var dialInfo *mgo.DialInfo
+
+	if dialInfo, err = keyhole.ParseDialInfo(*uri); err != nil {
 		panic(err)
 	}
 
 	if *verbose {
-		fmt.Println("MongoDB URI:", *uri)
+		log.Println("MongoDB URI:", *uri)
+	}
+
+	if dialInfo.Username != "" && dialInfo.Password == "" {
+		if dialInfo.Password, err = keyhole.ReadPasswordFromStdin(); err != nil {
+			panic(err)
+		}
+		index := strings.Index(*uri, "@")
+		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
 
 	session, err := keyhole.GetSession(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile)
