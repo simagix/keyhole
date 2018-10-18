@@ -157,7 +157,8 @@ func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
 			log.Println("=>", time.Now().Sub(beginTime), time.Now().Sub(beginTime) > time.Minute,
 				totalCount, totalCount/counter < totalTPS, counter)
 		}
-		if b.verbose || totalCount/counter < totalTPS {
+		tenPctOff := float64(totalTPS) * .95
+		if b.verbose || totalCount/counter < int(tenPctOff) {
 			log.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
 		}
 

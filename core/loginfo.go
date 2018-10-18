@@ -208,6 +208,13 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 				if s != "" {
 					filter = s
 				}
+			} else if op == "getMore" {
+				nstr := ""
+				s := getDocByField(result[4], "originatingCommand: ")
+				if s != "" {
+					nstr = s
+				}
+				filter = nstr
 			}
 			index := getDocByField(str, "planSummary: IXSCAN")
 			filter = removeInElements(filter, "$in: [ ")
@@ -347,7 +354,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update"}
+var filters = []string{"count", "delete", "find", "remove", "update", "getMore"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {
