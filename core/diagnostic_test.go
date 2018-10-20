@@ -25,7 +25,8 @@ func TestReadDiagnosticDir(t *testing.T) {
 		docs = append(docs, doc)
 	}
 	t.Log("serverStatus length", len(serverStatusList), len(docs))
-	PrintAllStats(docs, 3600) // every 10 minutes
+	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
+	PrintAllStats(docs, span) // every 10 minutes
 }
 
 func TestReadDiagnosticFile(t *testing.T) {
@@ -46,5 +47,6 @@ func TestReadDiagnosticFile(t *testing.T) {
 		docs = append(docs, doc)
 	}
 	t.Log("serverStatus length", len(serverStatusList), len(docs))
-	PrintAllStats(docs, 60)
+	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
+	PrintAllStats(docs, span)
 }

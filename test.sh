@@ -47,4 +47,4 @@ go run keyhole.go --loginfo data/mongod.log
 
 echo ; echo "Shutdown mongod"
 mongo --port 30097 --eval 'db.getSisterDB("admin").shutdownServer()'
-rm -rf data/*
+rm -rf data/db data/mongod.log.*.gz
