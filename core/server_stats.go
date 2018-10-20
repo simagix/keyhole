@@ -420,18 +420,25 @@ func printStatsDetails(docs []ServerStatusDoc, span int) {
 			} else {
 				iops = 0
 			}
+			if (stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults) >= 0 &&
+				(stat2.OpCounters.Command-stat1.OpCounters.Command) >= 0 &&
+				iops >= 0 {
+				fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339),
+					stat2.Mem.Resident,
+					stat2.Mem.Virtual,
+					stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
+					stat2.OpCounters.Command-stat1.OpCounters.Command,
+					stat2.OpCounters.Delete-stat1.OpCounters.Delete,
+					stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
+					stat2.OpCounters.Insert-stat1.OpCounters.Insert,
+					stat2.OpCounters.Query-stat1.OpCounters.Query,
+					stat2.OpCounters.Update-stat1.OpCounters.Update, iops)
+			} else {
+				cnt = 0
+				fmt.Printf("|-- REBOOT ---------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
 
-			fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339),
-				stat2.Mem.Resident,
-				stat2.Mem.Virtual,
-				stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
-				stat2.OpCounters.Command-stat1.OpCounters.Command,
-				stat2.OpCounters.Delete-stat1.OpCounters.Delete,
-				stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
-				stat2.OpCounters.Insert-stat1.OpCounters.Insert,
-				stat2.OpCounters.Query-stat1.OpCounters.Query,
-				stat2.OpCounters.Update-stat1.OpCounters.Update, iops)
+			}
 			stat1 = stat2
 		} else if stat2.Host == stat1.Host {
 			if cnt == len(docs)-1 || d >= span {
@@ -447,17 +454,24 @@ func printStatsDetails(docs []ServerStatusDoc, span int) {
 					iops = 0
 				}
 
-				fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
-					stat2.LocalTime.In(loc).Format(time.RFC3339),
-					stat2.Mem.Resident,
-					stat2.Mem.Virtual,
-					stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
-					stat2.OpCounters.Command-stat1.OpCounters.Command,
-					stat2.OpCounters.Delete-stat1.OpCounters.Delete,
-					stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
-					stat2.OpCounters.Insert-stat1.OpCounters.Insert,
-					stat2.OpCounters.Query-stat1.OpCounters.Query,
-					stat2.OpCounters.Update-stat1.OpCounters.Update, iops)
+				if (stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults) >= 0 &&
+					(stat2.OpCounters.Command-stat1.OpCounters.Command) >= 0 &&
+					iops >= 0 {
+					fmt.Printf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|\n",
+						stat2.LocalTime.In(loc).Format(time.RFC3339),
+						stat2.Mem.Resident,
+						stat2.Mem.Virtual,
+						stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults,
+						stat2.OpCounters.Command-stat1.OpCounters.Command,
+						stat2.OpCounters.Delete-stat1.OpCounters.Delete,
+						stat2.OpCounters.Getmore-stat1.OpCounters.Getmore,
+						stat2.OpCounters.Insert-stat1.OpCounters.Insert,
+						stat2.OpCounters.Query-stat1.OpCounters.Query,
+						stat2.OpCounters.Update-stat1.OpCounters.Update, iops)
+				} else {
+					cnt = 0
+					fmt.Printf("|-- REBOOT ---------------|-------+-------|------|--------|--------|--------|--------|--------|--------|--------|\n")
+				}
 				stat1 = stat2
 			}
 		}
@@ -496,8 +510,13 @@ func printLatencyDetails(docs []ServerStatusDoc, span int) {
 			if c > 0 {
 				c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
 			}
-			fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
+			if r >= 0 && w >= 0 && c >= 0 {
+				fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
+					stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
+			} else {
+				cnt = 0
+				fmt.Printf("|-- REBOOT ---------------|----------|----------|----------|\n")
+			}
 			stat1 = stat2
 		} else if stat2.Host == stat1.Host {
 			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
@@ -514,8 +533,13 @@ func printLatencyDetails(docs []ServerStatusDoc, span int) {
 				if c > 0 {
 					c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
 				}
-				fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
-					stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
+				if r >= 0 && w >= 0 && c >= 0 {
+					fmt.Printf("|%-25s|%10d|%10d|%10d|\n",
+						stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000)
+				} else {
+					cnt = 0
+					fmt.Printf("|-- REBOOT ---------------|----------|----------|----------|\n")
+				}
 				stat1 = stat2
 			}
 		}
@@ -542,20 +566,11 @@ func printMetricsDetails(docs []ServerStatusDoc, span int) {
 		if cnt == 0 {
 			stat1 = stat2
 		} else if cnt == 1 {
-			fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
-				stat2.LocalTime.In(loc).Format(time.RFC3339),
-				stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
-				stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
-				stat2.Metrics.Operation.ScanAndOrder-stat1.Metrics.Operation.ScanAndOrder,
-				stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts,
-				stat2.Metrics.Document.Deleted-stat1.Metrics.Document.Deleted,
-				stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted,
-				stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
-				stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated)
-			stat1 = stat2
-		} else if stat2.Host == stat1.Host {
-			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
-			if cnt == len(docs)-1 || d >= span {
+			if (stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned) >= 0 &&
+				(stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects) >= 0 &&
+				(stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts) >= 0 &&
+				(stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted) >= 0 &&
+				(stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned) >= 0 {
 				fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
 					stat2.LocalTime.In(loc).Format(time.RFC3339),
 					stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
@@ -566,6 +581,33 @@ func printMetricsDetails(docs []ServerStatusDoc, span int) {
 					stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted,
 					stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
 					stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated)
+			} else {
+				cnt = 0
+				fmt.Printf("|-- REBOOT ---------------|----------|------------|------------|--------------|----------|----------|----------|----------|\n")
+			}
+			stat1 = stat2
+		} else if stat2.Host == stat1.Host {
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if cnt == len(docs)-1 || d >= span {
+				if (stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned) >= 0 &&
+					(stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects) >= 0 &&
+					(stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts) >= 0 &&
+					(stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted) >= 0 &&
+					(stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned) >= 0 {
+					fmt.Printf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|\n",
+						stat2.LocalTime.In(loc).Format(time.RFC3339),
+						stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
+						stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
+						stat2.Metrics.Operation.ScanAndOrder-stat1.Metrics.Operation.ScanAndOrder,
+						stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts,
+						stat2.Metrics.Document.Deleted-stat1.Metrics.Document.Deleted,
+						stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted,
+						stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
+						stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated)
+				} else {
+					cnt = 0
+					fmt.Printf("|-- REBOOT ---------------|----------|------------|------------|--------------|----------|----------|----------|----------|\n")
+				}
 				stat1 = stat2
 			}
 		}
@@ -596,15 +638,20 @@ func printGlobalLockDetails(docs []ServerStatusDoc, span int) {
 			stat1 = stat
 			stat2.Host = stat1.Host
 		} else if cnt == 1 {
-			fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
-				stat.LocalTime.In(loc).Format(time.RFC3339),
-				(stat.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
-				stat.GlobalLock.CurrentQueue.Total,
-				stat.GlobalLock.CurrentQueue.Readers,
-				stat.GlobalLock.CurrentQueue.Writers,
-				stat.GlobalLock.CurrentQueue.Total,
-				stat.GlobalLock.CurrentQueue.Readers,
-				stat.GlobalLock.CurrentQueue.Writers)
+			if (stat.GlobalLock.TotalTime - stat1.GlobalLock.TotalTime) >= 0 {
+				fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+					stat.LocalTime.In(loc).Format(time.RFC3339),
+					(stat.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
+					stat.GlobalLock.CurrentQueue.Total,
+					stat.GlobalLock.CurrentQueue.Readers,
+					stat.GlobalLock.CurrentQueue.Writers,
+					stat.GlobalLock.CurrentQueue.Total,
+					stat.GlobalLock.CurrentQueue.Readers,
+					stat.GlobalLock.CurrentQueue.Writers)
+			} else {
+				cnt = 0
+				fmt.Printf("|-- REBOOT ---------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
+			}
 			stat1 = stat
 			stat2.Host = stat1.Host
 		} else if stat2.Host == stat.Host {
@@ -612,22 +659,27 @@ func printGlobalLockDetails(docs []ServerStatusDoc, span int) {
 			acm++
 			stat2.LocalTime = stat.LocalTime
 			stat2.GlobalLock.TotalTime = stat.GlobalLock.TotalTime
-			stat2.GlobalLock.CurrentQueue.Total += stat.GlobalLock.CurrentQueue.Total
+			stat2.GlobalLock.CurrentQueue.Total = stat.GlobalLock.CurrentQueue.Total
 			stat2.GlobalLock.CurrentQueue.Readers += stat.GlobalLock.CurrentQueue.Readers
 			stat2.GlobalLock.CurrentQueue.Writers += stat.GlobalLock.CurrentQueue.Writers
 			stat2.GlobalLock.CurrentQueue.Total += stat.GlobalLock.CurrentQueue.Total
 			stat2.GlobalLock.CurrentQueue.Readers += stat.GlobalLock.CurrentQueue.Readers
 			stat2.GlobalLock.CurrentQueue.Writers += stat.GlobalLock.CurrentQueue.Writers
 			if cnt == len(docs)-1 || d >= span {
-				fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
-					stat2.LocalTime.In(loc).Format(time.RFC3339),
-					(stat2.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
-					stat2.GlobalLock.CurrentQueue.Total/acm,
-					stat2.GlobalLock.CurrentQueue.Readers/acm,
-					stat2.GlobalLock.CurrentQueue.Writers/acm,
-					stat2.GlobalLock.CurrentQueue.Total/acm,
-					stat2.GlobalLock.CurrentQueue.Readers/acm,
-					stat2.GlobalLock.CurrentQueue.Writers/acm)
+				if (stat.GlobalLock.TotalTime - stat1.GlobalLock.TotalTime) >= 0 {
+					fmt.Printf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|\n",
+						stat2.LocalTime.In(loc).Format(time.RFC3339),
+						(stat2.GlobalLock.TotalTime-stat1.GlobalLock.TotalTime)/1000,
+						stat2.GlobalLock.CurrentQueue.Total/acm,
+						stat2.GlobalLock.CurrentQueue.Readers/acm,
+						stat2.GlobalLock.CurrentQueue.Writers/acm,
+						stat2.GlobalLock.CurrentQueue.Total/acm,
+						stat2.GlobalLock.CurrentQueue.Readers/acm,
+						stat2.GlobalLock.CurrentQueue.Writers/acm)
+				} else {
+					cnt = 0
+					fmt.Printf("|-- REBOOT ---------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|\n")
+				}
 				acm = 0
 				stat1 = stat2
 				stat2.GlobalLock.CurrentQueue.Total = 0
