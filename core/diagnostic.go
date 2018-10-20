@@ -5,16 +5,80 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/globalsign/mgo/bson"
 )
 
-// ReadDiagnosticDir reads diagnotics.data from a directory
-func ReadDiagnosticDir(dirname string) {
+// PrintDiagnosticData prints diagnostic data of MongoD
+func PrintDiagnosticData(filename string, span int) error {
+	var err error
+	var serverInfo interface{}
+	var serverStatusList []bson.M
+	var docs []ServerStatusDoc
+	var fi os.FileInfo
 
+	if fi, err = os.Stat(filename); err != nil {
+		return err
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+		if serverInfo, serverStatusList, err = ReadDiagnosticDir(filename); err != nil {
+			return err
+		}
+	case mode.IsRegular():
+		if err = AnalyzeServerStatus(filename, span, false); err != nil {
+			if serverInfo, serverStatusList, err = ReadDiagnosticFile(filename); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	for _, ss := range serverStatusList {
+		b, _ := json.Marshal(ss)
+		doc := ServerStatusDoc{}
+		json.Unmarshal(b, &doc)
+		docs = append(docs, doc)
+	}
+
+	if serverInfo != nil {
+		b, _ := json.MarshalIndent(serverInfo, "", "  ")
+		log.Println(string(b))
+	}
+	PrintAllStats(docs, span)
+	return err
+}
+
+// ReadDiagnosticDir reads diagnotics.data from a directory
+func ReadDiagnosticDir(dirname string) (interface{}, []bson.M, error) {
+	var err error
+	var serverInfo interface{}
+	var serverStatusList []bson.M
+	var info interface{}
+	var docs []bson.M
+
+	files, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range files {
+		filename := dirname + "/" + f.Name()
+		if info, docs, err = ReadDiagnosticFile(filename); err != nil {
+			return serverInfo, serverStatusList, err
+		}
+		if info != nil {
+			serverInfo = info
+		}
+		serverStatusList = append(serverStatusList, docs...)
+	}
+	return serverInfo, serverStatusList, err
 }
 
 // ReadDiagnosticFile reads diagnostic.data from a file

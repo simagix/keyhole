@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -340,14 +341,12 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) error {
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	var bmap = []bson.M{}
-	file, err = os.Open(filename)
-	if err != nil {
+	if file, err = os.Open(filename); err != nil {
 		return err
 	}
 	defer file.Close()
 
-	reader, err = NewReader(file)
-	if err != nil {
+	if reader, err = NewReader(file); err != nil {
 		return err
 	}
 
@@ -358,6 +357,10 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) error {
 		}
 		json.Unmarshal([]byte(line), &docs)
 		allDocs = append(allDocs, docs...)
+	}
+
+	if len(allDocs) == 0 {
+		return errors.New("Not doc found")
 	}
 
 	buf, _ := json.Marshal(allDocs)
@@ -372,6 +375,7 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) error {
 		json.Unmarshal(buf, &stat)
 		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
 	}
+
 	PrintAllStats(allDocs, span)
 	return nil
 }
