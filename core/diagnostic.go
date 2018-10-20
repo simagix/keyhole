@@ -51,6 +51,11 @@ func PrintDiagnosticData(filename string, span int) error {
 		b, _ := json.MarshalIndent(serverInfo, "", "  ")
 		log.Println(string(b))
 	}
+
+	if span < 0 {
+		span = int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
+
+	}
 	PrintAllStats(docs, span)
 	return err
 }

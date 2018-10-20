@@ -34,7 +34,6 @@ type Base struct {
 	monitor       bool
 	bulkSize      int
 	duration      int
-	span          int
 	cleanup       bool
 	drop          bool
 	wmajor        bool
@@ -46,12 +45,10 @@ var ssi MongoServerInfo
 // NewBase - Constructor
 func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, sslPEMKeyFile string,
 	tps int, filename string, verbose bool, peek bool, monitor bool,
-	bulkSize int, duration int, span int, cleanup bool, drop bool,
-	wmajor bool, dbName string) Base {
+	bulkSize int, duration int, cleanup bool, drop bool, wmajor bool, dbName string) Base {
 	runner := Base{dialInfo, uri, ssl, sslCAFile, sslPEMKeyFile,
 		tps, filename, verbose, peek, monitor,
-		bulkSize, duration, span, cleanup, drop,
-		wmajor, dbName}
+		bulkSize, duration, cleanup, drop, wmajor, dbName}
 	runner.initSimDocs()
 	return runner
 }
@@ -150,7 +147,7 @@ func (b Base) preTermination(session *mgo.Session, uriList []string) {
 	var err error
 
 	for _, value := range uriList {
-		if filename, err = b.PrintServerStatus(value, b.span); err != nil {
+		if filename, err = b.PrintServerStatus(value, 60); err != nil {
 			continue
 		}
 		filenames = append(filenames, filename)

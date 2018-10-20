@@ -392,6 +392,9 @@ func PrintAllStats(docs []ServerStatusDoc, span int) {
 
 // printStatsDetails -
 func printStatsDetails(docs []ServerStatusDoc, span int) {
+	if span < 0 {
+		span = 60
+	}
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -440,6 +443,9 @@ func printStatsDetails(docs []ServerStatusDoc, span int) {
 
 // printLatencyDetails -
 func printLatencyDetails(docs []ServerStatusDoc, span int) {
+	if span < 0 {
+		span = 60
+	}
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -479,6 +485,9 @@ func printLatencyDetails(docs []ServerStatusDoc, span int) {
 
 // printMetricsDetails -
 func printMetricsDetails(docs []ServerStatusDoc, span int) {
+	if span < 0 {
+		span = 60
+	}
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -514,6 +523,9 @@ func printMetricsDetails(docs []ServerStatusDoc, span int) {
 
 // printGlobalLockDetails prints globalLock stats
 func printGlobalLockDetails(docs []ServerStatusDoc, span int) {
+	if span < 0 {
+		span = 60
+	}
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -549,6 +561,9 @@ func printGlobalLockDetails(docs []ServerStatusDoc, span int) {
 
 // printWiredTigerCacheDetails prints wiredTiger cache stats
 func printWiredTigerCacheDetails(docs []ServerStatusDoc, span int) {
+	if span < 0 {
+		span = 60
+	}
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
@@ -584,6 +599,9 @@ func printWiredTigerCacheDetails(docs []ServerStatusDoc, span int) {
 
 // printWiredTigerConcurrentTransactionsDetails prints wiredTiger concurrentTransactions stats
 func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc, span int) {
+	if span < 0 {
+		span = 60
+	}
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0

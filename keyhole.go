@@ -35,7 +35,7 @@ func main() {
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
-	span := flag.Int("span", 60, "granunarity for summary")
+	span := flag.Int("span", -1, "granunarity for summary")
 	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCAFile := flag.String("sslCAFile", "", "CA file")
 	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
@@ -154,7 +154,7 @@ func main() {
 
 	runner := keyhole.NewBase(dialInfo, *uri, *ssl, *sslCAFile, *sslPEMKeyFile,
 		*tps, *file, *verbose, *peek, *monitor,
-		*bulksize, *duration, *span, *cleanup, *drop,
+		*bulksize, *duration, *cleanup, *drop,
 		*wmajor, dbName)
 	if err = runner.Start(session, *conn, *tx, *simonly); err != nil {
 		panic(err)
