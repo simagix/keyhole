@@ -372,13 +372,18 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) error {
 		json.Unmarshal(buf, &stat)
 		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
 	}
-	printStatsDetails(allDocs, span)
-	printGlobalLockDetails(allDocs, span)
-	printLatencyDetails(allDocs, span)
-	printMetricsDetails(allDocs, span)
-	printWiredTigerCacheDetails(allDocs, span)
-	printWiredTigerConcurrentTransactionsDetails(allDocs, span)
+	PrintAllStats(allDocs, span)
 	return nil
+}
+
+// PrintAllStats print all stats
+func PrintAllStats(docs []ServerStatusDoc, span int) {
+	printStatsDetails(docs, span)
+	printGlobalLockDetails(docs, span)
+	printLatencyDetails(docs, span)
+	printMetricsDetails(docs, span)
+	printWiredTigerCacheDetails(docs, span)
+	printWiredTigerConcurrentTransactionsDetails(docs, span)
 }
 
 // printStatsDetails -
