@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/globalsign/mgo/bson"
 )
@@ -74,6 +75,9 @@ func ReadDiagnosticDir(dirname string) (interface{}, []bson.M, error) {
 	}
 
 	for _, f := range files {
+		if strings.Index(f.Name(), "metrics.") != 0 {
+			continue
+		}
 		filename := dirname + "/" + f.Name()
 		if info, docs, err = ReadDiagnosticFile(filename); err != nil {
 			return serverInfo, serverStatusList, err
