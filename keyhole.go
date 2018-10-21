@@ -63,9 +63,11 @@ func main() {
 
 	var err error
 	if *diag != "" {
-		if err = keyhole.PrintDiagnosticData(*diag, *span); err != nil {
+		var str string
+		if str, err = keyhole.PrintDiagnosticData(*diag, *span); err != nil {
 			panic(err)
 		}
+		fmt.Println(str)
 		os.Exit(0)
 	} else if *loginfo != "" {
 		err = keyhole.LogInfo(*loginfo, *collscan, *verbose)
@@ -84,11 +86,12 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *webserver && *file != "" {
-		err = keyhole.AnalyzeServerStatus(*file, 10, true)
-		if err != nil {
+		var str string
+		if str, err = keyhole.AnalyzeServerStatus(*file, 10, true); err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}
+		fmt.Println(str)
 		charts.HTTPServer(5408)
 	} else if len(*uri) == 0 {
 		fmt.Println("Missing connection string")

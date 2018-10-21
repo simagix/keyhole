@@ -3,63 +3,16 @@
 package keyhole
 
 import (
-	"encoding/json"
 	"testing"
 )
 
-const filename = "/tmp/metrics.2018-10-18T12-06-57Z-00000"
+func TestAnalyzeServerStatus(t *testing.T) {
+	var filename = "/tmp/keyhole_stats.2018-10-18T080737-standalone.gz"
+	var err error
+	var str string
 
-func getServerStatusDocs() []ServerStatusDoc {
-	var docs []ServerStatusDoc
-	_, serverStatusList, _ := ReadDiagnosticFile(filename)
-
-	for _, ss := range serverStatusList {
-		b, _ := json.Marshal(ss)
-		doc := ServerStatusDoc{}
-		json.Unmarshal(b, &doc)
-		docs = append(docs, doc)
+	if str, err = AnalyzeServerStatus(filename, 60, false); err != nil {
+		t.Fatal(err)
 	}
-	return docs
-}
-
-func TestPrintWiredTigerConcurrentTransactionsDetails(t *testing.T) {
-	docs := getServerStatusDocs()
-	printWiredTigerConcurrentTransactionsDetails(docs, 600) // every 10 minutes
-	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-	printWiredTigerConcurrentTransactionsDetails(docs, span)
-}
-
-func TestPrintWiredTigerCacheDetails(t *testing.T) {
-	docs := getServerStatusDocs()
-	printWiredTigerCacheDetails(docs, 600) // every 10 minutes
-	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-	printWiredTigerCacheDetails(docs, span)
-}
-
-func TestPrintGlobalLockDetails(t *testing.T) {
-	docs := getServerStatusDocs()
-	printGlobalLockDetails(docs, 600) // every 10 minutes
-	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-	printGlobalLockDetails(docs, span)
-}
-
-func TestPrintMetricsDetails(t *testing.T) {
-	docs := getServerStatusDocs()
-	printMetricsDetails(docs, 600) // every 10 minutes
-	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-	printMetricsDetails(docs, span)
-}
-
-func TestPrintLatencyDetails(t *testing.T) {
-	docs := getServerStatusDocs()
-	printLatencyDetails(docs, 600) // every 10 minutes
-	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-	printLatencyDetails(docs, span)
-}
-
-func TestPrintStatsDetails(t *testing.T) {
-	docs := getServerStatusDocs()
-	printStatsDetails(docs, 600) // every 10 minutes
-	span := int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-	printStatsDetails(docs, span)
+	t.Log(str)
 }

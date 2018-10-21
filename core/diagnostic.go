@@ -16,28 +16,29 @@ import (
 )
 
 // PrintDiagnosticData prints diagnostic data of MongoD
-func PrintDiagnosticData(filename string, span int) error {
+func PrintDiagnosticData(filename string, span int) (string, error) {
 	var err error
 	var serverInfo interface{}
 	var serverStatusList []bson.M
 	var docs []ServerStatusDoc
 	var fi os.FileInfo
+	var message string
 
 	if fi, err = os.Stat(filename); err != nil {
-		return err
+		return "", err
 	}
 	switch mode := fi.Mode(); {
 	case mode.IsDir():
 		if serverInfo, serverStatusList, err = ReadDiagnosticDir(filename); err != nil {
-			return err
+			return "", err
 		}
 	case mode.IsRegular():
-		if err = AnalyzeServerStatus(filename, span, false); err != nil {
+		if message, err = AnalyzeServerStatus(filename, span, false); err != nil {
 			if serverInfo, serverStatusList, err = ReadDiagnosticFile(filename); err != nil {
-				return err
+				return "", err
 			}
 		} else {
-			return err
+			return message, err
 		}
 	}
 
@@ -57,8 +58,7 @@ func PrintDiagnosticData(filename string, span int) error {
 		span = int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
 
 	}
-	PrintAllStats(docs, span)
-	return err
+	return PrintAllStats(docs, span), err
 }
 
 // ReadDiagnosticDir reads diagnotics.data from a directory

@@ -56,15 +56,12 @@ func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, ssl
 func getShardsURIList(session *mgo.Session, uri string) ([]string, error) {
 	var uriList []string
 	var err error
-	ssi, err = GetMongoServerInfo(session)
-	if err != nil {
+	if ssi, err = GetMongoServerInfo(session); err != nil {
 		return uriList, err
 	}
 	uriList = append(uriList, uri)
 	if ssi.Cluster == SHARDED {
-		var e error
-		uriList, e = GetShards(session, uri)
-		if e != nil {
+		if uriList, err = GetShards(session, uri); err != nil {
 			return uriList, err
 		}
 	}
@@ -74,12 +71,12 @@ func getShardsURIList(session *mgo.Session, uri string) ([]string, error) {
 // Start process requests
 func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) error {
 	var err error
-	uriList, err := getShardsURIList(session, b.uri)
-	if err != nil {
+	var uriList []string
+	if uriList, err = getShardsURIList(session, b.uri); err != nil {
 		return err
 	}
 	log.Println("Duration in minute(s):", b.duration)
-	b.printStats(uriList, session)
+	b.terminationHandler(uriList, session)
 
 	if b.peek == false && b.monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
 		if b.drop {
@@ -122,7 +119,7 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 	return err
 }
 
-func (b Base) printStats(uriList []string, session *mgo.Session) {
+func (b Base) terminationHandler(uriList []string, session *mgo.Session) {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	timer := time.NewTimer(time.Duration(b.duration) * time.Minute)
@@ -131,17 +128,17 @@ func (b Base) printStats(uriList []string, session *mgo.Session) {
 		for {
 			select {
 			case <-quit:
-				b.preTermination(session, uriList)
+				b.terminate(session, uriList)
 			case <-timer.C:
 				if b.monitor == false {
-					b.preTermination(session, uriList)
+					b.terminate(session, uriList)
 				}
 			}
 		}
 	}(session, uriList)
 }
 
-func (b Base) preTermination(session *mgo.Session, uriList []string) {
+func (b Base) terminate(session *mgo.Session, uriList []string) {
 	var filenames []string
 	var filename string
 	var err error

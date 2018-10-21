@@ -16,9 +16,7 @@ func TestGetShards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	list, err = GetShards(session, unitTestURI)
-
-	if err != nil {
+	if list, err = GetShards(session, unitTestURI); err != nil {
 		t.Fatal(err)
 	}
 
