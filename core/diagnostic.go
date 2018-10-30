@@ -16,7 +16,7 @@ import (
 )
 
 // PrintDiagnosticData prints diagnostic data of MongoD
-func PrintDiagnosticData(filename string, span int) (string, error) {
+func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) {
 	var err error
 	var serverInfo interface{}
 	var serverStatusList []bson.M
@@ -33,7 +33,7 @@ func PrintDiagnosticData(filename string, span int) (string, error) {
 			return "", err
 		}
 	case mode.IsRegular():
-		if message, err = AnalyzeServerStatus(filename, span, false); err != nil {
+		if message, err = AnalyzeServerStatus(filename, span, isWeb); err != nil {
 			if serverInfo, serverStatusList, err = ReadDiagnosticFile(filename); err != nil {
 				return "", err
 			}
@@ -57,6 +57,13 @@ func PrintDiagnosticData(filename string, span int) (string, error) {
 	if span < 0 {
 		span = int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
 
+	}
+
+	if isWeb {
+		var bmap = []bson.M{}
+		buf, _ := json.Marshal(docs)
+		json.Unmarshal(buf, &bmap)
+		ChartsDocs["replset"] = bmap
 	}
 	return PrintAllStats(docs, span), err
 }

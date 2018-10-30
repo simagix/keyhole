@@ -64,10 +64,19 @@ func main() {
 	var err error
 	if *diag != "" {
 		var str string
-		if str, err = keyhole.PrintDiagnosticData(*diag, *span); err != nil {
-			panic(err)
+		if str, err = keyhole.PrintDiagnosticData(*diag, *span, *webserver); err != nil {
+			fmt.Println(err)
+			os.Exit(0)
 		}
 		fmt.Println(str)
+		if *webserver {
+			fmt.Println("- Memory, http://localhost:5408/memory")
+			fmt.Println("- Page Faults, http://localhost:5408/page_faults")
+			fmt.Println("- Keys and Documents Scanned (Examined), http://localhost:5408/scanned")
+			fmt.Println("- WiredTiger Cache, http://localhost:5408/wiredtiger_cache")
+			fmt.Println("- WiredTiger Concurrent Transactions (Read/Write Tickets), http://localhost:5408/wiredtiger_tickets")
+			charts.HTTPServer(5408)
+		}
 		os.Exit(0)
 	} else if *loginfo != "" {
 		err = keyhole.LogInfo(*loginfo, *collscan, *verbose)
@@ -85,14 +94,6 @@ func main() {
 			fmt.Println(keyhole.GetDemoFromFile(*file))
 		}
 		os.Exit(0)
-	} else if *webserver && *file != "" {
-		var str string
-		if str, err = keyhole.AnalyzeServerStatus(*file, 10, true); err != nil {
-			fmt.Println(err)
-			os.Exit(0)
-		}
-		fmt.Println(str)
-		charts.HTTPServer(5408)
 	} else if len(*uri) == 0 {
 		fmt.Println("Missing connection string")
 		fmt.Println("Usage: keyhole [opts] uri")

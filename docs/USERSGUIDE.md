@@ -420,14 +420,20 @@ $ keyhole --uri mongodb://localhost/ --index
 ```
 
 ## Performance Charts POC
-### Read Stats From a File
-Use flags `--file` and `--web` to enable HTTP server on port 5408.
+### Read Stats From a File or a Directory
+Use flags `--diag` and `--web` to enable HTTP server on port 5408.
 
 ```
-keyhole --file /tmp/keyhole_stats.2018-06-25T075012-replset.gz --web
+keyhole --web --diag /tmp/keyhole_stats.2018-06-25T075012-replset.gz
 ```
 
-To view near real time performance charts, used
+or
+
+```
+keyhole --web --diag /data/db/diagnostic.data/
+```
+
+To view performance charts, use
 
 - Memory, http://localhost:5408/memory
 - Page Faults, http://localhost:5408/page_faults
