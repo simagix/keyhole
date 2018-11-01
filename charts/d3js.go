@@ -29,8 +29,9 @@ var IndexHTML = `
     <li><a href="/ops">Ops Counters</a></li>
     <li><a href="/latencies">Latencies</a></li>
     <li><a href="/metrics">Metrics</a></li>
-    <li><a href="/wiredtiger_cache">WiredTiger Cache</a></li>
-    <li><a href="/wiredtiger_tickets">Tickets</a></li>
+    <li><a href="/wiredtiger_cache">WT Cache</a></li>
+    <li><a href="/wiredtiger_paging">WT Paging</a></li>
+    <li><a href="/wiredtiger_tickets">WT Tickets</a></li>
   </ul>
 
   <div id="keyhole" align='center'>

@@ -54,6 +54,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path[1:] == "v1/wiredtiger_tickets/tsv" {
 		fmt.Fprintf(w, strings.Join(GetWiredTigerTicketsTSV()[:], "\n"))
 
+	} else if r.URL.Path[1:] == "wiredtiger_paging" {
+		str := strings.Replace(IndexHTML, "__TITLE__", "WiredTiger Paging (pages per minute)", -1)
+		str = strings.Replace(str, "__API__", "v1/wiredtiger_paging/tsv", -1)
+		fmt.Fprintf(w, str)
+	} else if r.URL.Path[1:] == "v1/wiredtiger_paging/tsv" {
+		fmt.Fprintf(w, strings.Join(GetWiredTigerPagingTSV()[:], "\n"))
+
 	} else if r.URL.Path[1:] == "latencies" {
 		str := strings.Replace(IndexHTML, "__TITLE__", "Latencies (milliseconds)", -1)
 		str = strings.Replace(str, "__API__", "v1/latencies/tsv", -1)
@@ -127,9 +134,10 @@ func GetPageFaultsTSV() []string {
 func GetMetricsTSV() []string {
 	var docs []string
 	var s1, s2, s3 int
+	var d, i, r, u int
 	var stat, pstat keyhole.ServerStatusDoc
 
-	docs = append(docs, "date\tScanned Keys\tScanned Objects\tScan And Order")
+	docs = append(docs, "date\tScanned Keys\tScanned Objects\tScan And Order\tDeleted\tInserted\tReturned\tUpdated")
 	for _, value := range keyhole.ChartsDocs {
 		for _, doc := range value {
 			buf, _ := json.Marshal(doc)
@@ -138,7 +146,13 @@ func GetMetricsTSV() []string {
 				s1 = stat.Metrics.QueryExecutor.Scanned - pstat.Metrics.QueryExecutor.Scanned
 				s2 = stat.Metrics.QueryExecutor.ScannedObjects - pstat.Metrics.QueryExecutor.ScannedObjects
 				s3 = stat.Metrics.Operation.ScanAndOrder - pstat.Metrics.Operation.ScanAndOrder
-				docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(s1)+"\t"+strconv.Itoa(s2)+"\t"+strconv.Itoa(s3))
+				d = stat.Metrics.Document.Deleted - pstat.Metrics.Document.Deleted
+				i = stat.Metrics.Document.Inserted - pstat.Metrics.Document.Inserted
+				r = stat.Metrics.Document.Returned - pstat.Metrics.Document.Returned
+				u = stat.Metrics.Document.Updated - pstat.Metrics.Document.Updated
+				docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
+					"\t"+strconv.Itoa(s1)+"\t"+strconv.Itoa(s2)+"\t"+strconv.Itoa(s3)+
+					"\t"+strconv.Itoa(d)+"\t"+strconv.Itoa(i)+"\t"+strconv.Itoa(r)+"\t"+strconv.Itoa(u))
 			}
 			pstat = stat
 		}
@@ -152,7 +166,7 @@ func GetWiredTigerCacheTSV() []string {
 	var docs []string
 	var m, c, t float64
 
-	docs = append(docs, "date\tMax Bytes(GB)\tIn Cache(GB)\tDirty Bytes(GB)")
+	docs = append(docs, "date\tMax Bytes\tIn Cache\tDirty Bytes")
 	for _, value := range keyhole.ChartsDocs {
 		stat := keyhole.ServerStatusDoc{}
 		for _, doc := range value {
@@ -167,6 +181,38 @@ func GetWiredTigerCacheTSV() []string {
 				"\t"+strconv.FormatFloat(t, 'E', -1, 64))
 		}
 		break
+	}
+
+	return docs
+}
+
+// GetWiredTigerPagingTSV -
+func GetWiredTigerPagingTSV() []string {
+	var docs []string
+	var stat, pstat keyhole.ServerStatusDoc
+	var m, u, r, w float64
+
+	docs = append(docs, "date\tModified Evicted\tUnmodified Evicted\tRead In Cache\tWritten From Cache")
+	cnt := 0
+	for _, value := range keyhole.ChartsDocs {
+		for _, doc := range value {
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &stat)
+			if cnt > 0 && stat.Uptime > pstat.Uptime {
+				minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
+				m = float64(stat.WiredTiger.Cache.ModifiedPagesEvicted-pstat.WiredTiger.Cache.ModifiedPagesEvicted) / minutes
+				u = float64(stat.WiredTiger.Cache.UnmodifiedPagesEvicted-pstat.WiredTiger.Cache.UnmodifiedPagesEvicted) / minutes
+				r = float64(stat.WiredTiger.Cache.PagesReadIntoCache-pstat.WiredTiger.Cache.PagesReadIntoCache) / minutes
+				w = float64(stat.WiredTiger.Cache.PagesWrittenFromCache-pstat.WiredTiger.Cache.PagesWrittenFromCache) / minutes
+				docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
+					"\t"+strconv.FormatFloat(m, 'E', -1, 64)+
+					"\t"+strconv.FormatFloat(u, 'E', -1, 64)+
+					"\t"+strconv.FormatFloat(r, 'E', -1, 64)+
+					"\t"+strconv.FormatFloat(w, 'E', -1, 64))
+			}
+			pstat = stat
+			cnt++
+		}
 	}
 
 	return docs

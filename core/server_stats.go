@@ -376,11 +376,11 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) 
 
 	for {
 		line, ferr := reader.ReadBytes('\n')
-		json.Unmarshal(line, &docs)
-		allDocs = append(allDocs, docs...)
 		if ferr == io.EOF {
 			break
 		}
+		json.Unmarshal(line, &docs)
+		allDocs = append(allDocs, docs...)
 	}
 
 	if len(allDocs) == 0 {
