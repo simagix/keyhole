@@ -278,54 +278,38 @@ func printGlobalLockDetails(docs []ServerStatusDoc, span int) string {
 // printWiredTigerCacheDetails prints wiredTiger cache stats
 func printWiredTigerCacheDetails(docs []ServerStatusDoc, span int) string {
 	var lines []string
+	var stat1, stat2 ServerStatusDoc
 	if span < 0 {
 		span = 60
 	}
-	stat := ServerStatusDoc{}
-	stat1 := ServerStatusDoc{}
-	stat2 := ServerStatusDoc{}
-	cnt := 0
-	acm := 0
+
 	lines = append(lines, "\n--- WiredTiger Cache Summary ---")
 	lines = append(lines, "+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+")
-	lines = append(lines, "|                         | MaxBytes     | Currently    | Tracked      | Modified     | Unmodified   | PagesRead    | PagesWritten |")
-	lines = append(lines, "| Date/Time               | Configured   | InCache      | DirtyBytes   | PagesEvicted | PagesEvicted | IntoCache    | FromCache    |")
+	lines = append(lines, "|                         |              |              |              | Modified     | Unmodified   | PagesRead    | PagesWritten |")
+	lines = append(lines, "|                         | MaxBytes     | Currently    | Tracked      | PagesEvicted | PagesEvicted | IntoCache    | FromCache    |")
+	lines = append(lines, "| Date/Time               | Configured   | InCache      | DirtyBytes   | per Minute   | per Minute   | per Minute   | per Minute   |")
 	lines = append(lines, "|-------------------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|")
-	for _, doc := range docs {
+	for cnt, doc := range docs {
 		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
-		if cnt == 0 {
-			stat1 = stat
-			stat2.Host = stat1.Host
-		} else if stat2.Host == stat.Host {
-			d := int(stat.LocalTime.Sub(stat1.LocalTime).Seconds())
-			acm++
-			stat2.LocalTime = stat.LocalTime
-			stat2.WiredTiger.Cache.MaxBytesConfigured += stat.WiredTiger.Cache.MaxBytesConfigured
-			stat2.WiredTiger.Cache.CurrentlyInCache += stat.WiredTiger.Cache.CurrentlyInCache
-			stat2.WiredTiger.Cache.TrackedDirtyBytes += stat.WiredTiger.Cache.TrackedDirtyBytes
-			stat2.WiredTiger.Cache.ModifiedPagesEvicted += stat.WiredTiger.Cache.ModifiedPagesEvicted
-			stat2.WiredTiger.Cache.UnmodifiedPagesEvicted += stat.WiredTiger.Cache.UnmodifiedPagesEvicted
-			stat2.WiredTiger.Cache.PagesReadIntoCache += stat.WiredTiger.Cache.PagesReadIntoCache
-			stat2.WiredTiger.Cache.PagesWrittenFromCache += stat.WiredTiger.Cache.PagesWrittenFromCache
-
-			if cnt == len(docs)-1 || d >= span {
-				lines = append(lines, fmt.Sprintf("|%-25s|%14d|%14d|%14d|%14d|%14d|%14d|%14d|",
+		json.Unmarshal(buf, &stat2)
+		if cnt == 0 || stat2.Uptime < stat1.Uptime {
+			stat1 = stat2
+		} else {
+			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+			if d >= span {
+				minutes := stat2.LocalTime.Sub(stat1.LocalTime).Minutes()
+				lines = append(lines, fmt.Sprintf("|%-25s|%14d|%14d|%14d|%14.0f|%14.0f|%14.0f|%14.0f|",
 					stat2.LocalTime.In(loc).Format(time.RFC3339),
-					stat2.WiredTiger.Cache.MaxBytesConfigured/acm,
-					stat2.WiredTiger.Cache.CurrentlyInCache/acm,
-					stat2.WiredTiger.Cache.TrackedDirtyBytes/acm,
-					stat2.WiredTiger.Cache.ModifiedPagesEvicted/acm,
-					stat2.WiredTiger.Cache.UnmodifiedPagesEvicted/acm,
-					stat2.WiredTiger.Cache.PagesReadIntoCache/acm,
-					stat2.WiredTiger.Cache.PagesWrittenFromCache/acm))
-				acm = 0
+					stat2.WiredTiger.Cache.MaxBytesConfigured,
+					stat2.WiredTiger.Cache.CurrentlyInCache,
+					stat2.WiredTiger.Cache.TrackedDirtyBytes,
+					float64(stat2.WiredTiger.Cache.ModifiedPagesEvicted-stat1.WiredTiger.Cache.ModifiedPagesEvicted)/minutes,
+					float64(stat2.WiredTiger.Cache.UnmodifiedPagesEvicted-stat1.WiredTiger.Cache.UnmodifiedPagesEvicted)/minutes,
+					float64(stat2.WiredTiger.Cache.PagesReadIntoCache-stat1.WiredTiger.Cache.PagesReadIntoCache)/minutes,
+					float64(stat2.WiredTiger.Cache.PagesWrittenFromCache-stat1.WiredTiger.Cache.PagesWrittenFromCache)/minutes))
 				stat1 = stat2
-				stat2 = ServerStatusDoc{}
-				stat2.Host = stat1.Host
 			}
 		}
-		cnt++
 	}
 	lines = append(lines, "+-------------------------+--------------+--------------+--------------+--------------+--------------+--------------+--------------+")
 	return strings.Join(lines, "\n")
