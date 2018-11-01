@@ -70,11 +70,11 @@ func main() {
 		}
 		fmt.Println(str)
 		if *webserver {
-			fmt.Println("- Memory, http://localhost:5408/memory")
-			fmt.Println("- Page Faults, http://localhost:5408/page_faults")
-			fmt.Println("- Keys and Documents Scanned (Examined), http://localhost:5408/scanned")
-			fmt.Println("- WiredTiger Cache, http://localhost:5408/wiredtiger_cache")
-			fmt.Println("- WiredTiger Concurrent Transactions (Read/Write Tickets), http://localhost:5408/wiredtiger_tickets")
+			hostname := "localhost"
+			if hostname, err = os.Hostname(); err != nil {
+				hostname = "localhost"
+			}
+			fmt.Println("url: http://" + hostname + ":5408/")
 			charts.HTTPServer(5408)
 		}
 		os.Exit(0)

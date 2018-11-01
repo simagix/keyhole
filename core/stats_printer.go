@@ -114,68 +114,42 @@ func printStatsDetails(docs []ServerStatusDoc, span int) string {
 // printLatencyDetails -
 func printLatencyDetails(docs []ServerStatusDoc, span int) string {
 	var lines []string
+	var r, w, c float64
+	var stat1, stat2 ServerStatusDoc
 	if span < 0 {
 		span = 60
 	}
-	stat1 := ServerStatusDoc{}
-	stat2 := ServerStatusDoc{}
-	cnt := 0
 	lines = append(lines, "\n--- Latencies Summary (ms) ---")
 	lines = append(lines, "+-------------------------+----------+----------+----------+")
 	lines = append(lines, "| Date/Time               | reads    | writes   | commands |")
 	lines = append(lines, "|-------------------------|----------|----------|----------|")
-	for _, doc := range docs {
+	for cnt, doc := range docs {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
+
 		if cnt == 0 {
 			stat1 = stat2
-		} else if cnt == 1 {
-			r := stat2.OpLatencies.Reads.Ops - stat1.OpLatencies.Reads.Ops
-			if r > 0 {
-				r = (stat2.OpLatencies.Reads.Latency - stat1.OpLatencies.Reads.Latency) / r
-			}
-			w := stat2.OpLatencies.Writes.Ops - stat1.OpLatencies.Writes.Ops
-			if w > 0 {
-				w = (stat2.OpLatencies.Writes.Latency - stat1.OpLatencies.Writes.Latency) / w
-			}
-			c := stat2.OpLatencies.Commands.Ops - stat1.OpLatencies.Commands.Ops
-			if c > 0 {
-				c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
-			}
-			if r >= 0 && w >= 0 && c >= 0 {
-				lines = append(lines, fmt.Sprintf("|%-25s|%10d|%10d|%10d|",
-					stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000))
-			} else {
-				cnt = 0
-				lines = append(lines, "|-- REBOOT ---------------|----------|----------|----------|")
-			}
-			stat1 = stat2
-		} else if stat2.Host == stat1.Host {
-			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
-			if cnt == len(docs)-1 || d >= span {
-				r := stat2.OpLatencies.Reads.Ops - stat1.OpLatencies.Reads.Ops
-				if r > 0 {
-					r = (stat2.OpLatencies.Reads.Latency - stat1.OpLatencies.Reads.Latency) / r
-				}
-				w := stat2.OpLatencies.Writes.Ops - stat1.OpLatencies.Writes.Ops
-				if w > 0 {
-					w = (stat2.OpLatencies.Writes.Latency - stat1.OpLatencies.Writes.Latency) / w
-				}
-				c := stat2.OpLatencies.Commands.Ops - stat1.OpLatencies.Commands.Ops
-				if c > 0 {
-					c = (stat2.OpLatencies.Commands.Latency - stat1.OpLatencies.Commands.Latency) / c
-				}
-				if r >= 0 && w >= 0 && c >= 0 {
-					lines = append(lines, fmt.Sprintf("|%-25s|%10d|%10d|%10d|",
-						stat2.LocalTime.In(loc).Format(time.RFC3339), r/1000, w/1000, c/1000))
-				} else {
-					cnt = 0
-					lines = append(lines, "|-- REBOOT ---------------|----------|----------|----------|")
-				}
-				stat1 = stat2
-			}
+			continue
 		}
-		cnt++
+
+		d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+		if d >= span {
+			r = 0
+			if stat2.OpLatencies.Reads.Ops > 0 {
+				r = float64(stat2.OpLatencies.Reads.Latency) / float64(stat2.OpLatencies.Reads.Ops) / 1000
+			}
+			w = 0
+			if stat2.OpLatencies.Writes.Ops > 0 {
+				w = float64(stat2.OpLatencies.Writes.Latency) / float64(stat2.OpLatencies.Writes.Ops) / 1000
+			}
+			c = 0
+			if stat2.OpLatencies.Commands.Ops > 0 {
+				c = float64(stat2.OpLatencies.Commands.Latency) / float64(stat2.OpLatencies.Commands.Ops) / 1000
+			}
+			lines = append(lines, fmt.Sprintf("|%-25s|%10.1f|%10.1f|%10.1f|",
+				stat2.LocalTime.In(loc).Format(time.RFC3339), r, w, c))
+			stat1 = stat2
+		}
 	}
 	lines = append(lines, "+-------------------------+----------+----------+----------+")
 	return strings.Join(lines, "\n")
@@ -184,12 +158,11 @@ func printLatencyDetails(docs []ServerStatusDoc, span int) string {
 // printMetricsDetails -
 func printMetricsDetails(docs []ServerStatusDoc, span int) string {
 	var lines []string
+	var stat1, stat2 ServerStatusDoc
 	if span < 0 {
 		span = 60
 	}
-	stat1 := ServerStatusDoc{}
-	stat2 := ServerStatusDoc{}
-	cnt := 0
+
 	lines = append(lines, "\n--- Metrics ---")
 	lines = append(lines, "+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+")
 	lines = append(lines, "| Date/Time               | Scanned  | ScannedObj |ScanAndOrder|WriteConflicts| Deleted  | Inserted | Returned | Updated  |")
@@ -197,37 +170,10 @@ func printMetricsDetails(docs []ServerStatusDoc, span int) string {
 	for _, doc := range docs {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
-		if cnt == 0 {
-			stat1 = stat2
-		} else if cnt == 1 {
-			if (stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned) >= 0 &&
-				(stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects) >= 0 &&
-				(stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts) >= 0 &&
-				(stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted) >= 0 &&
-				(stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned) >= 0 {
-				lines = append(lines, fmt.Sprintf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|",
-					stat2.LocalTime.In(loc).Format(time.RFC3339),
-					stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
-					stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects,
-					stat2.Metrics.Operation.ScanAndOrder-stat1.Metrics.Operation.ScanAndOrder,
-					stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts,
-					stat2.Metrics.Document.Deleted-stat1.Metrics.Document.Deleted,
-					stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted,
-					stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
-					stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated))
-			} else {
-				cnt = 0
-				lines = append(lines, "|-- REBOOT ---------------|----------|------------|------------|--------------|----------|----------|----------|----------|")
-			}
-			stat1 = stat2
-		} else if stat2.Host == stat1.Host {
+		if stat1.Host != "" {
 			d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
-			if cnt == len(docs)-1 || d >= span {
-				if (stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned) >= 0 &&
-					(stat2.Metrics.QueryExecutor.ScannedObjects-stat1.Metrics.QueryExecutor.ScannedObjects) >= 0 &&
-					(stat2.Metrics.Operation.WriteConflicts-stat1.Metrics.Operation.WriteConflicts) >= 0 &&
-					(stat2.Metrics.Document.Inserted-stat1.Metrics.Document.Inserted) >= 0 &&
-					(stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned) >= 0 {
+			if d >= span {
+				if stat2.Uptime > stat1.Uptime {
 					lines = append(lines, fmt.Sprintf("|%-25s|%10d|%12d|%12d|%14d|%10d|%10d|%10d|%10d|",
 						stat2.LocalTime.In(loc).Format(time.RFC3339),
 						stat2.Metrics.QueryExecutor.Scanned-stat1.Metrics.QueryExecutor.Scanned,
@@ -239,13 +185,13 @@ func printMetricsDetails(docs []ServerStatusDoc, span int) string {
 						stat2.Metrics.Document.Returned-stat1.Metrics.Document.Returned,
 						stat2.Metrics.Document.Updated-stat1.Metrics.Document.Updated))
 				} else {
-					cnt = 0
-					lines = append(lines, "|-- REBOOT ---------------|----------|------------|------------|--------------|----------|----------|----------|----------|")
+					lines = append(lines, "+-- REBOOT ---------------+----------+------------+------------+--------------+----------+----------+----------+----------+")
 				}
 				stat1 = stat2
 			}
+		} else {
+			stat1 = stat2
 		}
-		cnt++
 	}
 	lines = append(lines, "+-------------------------+----------+------------+------------+--------------+----------+----------+----------+----------+")
 	return strings.Join(lines, "\n")

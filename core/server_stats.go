@@ -151,6 +151,7 @@ type ServerStatusDoc struct {
 	Process     string         `json:"process" bson:"process"`
 	Repl        interface{}    `json:"repl" bson:"repl"`
 	Sharding    interface{}    `json:"sharding" bson:"sharding"`
+	Uptime      int            `json:"uptime" bson:"uptime"`
 	Version     string         `json:"version" bson:"version"`
 	WiredTiger  WiredTigerDoc  `json:"wiredTiger" bson:"wiredTiger"`
 }
@@ -162,6 +163,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	var iop int
 	var piop int
 	wSeconds := 10
+	var r, w, c float64
 	if b.verbose {
 		rstr := fmt.Sprintf("CollectServerStatus collects every %d seconds(s)\n", wSeconds)
 		channel <- rstr
@@ -214,11 +216,20 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 						stat.OpCounters.Delete-pstat.OpCounters.Delete,
 						stat.OpCounters.Getmore-pstat.OpCounters.Getmore,
 						stat.OpCounters.Command-pstat.OpCounters.Command)
+					r = 0
+					if stat.OpLatencies.Reads.Ops > 0 {
+						r = float64(stat.OpLatencies.Reads.Latency) / float64(stat.OpLatencies.Reads.Ops) / 1000
+					}
+					w = 0
+					if stat.OpLatencies.Writes.Ops > 0 {
+						w = float64(stat.OpLatencies.Writes.Latency) / float64(stat.OpLatencies.Writes.Ops) / 1000
+					}
+					c = 0
+					if stat.OpLatencies.Commands.Ops > 0 {
+						c = float64(stat.OpLatencies.Commands.Latency) / float64(stat.OpLatencies.Commands.Ops) / 1000
+					}
 					msg2 = fmt.Sprintf("[%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
-						mapKey,
-						float64(stat.OpLatencies.Reads.Latency-pstat.OpLatencies.Reads.Latency)/float64(stat.OpLatencies.Reads.Ops-pstat.OpLatencies.Reads.Ops)/1000,
-						float64(stat.OpLatencies.Writes.Latency-pstat.OpLatencies.Writes.Latency)/float64(stat.OpLatencies.Writes.Ops-pstat.OpLatencies.Writes.Ops)/1000,
-						float64(stat.OpLatencies.Commands.Latency-pstat.OpLatencies.Commands.Latency)/float64(stat.OpLatencies.Commands.Ops-pstat.OpLatencies.Commands.Ops)/1000)
+						mapKey, r, w, c)
 				} else {
 					str += "\n"
 				}
@@ -343,6 +354,8 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) 
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	var bmap = []bson.M{}
+	var line []byte
+
 	if file, err = os.Open(filename); err != nil {
 		return "", err
 	}
@@ -353,11 +366,10 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) 
 	}
 
 	for {
-		line, ferr := reader.ReadString('\n') // 0x0A separator = newline
-		if ferr == io.EOF {
+		if line, _, err = reader.ReadLine(); err == io.EOF {
 			break
 		}
-		json.Unmarshal([]byte(line), &docs)
+		json.Unmarshal(line, &docs)
 		allDocs = append(allDocs, docs...)
 	}
 
@@ -368,9 +380,9 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) 
 	buf, _ := json.Marshal(allDocs)
 	json.Unmarshal(buf, &bmap)
 	ChartsDocs["replset"] = bmap
-	if isWeb {
-		return "", err
-	}
+	// if isWeb {
+	// 	return "", err
+	// }
 	if len(allDocs) > 0 {
 		stat := ServerStatusDoc{}
 		buf, _ := json.Marshal(allDocs[0])

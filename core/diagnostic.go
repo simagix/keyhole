@@ -75,10 +75,10 @@ func ReadDiagnosticDir(dirname string) (interface{}, []bson.M, error) {
 	var serverStatusList []bson.M
 	var info interface{}
 	var docs []bson.M
+	var files []os.FileInfo
 
-	files, err := ioutil.ReadDir(dirname)
-	if err != nil {
-		log.Fatal(err)
+	if files, err = ioutil.ReadDir(dirname); err != nil {
+		return serverInfo, docs, err
 	}
 
 	for _, f := range files {
@@ -109,6 +109,7 @@ func ReadDiagnosticFile(filename string) (interface{}, []bson.M, error) {
 		return serverInfo, serverStatusList, err
 	}
 
+	log.Println("reading", filename)
 	for {
 		if pos >= int32(len(buffer)) {
 			break
