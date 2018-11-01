@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -131,15 +132,23 @@ type ConcurrentTransactionsDoc struct {
 	Write ConcurrentTransactionsCountDoc `json:"write" bson:"write"`
 }
 
-// WiredTigerDoc containers db.serverStatus().wiredTiger
+// WiredTigerDoc contains db.serverStatus().wiredTiger
 type WiredTigerDoc struct {
 	Perf                   interface{}               `json:"perf" bson:"perf"`
 	Cache                  WiredTigerCacheDoc        `json:"cache" bson:"cache"`
 	ConcurrentTransactions ConcurrentTransactionsDoc `json:"concurrentTransactions" bson:"concurrentTransactions"`
 }
 
+// ConnectionsDoc contains db.serverStatus().connections
+type ConnectionsDoc struct {
+	Current      int `json:"current" bson:"current"`
+	Available    int `json:"available" bson:"available"`
+	TotalCreated int `json:"totalCreated" bson:"totalCreated"`
+}
+
 // ServerStatusDoc contains docs from db.serverStatus()
 type ServerStatusDoc struct {
+	Connections ConnectionsDoc `json:"connections" bson:"connections"`
 	ExtraInfo   ExtraInfoDoc   `json:"extra_info" bson:"extra_info"`
 	GlobalLock  GlobalLockDoc  `json:"globalLock" bson:"globalLock"`
 	Host        string         `json:"host" bson:"host"`
@@ -348,13 +357,13 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 
 // AnalyzeServerStatus -
 func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) {
+	log.Println("AnalyzeServerStatus", filename)
 	var err error
 	var file *os.File
 	var reader *bufio.Reader
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
 	var bmap = []bson.M{}
-	var line []byte
 
 	if file, err = os.Open(filename); err != nil {
 		return "", err
@@ -366,11 +375,12 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) 
 	}
 
 	for {
-		if line, _, err = reader.ReadLine(); err == io.EOF {
-			break
-		}
+		line, ferr := reader.ReadBytes('\n')
 		json.Unmarshal(line, &docs)
 		allDocs = append(allDocs, docs...)
+		if ferr == io.EOF {
+			break
+		}
 	}
 
 	if len(allDocs) == 0 {

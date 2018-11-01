@@ -34,6 +34,7 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 		}
 	case mode.IsRegular():
 		if message, err = AnalyzeServerStatus(filename, span, isWeb); err != nil {
+			log.Println(err)
 			if serverInfo, serverStatusList, err = ReadDiagnosticFile(filename); err != nil {
 				return "", err
 			}

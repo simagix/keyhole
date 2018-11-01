@@ -25,6 +25,7 @@ var IndexHTML = `
   <ul align='center'>
     <li><a href="/memory">Memory</a></li>
     <li><a href="/page_faults">Page Faults</a></li>
+    <li><a href="/connections">Connections</a></li>
     <li><a href="/ops">Ops Counters</a></li>
     <li><a href="/latencies">Latencies</a></li>
     <li><a href="/metrics">Metrics</a></li>

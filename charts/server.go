@@ -61,6 +61,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path[1:] == "v1/latencies/tsv" {
 		fmt.Fprintf(w, strings.Join(GetLatenciesTSV()[:], "\n"))
 
+	} else if r.URL.Path[1:] == "connections" {
+		str := strings.Replace(IndexHTML, "__TITLE__", "Connections", -1)
+		str = strings.Replace(str, "__API__", "v1/connections/tsv", -1)
+		fmt.Fprintf(w, str)
+	} else if r.URL.Path[1:] == "v1/connections/tsv" {
+		fmt.Fprintf(w, strings.Join(GetConnectionsTSV()[:], "\n"))
+
 	} else {
 		fmt.Fprintf(w, "Keyhole Performance Charts!  Unknow API!")
 	}
@@ -246,5 +253,31 @@ func GetLatenciesTSV() []string {
 		}
 		break
 	}
+	return docs
+}
+
+// GetConnectionsTSV -
+func GetConnectionsTSV() []string {
+	var docs []string
+	var stat, pstat keyhole.ServerStatusDoc
+
+	docs = append(docs, "date\tCurrent\tAvailable\tCreated per minute")
+	for _, value := range keyhole.ChartsDocs {
+		for _, doc := range value {
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &stat)
+			if pstat.Host != "" && stat.Uptime > pstat.Uptime {
+				minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
+				churn := float64(stat.Connections.TotalCreated-pstat.Connections.TotalCreated) / minutes
+				docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
+					"\t"+strconv.Itoa(stat.Connections.Current)+
+					"\t"+strconv.Itoa(stat.Connections.Available)+
+					"\t"+strconv.Itoa(int(churn)))
+			}
+			pstat = stat
+		}
+		break
+	}
+
 	return docs
 }
