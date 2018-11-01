@@ -34,7 +34,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, strings.Join(GetMetricsTSV()[:], "\n"))
 
 	} else if r.URL.Path[1:] == "wiredtiger_cache" {
-		str := strings.Replace(IndexHTML, "__TITLE__", "WiredTiger Cache (MB)", -1)
+		str := strings.Replace(IndexHTML, "__TITLE__", "WiredTiger Cache (GB)", -1)
 		str = strings.Replace(str, "__API__", "v1/wiredtiger_cache/tsv", -1)
 		fmt.Fprintf(w, str)
 	} else if r.URL.Path[1:] == "v1/wiredtiger_cache/tsv" {
@@ -143,13 +143,21 @@ func GetMetricsTSV() []string {
 // GetWiredTigerCacheTSV -
 func GetWiredTigerCacheTSV() []string {
 	var docs []string
-	docs = append(docs, "date\tMax Bytes(MB)\tIn Cache(MB)\tDirty Bytes(MB)")
+	var m, c, t float64
+
+	docs = append(docs, "date\tMax Bytes(GB)\tIn Cache(GB)\tDirty Bytes(GB)")
 	for _, value := range keyhole.ChartsDocs {
 		stat := keyhole.ServerStatusDoc{}
 		for _, doc := range value {
 			buf, _ := json.Marshal(doc)
 			json.Unmarshal(buf, &stat)
-			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(stat.WiredTiger.Cache.MaxBytesConfigured/(1024*1024))+"\t"+strconv.Itoa(stat.WiredTiger.Cache.CurrentlyInCache/(1024*1024))+"\t"+strconv.Itoa(stat.WiredTiger.Cache.TrackedDirtyBytes/(1024*1024)))
+			m = float64(stat.WiredTiger.Cache.MaxBytesConfigured) / (1024 * 1024 * 1024)
+			c = float64(stat.WiredTiger.Cache.CurrentlyInCache) / (1024 * 1024 * 1024)
+			t = float64(stat.WiredTiger.Cache.TrackedDirtyBytes) / (1024 * 1024 * 1024)
+			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
+				"\t"+strconv.FormatFloat(m, 'E', -1, 64)+
+				"\t"+strconv.FormatFloat(c, 'E', -1, 64)+
+				"\t"+strconv.FormatFloat(t, 'E', -1, 64))
 		}
 		break
 	}
@@ -212,7 +220,7 @@ func GetLatenciesTSV() []string {
 	var r, w, c float64
 	// var pstat keyhole.ServerStatusDoc
 
-	docs = append(docs, "date\tReads\tWrites\tCommands")
+	docs = append(docs, "date\tReads (ms)\tWrites (ms)\tCommands (ms)")
 	for _, value := range keyhole.ChartsDocs {
 		stat := keyhole.ServerStatusDoc{}
 		for _, doc := range value {
