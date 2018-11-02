@@ -67,6 +67,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path[1:] == "v1/connections/tsv" {
 		str = strings.Join(GetConnectionsTSV()[:], "\n")
 
+	} else if r.URL.Path[1:] == "queues" {
+		str = strings.Replace(IndexHTML, "__TITLE__", "Queues", -1)
+		str = strings.Replace(str, "__API__", "v1/queues/tsv", -1)
+	} else if r.URL.Path[1:] == "v1/queues/tsv" {
+		str = strings.Join(GetQueuesTSV()[:], "\n")
+
 	} else {
 		str = "Keyhole Performance Charts!  Unknow API!"
 	}
@@ -290,6 +296,24 @@ func GetConnectionsTSV() []string {
 				"\t"+strconv.Itoa(int(churn)))
 		}
 		pstat = stat
+	}
+
+	return docs
+}
+
+// GetQueuesTSV -
+func GetQueuesTSV() []string {
+	var docs []string
+	docs = append(docs, "date\tActive Read\tActive Write\tQueued Read\tQueued Write")
+	stat := keyhole.ServerStatusDoc{}
+	for _, doc := range keyhole.ChartsDocs["diagnostic.data"] {
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat)
+		docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
+			"\t"+strconv.Itoa(stat.GlobalLock.ActiveClients.Readers)+
+			"\t"+strconv.Itoa(stat.GlobalLock.ActiveClients.Writers)+
+			"\t"+strconv.Itoa(stat.GlobalLock.CurrentQueue.Readers)+
+			"\t"+strconv.Itoa(stat.GlobalLock.CurrentQueue.Writers))
 	}
 
 	return docs

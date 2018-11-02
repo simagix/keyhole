@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -359,7 +358,6 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 
 // AnalyzeServerStatus -
 func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, error) {
-	log.Println(filename)
 	var err error
 	var file *os.File
 	var reader *bufio.Reader
@@ -389,9 +387,7 @@ func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, error
 		return info, allDocs, errors.New("Not doc found")
 	}
 
-	buf, _ := json.Marshal(allDocs[0])
-	json.Unmarshal(buf, &info)
-
-	log.Println(len(allDocs))
+	// buf, _ := json.Marshal(allDocs[0])
+	// json.Unmarshal(buf, &info)
 	return info, allDocs, err
 }

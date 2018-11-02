@@ -27,6 +27,7 @@ var IndexHTML = `
     <li><a href="/page_faults">Page Faults</a></li>
     <li><a href="/connections">Connections</a></li>
     <li><a href="/ops">Ops Counters</a></li>
+    <li><a href="/queues">Queues</a></li>
     <li><a href="/latencies">Latencies</a></li>
     <li><a href="/metrics">Metrics</a></li>
     <li><a href="/wiredtiger_cache">WT Cache</a></li>
