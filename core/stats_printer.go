@@ -337,7 +337,7 @@ func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc, span i
 		if cnt == 0 {
 			stat1 = stat
 			stat2.Host = stat1.Host
-		} else if stat2.Host == stat.Host {
+		} else {
 			d := int(stat.LocalTime.Sub(stat1.LocalTime).Seconds())
 			acm++
 			stat2.LocalTime = stat.LocalTime

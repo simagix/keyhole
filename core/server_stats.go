@@ -306,7 +306,8 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	var session *mgo.Session
 	var err error
 	var filename string
-	var str string
+	var docs []ServerStatusDoc
+
 	dialInfo, _ := ParseDialInfo(uri)
 	if session, err = GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return filename, err
@@ -320,8 +321,9 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	if filename, err = b.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}
-	str, err = AnalyzeServerStatus(filename, span, false)
-	fmt.Println(str)
+	if _, docs, err = AnalyzeServerStatus(filename); err != nil {
+		fmt.Println(PrintAllStats(docs, span))
+	}
 	return filename, err
 }
 
@@ -356,22 +358,22 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 }
 
 // AnalyzeServerStatus -
-func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) {
-	log.Println("AnalyzeServerStatus", filename)
+func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, error) {
+	log.Println(filename)
 	var err error
 	var file *os.File
 	var reader *bufio.Reader
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
-	var bmap = []bson.M{}
+	var info interface{}
 
 	if file, err = os.Open(filename); err != nil {
-		return "", err
+		return info, allDocs, err
 	}
 	defer file.Close()
 
 	if reader, err = NewReader(file); err != nil {
-		return "", err
+		return info, allDocs, err
 	}
 
 	for {
@@ -384,21 +386,12 @@ func AnalyzeServerStatus(filename string, span int, isWeb bool) (string, error) 
 	}
 
 	if len(allDocs) == 0 {
-		return "", errors.New("Not doc found")
+		return info, allDocs, errors.New("Not doc found")
 	}
 
-	buf, _ := json.Marshal(allDocs)
-	json.Unmarshal(buf, &bmap)
-	ChartsDocs["replset"] = bmap
-	// if isWeb {
-	// 	return "", err
-	// }
-	if len(allDocs) > 0 {
-		stat := ServerStatusDoc{}
-		buf, _ := json.Marshal(allDocs[0])
-		json.Unmarshal(buf, &stat)
-		fmt.Printf("--- Host: %s, version: %s ---\n", stat.Host, stat.Version)
-	}
+	buf, _ := json.Marshal(allDocs[0])
+	json.Unmarshal(buf, &info)
 
-	return PrintAllStats(allDocs, span), err
+	log.Println(len(allDocs))
+	return info, allDocs, err
 }

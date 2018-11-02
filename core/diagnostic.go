@@ -19,10 +19,8 @@ import (
 func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) {
 	var err error
 	var serverInfo interface{}
-	var serverStatusList []bson.M
-	var docs []ServerStatusDoc
+	var serverStatusList []ServerStatusDoc
 	var fi os.FileInfo
-	var message string
 
 	if fi, err = os.Stat(filename); err != nil {
 		return "", err
@@ -33,21 +31,12 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 			return "", err
 		}
 	case mode.IsRegular():
-		if message, err = AnalyzeServerStatus(filename, span, isWeb); err != nil {
+		if serverInfo, serverStatusList, err = AnalyzeServerStatus(filename); err != nil {
 			log.Println(err)
 			if serverInfo, serverStatusList, err = ReadDiagnosticFile(filename); err != nil {
 				return "", err
 			}
-		} else {
-			return message, err
 		}
-	}
-
-	for _, ss := range serverStatusList {
-		b, _ := json.Marshal(ss)
-		doc := ServerStatusDoc{}
-		json.Unmarshal(b, &doc)
-		docs = append(docs, doc)
 	}
 
 	if serverInfo != nil {
@@ -56,26 +45,25 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 	}
 
 	if span < 0 {
-		span = int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
-
+		span = int(serverStatusList[(len(serverStatusList)-1)].LocalTime.Sub(serverStatusList[0].LocalTime).Seconds()) / 20
 	}
 
 	if isWeb {
 		var bmap = []bson.M{}
-		buf, _ := json.Marshal(docs)
+		buf, _ := json.Marshal(serverStatusList)
 		json.Unmarshal(buf, &bmap)
-		ChartsDocs["replset"] = bmap
+		ChartsDocs["diagnostic.data"] = bmap
 	}
-	return PrintAllStats(docs, span), err
+
+	return PrintAllStats(serverStatusList, span), err
 }
 
 // ReadDiagnosticDir reads diagnotics.data from a directory
-func ReadDiagnosticDir(dirname string) (interface{}, []bson.M, error) {
+func ReadDiagnosticDir(dirname string) (interface{}, []ServerStatusDoc, error) {
 	var err error
 	var serverInfo interface{}
-	var serverStatusList []bson.M
-	var info interface{}
-	var docs []bson.M
+	var serverStatusList []ServerStatusDoc
+	var docs []ServerStatusDoc
 	var files []os.FileInfo
 
 	if files, err = ioutil.ReadDir(dirname); err != nil {
@@ -83,27 +71,30 @@ func ReadDiagnosticDir(dirname string) (interface{}, []bson.M, error) {
 	}
 
 	for _, f := range files {
-		if strings.Index(f.Name(), "metrics.") != 0 {
+		if strings.Index(f.Name(), "metrics.") != 0 && strings.Index(f.Name(), "keyhole_stats.") != 0 {
 			continue
 		}
 		filename := dirname + "/" + f.Name()
-		if info, docs, err = ReadDiagnosticFile(filename); err != nil {
-			return serverInfo, serverStatusList, err
+
+		if serverInfo, docs, err = AnalyzeServerStatus(filename); err != nil {
+			if serverInfo, docs, err = ReadDiagnosticFile(filename); err != nil {
+				return serverInfo, serverStatusList, err
+			}
 		}
-		if info != nil {
-			serverInfo = info
-		}
+
 		serverStatusList = append(serverStatusList, docs...)
 	}
+
 	return serverInfo, serverStatusList, err
 }
 
 // ReadDiagnosticFile reads diagnostic.data from a file
-func ReadDiagnosticFile(filename string) (interface{}, []bson.M, error) {
+func ReadDiagnosticFile(filename string) (interface{}, []ServerStatusDoc, error) {
 	var buffer []byte
 	var err error
 	var serverInfo interface{}
-	var serverStatusList []bson.M
+	var serverStatusList []ServerStatusDoc
+	var docs []bson.M
 	var pos int32
 
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
@@ -149,10 +140,14 @@ func ReadDiagnosticFile(filename string) (interface{}, []bson.M, error) {
 			if doc["serverStatus"] == nil {
 				log.Println("Not serverStatus")
 			} else {
-				serverStatusList = append(serverStatusList, doc["serverStatus"].(bson.M))
+				docs = append(docs, doc["serverStatus"].(bson.M))
 			}
 		}
 	}
 
+	if buffer, err = json.Marshal(docs); err != nil {
+		return serverInfo, serverStatusList, err
+	}
+	json.Unmarshal(buffer, &serverStatusList)
 	return serverInfo, serverStatusList, err
 }

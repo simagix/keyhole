@@ -9,10 +9,10 @@ import (
 func TestAnalyzeServerStatus(t *testing.T) {
 	var filename = "/tmp/keyhole_stats.2018-10-18T080737-standalone.gz"
 	var err error
-	var str string
+	var docs []ServerStatusDoc
 
-	if str, err = AnalyzeServerStatus(filename, 60, false); err != nil {
+	if _, docs, err = AnalyzeServerStatus(filename); err != nil {
 		t.Fatal(err)
 	}
-	t.Log(str)
+	t.Log(len(docs))
 }
