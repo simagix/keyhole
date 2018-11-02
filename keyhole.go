@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/globalsign/mgo"
 	"github.com/simagix/keyhole/charts"
@@ -119,7 +120,7 @@ func main() {
 		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
 
-	session, err := keyhole.GetSession(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile)
+	session, err := keyhole.GetSessionWithTimeout(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile, 10*time.Second)
 	if err != nil {
 		panic(err)
 	}

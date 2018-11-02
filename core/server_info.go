@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net"
+	"time"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
@@ -32,8 +33,14 @@ type DBStats struct {
 	Objects   int    `json:"objects" bson:"objects"`
 }
 
-// GetSession returns a MongoDB session
+// GetSession connects to a mongod server without timeout timeout may interrupt load tests when
+// having multiple go routines
 func GetSession(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
+	return GetSessionWithTimeout(dialInfo, wmajor, ssl, sslCA, sslPEMKeyFile, 0)
+}
+
+// GetSessionWithTimeout returns a MongoDB session
+func GetSessionWithTimeout(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, sslPEMKeyFile string, timeout time.Duration) (*mgo.Session, error) {
 	if ssl {
 		tlsConfig := &tls.Config{}
 		tlsConfig.InsecureSkipVerify = true
@@ -58,7 +65,7 @@ func GetSession(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, ssl
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		}
 	}
-	// dialInfo.Timeout = time.Duration(10 * time.Second)
+	dialInfo.Timeout = time.Duration(timeout)
 
 	var session *mgo.Session
 	var err error
