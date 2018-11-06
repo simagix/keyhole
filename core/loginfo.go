@@ -163,6 +163,9 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 			re := regexp.MustCompile(`^(\w+) ({.*})$`)
 			op := result[2]
 			ns := result[3]
+			if ns == "local.oplog.rs" {
+				continue
+			}
 			filter := result[4][:epos]
 			ms := result[5]
 			if op == "command" {
@@ -234,7 +237,7 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 				filter = filter[:(isRegex+10)] + "/.../.../" + filter[(isRegex+cnt):]
 			}
 
-			re = regexp.MustCompile(`(: "[^"]*"|: -?\d+|: new Date\(\d+?\)|: true|: false)`)
+			re = regexp.MustCompile(`(: "[^"]*"|: -?\d+(\.\d+)?|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ":1")
 			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
 			filter = re.ReplaceAllString(filter, "")
