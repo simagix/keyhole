@@ -145,6 +145,7 @@ func (b Base) terminate(session *mgo.Session, uriList []string) {
 
 	for _, value := range uriList {
 		if filename, err = b.PrintServerStatus(value, 60); err != nil {
+			log.Println(err)
 			continue
 		}
 		filenames = append(filenames, filename)

@@ -321,8 +321,9 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 		return filename, err
 	}
 	if _, docs, err = AnalyzeServerStatus(filename); err != nil {
-		fmt.Println(PrintAllStats(docs, span))
+		return filename, err
 	}
+	fmt.Println(PrintAllStats(docs, span))
 	return filename, err
 }
 
