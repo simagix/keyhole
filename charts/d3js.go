@@ -33,6 +33,7 @@ var IndexHTML = `
     <li><a href="/wiredtiger_cache">WT Cache</a></li>
     <li><a href="/wiredtiger_paging">WT Paging</a></li>
     <li><a href="/wiredtiger_tickets">WT Tickets</a></li>
+    <li><a href="/repl_lags">Repl Lags</a></li>
   </ul>
 
   <div id="keyhole" align='center'>

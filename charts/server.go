@@ -73,6 +73,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path[1:] == "v1/queues/tsv" {
 		str = strings.Join(GetQueuesTSV()[:], "\n")
 
+	} else if r.URL.Path[1:] == "repl_lags" {
+		str = strings.Replace(IndexHTML, "__TITLE__", "Replication Lags (seconds)", -1)
+		str = strings.Replace(str, "__API__", "v1/repl_lags/tsv", -1)
+	} else if r.URL.Path[1:] == "v1/repl_lags/tsv" {
+		str = strings.Join(keyhole.GetReplLagsTSV()[:], "\n")
+
 	} else {
 		str = "Keyhole Performance Charts!  Unknow API!"
 	}

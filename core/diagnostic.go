@@ -20,6 +20,7 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 	var err error
 	var serverInfo interface{}
 	var serverStatusList []ServerStatusDoc
+	var replSetStatusList []ReplSetStatusDoc
 	var fi os.FileInfo
 
 	if fi, err = os.Stat(filename); err != nil {
@@ -27,13 +28,13 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 	}
 	switch mode := fi.Mode(); {
 	case mode.IsDir():
-		if serverInfo, serverStatusList, err = ReadDiagnosticDir(filename); err != nil {
+		if serverInfo, serverStatusList, replSetStatusList, err = ReadDiagnosticDir(filename); err != nil {
 			return "", err
 		}
 	case mode.IsRegular():
 		if serverInfo, serverStatusList, err = AnalyzeServerStatus(filename); err != nil {
 			log.Println(err)
-			if serverInfo, serverStatusList, err = ReadDiagnosticFile(filename); err != nil {
+			if serverInfo, serverStatusList, replSetStatusList, err = ReadDiagnosticFile(filename); err != nil {
 				return "", err
 			}
 		}
@@ -49,25 +50,32 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 	}
 
 	if isWeb {
+		var buf []byte
 		var bmap = []bson.M{}
-		buf, _ := json.Marshal(serverStatusList)
+		var cmap = []bson.M{}
+		buf, _ = json.Marshal(serverStatusList)
 		json.Unmarshal(buf, &bmap)
 		ChartsDocs["diagnostic.data"] = bmap
+		buf, _ = json.Marshal(replSetStatusList)
+		json.Unmarshal(buf, &cmap)
+		ChartsDocs["replset"] = cmap
 	}
 
 	return PrintAllStats(serverStatusList, span), err
 }
 
 // ReadDiagnosticDir reads diagnotics.data from a directory
-func ReadDiagnosticDir(dirname string) (interface{}, []ServerStatusDoc, error) {
+func ReadDiagnosticDir(dirname string) (interface{}, []ServerStatusDoc, []ReplSetStatusDoc, error) {
 	var err error
 	var serverInfo interface{}
 	var serverStatusList []ServerStatusDoc
+	var replSetStatusList []ReplSetStatusDoc
 	var docs []ServerStatusDoc
+	var repls []ReplSetStatusDoc
 	var files []os.FileInfo
 
 	if files, err = ioutil.ReadDir(dirname); err != nil {
-		return serverInfo, docs, err
+		return serverInfo, serverStatusList, replSetStatusList, err
 	}
 
 	for _, f := range files {
@@ -77,28 +85,32 @@ func ReadDiagnosticDir(dirname string) (interface{}, []ServerStatusDoc, error) {
 		filename := dirname + "/" + f.Name()
 
 		if serverInfo, docs, err = AnalyzeServerStatus(filename); err != nil {
-			if serverInfo, docs, err = ReadDiagnosticFile(filename); err != nil {
-				return serverInfo, serverStatusList, err
+			if serverInfo, docs, repls, err = ReadDiagnosticFile(filename); err != nil {
+				return serverInfo, serverStatusList, replSetStatusList, err
+			} else {
+				replSetStatusList = append(replSetStatusList, repls...)
 			}
 		}
 
 		serverStatusList = append(serverStatusList, docs...)
 	}
 
-	return serverInfo, serverStatusList, err
+	return serverInfo, serverStatusList, replSetStatusList, err
 }
 
 // ReadDiagnosticFile reads diagnostic.data from a file
-func ReadDiagnosticFile(filename string) (interface{}, []ServerStatusDoc, error) {
+func ReadDiagnosticFile(filename string) (interface{}, []ServerStatusDoc, []ReplSetStatusDoc, error) {
 	var buffer []byte
 	var err error
 	var serverInfo interface{}
 	var serverStatusList []ServerStatusDoc
+	var replSetStatusList []ReplSetStatusDoc
 	var docs []bson.M
+	var repls []bson.M
 	var pos int32
 
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
-		return serverInfo, serverStatusList, err
+		return serverInfo, serverStatusList, replSetStatusList, err
 	}
 
 	log.Println("reading", filename)
@@ -110,7 +122,7 @@ func ReadDiagnosticFile(filename string) (interface{}, []ServerStatusDoc, error)
 		var length int32
 
 		if err = binary.Read(bytes.NewReader(bs), binary.LittleEndian, &length); err != nil {
-			return serverInfo, serverStatusList, err
+			return serverInfo, serverStatusList, replSetStatusList, err
 		}
 
 		bs = buffer[pos:(pos + length)]
@@ -130,24 +142,40 @@ func ReadDiagnosticFile(filename string) (interface{}, []ServerStatusDoc, error)
 			bytesBuf := bytes.NewReader(buf)
 			var r io.ReadCloser
 			if r, err = zlib.NewReader(bytesBuf); err != nil {
-				return serverInfo, serverStatusList, err
+				return serverInfo, serverStatusList, replSetStatusList, err
 			}
 			var bytesBufWriter bytes.Buffer
 			writer := bufio.NewWriter(&bytesBufWriter)
 			io.Copy(writer, r)
 			r.Close()
 			bson.Unmarshal(bytesBufWriter.Bytes(), &doc)
-			if doc["serverStatus"] == nil {
-				log.Println("Not serverStatus")
-			} else {
+			// systemMetrics
+			// end
+			// start
+			// serverStatus
+			// replSetGetStatus
+			// local.oplog.rs.stats
+
+			if doc["serverStatus"] != nil {
 				docs = append(docs, doc["serverStatus"].(bson.M))
 			}
+
+			if doc["replSetGetStatus"] != nil {
+				repls = append(repls, doc["replSetGetStatus"].(bson.M))
+			}
+		} else {
+			log.Println("==>", out["type"])
 		}
 	}
 
 	if buffer, err = json.Marshal(docs); err != nil {
-		return serverInfo, serverStatusList, err
+		return serverInfo, serverStatusList, replSetStatusList, err
 	}
 	json.Unmarshal(buffer, &serverStatusList)
-	return serverInfo, serverStatusList, err
+
+	if buffer, err = json.Marshal(repls); err != nil {
+		return serverInfo, serverStatusList, replSetStatusList, err
+	}
+	json.Unmarshal(buffer, &replSetStatusList)
+	return serverInfo, serverStatusList, replSetStatusList, err
 }

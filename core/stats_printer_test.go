@@ -11,7 +11,7 @@ const filename = "/tmp/metrics.2018-10-18T12-06-57Z-00000"
 
 func getServerStatusDocs() []ServerStatusDoc {
 	var docs []ServerStatusDoc
-	_, serverStatusList, _ := ReadDiagnosticFile(filename)
+	_, serverStatusList, _, _ := ReadDiagnosticFile(filename)
 
 	for _, ss := range serverStatusList {
 		b, _ := json.Marshal(ss)
