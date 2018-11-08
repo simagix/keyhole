@@ -115,7 +115,7 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 		}
 	}
 
-	b.collectServerStatus(uriList, simonly)
+	b.collectAllStatus(uriList, simonly)
 	return err
 }
 
@@ -159,7 +159,7 @@ func (b Base) terminate(session *mgo.Session, uriList []string) {
 	os.Exit(0)
 }
 
-func (b Base) collectServerStatus(uriList []string, simonly bool) {
+func (b Base) collectAllStatus(uriList []string, simonly bool) {
 	var channel = make(chan string)
 	for _, value := range uriList {
 		if b.monitor == false {
@@ -169,6 +169,7 @@ func (b Base) collectServerStatus(uriList []string, simonly bool) {
 				go b.CollectDBStats(value, channel, SimDBName)
 			}
 		}
+		go b.ReplSetGetStatus(value, channel)
 		go b.CollectServerStatus(value, channel)
 	}
 

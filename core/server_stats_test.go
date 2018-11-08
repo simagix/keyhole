@@ -11,7 +11,7 @@ func TestAnalyzeServerStatus(t *testing.T) {
 	var err error
 	var docs []ServerStatusDoc
 
-	if _, docs, err = AnalyzeServerStatus(filename); err != nil {
+	if _, docs, _, err = AnalyzeServerStatus(filename); err != nil {
 		t.Fatal(err)
 	}
 	t.Log(len(docs))

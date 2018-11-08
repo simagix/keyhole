@@ -32,7 +32,7 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 			return "", err
 		}
 	case mode.IsRegular():
-		if serverInfo, serverStatusList, err = AnalyzeServerStatus(filename); err != nil {
+		if serverInfo, serverStatusList, replSetStatusList, err = AnalyzeServerStatus(filename); err != nil {
 			log.Println(err)
 			if serverInfo, serverStatusList, replSetStatusList, err = ReadDiagnosticFile(filename); err != nil {
 				return "", err
@@ -84,12 +84,11 @@ func ReadDiagnosticDir(dirname string) (interface{}, []ServerStatusDoc, []ReplSe
 		}
 		filename := dirname + "/" + f.Name()
 
-		if serverInfo, docs, err = AnalyzeServerStatus(filename); err != nil {
+		if serverInfo, docs, repls, err = AnalyzeServerStatus(filename); err != nil {
 			if serverInfo, docs, repls, err = ReadDiagnosticFile(filename); err != nil {
 				return serverInfo, serverStatusList, replSetStatusList, err
-			} else {
-				replSetStatusList = append(replSetStatusList, repls...)
 			}
+			replSetStatusList = append(replSetStatusList, repls...)
 		}
 
 		serverStatusList = append(serverStatusList, docs...)

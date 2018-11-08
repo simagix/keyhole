@@ -10,7 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +25,7 @@ var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(ti
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
 var serverStatusDocs = map[string][]bson.M{}
+var replSetStatusDocs = map[string][]ReplSetStatusDoc{}
 
 // SHARDED cluster
 const SHARDED = "sharded"
@@ -260,6 +264,67 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	}
 }
 
+// ReplSetGetStatus collects {replSetGetStatus: 1} every minute
+func (b Base) ReplSetGetStatus(uri string, channel chan string) {
+	var replSetStatus = ReplSetStatusDoc{}
+	var doc bson.M
+
+	var dialInfo *mgo.DialInfo
+	var err error
+	if dialInfo, err = ParseDialInfo(uri); err != nil {
+		return
+	}
+
+	mapKey := dialInfo.ReplicaSetName
+	if mapKey == "" {
+		rstr := fmt.Sprintf("Not a replica set, collector exiting\n")
+		channel <- rstr
+		return
+	}
+	if b.verbose {
+		rstr := fmt.Sprintf("ReplSetGetStatus collects every minute\n")
+		channel <- rstr
+	}
+
+	channel <- "[" + mapKey + "] ReplSetGetStatus begins\n"
+
+	for {
+		session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+		if err == nil {
+			if doc, err = AdminCommand(session, "replSetGetStatus"); err != nil {
+				log.Println(err)
+				continue
+			}
+
+			buf, _ := json.Marshal(doc)
+			json.Unmarshal(buf, &replSetStatus)
+			replSetStatusDocs[uri] = append(replSetStatusDocs[uri], replSetStatus)
+
+			if b.monitor == false {
+				sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
+				var ts int
+
+				for _, mb := range replSetStatus.Members {
+					if mb.StateStr == PRIMARY {
+						ts = mb.Optime.TS
+						break
+					}
+				}
+
+				str := fmt.Sprintf("[%s] replication lags: ", mapKey)
+				for _, mb := range replSetStatus.Members {
+					if mb.StateStr == SECONDARY {
+						str += " - " + mb.Name + ": " + strconv.Itoa((ts-mb.Optime.TS)/(1000*1000*1000))
+					}
+				}
+				channel <- str
+			}
+			session.Close()
+		}
+		time.Sleep(time.Duration(60) * time.Second)
+	}
+}
+
 // CollectDBStats collects dbStats every 10 seconds
 func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 	var docs map[string]interface{}
@@ -320,7 +385,7 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	if filename, err = b.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}
-	if _, docs, err = AnalyzeServerStatus(filename); err != nil {
+	if _, docs, _, err = AnalyzeServerStatus(filename); err != nil {
 		return filename, err
 	}
 	fmt.Println(PrintAllStats(docs, span))
@@ -337,12 +402,16 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 	if mapKey == "" {
 		mapKey = STANDALONE
 	}
-	buf, _ := json.Marshal(serverStatusDocs[uri])
+	sbuf, _ := json.Marshal(serverStatusDocs[uri])
 	serverStatusDocs[uri] = serverStatusDocs[uri][:0]
 	filename = keyholeStatsDataFile + "-" + mapKey + ".gz"
-	var bbuf bytes.Buffer
-	gz := gzip.NewWriter(&bbuf)
-	gz.Write(buf)
+	rbuf, _ := json.Marshal(replSetStatusDocs[uri])
+	replSetStatusDocs[uri] = replSetStatusDocs[uri][:0]
+	var zbuf bytes.Buffer
+	gz := gzip.NewWriter(&zbuf)
+	gz.Write(sbuf)
+	gz.Write([]byte{'\n'})
+	gz.Write(rbuf)
 	gz.Write([]byte{'\n'})
 	gz.Close() // close this before flushing the bytes to the buffer.
 
@@ -352,27 +421,29 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 		}
 	}
 	defer file.Close()
-	file.Write(bbuf.Bytes())
+	file.Write(zbuf.Bytes())
 	file.Sync()
 	return filename, err
 }
 
 // AnalyzeServerStatus -
-func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, error) {
+func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, []ReplSetStatusDoc, error) {
 	var err error
 	var file *os.File
 	var reader *bufio.Reader
 	var allDocs = []ServerStatusDoc{}
 	var docs = []ServerStatusDoc{}
+	var allRepls = []ReplSetStatusDoc{}
+	var repls = []ReplSetStatusDoc{}
 	var info interface{}
 
 	if file, err = os.Open(filename); err != nil {
-		return info, allDocs, err
+		return info, allDocs, allRepls, err
 	}
 	defer file.Close()
 
 	if reader, err = NewReader(file); err != nil {
-		return info, allDocs, err
+		return info, allDocs, allRepls, err
 	}
 
 	for {
@@ -380,15 +451,20 @@ func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, error
 		if ferr == io.EOF {
 			break
 		}
-		json.Unmarshal(line, &docs)
-		allDocs = append(allDocs, docs...)
+
+		docs = []ServerStatusDoc{}
+		if err = json.Unmarshal(line, &docs); err == nil {
+			if len(docs) > 0 && docs[0].Host != "" {
+				allDocs = append(allDocs, docs...)
+			} else if err = json.Unmarshal(line, &repls); err == nil { // ReplSetStatusDoc
+				allRepls = append(allRepls, repls...)
+			}
+		}
 	}
 
-	if len(allDocs) == 0 {
-		return info, allDocs, errors.New("Not doc found")
+	if len(allDocs) == 0 && len(allRepls) == 0 {
+		return info, allDocs, allRepls, errors.New("Not doc found")
 	}
 
-	// buf, _ := json.Marshal(allDocs[0])
-	// json.Unmarshal(buf, &info)
-	return info, allDocs, err
+	return info, allDocs, allRepls, err
 }

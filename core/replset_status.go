@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+// PRIMARY - primary node
+const PRIMARY = "PRIMARY"
+
+// SECONDARY - secondary node
+const SECONDARY = "SECONDARY"
+
 // OptimeDoc -
 type OptimeDoc struct {
 	T  int `json:"t" bson:"t"`
@@ -54,7 +60,7 @@ func GetReplLagsTSV() []string {
 			docs = append(docs, str)
 		}
 		for _, mb := range stat.Members {
-			if mb.StateStr == "PRIMARY" {
+			if mb.StateStr == PRIMARY {
 				ts = mb.Optime.TS
 				break
 			}
@@ -65,9 +71,9 @@ func GetReplLagsTSV() []string {
 			continue
 		} else {
 			for _, mb := range stat.Members {
-				if mb.StateStr == "SECONDARY" {
+				if mb.StateStr == SECONDARY {
 					str += "\t" + strconv.Itoa((ts-mb.Optime.TS)/1000/1000/1000)
-				} else if mb.StateStr == "PRIMARY" {
+				} else if mb.StateStr == PRIMARY {
 					str += "\t0"
 				}
 			}
