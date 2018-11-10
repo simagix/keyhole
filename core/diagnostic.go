@@ -55,10 +55,10 @@ func PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) 
 		var cmap = []bson.M{}
 		buf, _ = json.Marshal(serverStatusList)
 		json.Unmarshal(buf, &bmap)
-		ChartsDocs["diagnostic.data"] = bmap
+		ChartsDocs["serverStatus"] = bmap
 		buf, _ = json.Marshal(replSetStatusList)
 		json.Unmarshal(buf, &cmap)
-		ChartsDocs["replset"] = cmap
+		ChartsDocs["replSetGetStatus"] = cmap
 	}
 
 	return PrintAllStats(serverStatusList, span), err

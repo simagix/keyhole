@@ -42,7 +42,7 @@ func GetReplLagsTSV() []string {
 
 	str := "date"
 	stat := ReplSetStatusDoc{}
-	for i, doc := range ChartsDocs["replset"] {
+	for i, doc := range ChartsDocs["replSetGetStatus"] {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 		ts = 0
