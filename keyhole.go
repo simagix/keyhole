@@ -65,13 +65,14 @@ func main() {
 	var err error
 	if *diag != "" {
 		var str string
-		if str, err = keyhole.PrintDiagnosticData(*diag, *span, *webserver); err != nil {
+		d := keyhole.NewDiagnosticData()
+		if str, err = d.PrintDiagnosticData(*diag, *span, *webserver); err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}
 		fmt.Println(str)
 		if *webserver {
-			hostname := "localhost"
+			var hostname string
 			if hostname, err = os.Hostname(); err != nil {
 				hostname = "localhost"
 			}

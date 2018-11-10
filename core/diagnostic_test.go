@@ -1,3 +1,5 @@
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
 package keyhole
 
 import (
@@ -10,8 +12,8 @@ func TestReadDiagnosticDir(t *testing.T) {
 	var serverStatusList []ServerStatusDoc
 	var replSetStatusList []ReplSetStatusDoc
 	var err error
-
-	if serverInfo, serverStatusList, replSetStatusList, err = ReadDiagnosticDir("/tmp/diagnostic.data/"); err != nil {
+	d := NewDiagnosticData()
+	if err = d.ReadDiagnosticDir("/tmp/diagnostic.data/"); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := json.MarshalIndent(serverInfo, "", "  ")
@@ -29,8 +31,8 @@ func TestReadDiagnosticFile(t *testing.T) {
 	var serverStatusList []ServerStatusDoc
 	var replSetStatusList []ReplSetStatusDoc
 	var err error
-
-	if serverInfo, serverStatusList, replSetStatusList, err = ReadDiagnosticFile("/tmp/metrics.2018-10-12T23-37-51Z-00000"); err != nil {
+	d := NewDiagnosticData()
+	if err = d.ReadDiagnosticFile("/tmp/metrics.2018-10-12T23-37-51Z-00000"); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := json.MarshalIndent(serverInfo, "", "  ")
@@ -41,4 +43,15 @@ func TestReadDiagnosticFile(t *testing.T) {
 	if PrintAllStats(serverStatusList, span) == "" { // every 10 minutes
 		t.Fatal()
 	}
+}
+
+func TestAnalyzeServerStatus(t *testing.T) {
+	var filename = "/tmp/keyhole_stats.2018-10-18T080737-standalone.gz"
+	var err error
+
+	d := NewDiagnosticData()
+	if err = d.analyzeServerStatus(filename); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(len(d.ServerStatusList))
 }

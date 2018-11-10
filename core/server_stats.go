@@ -3,13 +3,10 @@
 package keyhole
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"sort"
@@ -370,7 +367,7 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	var session *mgo.Session
 	var err error
 	var filename string
-	var docs []ServerStatusDoc
+	var str string
 
 	dialInfo, _ := ParseDialInfo(uri)
 	if session, err = GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
@@ -385,10 +382,11 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	if filename, err = b.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}
-	if _, docs, _, err = AnalyzeServerStatus(filename); err != nil {
+	d := NewDiagnosticData()
+	if str, err = d.PrintDiagnosticData(filename, span, false); err != nil {
 		return filename, err
 	}
-	fmt.Println(PrintAllStats(docs, span))
+	fmt.Println(str)
 	return filename, err
 }
 
@@ -424,47 +422,4 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 	file.Write(zbuf.Bytes())
 	file.Sync()
 	return filename, err
-}
-
-// AnalyzeServerStatus -
-func AnalyzeServerStatus(filename string) (interface{}, []ServerStatusDoc, []ReplSetStatusDoc, error) {
-	var err error
-	var file *os.File
-	var reader *bufio.Reader
-	var allDocs = []ServerStatusDoc{}
-	var docs = []ServerStatusDoc{}
-	var allRepls = []ReplSetStatusDoc{}
-	var repls = []ReplSetStatusDoc{}
-	var info interface{}
-
-	if file, err = os.Open(filename); err != nil {
-		return info, allDocs, allRepls, err
-	}
-	defer file.Close()
-
-	if reader, err = NewReader(file); err != nil {
-		return info, allDocs, allRepls, err
-	}
-
-	for {
-		line, ferr := reader.ReadBytes('\n')
-		if ferr == io.EOF {
-			break
-		}
-
-		docs = []ServerStatusDoc{}
-		if err = json.Unmarshal(line, &docs); err == nil {
-			if len(docs) > 0 && docs[0].Host != "" {
-				allDocs = append(allDocs, docs...)
-			} else if err = json.Unmarshal(line, &repls); err == nil { // ReplSetStatusDoc
-				allRepls = append(allRepls, repls...)
-			}
-		}
-	}
-
-	if len(allDocs) == 0 && len(allRepls) == 0 {
-		return info, allDocs, allRepls, errors.New("Not doc found")
-	}
-
-	return info, allDocs, allRepls, err
 }
