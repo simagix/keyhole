@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/globalsign/mgo/bson"
@@ -216,6 +218,42 @@ func getTimeSeriesDoc(serverStatusList []bson.M, replSetGetStatus []bson.M) map[
 		} // if stat.Uptime > pstat.Uptime
 
 		pstat = stat
+	}
+
+	var hosts []string
+
+	for i, line := range keyhole.GetReplLagsTSV() {
+		if i == 0 {
+			hosts = strings.Split(line, "\t")
+			for n, legend := range hosts {
+				if n > 0 {
+					tsMap[legend] = TimeSeriesDoc{legend, [][]float64{}}
+					node := "repl_" + strconv.Itoa(n)
+					tsMap[node] = TimeSeriesDoc{node, [][]float64{}}
+				}
+			}
+			continue
+		}
+
+		tokens := strings.Split(line, "\t")
+		t1, _ := time.Parse(time.RFC3339, tokens[0])
+		t := float64(t1.UnixNano() / (1000 * 1000))
+
+		for i, token := range tokens {
+			if i == 0 {
+				continue
+			}
+
+			x := tsMap[hosts[i]]
+			v, _ := strconv.ParseFloat(token, 64)
+			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
+			tsMap[hosts[i]] = x
+
+			node := "repl_" + strconv.Itoa(i)
+			x = tsMap[node]
+			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
+			tsMap[node] = x
+		}
 	}
 
 	return tsMap
