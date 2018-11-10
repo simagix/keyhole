@@ -80,9 +80,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		str = strings.Join(keyhole.GetReplLagsTSV()[:], "\n")
 
 	} else {
-		// str = "Keyhole Performance Charts!  Unknow API!"
-		str = "Unsupported " + r.URL.Path
-		log.Println(r.URL.Path)
+		str = "Keyhole Performance Charts!  Unknow API!"
 	}
 	fmt.Fprintf(w, str)
 }
@@ -98,9 +96,9 @@ func cors(f http.HandlerFunc) http.HandlerFunc {
 
 // HTTPServer listens to port 5408
 func HTTPServer(port int) {
-	InitGrafana()
-	http.HandleFunc("/grafana", cors(grafana))
-	http.HandleFunc("/grafana/", cors(grafana))
+	g := NewGrafana()
+	http.HandleFunc("/grafana", cors(g.handler))
+	http.HandleFunc("/grafana/", cors(g.handler))
 	http.HandleFunc("/", cors(handler))
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }

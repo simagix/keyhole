@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/globalsign/mgo/bson"
@@ -38,7 +39,6 @@ type QueryRequest struct {
 	Targets  []TargetDoc `json:"targets"`
 }
 
-var timeSeriesData map[string]TimeSeriesDoc
 var chartsLegends = []string{"mem_resident", "mem_virtual", "mem_page_faults",
 	"conns_available", "conns_current", "conns_created_per_minute",
 	"ops_query", "ops_insert", "ops_update", "ops_delete", "ops_getmore", "ops_command",
@@ -49,9 +49,52 @@ var chartsLegends = []string{"mem_resident", "mem_virtual", "mem_page_faults",
 	"wt_modified_evicted", "wt_unmodified_evicted", "wt_read_in_cache", "wt_written_from_cache",
 	"ticket_avail_read", "ticket_avail_write"}
 
-// InitGrafana -
-func InitGrafana() {
-	timeSeriesData = getTimeSeriesDoc(keyhole.ChartsDocs["serverStatus"], keyhole.ChartsDocs["replSetGetStatus"])
+// Grafana simple json data store
+type Grafana struct {
+	sync.RWMutex
+	timeSeriesData map[string]TimeSeriesDoc
+	replSetHosts   map[string]string
+}
+
+// NewGrafana -
+func NewGrafana() *Grafana {
+	g := Grafana{replSetHosts: map[string]string{}}
+	g.RLock()
+	defer g.RUnlock()
+	g.timeSeriesData = getTimeSeriesDoc(keyhole.ChartsDocs["serverStatus"])
+	var hosts []string
+	for i, line := range keyhole.GetReplLagsTSV() {
+		if i == 0 {
+			hosts = strings.Split(line, "\t")
+			for n, legend := range hosts {
+				if n > 0 {
+					g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
+					node := "repl_" + strconv.Itoa(n)
+					g.timeSeriesData[node] = TimeSeriesDoc{node, [][]float64{}}
+				}
+			}
+			continue
+		}
+
+		tokens := strings.Split(line, "\t")
+		t1, _ := time.Parse(time.RFC3339, tokens[0])
+		t := float64(t1.UnixNano() / (1000 * 1000))
+
+		for i, token := range tokens {
+			if i == 0 {
+				continue
+			}
+
+			v, _ := strconv.ParseFloat(token, 64)
+			node := "repl_" + strconv.Itoa(i)
+			g.replSetHosts[node] = hosts[i]
+			x := g.timeSeriesData[node]
+			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
+			g.timeSeriesData[node] = x
+		}
+	}
+
+	return &g
 }
 
 func getDataPoint(v float64, t float64) []float64 {
@@ -61,7 +104,7 @@ func getDataPoint(v float64, t float64) []float64 {
 	return dp
 }
 
-func getTimeSeriesDoc(serverStatusList []bson.M, replSetGetStatus []bson.M) map[string]TimeSeriesDoc {
+func getTimeSeriesDoc(serverStatusList []bson.M) map[string]TimeSeriesDoc {
 	var tsMap = map[string]TimeSeriesDoc{}
 	pstat := keyhole.ServerStatusDoc{}
 	stat := keyhole.ServerStatusDoc{}
@@ -220,74 +263,31 @@ func getTimeSeriesDoc(serverStatusList []bson.M, replSetGetStatus []bson.M) map[
 		pstat = stat
 	}
 
-	var hosts []string
-
-	for i, line := range keyhole.GetReplLagsTSV() {
-		if i == 0 {
-			hosts = strings.Split(line, "\t")
-			for n, legend := range hosts {
-				if n > 0 {
-					tsMap[legend] = TimeSeriesDoc{legend, [][]float64{}}
-					node := "repl_" + strconv.Itoa(n)
-					tsMap[node] = TimeSeriesDoc{node, [][]float64{}}
-				}
-			}
-			continue
-		}
-
-		tokens := strings.Split(line, "\t")
-		t1, _ := time.Parse(time.RFC3339, tokens[0])
-		t := float64(t1.UnixNano() / (1000 * 1000))
-
-		for i, token := range tokens {
-			if i == 0 {
-				continue
-			}
-
-			x := tsMap[hosts[i]]
-			v, _ := strconv.ParseFloat(token, 64)
-			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
-			tsMap[hosts[i]] = x
-
-			node := "repl_" + strconv.Itoa(i)
-			x = tsMap[node]
-			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
-			tsMap[node] = x
-		}
-	}
-
 	return tsMap
 }
 
 // grafana-cli plugins install grafana-simple-json-datasource
-func grafana(w http.ResponseWriter, r *http.Request) {
-	var str string
+func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path[1:] == "grafana/" {
 		fmt.Fprintf(w, "ok\n")
-
 	} else if r.URL.Path[1:] == "grafana/query" {
-		query(w, r)
-
+		g.query(w, r)
 	} else if r.URL.Path[1:] == "grafana/search" {
-		search(w, r)
-
-	} else {
-		str = "TODO: " + r.URL.Path + "\n"
-		fmt.Fprintf(w, str)
+		g.search(w, r)
 	}
 }
 
-func search(w http.ResponseWriter, r *http.Request) {
+func (g *Grafana) search(w http.ResponseWriter, r *http.Request) {
 	var list []string
 
-	for _, doc := range timeSeriesData {
+	for _, doc := range g.timeSeriesData {
 		list = append(list, doc.Target)
 	}
 
 	json.NewEncoder(w).Encode(list)
 }
 
-func query(w http.ResponseWriter, r *http.Request) {
+func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var qr QueryRequest
 	err := decoder.Decode(&qr)
@@ -297,7 +297,13 @@ func query(w http.ResponseWriter, r *http.Request) {
 
 	var tsData []TimeSeriesDoc
 	for _, target := range qr.Targets {
-		tsData = append(tsData, timeSeriesData[target.Target])
+		if strings.Index(target.Target, "repl_") == 0 { // replaced with actual hostname
+			data := g.timeSeriesData[target.Target]
+			data.Target = g.replSetHosts[target.Target]
+			tsData = append(tsData, data)
+		} else {
+			tsData = append(tsData, g.timeSeriesData[target.Target])
+		}
 	}
 
 	json.NewEncoder(w).Encode(tsData)
