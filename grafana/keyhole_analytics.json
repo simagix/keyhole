@@ -807,7 +807,7 @@
         "x": 0,
         "y": 36
       },
-      "id": 12,
+      "id": 22,
       "legend": {
         "avg": false,
         "current": false,
@@ -832,24 +832,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "latency_read",
-          "type": "timeserie"
-        },
-        {
-          "refId": "B",
-          "target": "latency_write",
-          "type": "timeserie"
-        },
-        {
-          "refId": "C",
-          "target": "latency_command",
+          "target": "replication_lags",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Latencies (milliseconds)",
+      "title": "Replication Lags (seconds)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -981,7 +971,7 @@
         "x": 0,
         "y": 45
       },
-      "id": 22,
+      "id": 24,
       "legend": {
         "avg": false,
         "current": false,
@@ -1006,24 +996,208 @@
       "targets": [
         {
           "refId": "A",
-          "target": "repl_1",
+          "target": "cpu_system",
           "type": "timeserie"
         },
         {
           "refId": "B",
-          "target": "repl_2",
+          "target": "cpu_user",
           "type": "timeserie"
         },
         {
           "refId": "C",
-          "target": "repl_3",
+          "target": "cpu_iowait",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "cpu_idle",
+          "type": "timeserie"
+        },
+        {
+          "refId": "E",
+          "target": "cpu_nice",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Replication Lags (seconds)",
+      "title": "CPU Usage (%)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "id": 12,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "latency_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "latency_write",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "latency_command",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Latencies (milliseconds)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "id": 26,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "disks_utils",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Disk Utilizations (%)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1069,8 +1243,8 @@
     "list": []
   },
   "time": {
-    "from": "2018-10-06T05:11:39.000Z",
-    "to": "2018-10-15T15:46:39.000Z"
+    "from": "2018-10-06T07:07:41.804Z",
+    "to": "2018-10-16T00:49:02.027Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1100,5 +1274,5 @@
   "timezone": "",
   "title": "Keyhole Analytics",
   "uid": "VKYb9eamz",
-  "version": 20
+  "version": 31
 }
