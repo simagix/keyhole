@@ -52,19 +52,26 @@ var chartsLegends = []string{
 	"wt_modified_evicted", "wt_unmodified_evicted", "wt_read_in_cache", "wt_written_from_cache",
 	"ticket_avail_read", "ticket_avail_write",
 	"cpu_idle", "cpu_iowait", "cpu_nice", "cpu_softirq", "cpu_steal", "cpu_system", "cpu_user",
+	"disks_utils",
+	"replication_lags",
 }
 
 // Grafana simple json data store
 // grafana-cli plugins install grafana-simple-json-datasource
 type Grafana struct {
 	sync.RWMutex
-	timeSeriesData map[string]TimeSeriesDoc
-	replSetHosts   map[string]string
+	timeSeriesData  map[string]TimeSeriesDoc
+	replicationLags map[string]TimeSeriesDoc
+	diskUtils       map[string]TimeSeriesDoc
 }
 
 // NewGrafana -
 func NewGrafana() *Grafana {
-	g := Grafana{timeSeriesData: map[string]TimeSeriesDoc{}, replSetHosts: map[string]string{}}
+	g := Grafana{
+		timeSeriesData:  map[string]TimeSeriesDoc{},
+		replicationLags: map[string]TimeSeriesDoc{},
+		diskUtils:       map[string]TimeSeriesDoc{},
+	}
 	g.RLock()
 	defer g.RUnlock()
 	for _, legend := range chartsLegends {
@@ -108,11 +115,9 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusTSV []string
 			}
 
 			v, _ := strconv.ParseFloat(token, 64)
-			node := "repl_" + strconv.Itoa(i)
-			g.replSetHosts[node] = hosts[i]
-			x := g.timeSeriesData[node]
+			x := g.replicationLags[hosts[i]]
 			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
-			g.timeSeriesData[node] = x
+			g.replicationLags[hosts[i]] = x
 		}
 	}
 }
@@ -128,6 +133,16 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []bson.M) {
 
 		if total == 0 {
 			continue
+		}
+
+		for k, v := range stat.Disks {
+			disk := keyhole.DiskMetrics{}
+			b, _ := json.Marshal(v)
+			json.Unmarshal(b, &disk)
+
+			x := g.diskUtils[k]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*disk.IOTimeMS)/float64(disk.ReadTimeMS+disk.WriteTimeMS), t))
+			g.diskUtils[k] = x
 		}
 
 		x := g.timeSeriesData["cpu_idle"]
@@ -345,10 +360,18 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 
 	var tsData []TimeSeriesDoc
 	for _, target := range qr.Targets {
-		if strings.Index(target.Target, "repl_") == 0 { // replaced with actual hostname
-			data := g.timeSeriesData[target.Target]
-			data.Target = g.replSetHosts[target.Target]
-			tsData = append(tsData, data)
+		if target.Target == "replication_lags" { // replaced with actual hostname
+			for k, v := range g.replicationLags {
+				data := v
+				data.Target = k
+				tsData = append(tsData, data)
+			}
+		} else if target.Target == "disks_utils" {
+			for k, v := range g.diskUtils {
+				data := v
+				data.Target = k
+				tsData = append(tsData, data)
+			}
 		} else {
 			tsData = append(tsData, g.timeSeriesData[target.Target])
 		}
