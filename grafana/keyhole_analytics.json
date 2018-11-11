@@ -61,7 +61,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 18,
+      "id": 2,
       "legend": {
         "avg": false,
         "current": false,
@@ -86,29 +86,19 @@
       "targets": [
         {
           "refId": "A",
-          "target": "wt_modified_evicted",
+          "target": "mem_virtual",
           "type": "timeserie"
         },
         {
           "refId": "B",
-          "target": "wt_unmodified_evicted",
-          "type": "timeserie"
-        },
-        {
-          "refId": "C",
-          "target": "wt_read_in_cache",
-          "type": "timeserie"
-        },
-        {
-          "refId": "D",
-          "target": "wt_written_from_cache",
+          "target": "mem_resident",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "WiredTiger Paging (per minute)",
+      "title": "Memory (GB)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -157,6 +147,272 @@
         "w": 12,
         "x": 12,
         "y": 0
+      },
+      "id": 4,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "mem_page_faults",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Page Faults",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 24,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "cpu_system",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "cpu_user",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "cpu_iowait",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "cpu_idle",
+          "type": "timeserie"
+        },
+        {
+          "refId": "E",
+          "target": "cpu_nice",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "CPU Usage (%)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 26,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "disks_utils",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Disk Utilizations (%)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 18
       },
       "id": 8,
       "legend": {
@@ -262,8 +518,100 @@
       "gridPos": {
         "h": 9,
         "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 12,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "latency_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "latency_write",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "latency_command",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Latencies (milliseconds)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
         "x": 0,
-        "y": 9
+        "y": 27
       },
       "id": 16,
       "legend": {
@@ -355,9 +703,9 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 27
       },
-      "id": 14,
+      "id": 18,
       "legend": {
         "avg": false,
         "current": false,
@@ -382,24 +730,29 @@
       "targets": [
         {
           "refId": "A",
-          "target": "scan_objects",
+          "target": "wt_modified_evicted",
           "type": "timeserie"
         },
         {
           "refId": "B",
-          "target": "scan_keys",
+          "target": "wt_unmodified_evicted",
           "type": "timeserie"
         },
         {
           "refId": "C",
-          "target": "scan_sort",
+          "target": "wt_read_in_cache",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "wt_written_from_cache",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Metrics",
+      "title": "WiredTiger Paging (per minute)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -447,94 +800,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 18
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "mem_virtual",
-          "type": "timeserie"
-        },
-        {
-          "refId": "B",
-          "target": "mem_resident",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Memory (GB)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 18
+        "y": 36
       },
       "id": 20,
       "legend": {
@@ -620,95 +886,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 0,
-        "y": 27
-      },
-      "id": 6,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "conns_current",
-          "type": "timeserie"
-        },
-        {
-          "refId": "B",
-          "target": "conns_created_per_minute",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Connections",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
         "x": 12,
-        "y": 27
+        "y": 36
       },
       "id": 10,
       "legend": {
@@ -805,173 +984,9 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 36
-      },
-      "id": 22,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "replication_lags",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Replication Lags (seconds)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "id": 4,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "mem_page_faults",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Page Faults",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
         "y": 45
       },
-      "id": 24,
+      "id": 14,
       "legend": {
         "avg": false,
         "current": false,
@@ -996,34 +1011,24 @@
       "targets": [
         {
           "refId": "A",
-          "target": "cpu_system",
+          "target": "scan_objects",
           "type": "timeserie"
         },
         {
           "refId": "B",
-          "target": "cpu_user",
+          "target": "scan_keys",
           "type": "timeserie"
         },
         {
           "refId": "C",
-          "target": "cpu_iowait",
-          "type": "timeserie"
-        },
-        {
-          "refId": "D",
-          "target": "cpu_idle",
-          "type": "timeserie"
-        },
-        {
-          "refId": "E",
-          "target": "cpu_nice",
+          "target": "scan_sort",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "CPU Usage (%)",
+      "title": "Metrics",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1073,7 +1078,7 @@
         "x": 12,
         "y": 45
       },
-      "id": 12,
+      "id": 6,
       "legend": {
         "avg": false,
         "current": false,
@@ -1098,24 +1103,19 @@
       "targets": [
         {
           "refId": "A",
-          "target": "latency_read",
+          "target": "conns_current",
           "type": "timeserie"
         },
         {
           "refId": "B",
-          "target": "latency_write",
-          "type": "timeserie"
-        },
-        {
-          "refId": "C",
-          "target": "latency_command",
+          "target": "conns_created_per_minute",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Latencies (milliseconds)",
+      "title": "Connections",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1165,7 +1165,7 @@
         "x": 0,
         "y": 54
       },
-      "id": 26,
+      "id": 22,
       "legend": {
         "avg": false,
         "current": false,
@@ -1190,14 +1190,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "disks_utils",
+          "target": "replication_lags",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Disk Utilizations (%)",
+      "title": "Replication Lags (seconds)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1274,5 +1274,5 @@
   "timezone": "",
   "title": "Keyhole Analytics",
   "uid": "VKYb9eamz",
-  "version": 31
+  "version": 32
 }
