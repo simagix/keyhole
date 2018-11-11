@@ -23,6 +23,7 @@ type DiagnosticData struct {
 	ServerInfo        interface{}
 	ServerStatusList  []ServerStatusDoc
 	ReplSetStatusList []ReplSetStatusDoc
+	SystemMetricsList []SystemMetricsDoc
 }
 
 // NewDiagnosticData -
@@ -64,13 +65,17 @@ func (d *DiagnosticData) PrintDiagnosticData(filename string, span int, isWeb bo
 	if isWeb {
 		var buf []byte
 		var bmap = []bson.M{}
-		var cmap = []bson.M{}
 		buf, _ = json.Marshal(d.ServerStatusList)
 		json.Unmarshal(buf, &bmap)
 		ChartsDocs["serverStatus"] = bmap
+		var cmap = []bson.M{}
 		buf, _ = json.Marshal(d.ReplSetStatusList)
 		json.Unmarshal(buf, &cmap)
 		ChartsDocs["replSetGetStatus"] = cmap
+		var dmap = []bson.M{}
+		buf, _ = json.Marshal(d.SystemMetricsList)
+		json.Unmarshal(buf, &dmap)
+		ChartsDocs["systemMetrics"] = dmap
 	}
 
 	return PrintAllStats(d.ServerStatusList, span), err
@@ -107,6 +112,7 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 	var err error
 	var docs []bson.M
 	var repls []bson.M
+	var metrics []bson.M
 	var pos int32
 
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
@@ -164,11 +170,9 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 				repls = append(repls, doc["replSetGetStatus"].(bson.M))
 			}
 
-			// if doc["systemMetrics"] != nil {
-			// 	b, _ := json.MarshalIndent(doc["systemMetrics"], "", "  ")
-			// 	fmt.Println(string(b))
-			// 	os.Exit(0)
-			// }
+			if doc["systemMetrics"] != nil {
+				metrics = append(metrics, doc["systemMetrics"].(bson.M))
+			}
 		} else {
 			log.Println("==>", out["type"])
 		}
@@ -187,6 +191,14 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 	replSetStatusList := []ReplSetStatusDoc{}
 	json.Unmarshal(buffer, &replSetStatusList)
 	d.ReplSetStatusList = append(d.ReplSetStatusList, replSetStatusList...)
+
+	if buffer, err = json.Marshal(metrics); err != nil {
+		return err
+	}
+	systemMetricsList := []SystemMetricsDoc{}
+	json.Unmarshal(buffer, &systemMetricsList)
+	d.SystemMetricsList = append(d.SystemMetricsList, systemMetricsList...)
+
 	return err
 }
 
