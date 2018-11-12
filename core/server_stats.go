@@ -30,9 +30,6 @@ const SHARDED = "sharded"
 // STANDALONE cluster
 const STANDALONE = "standalone"
 
-// ChartsDocs for drawing charts
-var ChartsDocs = map[string][]bson.M{}
-
 // DocumentDoc contains db.serverStatus().document
 type DocumentDoc struct {
 	Deleted  int `json:"deleted" bson:"deleted"`
@@ -197,11 +194,11 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 			buf, _ := json.Marshal(serverStatus)
 			json.Unmarshal(buf, &stat)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-			dkey := dialInfo.ReplicaSetName + "/" + strings.Join(dialInfo.Addrs[:], ",")
-			ChartsDocs[dkey] = append(ChartsDocs[dkey], serverStatus)
-			for len(ChartsDocs[dkey]) > 60 { // shift
-				ChartsDocs[dkey] = ChartsDocs[dkey][1:]
-			}
+			// dkey := dialInfo.ReplicaSetName + "/" + strings.Join(dialInfo.Addrs[:], ",")
+			// ChartsDocs[dkey] = append(ChartsDocs[dkey], serverStatus)
+			// for len(ChartsDocs[dkey]) > 60 { // shift
+			// 	ChartsDocs[dkey] = ChartsDocs[dkey][1:]
+			// }
 			if len(serverStatusDocs[uri]) > 12 {
 				b.saveServerStatusDocsToFile(uri)
 			}

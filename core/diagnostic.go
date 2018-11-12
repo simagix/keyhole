@@ -9,11 +9,13 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/globalsign/mgo/bson"
 )
@@ -62,22 +64,6 @@ func (d *DiagnosticData) PrintDiagnosticData(filename string, span int, isWeb bo
 		span = int(d.ServerStatusList[(len(d.ServerStatusList)-1)].LocalTime.Sub(d.ServerStatusList[0].LocalTime).Seconds()) / 20
 	}
 
-	if isWeb {
-		var buf []byte
-		var bmap = []bson.M{}
-		buf, _ = json.Marshal(d.ServerStatusList)
-		json.Unmarshal(buf, &bmap)
-		ChartsDocs["serverStatus"] = bmap
-		var cmap = []bson.M{}
-		buf, _ = json.Marshal(d.ReplSetStatusList)
-		json.Unmarshal(buf, &cmap)
-		ChartsDocs["replSetGetStatus"] = cmap
-		var dmap = []bson.M{}
-		buf, _ = json.Marshal(d.SystemMetricsList)
-		json.Unmarshal(buf, &dmap)
-		ChartsDocs["systemMetrics"] = dmap
-	}
-
 	return PrintAllStats(d.ServerStatusList, span), err
 }
 
@@ -108,18 +94,22 @@ func (d *DiagnosticData) ReadDiagnosticDir(dirname string) error {
 
 // ReadDiagnosticFile reads diagnostic.data from a file
 func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
+	btm := time.Now()
 	var buffer []byte
 	var err error
-	var docs []bson.M
-	var repls []bson.M
-	var metrics []bson.M
+	var docs ServerStatusDoc
+	var repls ReplSetStatusDoc
+	var metrics SystemMetricsDoc
 	var pos int32
 
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
 		return err
 	}
 
-	log.Println("reading", filename)
+	fmt.Print("reading ", filename)
+	var doc = bson.M{}
+	var r io.ReadCloser
+	var cnt int
 	for {
 		if pos >= int32(len(buffer)) {
 			break
@@ -142,11 +132,9 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 			d.ServerInfo = out["doc"]
 		} else if out["type"] == 1 {
 			buf := out["data"].([]byte)
-			var doc = bson.M{}
 			// zlib decompress
 			buf = buf[4:]
 			bytesBuf := bytes.NewReader(buf)
-			var r io.ReadCloser
 			if r, err = zlib.NewReader(bytesBuf); err != nil {
 				return err
 			}
@@ -163,42 +151,29 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 			// local.oplog.rs.stats
 
 			if doc["serverStatus"] != nil {
-				docs = append(docs, doc["serverStatus"].(bson.M))
+				cnt++
+				buf, _ := json.Marshal(doc["serverStatus"])
+				json.Unmarshal(buf, &docs)
+				d.ServerStatusList = append(d.ServerStatusList, docs)
 			}
 
 			if doc["replSetGetStatus"] != nil {
-				repls = append(repls, doc["replSetGetStatus"].(bson.M))
+				buf, _ := json.Marshal(doc["replSetGetStatus"])
+				json.Unmarshal(buf, &repls)
+				d.ReplSetStatusList = append(d.ReplSetStatusList, repls)
 			}
 
 			if doc["systemMetrics"] != nil {
-				metrics = append(metrics, doc["systemMetrics"].(bson.M))
+				buf, _ := json.Marshal(doc["systemMetrics"])
+				json.Unmarshal(buf, &metrics)
+				d.SystemMetricsList = append(d.SystemMetricsList, metrics)
 			}
 		} else {
 			log.Println("==>", out["type"])
 		}
 	}
-
-	if buffer, err = json.Marshal(docs); err != nil {
-		return err
-	}
-	serverStatusList := []ServerStatusDoc{}
-	json.Unmarshal(buffer, &serverStatusList)
-	d.ServerStatusList = append(d.ServerStatusList, serverStatusList...)
-
-	if buffer, err = json.Marshal(repls); err != nil {
-		return err
-	}
-	replSetStatusList := []ReplSetStatusDoc{}
-	json.Unmarshal(buffer, &replSetStatusList)
-	d.ReplSetStatusList = append(d.ReplSetStatusList, replSetStatusList...)
-
-	if buffer, err = json.Marshal(metrics); err != nil {
-		return err
-	}
-	systemMetricsList := []SystemMetricsDoc{}
-	json.Unmarshal(buffer, &systemMetricsList)
-	d.SystemMetricsList = append(d.SystemMetricsList, systemMetricsList...)
-
+	etm := time.Now()
+	fmt.Println(", read:", cnt, ",time spent:", etm.Sub(btm).String())
 	return err
 }
 

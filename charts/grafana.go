@@ -66,7 +66,7 @@ type Grafana struct {
 }
 
 // NewGrafana -
-func NewGrafana() *Grafana {
+func NewGrafana(ChartsDocs map[string][]bson.M) *Grafana {
 	g := Grafana{
 		timeSeriesData:  map[string]TimeSeriesDoc{},
 		replicationLags: map[string]TimeSeriesDoc{},
@@ -77,9 +77,9 @@ func NewGrafana() *Grafana {
 	for _, legend := range chartsLegends {
 		g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
-	g.initServerStatusTimeSeriesDoc(keyhole.ChartsDocs["serverStatus"])   // ServerStatus
-	g.initSystemMetricsTimeSeriesDoc(keyhole.ChartsDocs["systemMetrics"]) // SystemMetrics
-	g.initReplSetGetStatusTimeSeriesDoc(keyhole.GetReplLagsTSV())         // replSetGetStatus
+	g.initServerStatusTimeSeriesDoc(ChartsDocs["serverStatus"])   // ServerStatus
+	g.initSystemMetricsTimeSeriesDoc(ChartsDocs["systemMetrics"]) // SystemMetrics
+	g.initReplSetGetStatusTimeSeriesDoc(GetReplLagsTSV())         // replSetGetStatus
 	return &g
 }
 
@@ -180,7 +180,7 @@ func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []bson.M) {
 	stat := keyhole.ServerStatusDoc{}
 	var x TimeSeriesDoc
 
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
+	for i, doc := range ChartsDocs["serverStatus"] {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 		if stat.Uptime > pstat.Uptime {

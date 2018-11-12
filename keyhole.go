@@ -77,7 +77,7 @@ func main() {
 				hostname = "localhost"
 			}
 			fmt.Println("url: http://" + hostname + ":5408/")
-			charts.HTTPServer(5408)
+			charts.HTTPServer(5408, d)
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {

@@ -7,11 +7,18 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
 )
+
+// ChartsDocs for drawing charts
+var ChartsDocs = map[string][]bson.M{}
+var base = 144
+var frac int
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	var str string
@@ -79,7 +86,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		str = strings.Replace(IndexHTML, "__TITLE__", "Replication Lags (seconds)", -1)
 		str = strings.Replace(str, "__API__", "v1/repl_lags/tsv", -1)
 	} else if r.URL.Path[1:] == "v1/repl_lags/tsv" {
-		str = strings.Join(keyhole.GetReplLagsTSV()[:], "\n")
+		str = strings.Join(GetReplLagsTSV()[:], "\n")
 
 	} else {
 		str = "Keyhole Performance Charts!  Unknow API!"
@@ -97,8 +104,22 @@ func cors(f http.HandlerFunc) http.HandlerFunc {
 }
 
 // HTTPServer listens to port 5408
-func HTTPServer(port int) {
-	g := NewGrafana()
+func HTTPServer(port int, d *keyhole.DiagnosticData) {
+	var buf []byte
+	var bmap = []bson.M{}
+	buf, _ = json.Marshal(d.ServerStatusList)
+	json.Unmarshal(buf, &bmap)
+	ChartsDocs["serverStatus"] = bmap
+	var cmap = []bson.M{}
+	buf, _ = json.Marshal(d.ReplSetStatusList)
+	json.Unmarshal(buf, &cmap)
+	ChartsDocs["replSetGetStatus"] = cmap
+	var dmap = []bson.M{}
+	buf, _ = json.Marshal(d.SystemMetricsList)
+	json.Unmarshal(buf, &dmap)
+	ChartsDocs["systemMetrics"] = dmap
+	frac = len(ChartsDocs["serverStatus"]) / base
+	g := NewGrafana(ChartsDocs)
 	http.HandleFunc("/grafana", cors(g.handler))
 	http.HandleFunc("/grafana/", cors(g.handler))
 	http.HandleFunc("/", cors(handler))
@@ -111,7 +132,10 @@ func GetMemoryTSV() []string {
 	var r, v float64
 	docs = append(docs, "date\tResident\tVirtual")
 	stat := keyhole.ServerStatusDoc{}
-	for _, doc := range keyhole.ChartsDocs["serverStatus"] {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+			continue
+		}
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 		r = float64(stat.Mem.Resident) / 1024
@@ -124,9 +148,6 @@ func GetMemoryTSV() []string {
 	return docs
 }
 
-var base = 144
-var frac = len(keyhole.ChartsDocs["serverStatus"]) / base
-
 // GetPageFaultsTSV -
 func GetPageFaultsTSV() []string {
 	var docs []string
@@ -134,8 +155,8 @@ func GetPageFaultsTSV() []string {
 	docs = append(docs, "date\tPage Faults")
 	stat := keyhole.ServerStatusDoc{}
 
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -158,8 +179,8 @@ func GetMetricsTSV() []string {
 	var stat, pstat keyhole.ServerStatusDoc
 
 	docs = append(docs, "date\tScanned Keys\tScanned Objects\tScan And Order\tDeleted\tInserted\tReturned\tUpdated")
-	for _, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for _, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -189,8 +210,8 @@ func GetWiredTigerCacheTSV() []string {
 
 	docs = append(docs, "date\tMax Bytes\tIn Cache\tDirty Bytes")
 	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -214,8 +235,8 @@ func GetWiredTigerPagingTSV() []string {
 	var m, u, r, w float64
 
 	docs = append(docs, "date\tModified Evicted\tUnmodified Evicted\tRead In Cache\tWritten From Cache")
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -243,8 +264,8 @@ func GetWiredTigerTicketsTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tRead Ticket Available\tWrite Ticket Available")
 	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -264,8 +285,8 @@ func GetOpCountersTSV() []string {
 	docs = append(docs, "date\tQuery\tInsert\tUpdate\tDelete\tGet More\tCommand")
 
 	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -296,8 +317,8 @@ func GetLatenciesTSV() []string {
 
 	docs = append(docs, "date\tReads (ms)\tWrites (ms)\tCommands (ms)")
 	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -329,8 +350,8 @@ func GetConnectionsTSV() []string {
 	var stat, pstat keyhole.ServerStatusDoc
 
 	docs = append(docs, "date\tCurrent\tAvailable\tCreated per minute")
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -354,8 +375,8 @@ func GetQueuesTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tActive Read\tActive Write\tQueued Read\tQueued Write")
 	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range keyhole.ChartsDocs["serverStatus"] {
-		if len(keyhole.ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, doc := range ChartsDocs["serverStatus"] {
+		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
 		buf, _ := json.Marshal(doc)
@@ -367,5 +388,56 @@ func GetQueuesTSV() []string {
 			"\t"+strconv.Itoa(stat.GlobalLock.CurrentQueue.Writers))
 	}
 
+	return docs
+}
+
+// GetReplLagsTSV -
+func GetReplLagsTSV() []string {
+	var docs []string
+	var ts int
+
+	str := "date"
+	stat := keyhole.ReplSetStatusDoc{}
+	for i, doc := range ChartsDocs["replSetGetStatus"] {
+		if len(ChartsDocs["replSetGetStatus"]) > base && frac > 0 && i%frac != 0 {
+			continue
+		}
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat)
+		ts = 0
+		sort.Slice(stat.Members, func(i, j int) bool { return stat.Members[i].Name < stat.Members[j].Name })
+		if i == 0 {
+			for _, mb := range stat.Members {
+				a := strings.Index(mb.Name, ".")
+				b := strings.LastIndex(mb.Name, ":")
+				if a < 0 || b < 0 {
+					str += "\t" + mb.Name
+				} else {
+					str += "\t" + mb.Name[0:a] + mb.Name[b:]
+				}
+			}
+			docs = append(docs, str)
+		}
+		for _, mb := range stat.Members {
+			if mb.StateStr == keyhole.PRIMARY {
+				ts = mb.Optime.TS
+				break
+			}
+		}
+
+		str = stat.Date.Format("2006-01-02T15:04:05Z")
+		if ts == 0 {
+			continue
+		} else {
+			for _, mb := range stat.Members {
+				if mb.StateStr == keyhole.SECONDARY {
+					str += "\t" + strconv.Itoa((ts-mb.Optime.TS)/1000/1000/1000)
+				} else if mb.StateStr == keyhole.PRIMARY {
+					str += "\t0"
+				}
+			}
+			docs = append(docs, str)
+		}
+	}
 	return docs
 }
