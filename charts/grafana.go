@@ -124,54 +124,75 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusTSV []string
 
 func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []bson.M) {
 	var stat = keyhole.SystemMetricsDoc{}
-	for _, doc := range systemMetricsList {
+	var pstat = keyhole.SystemMetricsDoc{}
+	var pdstat = keyhole.SystemMetricsDoc{}
+	var disk = keyhole.DiskMetrics{}
+	var pmdisk = map[string]keyhole.DiskMetrics{}
+
+	for i, doc := range systemMetricsList {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 
 		t := float64(stat.Start.UnixNano() / (1000 * 1000))
-		total := float64(stat.CPU.IOWaitMS + stat.CPU.IdleMS + stat.CPU.NiceMS + stat.CPU.SoftirqMS + stat.CPU.StealMS + stat.CPU.SystemMS + stat.CPU.UserMS)
+		var isMatch = false
 
-		if total == 0 {
-			continue
-		}
-
+		// althought data points come in every 5 minutes but disks metrics have
+		// many duplicate points.  All data points from the same file has same values
+		// conclusion is to drop the chart
 		for k, v := range stat.Disks {
-			disk := keyhole.DiskMetrics{}
 			b, _ := json.Marshal(v)
 			json.Unmarshal(b, &disk)
+			disk.IO = disk.Reads + disk.Writes
 
-			x := g.diskUtils[k]
-			x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*disk.IOTimeMS)/float64(disk.ReadTimeMS+disk.WriteTimeMS), t))
-			g.diskUtils[k] = x
+			if i == 0 {
+				pmdisk[k] = disk
+				pdstat = stat
+			} else if disk.IO != pmdisk[k].IO {
+				u := float64(disk.IO-pmdisk[k].IO) / stat.Start.Sub(pdstat.Start).Seconds() // IOPS
+				// u := 100 * float64(disk.IOTimeMS-pmdisk[k].IOTimeMS) / (stat.Start.Sub(pdstat.Start).Seconds() * 1000) // Disk Utilization (%)
+				x := g.diskUtils[k]
+				x.DataPoints = append(x.DataPoints, getDataPoint(u, t))
+				g.diskUtils[k] = x
+				pmdisk[k] = disk
+				isMatch = true
+			}
+		}
+		if isMatch {
+			pdstat = stat
+		}
+		stat.CPU.TotalMS = stat.CPU.IOWaitMS + stat.CPU.IdleMS + stat.CPU.NiceMS + stat.CPU.SoftirqMS + stat.CPU.StealMS + stat.CPU.SystemMS + stat.CPU.UserMS
+
+		if i > 0 && stat.CPU.TotalMS != 0 {
+			x := g.timeSeriesData["cpu_idle"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.IdleMS-pstat.CPU.IdleMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_idle"] = x
+
+			x = g.timeSeriesData["cpu_iowait"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.IOWaitMS-pstat.CPU.IOWaitMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_iowait"] = x
+
+			x = g.timeSeriesData["cpu_system"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.SystemMS-pstat.CPU.SystemMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_system"] = x
+
+			x = g.timeSeriesData["cpu_user"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.UserMS-pstat.CPU.UserMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_user"] = x
+
+			x = g.timeSeriesData["cpu_nice"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.NiceMS-pstat.CPU.NiceMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_nice"] = x
+
+			x = g.timeSeriesData["cpu_steal"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.StealMS-pstat.CPU.StealMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_steal"] = x
+
+			x = g.timeSeriesData["cpu_softirq"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.SoftirqMS-pstat.CPU.SoftirqMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
+			g.timeSeriesData["cpu_softirq"] = x
 		}
 
-		x := g.timeSeriesData["cpu_idle"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.IdleMS)/total, t))
-		g.timeSeriesData["cpu_idle"] = x
-
-		x = g.timeSeriesData["cpu_iowait"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.IOWaitMS)/total, t))
-		g.timeSeriesData["cpu_iowait"] = x
-
-		x = g.timeSeriesData["cpu_system"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.SystemMS)/total, t))
-		g.timeSeriesData["cpu_system"] = x
-
-		x = g.timeSeriesData["cpu_user"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.UserMS)/total, t))
-		g.timeSeriesData["cpu_user"] = x
-
-		x = g.timeSeriesData["cpu_nice"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.NiceMS)/total, t))
-		g.timeSeriesData["cpu_nice"] = x
-
-		x = g.timeSeriesData["cpu_steal"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.StealMS)/total, t))
-		g.timeSeriesData["cpu_steal"] = x
-
-		x = g.timeSeriesData["cpu_softirq"]
-		x.DataPoints = append(x.DataPoints, getDataPoint(float64(100*stat.CPU.SoftirqMS)/total, t))
-		g.timeSeriesData["cpu_softirq"] = x
+		pstat = stat
 	}
 }
 

@@ -230,190 +230,6 @@
         "x": 0,
         "y": 9
       },
-      "id": 24,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "cpu_system",
-          "type": "timeserie"
-        },
-        {
-          "refId": "B",
-          "target": "cpu_user",
-          "type": "timeserie"
-        },
-        {
-          "refId": "C",
-          "target": "cpu_iowait",
-          "type": "timeserie"
-        },
-        {
-          "refId": "D",
-          "target": "cpu_idle",
-          "type": "timeserie"
-        },
-        {
-          "refId": "E",
-          "target": "cpu_nice",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "CPU Usage (%)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 9
-      },
-      "id": 26,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "disks_utils",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Disk Utilizations (%)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 18
-      },
       "id": 8,
       "legend": {
         "avg": false,
@@ -519,7 +335,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 9
       },
       "id": 12,
       "legend": {
@@ -611,7 +427,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 18
       },
       "id": 16,
       "legend": {
@@ -703,7 +519,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 18
       },
       "id": 18,
       "legend": {
@@ -800,7 +616,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 27
       },
       "id": 20,
       "legend": {
@@ -887,7 +703,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 36
+        "y": 27
       },
       "id": 10,
       "legend": {
@@ -984,7 +800,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 36
       },
       "id": 14,
       "legend": {
@@ -1076,7 +892,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 36
       },
       "id": 6,
       "legend": {
@@ -1163,7 +979,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 45
       },
       "id": 22,
       "legend": {
@@ -1233,6 +1049,108 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "id": 24,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "cpu_system",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "cpu_user",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "cpu_iowait",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "cpu_idle",
+          "type": "timeserie"
+        },
+        {
+          "refId": "E",
+          "target": "cpu_nice",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "CPU Usage (%)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": false,
@@ -1243,8 +1161,8 @@
     "list": []
   },
   "time": {
-    "from": "2018-10-06T07:07:41.804Z",
-    "to": "2018-10-16T00:49:02.027Z"
+    "from": "2018-10-10T04:00:19.000Z",
+    "to": "2018-10-10T17:00:00.000Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1274,5 +1192,5 @@
   "timezone": "",
   "title": "Keyhole Analytics",
   "uid": "VKYb9eamz",
-  "version": 32
+  "version": 36
 }
