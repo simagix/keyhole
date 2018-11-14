@@ -6,6 +6,14 @@ import (
 	"testing"
 )
 
+func TestGetDocByTemplate(t *testing.T) {
+	var err error
+
+	if _, err = GetDocByTemplate("/tmp/template.json", false); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGetMagicString(t *testing.T) {
 	email := getMagicString("ken.chen@simagix.com", false)
 	if isEmailAddress(email) == false {

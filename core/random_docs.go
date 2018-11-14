@@ -19,14 +19,19 @@ import (
 func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 	var buf []byte
 	var err error
+	var str string
 
 	if buf, err = ioutil.ReadFile(filename); err != nil {
 		return nil, err
 	}
 
+	re := regexp.MustCompile(`ObjectId\(\S+\)`)
+	str = re.ReplaceAllString(string(buf), "\"11223344556677889900aabb\"")
+	re = regexp.MustCompile(`ISODate\(\S+\)`)
+	str = re.ReplaceAllString(str, "\"2018-06-13T17:48:10Z\"")
+
 	var f interface{}
-	err = json.Unmarshal(buf, &f)
-	if err != nil {
+	if err = json.Unmarshal([]byte(str), &f); err != nil {
 		return nil, err
 	}
 	doc := make(map[string]interface{})
