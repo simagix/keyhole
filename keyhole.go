@@ -66,7 +66,11 @@ func main() {
 	if *diag != "" {
 		var str string
 		d := keyhole.NewDiagnosticData()
-		if str, err = d.PrintDiagnosticData(*diag, *span, *webserver); err != nil {
+		var filenames = []string{*diag}
+		if len(flag.Args()) > 0 {
+			filenames = append(filenames, flag.Args()...)
+		}
+		if str, err = d.PrintDiagnosticData(filenames, *span, *webserver); err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}

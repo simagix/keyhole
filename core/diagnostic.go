@@ -34,23 +34,24 @@ func NewDiagnosticData() *DiagnosticData {
 }
 
 // PrintDiagnosticData prints diagnostic data of MongoD
-func (d *DiagnosticData) PrintDiagnosticData(filename string, span int, isWeb bool) (string, error) {
+func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb bool) (string, error) {
 	var err error
 	var fi os.FileInfo
 
-	if fi, err = os.Stat(filename); err != nil {
-		return "", err
-	}
-	switch mode := fi.Mode(); {
-	case mode.IsDir():
-		if err = d.ReadDiagnosticDir(filename); err != nil {
+	for _, filename := range filenames {
+		if fi, err = os.Stat(filename); err != nil {
 			return "", err
 		}
-	case mode.IsRegular():
-		if err = d.analyzeServerStatus(filename); err != nil {
-			log.Println(err)
-			if err = d.ReadDiagnosticFile(filename); err != nil {
+		switch mode := fi.Mode(); {
+		case mode.IsDir():
+			if err = d.ReadDiagnosticDir(filename); err != nil {
 				return "", err
+			}
+		case mode.IsRegular():
+			if err = d.analyzeServerStatus(filename); err != nil {
+				if err = d.ReadDiagnosticFile(filename); err != nil {
+					return "", err
+				}
 			}
 		}
 	}
@@ -60,10 +61,6 @@ func (d *DiagnosticData) PrintDiagnosticData(filename string, span int, isWeb bo
 		log.Println(string(b))
 	}
 
-	if span < 0 {
-		span = int(d.ServerStatusList[(len(d.ServerStatusList)-1)].LocalTime.Sub(d.ServerStatusList[0].LocalTime).Seconds()) / 20
-	}
-
 	return PrintAllStats(d.ServerStatusList, span), err
 }
 
@@ -71,6 +68,7 @@ func (d *DiagnosticData) PrintDiagnosticData(filename string, span int, isWeb bo
 func (d *DiagnosticData) ReadDiagnosticDir(dirname string) error {
 	var err error
 	var files []os.FileInfo
+	var filenames []string
 
 	if files, err = ioutil.ReadDir(dirname); err != nil {
 		return err
@@ -81,14 +79,23 @@ func (d *DiagnosticData) ReadDiagnosticDir(dirname string) error {
 			continue
 		}
 		filename := dirname + "/" + f.Name()
+		filenames = append(filenames, filename)
+	}
 
+	return d.ReadDiagnosticFiles(filenames)
+}
+
+// ReadDiagnosticFiles reads multiple files
+func (d *DiagnosticData) ReadDiagnosticFiles(filenames []string) error {
+	var err error
+
+	for _, filename := range filenames {
 		if err = d.analyzeServerStatus(filename); err != nil {
 			if err = d.ReadDiagnosticFile(filename); err != nil {
 				return err
 			}
 		}
 	}
-
 	return err
 }
 
@@ -213,7 +220,7 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 	}
 
 	if len(allDocs) == 0 && len(allRepls) == 0 {
-		return errors.New("Not doc found")
+		return errors.New("No doc found")
 	}
 
 	d.ServerStatusList = append(d.ServerStatusList, allDocs...)

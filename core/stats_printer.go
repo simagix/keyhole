@@ -10,6 +10,11 @@ import (
 // PrintAllStats print all stats
 func PrintAllStats(docs []ServerStatusDoc, span int) string {
 	var lines []string
+
+	if span < 0 {
+		span = int(docs[(len(docs)-1)].LocalTime.Sub(docs[0].LocalTime).Seconds()) / 20
+	}
+
 	lines = append(lines, printStatsDetails(docs, span))
 	lines = append(lines, printGlobalLockDetails(docs, span))
 	lines = append(lines, printLatencyDetails(docs, span))

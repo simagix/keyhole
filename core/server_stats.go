@@ -380,7 +380,8 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 		return filename, err
 	}
 	d := NewDiagnosticData()
-	if str, err = d.PrintDiagnosticData(filename, span, false); err != nil {
+	var filenames = []string{filename}
+	if str, err = d.PrintDiagnosticData(filenames, span, false); err != nil {
 		return filename, err
 	}
 	fmt.Println(str)
