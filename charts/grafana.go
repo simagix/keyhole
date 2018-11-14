@@ -385,18 +385,31 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 			for k, v := range g.replicationLags {
 				data := v
 				data.Target = k
-				tsData = append(tsData, data)
+				tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 			}
 		} else if target.Target == "disks_utils" {
 			for k, v := range g.diskUtils {
 				data := v
 				data.Target = k
-				tsData = append(tsData, data)
+				tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 			}
 		} else {
-			tsData = append(tsData, g.timeSeriesData[target.Target])
+			tsData = append(tsData, filterTimeSeriesData(g.timeSeriesData[target.Target], qr.Range.From, qr.Range.To))
 		}
 	}
 
 	json.NewEncoder(w).Encode(tsData)
+}
+
+func filterTimeSeriesData(tsData TimeSeriesDoc, from time.Time, to time.Time) TimeSeriesDoc {
+	var data = TimeSeriesDoc{DataPoints: [][]float64{}}
+	data.Target = tsData.Target
+	for _, v := range tsData.DataPoints {
+		tm := time.Unix(0, int64(v[1])*int64(time.Millisecond))
+		if tm.After(to) || tm.Before(from) {
+			continue
+		}
+		data.DataPoints = append(data.DataPoints, v)
+	}
+	return data
 }
