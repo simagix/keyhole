@@ -125,16 +125,13 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusTSV []string
 func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []bson.M) {
 	var stat = keyhole.SystemMetricsDoc{}
 	var pstat = keyhole.SystemMetricsDoc{}
-	var pdstat = keyhole.SystemMetricsDoc{}
 	var disk = keyhole.DiskMetrics{}
-	var pmdisk = map[string]keyhole.DiskMetrics{}
 
 	for i, doc := range systemMetricsList {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 
 		t := float64(stat.Start.UnixNano() / (1000 * 1000))
-		var isMatch = false
 
 		// althought data points come in every 5 minutes but disks metrics have
 		// many duplicate points.  All data points from the same file has same values
@@ -144,22 +141,19 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []bson.M) {
 			json.Unmarshal(b, &disk)
 			disk.IO = disk.Reads + disk.Writes
 
-			if i == 0 {
-				pmdisk[k] = disk
-				pdstat = stat
-			} else if disk.IO != pmdisk[k].IO {
-				u := float64(disk.IO-pmdisk[k].IO) / stat.Start.Sub(pdstat.Start).Seconds() // IOPS
-				// u := 100 * float64(disk.IOTimeMS-pmdisk[k].IOTimeMS) / (stat.Start.Sub(pdstat.Start).Seconds() * 1000) // Disk Utilization (%)
-				x := g.diskUtils[k]
-				x.DataPoints = append(x.DataPoints, getDataPoint(u, t))
-				g.diskUtils[k] = x
-				pmdisk[k] = disk
-				isMatch = true
+			u := float64(100 * disk.IOTimeMS / (disk.ReadTimeMS + disk.WriteTimeMS))
+			// u := float64(disk.IO-pmdisk[k].IO) / stat.Start.Sub(pdstat.Start).Seconds() // IOPS
+			// u := 100 * float64(disk.IOTimeMS-pmdisk[k].IOTimeMS) / (stat.Start.Sub(pdstat.Start).Seconds() * 1000) // Disk Utilization (%)
+
+			x := g.diskUtils[k]
+			x.DataPoints = append(x.DataPoints, getDataPoint(u, t))
+			g.diskUtils[k] = x
+
+			if _, ok := g.diskUtils[k]; ok && u > 100 { // in rare case, / from AWS instances have > 100% utilization, don't show them
+				delete(g.diskUtils, k)
 			}
 		}
-		if isMatch {
-			pdstat = stat
-		}
+
 		stat.CPU.TotalMS = stat.CPU.IOWaitMS + stat.CPU.IdleMS + stat.CPU.NiceMS + stat.CPU.SoftirqMS + stat.CPU.StealMS + stat.CPU.SystemMS + stat.CPU.UserMS
 
 		if i > 0 && stat.CPU.TotalMS != 0 {
