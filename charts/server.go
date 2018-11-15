@@ -105,6 +105,15 @@ func cors(f http.HandlerFunc) http.HandlerFunc {
 
 // HTTPServer listens to port 5408
 func HTTPServer(port int, d *keyhole.DiagnosticData) {
+	populateChartsDocs(d)
+	g := NewGrafana(ChartsDocs)
+	http.HandleFunc("/grafana", cors(g.handler))
+	http.HandleFunc("/grafana/", cors(g.handler))
+	http.HandleFunc("/", cors(handler))
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
+}
+
+func populateChartsDocs(d *keyhole.DiagnosticData) {
 	var buf []byte
 	var bmap = []bson.M{}
 	buf, _ = json.Marshal(d.ServerStatusList)
@@ -119,11 +128,6 @@ func HTTPServer(port int, d *keyhole.DiagnosticData) {
 	json.Unmarshal(buf, &dmap)
 	ChartsDocs["systemMetrics"] = dmap
 	frac = len(ChartsDocs["serverStatus"]) / base
-	g := NewGrafana(ChartsDocs)
-	http.HandleFunc("/grafana", cors(g.handler))
-	http.HandleFunc("/grafana/", cors(g.handler))
-	http.HandleFunc("/", cors(handler))
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }
 
 // GetMemoryTSV -

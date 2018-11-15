@@ -65,22 +65,29 @@ type Grafana struct {
 	diskUtils       map[string]TimeSeriesDoc
 }
 
+var g Grafana
+
 // NewGrafana -
 func NewGrafana(ChartsDocs map[string][]bson.M) *Grafana {
-	g := Grafana{
+	g = Grafana{
 		timeSeriesData:  map[string]TimeSeriesDoc{},
 		replicationLags: map[string]TimeSeriesDoc{},
 		diskUtils:       map[string]TimeSeriesDoc{},
 	}
 	g.RLock()
 	defer g.RUnlock()
+	g.ReinitGrafana()
+	return &g
+}
+
+// ReinitGrafana -
+func (g *Grafana) ReinitGrafana() {
 	for _, legend := range chartsLegends {
 		g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
 	g.initServerStatusTimeSeriesDoc(ChartsDocs["serverStatus"])   // ServerStatus
 	g.initSystemMetricsTimeSeriesDoc(ChartsDocs["systemMetrics"]) // SystemMetrics
 	g.initReplSetGetStatusTimeSeriesDoc(GetReplLagsTSV())         // replSetGetStatus
-	return &g
 }
 
 func getDataPoint(v float64, t float64) []float64 {
@@ -352,6 +359,40 @@ func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {
 		g.query(w, r)
 	} else if r.URL.Path[1:] == "grafana/search" {
 		g.search(w, r)
+	} else if r.URL.Path[1:] == "grafana/dir" {
+		g.readDirectory(w, r)
+	}
+}
+
+type directoryReq struct {
+	Dir string `json:"dir"`
+}
+
+func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodOptions:
+	case http.MethodPost:
+		fmt.Println(r.Body)
+		decoder := json.NewDecoder(r.Body)
+		var dr directoryReq
+		if err := decoder.Decode(&dr); err != nil {
+			json.NewEncoder(w).Encode(bson.M{"ok": 0})
+		}
+		d := keyhole.NewDiagnosticData()
+		var filenames = []string{dr.Dir}
+		var str string
+		var err error
+		if str, err = d.PrintDiagnosticData(filenames, -1, true); err != nil {
+			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
+			return
+		}
+		fmt.Println(str)
+		populateChartsDocs(d)
+		g.ReinitGrafana()
+		json.NewEncoder(w).Encode(bson.M{"ok": 1, "dir": dr.Dir})
+	default:
+		http.Error(w, "bad method; supported OPTIONS, POST", http.StatusBadRequest)
+		return
 	}
 }
 
@@ -368,8 +409,7 @@ func (g *Grafana) search(w http.ResponseWriter, r *http.Request) {
 func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var qr QueryRequest
-	err := decoder.Decode(&qr)
-	if err != nil {
+	if err := decoder.Decode(&qr); err != nil {
 		return
 	}
 
