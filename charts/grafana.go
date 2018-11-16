@@ -69,11 +69,7 @@ var g Grafana
 
 // NewGrafana -
 func NewGrafana(ChartsDocs map[string][]bson.M) *Grafana {
-	g = Grafana{
-		timeSeriesData:  map[string]TimeSeriesDoc{},
-		replicationLags: map[string]TimeSeriesDoc{},
-		diskUtils:       map[string]TimeSeriesDoc{},
-	}
+	g = Grafana{}
 	g.RLock()
 	defer g.RUnlock()
 	g.ReinitGrafana()
@@ -82,6 +78,9 @@ func NewGrafana(ChartsDocs map[string][]bson.M) *Grafana {
 
 // ReinitGrafana -
 func (g *Grafana) ReinitGrafana() {
+	g.timeSeriesData = map[string]TimeSeriesDoc{}
+	g.replicationLags = map[string]TimeSeriesDoc{}
+	g.diskUtils = map[string]TimeSeriesDoc{}
 	for _, legend := range chartsLegends {
 		g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
