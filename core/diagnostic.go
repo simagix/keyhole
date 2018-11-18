@@ -61,6 +61,9 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb
 		log.Println(string(b))
 	}
 
+	if len(d.ServerStatusList) == 0 {
+		return "No FTDC data found.", err
+	}
 	return PrintAllStats(d.ServerStatusList, span), err
 }
 
