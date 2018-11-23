@@ -3,23 +3,15 @@
 package charts
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
 )
-
-// ChartsDocs for drawing charts
-var ChartsDocs = map[string][]bson.M{}
-var base = 144
-var frac int
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	var str string
@@ -104,34 +96,18 @@ func cors(f http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+var diagnosticData keyhole.DiagnosticData
+var base = 144
+var frac int
+
 // HTTPServer listens to port 5408
 func HTTPServer(port int, d *keyhole.DiagnosticData) {
-	populateChartsDocs(d)
-	g := NewGrafana(ChartsDocs)
+	diagnosticData = *d
+	g := NewGrafana(d)
 	http.HandleFunc("/grafana", cors(g.handler))
 	http.HandleFunc("/grafana/", cors(g.handler))
 	http.HandleFunc("/", cors(handler))
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
-}
-
-func populateChartsDocs(d *keyhole.DiagnosticData) {
-	btm := time.Now()
-	var buf []byte
-	var bmap = []bson.M{}
-	buf, _ = json.Marshal(d.ServerStatusList)
-	json.Unmarshal(buf, &bmap)
-	ChartsDocs["serverStatus"] = bmap
-	var cmap = []bson.M{}
-	buf, _ = json.Marshal(d.ReplSetStatusList)
-	json.Unmarshal(buf, &cmap)
-	ChartsDocs["replSetGetStatus"] = cmap
-	var dmap = []bson.M{}
-	buf, _ = json.Marshal(d.SystemMetricsList)
-	json.Unmarshal(buf, &dmap)
-	ChartsDocs["systemMetrics"] = dmap
-	frac = len(ChartsDocs["serverStatus"]) / base
-	etm := time.Now()
-	fmt.Println("populateChartsDocs, time spent:", etm.Sub(btm).String())
 }
 
 // GetMemoryTSV -
@@ -139,13 +115,10 @@ func GetMemoryTSV() []string {
 	var docs []string
 	var r, v float64
 	docs = append(docs, "date\tResident\tVirtual")
-	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		r = float64(stat.Mem.Resident) / 1024
 		v = float64(stat.Mem.Virtual) / 1024
 		docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
@@ -161,14 +134,11 @@ func GetPageFaultsTSV() []string {
 	var docs []string
 	pstat := keyhole.ServerStatusDoc{}
 	docs = append(docs, "date\tPage Faults")
-	stat := keyhole.ServerStatusDoc{}
 
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		if i > 0 && stat.Uptime > pstat.Uptime {
 			n := stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.FormatInt(n, 10))
@@ -183,27 +153,25 @@ func GetPageFaultsTSV() []string {
 func GetMetricsTSV() []string {
 	var docs []string
 	var s1, s2, s3 int64
-	var d, i, r, u int
-	var stat, pstat keyhole.ServerStatusDoc
+	var d, ii, r, u int
+	var pstat keyhole.ServerStatusDoc
 
 	docs = append(docs, "date\tScanned Keys\tScanned Objects\tScan And Order\tDeleted\tInserted\tReturned\tUpdated")
-	for _, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
-		if pstat.Host != "" && stat.Uptime > pstat.Uptime {
+		if stat.Uptime > pstat.Uptime {
 			s1 = stat.Metrics.QueryExecutor.Scanned - pstat.Metrics.QueryExecutor.Scanned
 			s2 = stat.Metrics.QueryExecutor.ScannedObjects - pstat.Metrics.QueryExecutor.ScannedObjects
 			s3 = stat.Metrics.Operation.ScanAndOrder - pstat.Metrics.Operation.ScanAndOrder
 			d = stat.Metrics.Document.Deleted - pstat.Metrics.Document.Deleted
-			i = stat.Metrics.Document.Inserted - pstat.Metrics.Document.Inserted
+			ii = stat.Metrics.Document.Inserted - pstat.Metrics.Document.Inserted
 			r = stat.Metrics.Document.Returned - pstat.Metrics.Document.Returned
 			u = stat.Metrics.Document.Updated - pstat.Metrics.Document.Updated
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
 				"\t"+strconv.FormatInt(s1, 10)+"\t"+strconv.FormatInt(s2, 10)+"\t"+strconv.FormatInt(s3, 10)+
-				"\t"+strconv.Itoa(d)+"\t"+strconv.Itoa(i)+"\t"+strconv.Itoa(r)+"\t"+strconv.Itoa(u))
+				"\t"+strconv.Itoa(d)+"\t"+strconv.Itoa(ii)+"\t"+strconv.Itoa(r)+"\t"+strconv.Itoa(u))
 		}
 		pstat = stat
 	}
@@ -217,13 +185,10 @@ func GetWiredTigerCacheTSV() []string {
 	var m, c, t float64
 
 	docs = append(docs, "date\tMax Bytes\tIn Cache\tDirty Bytes")
-	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		m = float64(stat.WiredTiger.Cache.MaxBytesConfigured) / (1024 * 1024 * 1024)
 		c = float64(stat.WiredTiger.Cache.CurrentlyInCache) / (1024 * 1024 * 1024)
 		t = float64(stat.WiredTiger.Cache.TrackedDirtyBytes) / (1024 * 1024 * 1024)
@@ -239,16 +204,14 @@ func GetWiredTigerCacheTSV() []string {
 // GetWiredTigerPagingTSV -
 func GetWiredTigerPagingTSV() []string {
 	var docs []string
-	var stat, pstat keyhole.ServerStatusDoc
+	var pstat keyhole.ServerStatusDoc
 	var m, u, r, w float64
 
 	docs = append(docs, "date\tModified Evicted\tUnmodified Evicted\tRead In Cache\tWritten From Cache")
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		if i > 0 && stat.Uptime > pstat.Uptime {
 			minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
 			m = float64(stat.WiredTiger.Cache.ModifiedPagesEvicted-pstat.WiredTiger.Cache.ModifiedPagesEvicted) / minutes
@@ -271,13 +234,10 @@ func GetWiredTigerPagingTSV() []string {
 func GetWiredTigerTicketsTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tRead Ticket Available\tWrite Ticket Available")
-	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
 			"\t"+strconv.FormatInt(stat.WiredTiger.ConcurrentTransactions.Read.Available, 10)+
 			"\t"+strconv.FormatInt(stat.WiredTiger.ConcurrentTransactions.Write.Available, 10))
@@ -291,14 +251,10 @@ func GetOpCountersTSV() []string {
 	var docs []string
 	pstat := keyhole.ServerStatusDoc{}
 	docs = append(docs, "date\tQuery\tInsert\tUpdate\tDelete\tGet More\tCommand")
-
-	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		if i > 0 && stat.Uptime > pstat.Uptime {
 			qry := stat.OpCounters.Query - pstat.OpCounters.Query
 			ins := stat.OpCounters.Insert - pstat.OpCounters.Insert
@@ -324,13 +280,10 @@ func GetLatenciesTSV() []string {
 	// var pstat keyhole.ServerStatusDoc
 
 	docs = append(docs, "date\tReads (ms)\tWrites (ms)\tCommands (ms)")
-	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		r = 0
 		if stat.OpLatencies.Reads.Ops > 0 {
 			r = float64(stat.OpLatencies.Reads.Latency) / float64(stat.OpLatencies.Reads.Ops) / 1000
@@ -355,16 +308,14 @@ func GetLatenciesTSV() []string {
 // GetConnectionsTSV -
 func GetConnectionsTSV() []string {
 	var docs []string
-	var stat, pstat keyhole.ServerStatusDoc
+	var pstat keyhole.ServerStatusDoc
 
 	docs = append(docs, "date\tCurrent\tAvailable\tCreated per minute")
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
-		if pstat.Host != "" && stat.Uptime > pstat.Uptime {
+		if stat.Uptime > pstat.Uptime {
 			minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
 			churn := float64(stat.Connections.TotalCreated-pstat.Connections.TotalCreated) / minutes
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
@@ -382,13 +333,10 @@ func GetConnectionsTSV() []string {
 func GetQueuesTSV() []string {
 	var docs []string
 	docs = append(docs, "date\tActive Read\tActive Write\tQueued Read\tQueued Write")
-	stat := keyhole.ServerStatusDoc{}
-	for i, doc := range ChartsDocs["serverStatus"] {
-		if len(ChartsDocs["serverStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ServerStatusList {
+		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
 			"\t"+strconv.FormatInt(stat.GlobalLock.ActiveClients.Readers, 10)+
 			"\t"+strconv.FormatInt(stat.GlobalLock.ActiveClients.Writers, 10)+
@@ -405,13 +353,10 @@ func GetReplLagsTSV() []string {
 	var ts int
 
 	str := "date"
-	stat := keyhole.ReplSetStatusDoc{}
-	for i, doc := range ChartsDocs["replSetGetStatus"] {
-		if len(ChartsDocs["replSetGetStatus"]) > base && frac > 0 && i%frac != 0 {
+	for i, stat := range diagnosticData.ReplSetStatusList {
+		if len(diagnosticData.ReplSetStatusList) > base && frac > 0 && i%frac != 0 {
 			continue
 		}
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
 		ts = 0
 		sort.Slice(stat.Members, func(i, j int) bool { return stat.Members[i].Name < stat.Members[j].Name })
 		if i == 0 {

@@ -69,16 +69,16 @@ type Grafana struct {
 var g Grafana
 
 // NewGrafana -
-func NewGrafana(ChartsDocs map[string][]bson.M) *Grafana {
+func NewGrafana(d *keyhole.DiagnosticData) *Grafana {
 	g = Grafana{}
 	g.RLock()
 	defer g.RUnlock()
-	g.ReinitGrafana()
+	g.ReinitGrafana(d)
 	return &g
 }
 
 // ReinitGrafana -
-func (g *Grafana) ReinitGrafana() {
+func (g *Grafana) ReinitGrafana(d *keyhole.DiagnosticData) {
 	btm := time.Now()
 	g.timeSeriesData = map[string]TimeSeriesDoc{}
 	g.replicationLags = map[string]TimeSeriesDoc{}
@@ -86,9 +86,9 @@ func (g *Grafana) ReinitGrafana() {
 	for _, legend := range chartsLegends {
 		g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
-	g.initServerStatusTimeSeriesDoc(ChartsDocs["serverStatus"])         // ServerStatus
-	g.initSystemMetricsTimeSeriesDoc(ChartsDocs["systemMetrics"])       // SystemMetrics
-	g.initReplSetGetStatusTimeSeriesDoc(ChartsDocs["replSetGetStatus"]) // replSetGetStatus
+	g.initServerStatusTimeSeriesDoc(d.ServerStatusList)      // ServerStatus
+	g.initSystemMetricsTimeSeriesDoc(d.SystemMetricsList)    // SystemMetrics
+	g.initReplSetGetStatusTimeSeriesDoc(d.ReplSetStatusList) // replSetGetStatus
 	// g.initReplSetGetStatusTimeSeriesDoc(GetReplLagsTSV())         // replSetGetStatus
 	etm := time.Now()
 	fmt.Println("Data points ready, time spent:", etm.Sub(btm).String())
@@ -101,14 +101,11 @@ func getDataPoint(v float64, t float64) []float64 {
 	return dp
 }
 
-func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []bson.M) {
+func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyhole.ReplSetStatusDoc) {
 	var hosts []string
 	var ts int
-	stat := keyhole.ReplSetStatusDoc{}
 
-	for i, doc := range replSetGetStatusList {
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
+	for i, stat := range replSetGetStatusList {
 		ts = 0
 		sort.Slice(stat.Members, func(i, j int) bool { return stat.Members[i].Name < stat.Members[j].Name })
 		if i == 0 {
@@ -156,15 +153,11 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []bson.
 	}
 }
 
-func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []bson.M) {
-	var stat = keyhole.SystemMetricsDoc{}
+func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []keyhole.SystemMetricsDoc) {
 	var pstat = keyhole.SystemMetricsDoc{}
 	var disk = keyhole.DiskMetrics{}
 
-	for i, doc := range systemMetricsList {
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
-
+	for i, stat := range systemMetricsList {
 		t := float64(stat.Start.UnixNano() / (1000 * 1000))
 
 		// althought data points come in every 5 minutes but disks metrics have
@@ -224,14 +217,11 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []bson.M) {
 	}
 }
 
-func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []bson.M) {
+func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []keyhole.ServerStatusDoc) {
 	pstat := keyhole.ServerStatusDoc{}
-	stat := keyhole.ServerStatusDoc{}
 	var x TimeSeriesDoc
 
-	for i, doc := range ChartsDocs["serverStatus"] {
-		buf, _ := json.Marshal(doc)
-		json.Unmarshal(buf, &stat)
+	for i, stat := range serverStatusList {
 		if stat.Uptime > pstat.Uptime {
 			t := float64(stat.LocalTime.UnixNano() / (1000 * 1000))
 
@@ -416,8 +406,7 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Println(str)
-		populateChartsDocs(d)
-		g.ReinitGrafana()
+		g.ReinitGrafana(d)
 		json.NewEncoder(w).Encode(bson.M{"ok": 1, "dir": dr.Dir})
 	default:
 		http.Error(w, "bad method; supported OPTIONS, POST", http.StatusBadRequest)
