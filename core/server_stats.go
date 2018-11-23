@@ -40,14 +40,14 @@ type DocumentDoc struct {
 
 // ExtraInfoDoc contains db.serverStatus().extra_info
 type ExtraInfoDoc struct {
-	PageFaults int `json:"page_faults" bson:"page_faults"`
+	PageFaults int64 `json:"page_faults" bson:"page_faults"`
 }
 
 // GlobalLockSubDoc contains db.serverStatus().globalLockDoc.[activeClients|currentQueue]
 type GlobalLockSubDoc struct {
-	Readers int `json:"readers" bson:"readers"`
-	Total   int `json:"total" bson:"total"`
-	Writers int `json:"writers" bson:"writers"`
+	Readers int64 `json:"readers" bson:"readers"`
+	Total   int64 `json:"total" bson:"total"`
+	Writers int64 `json:"writers" bson:"writers"`
 }
 
 // GlobalLockDoc contains db.serverStatus().globalLockDoc
@@ -59,8 +59,8 @@ type GlobalLockDoc struct {
 
 // MemDoc containers db.serverStatus().mem
 type MemDoc struct {
-	Resident int `json:"resident" bson:"resident"`
-	Virtual  int `json:"virtual" bson:"virtual"`
+	Resident int64 `json:"resident" bson:"resident"`
+	Virtual  int64 `json:"virtual" bson:"virtual"`
 }
 
 // MetricsDoc contains db.serverStatus().metrics
@@ -72,18 +72,18 @@ type MetricsDoc struct {
 
 // OperationDoc contains db.serverStatus().operation
 type OperationDoc struct {
-	ScanAndOrder   int `json:"scanAndOrder" bson:"scanAndOrder"`
-	WriteConflicts int `json:"writeConflicts" bson:"writeConflicts"`
+	ScanAndOrder   int64 `json:"scanAndOrder" bson:"scanAndOrder"`
+	WriteConflicts int64 `json:"writeConflicts" bson:"writeConflicts"`
 }
 
 // OpCountersDoc contains db.serverStatus().OpCounters
 type OpCountersDoc struct {
-	Command int `json:"command" bson:"command"`
-	Delete  int `json:"delete" bson:"delete"`
-	Getmore int `json:"getmore" bson:"getmore"`
-	Insert  int `json:"insert" bson:"insert"`
-	Query   int `json:"query" bson:"query"`
-	Update  int `json:"update" bson:"update"`
+	Command int64 `json:"command" bson:"command"`
+	Delete  int64 `json:"delete" bson:"delete"`
+	Getmore int64 `json:"getmore" bson:"getmore"`
+	Insert  int64 `json:"insert" bson:"insert"`
+	Query   int64 `json:"query" bson:"query"`
+	Update  int64 `json:"update" bson:"update"`
 }
 
 // OpLatenciesDoc contains db.serverStatus().opLatencies
@@ -95,32 +95,32 @@ type OpLatenciesDoc struct {
 
 // OpLatenciesOpDoc contains doc of db.serverStatus().opLatencies
 type OpLatenciesOpDoc struct {
-	Latency int `json:"latency" bson:"latency"`
-	Ops     int `json:"ops" bson:"ops"`
+	Latency int64 `json:"latency" bson:"latency"`
+	Ops     int64 `json:"ops" bson:"ops"`
 }
 
 // QueryExecutorDoc contains db.serverStatus().queryExecutor
 type QueryExecutorDoc struct {
-	Scanned        int `json:"scanned" bson:"scanned"`
-	ScannedObjects int `json:"scannedObjects" bson:"scannedObjects"`
+	Scanned        int64 `json:"scanned" bson:"scanned"`
+	ScannedObjects int64 `json:"scannedObjects" bson:"scannedObjects"`
 }
 
 // WiredTigerCacheDoc contains db.serverStatus().wiredTiger.cache
 type WiredTigerCacheDoc struct {
-	MaxBytesConfigured     int `json:"maximum bytes configured" bson:"maximum bytes configured"`
-	CurrentlyInCache       int `json:"bytes currently in the cache" bson:"bytes currently in the cache"`
-	ModifiedPagesEvicted   int `json:"modified pages evicted" bson:"modified pages evicted"`
-	UnmodifiedPagesEvicted int `json:"unmodified pages evicted" bson:"unmodified pages evicted"`
-	TrackedDirtyBytes      int `json:"tracked dirty bytes in the cache" bson:"tracked dirty bytes in the cache"`
-	PagesReadIntoCache     int `json:"pages read into cache" bson:"pages read into cache"`
-	PagesWrittenFromCache  int `json:"pages written from cache" bson:"pages written from cache"`
+	MaxBytesConfigured     int64 `json:"maximum bytes configured" bson:"maximum bytes configured"`
+	CurrentlyInCache       int64 `json:"bytes currently in the cache" bson:"bytes currently in the cache"`
+	ModifiedPagesEvicted   int64 `json:"modified pages evicted" bson:"modified pages evicted"`
+	UnmodifiedPagesEvicted int64 `json:"unmodified pages evicted" bson:"unmodified pages evicted"`
+	TrackedDirtyBytes      int64 `json:"tracked dirty bytes in the cache" bson:"tracked dirty bytes in the cache"`
+	PagesReadIntoCache     int64 `json:"pages read into cache" bson:"pages read into cache"`
+	PagesWrittenFromCache  int64 `json:"pages written from cache" bson:"pages written from cache"`
 }
 
 // ConcurrentTransactionsCountDoc contains db.serverStatus().wiredTiger.concurrentTransactions.[read|write]
 type ConcurrentTransactionsCountDoc struct {
-	Available    int `json:"available" bson:"available"`
-	Out          int `json:"out" bson:"out"`
-	TotalTickets int `json:"totalTickets" bson:"totalTickets"`
+	Available    int64 `json:"available" bson:"available"`
+	Out          int64 `json:"out" bson:"out"`
+	TotalTickets int64 `json:"totalTickets" bson:"totalTickets"`
 }
 
 // ConcurrentTransactionsDoc contains db.serverStatus().wiredTiger.concurrentTransactions
@@ -138,9 +138,9 @@ type WiredTigerDoc struct {
 
 // ConnectionsDoc contains db.serverStatus().connections
 type ConnectionsDoc struct {
-	Current      int `json:"current" bson:"current"`
-	Available    int `json:"available" bson:"available"`
-	TotalCreated int `json:"totalCreated" bson:"totalCreated"`
+	Current      int64 `json:"current" bson:"current"`
+	Available    int64 `json:"available" bson:"available"`
+	TotalCreated int64 `json:"totalCreated" bson:"totalCreated"`
 }
 
 // ServerStatusDoc contains docs from db.serverStatus()
@@ -150,14 +150,14 @@ type ServerStatusDoc struct {
 	GlobalLock  GlobalLockDoc  `json:"globalLock" bson:"globalLock"`
 	Host        string         `json:"host" bson:"host"`
 	LocalTime   time.Time      `json:"localTime" bson:"localTime"`
-	Mem         MemDoc         `json:"Mem" bson:"Mem"`
+	Mem         MemDoc         `json:"mem" bson:"mem"`
 	Metrics     MetricsDoc     `json:"metrics" bson:"metrics"`
 	OpCounters  OpCountersDoc  `json:"opcounters" bson:"opcounters"`
 	OpLatencies OpLatenciesDoc `json:"opLatencies" bson:"opLatencies"`
 	Process     string         `json:"process" bson:"process"`
 	Repl        interface{}    `json:"repl" bson:"repl"`
 	Sharding    interface{}    `json:"sharding" bson:"sharding"`
-	Uptime      int            `json:"uptime" bson:"uptime"`
+	Uptime      int64          `json:"uptime" bson:"uptime"`
 	Version     string         `json:"version" bson:"version"`
 	WiredTiger  WiredTigerDoc  `json:"wiredTiger" bson:"wiredTiger"`
 }
@@ -379,7 +379,7 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	if filename, err = b.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}
-	d := NewDiagnosticData()
+	d := NewDiagnosticData(b.verbose)
 	var filenames = []string{filename}
 	if str, err = d.PrintDiagnosticData(filenames, span, false); err != nil {
 		return filename, err

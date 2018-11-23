@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
@@ -114,6 +115,7 @@ func HTTPServer(port int, d *keyhole.DiagnosticData) {
 }
 
 func populateChartsDocs(d *keyhole.DiagnosticData) {
+	btm := time.Now()
 	var buf []byte
 	var bmap = []bson.M{}
 	buf, _ = json.Marshal(d.ServerStatusList)
@@ -128,6 +130,8 @@ func populateChartsDocs(d *keyhole.DiagnosticData) {
 	json.Unmarshal(buf, &dmap)
 	ChartsDocs["systemMetrics"] = dmap
 	frac = len(ChartsDocs["serverStatus"]) / base
+	etm := time.Now()
+	fmt.Println("populateChartsDocs, time spent:", etm.Sub(btm).String())
 }
 
 // GetMemoryTSV -
@@ -167,7 +171,7 @@ func GetPageFaultsTSV() []string {
 		json.Unmarshal(buf, &stat)
 		if i > 0 && stat.Uptime > pstat.Uptime {
 			n := stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults
-			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.Itoa(n))
+			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+strconv.FormatInt(n, 10))
 		}
 		pstat = stat
 	}
@@ -178,7 +182,7 @@ func GetPageFaultsTSV() []string {
 // GetMetricsTSV -
 func GetMetricsTSV() []string {
 	var docs []string
-	var s1, s2, s3 int
+	var s1, s2, s3 int64
 	var d, i, r, u int
 	var stat, pstat keyhole.ServerStatusDoc
 
@@ -198,7 +202,7 @@ func GetMetricsTSV() []string {
 			r = stat.Metrics.Document.Returned - pstat.Metrics.Document.Returned
 			u = stat.Metrics.Document.Updated - pstat.Metrics.Document.Updated
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
-				"\t"+strconv.Itoa(s1)+"\t"+strconv.Itoa(s2)+"\t"+strconv.Itoa(s3)+
+				"\t"+strconv.FormatInt(s1, 10)+"\t"+strconv.FormatInt(s2, 10)+"\t"+strconv.FormatInt(s3, 10)+
 				"\t"+strconv.Itoa(d)+"\t"+strconv.Itoa(i)+"\t"+strconv.Itoa(r)+"\t"+strconv.Itoa(u))
 		}
 		pstat = stat
@@ -275,8 +279,8 @@ func GetWiredTigerTicketsTSV() []string {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 		docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
-			"\t"+strconv.Itoa(stat.WiredTiger.ConcurrentTransactions.Read.Available)+
-			"\t"+strconv.Itoa(stat.WiredTiger.ConcurrentTransactions.Write.Available))
+			"\t"+strconv.FormatInt(stat.WiredTiger.ConcurrentTransactions.Read.Available, 10)+
+			"\t"+strconv.FormatInt(stat.WiredTiger.ConcurrentTransactions.Write.Available, 10))
 	}
 
 	return docs
@@ -304,8 +308,8 @@ func GetOpCountersTSV() []string {
 			cmd := stat.OpCounters.Command - pstat.OpCounters.Command
 
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+"\t"+
-				strconv.Itoa(qry)+"\t"+strconv.Itoa(ins)+"\t"+strconv.Itoa(upt)+"\t"+
-				strconv.Itoa(del)+"\t"+strconv.Itoa(gm)+"\t"+strconv.Itoa(cmd))
+				strconv.FormatInt(qry, 10)+"\t"+strconv.FormatInt(ins, 10)+"\t"+strconv.FormatInt(upt, 10)+"\t"+
+				strconv.FormatInt(del, 10)+"\t"+strconv.FormatInt(gm, 10)+"\t"+strconv.FormatInt(cmd, 10))
 		}
 		pstat = stat
 	}
@@ -364,9 +368,9 @@ func GetConnectionsTSV() []string {
 			minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
 			churn := float64(stat.Connections.TotalCreated-pstat.Connections.TotalCreated) / minutes
 			docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
-				"\t"+strconv.Itoa(stat.Connections.Current)+
-				"\t"+strconv.Itoa(stat.Connections.Available)+
-				"\t"+strconv.Itoa(int(churn)))
+				"\t"+strconv.FormatInt(stat.Connections.Current, 10)+
+				"\t"+strconv.FormatInt(stat.Connections.Available, 10)+
+				"\t"+strconv.FormatInt(int64(churn), 10))
 		}
 		pstat = stat
 	}
@@ -386,10 +390,10 @@ func GetQueuesTSV() []string {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat)
 		docs = append(docs, stat.LocalTime.Format("2006-01-02T15:04:05Z")+
-			"\t"+strconv.Itoa(stat.GlobalLock.ActiveClients.Readers)+
-			"\t"+strconv.Itoa(stat.GlobalLock.ActiveClients.Writers)+
-			"\t"+strconv.Itoa(stat.GlobalLock.CurrentQueue.Readers)+
-			"\t"+strconv.Itoa(stat.GlobalLock.CurrentQueue.Writers))
+			"\t"+strconv.FormatInt(stat.GlobalLock.ActiveClients.Readers, 10)+
+			"\t"+strconv.FormatInt(stat.GlobalLock.ActiveClients.Writers, 10)+
+			"\t"+strconv.FormatInt(stat.GlobalLock.CurrentQueue.Readers, 10)+
+			"\t"+strconv.FormatInt(stat.GlobalLock.CurrentQueue.Writers, 10))
 	}
 
 	return docs

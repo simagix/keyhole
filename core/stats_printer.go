@@ -27,6 +27,8 @@ func PrintAllStats(docs []ServerStatusDoc, span int) string {
 // printStatsDetails -
 func printStatsDetails(docs []ServerStatusDoc, span int) string {
 	var lines []string
+	var iops int64
+	var dur int64
 	if span < 0 {
 		span = 60
 	}
@@ -40,18 +42,18 @@ func printStatsDetails(docs []ServerStatusDoc, span int) string {
 	for _, doc := range docs {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
-		d := int(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+		dur = int64(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
 		if cnt == 0 {
 			stat1 = stat2
 		} else if cnt == 1 {
-			iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
+			iops = stat2.OpCounters.Command - stat1.OpCounters.Command +
 				stat2.OpCounters.Delete - stat1.OpCounters.Delete +
 				stat2.OpCounters.Getmore - stat1.OpCounters.Getmore +
 				stat2.OpCounters.Insert - stat1.OpCounters.Insert +
 				stat2.OpCounters.Query - stat1.OpCounters.Query +
 				stat2.OpCounters.Update - stat1.OpCounters.Update
-			if d > 0 {
-				iops = iops / d
+			if dur > 0 {
+				iops = iops / dur
 			} else {
 				iops = 0
 			}
@@ -76,15 +78,15 @@ func printStatsDetails(docs []ServerStatusDoc, span int) string {
 			}
 			stat1 = stat2
 		} else if stat2.Host == stat1.Host {
-			if cnt == len(docs)-1 || d >= span {
+			if cnt == len(docs)-1 || dur >= int64(span) {
 				iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
 					stat2.OpCounters.Delete - stat1.OpCounters.Delete +
 					stat2.OpCounters.Getmore - stat1.OpCounters.Getmore +
 					stat2.OpCounters.Insert - stat1.OpCounters.Insert +
 					stat2.OpCounters.Query - stat1.OpCounters.Query +
 					stat2.OpCounters.Update - stat1.OpCounters.Update
-				if d > 0 {
-					iops = iops / d
+				if dur > 0 {
+					iops = iops / dur
 				} else {
 					iops = 0
 				}
@@ -212,7 +214,7 @@ func printGlobalLockDetails(docs []ServerStatusDoc, span int) string {
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
-	acm := 0
+	acm := int64(0)
 	lines = append(lines, "\n--- Global Locks Summary ---")
 	lines = append(lines, "+-------------------------+--------------+--------------------------------------------+--------------------------------------------+")
 	lines = append(lines, "|                         | Total Time   | Active Clients                             | Current Queue                              |")
@@ -330,7 +332,7 @@ func printWiredTigerConcurrentTransactionsDetails(docs []ServerStatusDoc, span i
 	stat1 := ServerStatusDoc{}
 	stat2 := ServerStatusDoc{}
 	cnt := 0
-	acm := 0
+	acm := int64(0)
 	lines = append(lines, "\n--- WiredTiger Concurrent Transactions Summary ---")
 	lines = append(lines, "+-------------------------+--------------------------------------------+--------------------------------------------+")
 	lines = append(lines, "|                         | Read Ticket                                | Write Ticket                               |")

@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"compress/zlib"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,11 +25,12 @@ type DiagnosticData struct {
 	ServerStatusList  []ServerStatusDoc
 	ReplSetStatusList []ReplSetStatusDoc
 	SystemMetricsList []SystemMetricsDoc
+	verbose           bool
 }
 
 // NewDiagnosticData -
-func NewDiagnosticData() *DiagnosticData {
-	return &DiagnosticData{ServerStatusList: []ServerStatusDoc{}, ReplSetStatusList: []ReplSetStatusDoc{}}
+func NewDiagnosticData(verbose bool) *DiagnosticData {
+	return &DiagnosticData{ServerStatusList: []ServerStatusDoc{}, ReplSetStatusList: []ReplSetStatusDoc{}, verbose: verbose}
 }
 
 // PrintDiagnosticData prints diagnostic data of MongoD
@@ -63,6 +63,12 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb
 
 	if len(d.ServerStatusList) == 0 {
 		return "No FTDC data found.", err
+	}
+
+	if isWeb == true {
+		str := d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z") +
+			" - " + d.ServerStatusList[len(d.ServerStatusList)-1].LocalTime.Format("2006-01-02T15:04:05Z")
+		return str, err
 	}
 	return PrintAllStats(d.ServerStatusList, span), err
 }
@@ -107,52 +113,43 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 	btm := time.Now()
 	var buffer []byte
 	var err error
-	var docs ServerStatusDoc
-	var repls ReplSetStatusDoc
-	var metrics SystemMetricsDoc
-	var pos int32
-
+	var pos uint32
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
 		return err
 	}
 
 	fmt.Print("reading ", filename)
-	var doc = bson.M{}
 	var r io.ReadCloser
 	var cnt int
+
 	for {
-		if pos >= int32(len(buffer)) {
+		if pos >= uint32(len(buffer)) {
 			break
 		}
 		bs := buffer[pos:(pos + 4)]
-		var length int32
-
-		if err = binary.Read(bytes.NewReader(bs), binary.LittleEndian, &length); err != nil {
-			return err
-		}
+		var length = GetUint32(bytes.NewReader(bs))
 
 		bs = buffer[pos:(pos + length)]
-		var out = bson.M{}
-		err = bson.Unmarshal(bs, &out)
 		pos += length
-
-		if err != nil {
+		var out = bson.M{}
+		if err = bson.Unmarshal(bs, &out); err != nil {
+			log.Println(err)
 			continue
 		} else if out["type"] == 0 {
 			d.ServerInfo = out["doc"]
 		} else if out["type"] == 1 {
-			buf := out["data"].([]byte)
+			bytesBuf := bytes.NewReader(out["data"].([]byte)[4:])
 			// zlib decompress
-			buf = buf[4:]
-			bytesBuf := bytes.NewReader(buf)
 			if r, err = zlib.NewReader(bytesBuf); err != nil {
-				return err
+				log.Println(err)
+				continue
 			}
-			var bytesBufWriter bytes.Buffer
-			writer := bufio.NewWriter(&bytesBufWriter)
-			io.Copy(writer, r)
-			r.Close()
-			bson.Unmarshal(bytesBufWriter.Bytes(), &doc)
+			var data []byte
+			if data, err = ioutil.ReadAll(r); err != nil {
+				log.Println(err)
+				continue
+			}
+
 			// systemMetrics
 			// end
 			// start
@@ -160,23 +157,13 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 			// replSetGetStatus
 			// local.oplog.rs.stats
 
-			if doc["serverStatus"] != nil {
-				cnt++
-				buf, _ := json.Marshal(doc["serverStatus"])
-				json.Unmarshal(buf, &docs)
-				d.ServerStatusList = append(d.ServerStatusList, docs)
-			}
-
-			if doc["replSetGetStatus"] != nil {
-				buf, _ := json.Marshal(doc["replSetGetStatus"])
-				json.Unmarshal(buf, &repls)
-				d.ReplSetStatusList = append(d.ReplSetStatusList, repls)
-			}
-
-			if doc["systemMetrics"] != nil {
-				buf, _ := json.Marshal(doc["systemMetrics"])
-				json.Unmarshal(buf, &metrics)
-				d.SystemMetricsList = append(d.SystemMetricsList, metrics)
+			cnt++
+			if d.verbose == true {
+				if err = d.decodeFTDC(data); err != nil {
+					return err
+				}
+			} else {
+				d.decodeFirstDoc(data)
 			}
 		} else {
 			log.Println("==>", out["type"])
@@ -229,4 +216,29 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 	d.ServerStatusList = append(d.ServerStatusList, allDocs...)
 	d.ReplSetStatusList = append(d.ReplSetStatusList, allRepls...)
 	return err
+}
+
+func (d *DiagnosticData) decodeFirstDoc(data []byte) {
+	var doc = bson.M{}
+	bson.Unmarshal(data, &doc) // first document
+	var docs ServerStatusDoc
+	if doc["serverStatus"] != nil {
+		buf, _ := json.Marshal(doc["serverStatus"])
+		json.Unmarshal(buf, &docs)
+		d.ServerStatusList = append(d.ServerStatusList, docs)
+	}
+
+	var metrics SystemMetricsDoc
+	if doc["systemMetrics"] != nil {
+		buf, _ := json.Marshal(doc["systemMetrics"])
+		json.Unmarshal(buf, &metrics)
+		d.SystemMetricsList = append(d.SystemMetricsList, metrics)
+	}
+
+	var repls ReplSetStatusDoc
+	if doc["replSetGetStatus"] != nil {
+		buf, _ := json.Marshal(doc["replSetGetStatus"])
+		json.Unmarshal(buf, &repls)
+		d.ReplSetStatusList = append(d.ReplSetStatusList, repls)
+	}
 }

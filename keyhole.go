@@ -65,7 +65,7 @@ func main() {
 	var err error
 	if *diag != "" {
 		var str string
-		d := keyhole.NewDiagnosticData()
+		d := keyhole.NewDiagnosticData(*verbose)
 		var filenames = []string{*diag}
 		if len(flag.Args()) > 0 {
 			filenames = append(filenames, flag.Args()...)

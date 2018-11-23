@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -133,4 +134,11 @@ func ReadPasswordFromStdin() (string, error) {
 		return "", err
 	}
 	return string(buffer), err
+}
+
+// GetUint32 -
+func GetUint32(r io.Reader) uint32 {
+	var size uint32
+	binary.Read(r, binary.LittleEndian, &size)
+	return size
 }

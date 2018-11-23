@@ -12,7 +12,7 @@ func TestReadDiagnosticDir(t *testing.T) {
 	var serverStatusList []ServerStatusDoc
 	var replSetStatusList []ReplSetStatusDoc
 	var err error
-	d := NewDiagnosticData()
+	d := NewDiagnosticData(false)
 	if err = d.ReadDiagnosticDir("/tmp/diagnostic.data/"); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestReadDiagnosticFile(t *testing.T) {
 	var serverStatusList []ServerStatusDoc
 	var replSetStatusList []ReplSetStatusDoc
 	var err error
-	d := NewDiagnosticData()
+	d := NewDiagnosticData(false)
 	if err = d.ReadDiagnosticFile("/tmp/metrics.2018-10-12T23-37-51Z-00000"); err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestAnalyzeServerStatus(t *testing.T) {
 	var filename = "/tmp/keyhole_stats.2018-10-18T080737-standalone.gz"
 	var err error
 
-	d := NewDiagnosticData()
+	d := NewDiagnosticData(false)
 	if err = d.analyzeServerStatus(filename); err != nil {
 		t.Fatal(err)
 	}

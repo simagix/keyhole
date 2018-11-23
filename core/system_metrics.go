@@ -17,14 +17,14 @@ type SystemMetricsDoc struct {
 
 // CPUMetrics -
 type CPUMetrics struct {
-	IdleMS    int `json:"idle_ms" bson:"idle_ms"`
-	IOWaitMS  int `json:"iowait_ms" bson:"iowait_ms"`
-	NiceMS    int `json:"nice_ms" bson:"nice_ms"`
-	SoftirqMS int `json:"softirq_ms" bson:"softirq_ms"`
-	StealMS   int `json:"steal_ms" bson:"steal_ms"`
-	SystemMS  int `json:"system_ms" bson:"system_ms"`
-	UserMS    int `json:"user_ms" bson:"user_ms"`
-	TotalMS   int
+	IdleMS    int64 `json:"idle_ms" bson:"idle_ms"`
+	IOWaitMS  int64 `json:"iowait_ms" bson:"iowait_ms"`
+	NiceMS    int64 `json:"nice_ms" bson:"nice_ms"`
+	SoftirqMS int64 `json:"softirq_ms" bson:"softirq_ms"`
+	StealMS   int64 `json:"steal_ms" bson:"steal_ms"`
+	SystemMS  int64 `json:"system_ms" bson:"system_ms"`
+	UserMS    int64 `json:"user_ms" bson:"user_ms"`
+	TotalMS   int64
 }
 
 // DiskMetrics -

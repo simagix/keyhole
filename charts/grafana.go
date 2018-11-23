@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -78,15 +79,19 @@ func NewGrafana(ChartsDocs map[string][]bson.M) *Grafana {
 
 // ReinitGrafana -
 func (g *Grafana) ReinitGrafana() {
+	btm := time.Now()
 	g.timeSeriesData = map[string]TimeSeriesDoc{}
 	g.replicationLags = map[string]TimeSeriesDoc{}
 	g.diskUtils = map[string]TimeSeriesDoc{}
 	for _, legend := range chartsLegends {
 		g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
-	g.initServerStatusTimeSeriesDoc(ChartsDocs["serverStatus"])   // ServerStatus
-	g.initSystemMetricsTimeSeriesDoc(ChartsDocs["systemMetrics"]) // SystemMetrics
-	g.initReplSetGetStatusTimeSeriesDoc(GetReplLagsTSV())         // replSetGetStatus
+	g.initServerStatusTimeSeriesDoc(ChartsDocs["serverStatus"])         // ServerStatus
+	g.initSystemMetricsTimeSeriesDoc(ChartsDocs["systemMetrics"])       // SystemMetrics
+	g.initReplSetGetStatusTimeSeriesDoc(ChartsDocs["replSetGetStatus"]) // replSetGetStatus
+	// g.initReplSetGetStatusTimeSeriesDoc(GetReplLagsTSV())         // replSetGetStatus
+	etm := time.Now()
+	fmt.Println("Data points ready, time spent:", etm.Sub(btm).String())
 }
 
 func getDataPoint(v float64, t float64) []float64 {
@@ -96,34 +101,57 @@ func getDataPoint(v float64, t float64) []float64 {
 	return dp
 }
 
-func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusTSV []string) {
+func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []bson.M) {
 	var hosts []string
-	for i, line := range replSetGetStatusTSV {
+	var ts int
+	stat := keyhole.ReplSetStatusDoc{}
+
+	for i, doc := range replSetGetStatusList {
+		buf, _ := json.Marshal(doc)
+		json.Unmarshal(buf, &stat)
+		ts = 0
+		sort.Slice(stat.Members, func(i, j int) bool { return stat.Members[i].Name < stat.Members[j].Name })
 		if i == 0 {
-			hosts = strings.Split(line, "\t")
-			for n, legend := range hosts {
-				if n > 0 {
-					g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
-					node := "repl_" + strconv.Itoa(n)
-					g.timeSeriesData[node] = TimeSeriesDoc{node, [][]float64{}}
+			for n, mb := range stat.Members {
+				a := strings.Index(mb.Name, ".")
+				b := strings.LastIndex(mb.Name, ":")
+				var legend string
+				if a < 0 || b < 0 {
+					legend = mb.Name
+				} else {
+					legend = mb.Name[0:a] + mb.Name[b:]
 				}
+				hosts = append(hosts, legend)
+				g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
+				node := "repl_" + strconv.Itoa(n)
+				g.timeSeriesData[node] = TimeSeriesDoc{node, [][]float64{}}
 			}
 			continue
 		}
 
-		tokens := strings.Split(line, "\t")
-		t1, _ := time.Parse(time.RFC3339, tokens[0])
-		t := float64(t1.UnixNano() / (1000 * 1000))
-
-		for i, token := range tokens {
-			if i == 0 {
-				continue
+		for _, mb := range stat.Members {
+			if mb.StateStr == keyhole.PRIMARY {
+				ts = mb.Optime.TS
+				break
 			}
+		}
 
-			v, _ := strconv.ParseFloat(token, 64)
-			x := g.replicationLags[hosts[i]]
-			x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
-			g.replicationLags[hosts[i]] = x
+		if ts == 0 {
+			continue
+		} else {
+			t := float64(stat.Date.UnixNano() / 1000 / 1000)
+			for i, mb := range stat.Members {
+				v := 0.0
+				if mb.StateStr == keyhole.SECONDARY {
+					v = float64(ts-mb.Optime.TS) / 1000 / 1000 / 1000
+				} else if mb.StateStr == keyhole.PRIMARY {
+					v = 0
+				}
+
+				x := g.replicationLags[hosts[i]]
+				x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
+				g.replicationLags[hosts[i]] = x
+			}
 		}
 	}
 }
@@ -284,11 +312,12 @@ func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []bson.M) {
 			g.timeSeriesData["ticket_avail_write"] = x
 
 			if i > 0 {
+				minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
+
 				x = g.timeSeriesData["mem_page_faults"]
 				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.ExtraInfo.PageFaults-pstat.ExtraInfo.PageFaults), t))
 				g.timeSeriesData["mem_page_faults"] = x
 
-				minutes := stat.LocalTime.Sub(pstat.LocalTime).Minutes()
 				x = g.timeSeriesData["conns_created_per_minute"]
 				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.Connections.TotalCreated-pstat.Connections.TotalCreated)/minutes, t))
 				g.timeSeriesData["conns_created_per_minute"] = x
@@ -364,7 +393,8 @@ func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {
 }
 
 type directoryReq struct {
-	Dir string `json:"dir"`
+	Dir     string `json:"dir"`
+	Verbose bool   `json:"verbose"`
 }
 
 func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
@@ -377,11 +407,11 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 		if err := decoder.Decode(&dr); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0})
 		}
-		d := keyhole.NewDiagnosticData()
+		d := keyhole.NewDiagnosticData(dr.Verbose)
 		var filenames = []string{dr.Dir}
 		var str string
 		var err error
-		if str, err = d.PrintDiagnosticData(filenames, -1, true); err != nil {
+		if str, err = d.PrintDiagnosticData(filenames, 300, true); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}
@@ -443,6 +473,20 @@ func filterTimeSeriesData(tsData TimeSeriesDoc, from time.Time, to time.Time) Ti
 			continue
 		}
 		data.DataPoints = append(data.DataPoints, v)
+	}
+
+	max := 500
+	if len(data.DataPoints) > max {
+		frac := len(data.DataPoints) / max
+		var datax = TimeSeriesDoc{DataPoints: [][]float64{}}
+		datax.Target = tsData.Target
+		for i, v := range data.DataPoints {
+			if i%frac != 0 {
+				continue
+			}
+			datax.DataPoints = append(datax.DataPoints, v)
+		}
+		return datax
 	}
 	return data
 }
