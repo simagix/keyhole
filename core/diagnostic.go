@@ -21,10 +21,25 @@ import (
 	"github.com/globalsign/mgo/bson"
 )
 
+// OSDoc -
+type OSDoc struct {
+	Name    string `json:"name" bson:"name"`
+	Type    string `json:"type" bson:"type"`
+	Version string `json:"version" bson:"version"`
+}
+
+// SystemDoc -
+type SystemDoc struct {
+	CPUArch   string `json:"cpuArch" bson:"cpuArch"`
+	Hostname  string `json:"hostname" bson:"hostname"`
+	NumCores  int    `json:"numCores" bson:"numCores"`
+	MemSizeMB int    `json:"memSizeMB" bson:"memSizeMB"`
+}
+
 // HostInfo -
 type HostInfo struct {
-	OS     interface{} `json:"os" bson:"os"`
-	System interface{} `json:"system" bson:"system"`
+	OS     OSDoc     `json:"os" bson:"os"`
+	System SystemDoc `json:"system" bson:"system"`
 }
 
 // BuildInfo -
