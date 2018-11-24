@@ -56,7 +56,7 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 0,
         "y": 0
@@ -148,7 +148,7 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 6,
         "y": 0
@@ -240,7 +240,7 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 12,
         "y": 0
@@ -327,7 +327,7 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 18,
         "y": 0
@@ -429,10 +429,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 0,
-        "y": 6
+        "y": 5
       },
       "id": 18,
       "legend": {
@@ -526,10 +526,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 6,
-        "y": 6
+        "y": 5
       },
       "id": 10,
       "legend": {
@@ -623,10 +623,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 12,
-        "y": 6
+        "y": 5
       },
       "id": 8,
       "legend": {
@@ -730,12 +730,12 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 18,
-        "y": 6
+        "y": 5
       },
-      "id": 2,
+      "id": 28,
       "legend": {
         "avg": false,
         "current": false,
@@ -760,19 +760,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "mem_virtual",
-          "type": "timeserie"
-        },
-        {
-          "refId": "B",
-          "target": "mem_resident",
+          "target": "disks_iops",
           "type": "timeserie"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Memory (GB)",
+      "title": "Disk IOPS",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -817,10 +812,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 0,
-        "y": 12
+        "y": 10
       },
       "id": 20,
       "legend": {
@@ -904,10 +899,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 6,
-        "y": 12
+        "y": 10
       },
       "id": 14,
       "legend": {
@@ -996,92 +991,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 12,
-        "y": 12
-      },
-      "id": 22,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "replication_lags",
-          "type": "timeserie"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Replication Lags (seconds)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${DS_KEYHOLE}",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 18,
-        "y": 12
+        "y": 10
       },
       "id": 4,
       "legend": {
@@ -1160,10 +1073,10 @@
       "datasource": "${DS_KEYHOLE}",
       "fill": 1,
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
-        "x": 0,
-        "y": 18
+        "x": 18,
+        "y": 10
       },
       "id": 26,
       "legend": {
@@ -1233,6 +1146,175 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 15
+      },
+      "id": 22,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "replication_lags",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Replication Lags (seconds)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_KEYHOLE}",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 15
+      },
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "mem_virtual",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "mem_resident",
+          "type": "timeserie"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Memory (GB)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": false,
@@ -1243,8 +1325,8 @@
     "list": []
   },
   "time": {
-    "from": "2017-10-12T17:55:08.214Z",
-    "to": "2017-10-27T21:46:57.613Z"
+    "from": "2017-10-12T20:08:54.000Z",
+    "to": "2017-10-28T01:08:52.660Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1274,5 +1356,5 @@
   "timezone": "",
   "title": "Keyhole Analytics",
   "uid": "VKYb9eamz",
-  "version": 40
+  "version": 43
 }

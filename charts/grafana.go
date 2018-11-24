@@ -53,7 +53,7 @@ var chartsLegends = []string{
 	"wt_modified_evicted", "wt_unmodified_evicted", "wt_read_in_cache", "wt_written_from_cache",
 	"ticket_avail_read", "ticket_avail_write",
 	"cpu_idle", "cpu_iowait", "cpu_nice", "cpu_softirq", "cpu_steal", "cpu_system", "cpu_user",
-	"disks_utils",
+	"disks_utils", "disks_iops",
 	"replication_lags",
 }
 
@@ -63,7 +63,13 @@ type Grafana struct {
 	sync.RWMutex
 	timeSeriesData  map[string]TimeSeriesDoc
 	replicationLags map[string]TimeSeriesDoc
-	diskUtils       map[string]TimeSeriesDoc
+	diskStats       map[string]DiskStats
+}
+
+// DiskStats -
+type DiskStats struct {
+	utilization TimeSeriesDoc
+	iops        TimeSeriesDoc
 }
 
 var g Grafana
@@ -82,7 +88,7 @@ func (g *Grafana) ReinitGrafana(d *keyhole.DiagnosticData) {
 	btm := time.Now()
 	g.timeSeriesData = map[string]TimeSeriesDoc{}
 	g.replicationLags = map[string]TimeSeriesDoc{}
-	g.diskUtils = map[string]TimeSeriesDoc{}
+	g.diskStats = map[string]DiskStats{}
 	for _, legend := range chartsLegends {
 		g.timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
@@ -156,28 +162,28 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []keyhole.Sys
 	var pstat = keyhole.SystemMetricsDoc{}
 
 	for i, stat := range systemMetricsList {
-		t := float64(stat.Start.UnixNano() / (1000 * 1000))
-		for k, disk := range stat.Disks {
-			disk.IO = disk.Reads + disk.Writes
-			totalMS := disk.ReadTimeMS + disk.WriteTimeMS
-			if totalMS == 0 {
-				continue
+		if i > 0 {
+			t := float64(stat.Start.UnixNano() / (1000 * 1000))
+			for k, disk := range stat.Disks {
+				disk.IO = disk.Reads + disk.Writes
+				totalMS := (disk.ReadTimeMS + disk.WriteTimeMS) - (pstat.Disks[k].ReadTimeMS + pstat.Disks[k].WriteTimeMS)
+				u := float64(0)
+				if totalMS != 0 {
+					u = float64(100 * (disk.IOTimeMS - pstat.Disks[k].IOTimeMS) / totalMS)
+				}
+				if u > 100 {
+					continue
+				}
+				iops := float64(disk.Reads+disk.Writes-(pstat.Disks[k].Reads+pstat.Disks[k].Writes)) / float64(stat.Start.Sub(pstat.Start).Seconds())
+
+				x := g.diskStats[k]
+				x.utilization.DataPoints = append(x.utilization.DataPoints, getDataPoint(u, t))
+				x.iops.DataPoints = append(x.iops.DataPoints, getDataPoint(iops, t))
+				g.diskStats[k] = x
 			}
-			u := float64(100 * disk.IOTimeMS / totalMS)
-			// u := float64(disk.IO-pmdisk[k].IO) / stat.Start.Sub(pdstat.Start).Seconds() // IOPS
-			// u := 100 * float64(disk.IOTimeMS-pmdisk[k].IOTimeMS) / (stat.Start.Sub(pdstat.Start).Seconds() * 1000) // Disk Utilization (%)
-			x := g.diskUtils[k]
-			x.DataPoints = append(x.DataPoints, getDataPoint(u, t))
-			g.diskUtils[k] = x
 
-			if _, ok := g.diskUtils[k]; ok && u > 100 { // in rare case, / from AWS instances have > 100% utilization, don't show them
-				delete(g.diskUtils, k)
-			}
-		}
+			stat.CPU.TotalMS = stat.CPU.IOWaitMS + stat.CPU.IdleMS + stat.CPU.NiceMS + stat.CPU.SoftirqMS + stat.CPU.StealMS + stat.CPU.SystemMS + stat.CPU.UserMS
 
-		stat.CPU.TotalMS = stat.CPU.IOWaitMS + stat.CPU.IdleMS + stat.CPU.NiceMS + stat.CPU.SoftirqMS + stat.CPU.StealMS + stat.CPU.SystemMS + stat.CPU.UserMS
-
-		if i > 0 && stat.CPU.TotalMS != 0 {
 			x := g.timeSeriesData["cpu_idle"]
 			x.DataPoints = append(x.DataPoints, getDataPoint(100*float64(stat.CPU.IdleMS-pstat.CPU.IdleMS)/float64(stat.CPU.TotalMS-pstat.CPU.TotalMS), t))
 			g.timeSeriesData["cpu_idle"] = x
@@ -435,8 +441,14 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 				}
 			} else if target.Target == "disks_utils" {
-				for k, v := range g.diskUtils {
-					data := v
+				for k, v := range g.diskStats {
+					data := v.utilization
+					data.Target = k
+					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
+				}
+			} else if target.Target == "disks_iops" {
+				for k, v := range g.diskStats {
+					data := v.iops
 					data.Target = k
 					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 				}
