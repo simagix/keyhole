@@ -118,6 +118,11 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 		return err
 	}
 
+	filename = strings.TrimRight(filename, "/")
+	i := strings.LastIndex(filename, "/")
+	if i >= 0 {
+		filename = filename[i+1:]
+	}
 	fmt.Print("reading ", filename)
 	var r io.ReadCloser
 	var cnt int
@@ -150,27 +155,20 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 				continue
 			}
 
-			// systemMetrics
-			// end
-			// start
-			// serverStatus
-			// replSetGetStatus
-			// local.oplog.rs.stats
-
 			cnt++
 			if d.verbose == true {
 				if err = d.decodeFTDC(data); err != nil {
 					return err
 				}
 			} else {
-				d.decodeFirstDoc(data)
+				d.unmarshalFirstBsonDoc(data)
 			}
 		} else {
 			log.Println("==>", out["type"])
 		}
 	}
 	etm := time.Now()
-	fmt.Println(", read:", cnt, ",time spent:", etm.Sub(btm).String())
+	fmt.Println(", chunks:", cnt, ",time:", etm.Sub(btm).String())
 	return err
 }
 
@@ -218,7 +216,13 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 	return err
 }
 
-func (d *DiagnosticData) decodeFirstDoc(data []byte) {
+// systemMetrics
+// end
+// start
+// serverStatus
+// replSetGetStatus
+// local.oplog.rs.stats
+func (d *DiagnosticData) unmarshalFirstBsonDoc(data []byte) {
 	var doc = bson.M{}
 	bson.Unmarshal(data, &doc) // first document
 	var docs ServerStatusDoc

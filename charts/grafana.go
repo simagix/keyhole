@@ -89,9 +89,8 @@ func (g *Grafana) ReinitGrafana(d *keyhole.DiagnosticData) {
 	g.initServerStatusTimeSeriesDoc(d.ServerStatusList)      // ServerStatus
 	g.initSystemMetricsTimeSeriesDoc(d.SystemMetricsList)    // SystemMetrics
 	g.initReplSetGetStatusTimeSeriesDoc(d.ReplSetStatusList) // replSetGetStatus
-	// g.initReplSetGetStatusTimeSeriesDoc(GetReplLagsTSV())         // replSetGetStatus
 	etm := time.Now()
-	fmt.Println("Data points ready, time spent:", etm.Sub(btm).String())
+	fmt.Println("data points ready, time spent:", etm.Sub(btm).String())
 }
 
 func getDataPoint(v float64, t float64) []float64 {
@@ -159,19 +158,12 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []keyhole.Sys
 
 	for i, stat := range systemMetricsList {
 		t := float64(stat.Start.UnixNano() / (1000 * 1000))
-
-		// althought data points come in every 5 minutes but disks metrics have
-		// many duplicate points.  All data points from the same file has same values
-		// conclusion is to drop the chart
 		for k, v := range stat.Disks {
-			b, _ := json.Marshal(v)
-			json.Unmarshal(b, &disk)
+			disk = v.(keyhole.DiskMetrics)
 			disk.IO = disk.Reads + disk.Writes
-
 			u := float64(100 * disk.IOTimeMS / (disk.ReadTimeMS + disk.WriteTimeMS))
 			// u := float64(disk.IO-pmdisk[k].IO) / stat.Start.Sub(pdstat.Start).Seconds() // IOPS
 			// u := 100 * float64(disk.IOTimeMS-pmdisk[k].IOTimeMS) / (stat.Start.Sub(pdstat.Start).Seconds() * 1000) // Disk Utilization (%)
-
 			x := g.diskUtils[k]
 			x.DataPoints = append(x.DataPoints, getDataPoint(u, t))
 			g.diskUtils[k] = x
@@ -433,20 +425,23 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 
 	var tsData []TimeSeriesDoc
 	for _, target := range qr.Targets {
-		if target.Target == "replication_lags" { // replaced with actual hostname
-			for k, v := range g.replicationLags {
-				data := v
-				data.Target = k
-				tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
+		if target.Type == "timeserie" {
+			if target.Target == "replication_lags" { // replaced with actual hostname
+				for k, v := range g.replicationLags {
+					data := v
+					data.Target = k
+					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
+				}
+			} else if target.Target == "disks_utils" {
+				for k, v := range g.diskUtils {
+					data := v
+					data.Target = k
+					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
+				}
+			} else {
+				tsData = append(tsData, filterTimeSeriesData(g.timeSeriesData[target.Target], qr.Range.From, qr.Range.To))
 			}
-		} else if target.Target == "disks_utils" {
-			for k, v := range g.diskUtils {
-				data := v
-				data.Target = k
-				tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
-			}
-		} else {
-			tsData = append(tsData, filterTimeSeriesData(g.timeSeriesData[target.Target], qr.Range.From, qr.Range.To))
+		} else if target.Type == "table" {
 		}
 	}
 
