@@ -1159,7 +1159,7 @@
       "fontSize": "100%",
       "gridPos": {
         "h": 5,
-        "w": 6,
+        "w": 12,
         "x": 0,
         "y": 15
       },
@@ -1170,7 +1170,7 @@
       "showHeader": true,
       "sort": {
         "col": 0,
-        "desc": false
+        "desc": true
       },
       "styles": [
         {
@@ -1215,7 +1215,7 @@
       "gridPos": {
         "h": 5,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 15
       },
       "id": 22,
@@ -1297,7 +1297,7 @@
       "gridPos": {
         "h": 5,
         "w": 6,
-        "x": 12,
+        "x": 18,
         "y": 15
       },
       "id": 2,
@@ -1414,5 +1414,5 @@
   "timezone": "",
   "title": "Keyhole Analytics",
   "uid": "VKYb9eamz",
-  "version": 45
+  "version": 46
 }
