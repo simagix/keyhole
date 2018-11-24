@@ -27,6 +27,12 @@
       "id": "graph",
       "name": "Graph",
       "version": "5.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "5.0.0"
     }
   ],
   "annotations": {
@@ -1148,6 +1154,58 @@
       }
     },
     {
+      "columns": [],
+      "datasource": "${DS_KEYHOLE}",
+      "fontSize": "100%",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 15
+      },
+      "id": 30,
+      "links": [],
+      "pageSize": null,
+      "scroll": true,
+      "showHeader": true,
+      "sort": {
+        "col": 0,
+        "desc": false
+      },
+      "styles": [
+        {
+          "alias": "Time",
+          "dateFormat": "YYYY-MM-DD HH:mm:ss",
+          "pattern": "Time",
+          "type": "date"
+        },
+        {
+          "alias": "",
+          "colorMode": null,
+          "colors": [
+            "rgba(245, 54, 54, 0.9)",
+            "rgba(237, 129, 40, 0.89)",
+            "rgba(50, 172, 45, 0.97)"
+          ],
+          "decimals": 2,
+          "pattern": "/.*/",
+          "thresholds": [],
+          "type": "number",
+          "unit": "short"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "target": "host_info",
+          "type": "table"
+        }
+      ],
+      "title": "Host Info",
+      "transform": "table",
+      "type": "table"
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -1325,8 +1383,8 @@
     "list": []
   },
   "time": {
-    "from": "2017-10-12T20:08:54.000Z",
-    "to": "2017-10-28T01:08:52.660Z"
+    "from": "2017-10-13T00:08:54.000Z",
+    "to": "2017-10-28T19:33:01.661Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1356,5 +1414,5 @@
   "timezone": "",
   "title": "Keyhole Analytics",
   "uid": "VKYb9eamz",
-  "version": 43
+  "version": 45
 }
