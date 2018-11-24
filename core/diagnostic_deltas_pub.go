@@ -3,7 +3,6 @@
 
 package keyhole
 
-func (d *DiagnosticData) decodeFTDC(data []byte) error {
-	d.unmarshalFirstBsonDoc(data)
-	return nil
+func decodeFTDC(data []byte) (DiagnosticData, error) {
+	return unmarshalFirstBsonDoc(data), nil
 }

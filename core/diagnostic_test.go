@@ -13,7 +13,7 @@ func TestReadDiagnosticDir(t *testing.T) {
 	var replSetStatusList []ReplSetStatusDoc
 	var err error
 	d := NewDiagnosticData(false)
-	if err = d.ReadDiagnosticDir("/tmp/diagnostic.data/"); err != nil {
+	if err = d.readDiagnosticDir("/tmp/diagnostic.data/"); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := json.MarshalIndent(serverInfo, "", "  ")
@@ -32,7 +32,7 @@ func TestReadDiagnosticFile(t *testing.T) {
 	var replSetStatusList []ReplSetStatusDoc
 	var err error
 	d := NewDiagnosticData(false)
-	if err = d.ReadDiagnosticFile("/tmp/metrics.2018-10-12T23-37-51Z-00000"); err != nil {
+	if _, err = d.readDiagnosticFile("/tmp/metrics.2018-10-12T23-37-51Z-00000"); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := json.MarshalIndent(serverInfo, "", "  ")

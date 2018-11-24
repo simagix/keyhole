@@ -13,6 +13,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,14 +55,13 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
-			if err = d.ReadDiagnosticDir(filename); err != nil {
+			if err = d.readDiagnosticDir(filename); err != nil {
 				return "", err
 			}
 		case mode.IsRegular():
-			if err = d.analyzeServerStatus(filename); err != nil {
-				if err = d.ReadDiagnosticFile(filename); err != nil {
-					return "", err
-				}
+			filenames = []string{filename}
+			if err = d.readDiagnosticFiles(filenames); err != nil {
+				return "", err
 			}
 		}
 	}
@@ -82,8 +83,8 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb
 	return PrintAllStats(d.ServerStatusList, span), err
 }
 
-// ReadDiagnosticDir reads diagnotics.data from a directory
-func (d *DiagnosticData) ReadDiagnosticDir(dirname string) error {
+// readDiagnosticDir reads diagnotics.data from a directory
+func (d *DiagnosticData) readDiagnosticDir(dirname string) error {
 	var err error
 	var files []os.FileInfo
 	var filenames []string
@@ -100,39 +101,58 @@ func (d *DiagnosticData) ReadDiagnosticDir(dirname string) error {
 		filenames = append(filenames, filename)
 	}
 
-	return d.ReadDiagnosticFiles(filenames)
+	return d.readDiagnosticFiles(filenames)
 }
 
-// ReadDiagnosticFiles reads multiple files
-func (d *DiagnosticData) ReadDiagnosticFiles(filenames []string) error {
+// readDiagnosticFiles reads multiple files
+func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var err error
 
-	for _, filename := range filenames {
-		if err = d.analyzeServerStatus(filename); err != nil {
-			if err = d.ReadDiagnosticFile(filename); err != nil {
-				return err
-			}
+	if strings.Index(filenames[0], "keyhole_stats.") >= 0 {
+		for _, filename := range filenames {
+			d.analyzeServerStatus(filename)
 		}
+		return err
 	}
+
+	btime := time.Now()
+	fmt.Println("reading", len(filenames), "files.")
+	var diagDataMap = map[string]DiagnosticData{}
+	nThreads := runtime.NumCPU() - 1
+	if nThreads < 4 {
+		nThreads = 4
+	}
+	var wg = NewWaitGroup(nThreads) // use 4 threads to read
+	for threadNum := 0; threadNum < len(filenames); threadNum++ {
+		filename := filenames[threadNum]
+		wg.Add(1)
+		go func(threadNum int, filename string) {
+			defer wg.Done()
+			var diagData DiagnosticData
+			if diagData, err = d.readDiagnosticFile(filename); err == nil {
+				diagDataMap[strconv.Itoa(threadNum)] = diagData
+			}
+		}(threadNum, filename)
+	}
+	wg.Wait()
+	for threadNum := 0; threadNum < len(filenames); threadNum++ {
+		d.ServerStatusList = append(d.ServerStatusList, diagDataMap[strconv.Itoa(threadNum)].ServerStatusList...)
+		d.SystemMetricsList = append(d.SystemMetricsList, diagDataMap[strconv.Itoa(threadNum)].SystemMetricsList...)
+		d.ReplSetStatusList = append(d.ReplSetStatusList, diagDataMap[strconv.Itoa(threadNum)].ReplSetStatusList...)
+	}
+	fmt.Println(len(filenames), "files loaded, time spent:", time.Now().Sub(btime))
 	return err
 }
 
-// ReadDiagnosticFile reads diagnostic.data from a file
-func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
-	btm := time.Now()
+// readDiagnosticFile reads diagnostic.data from a file
+func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, error) {
+	var diagData = DiagnosticData{}
 	var buffer []byte
 	var err error
 	var pos uint32
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
-		return err
+		return diagData, err
 	}
-
-	filename = strings.TrimRight(filename, "/")
-	i := strings.LastIndex(filename, "/")
-	if i >= 0 {
-		filename = filename[i+1:]
-	}
-	fmt.Print("reading ", filename)
 	var r io.ReadCloser
 	var cnt int
 
@@ -150,7 +170,7 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 			log.Println(err)
 			continue
 		} else if out["type"] == 0 {
-			d.ServerInfo = out["doc"]
+			diagData.ServerInfo = out["doc"]
 		} else if out["type"] == 1 {
 			bytesBuf := bytes.NewReader(out["data"].([]byte)[4:])
 			// zlib decompress
@@ -165,20 +185,28 @@ func (d *DiagnosticData) ReadDiagnosticFile(filename string) error {
 			}
 
 			cnt++
+			var dd DiagnosticData
 			if d.verbose == true {
-				if err = d.decodeFTDC(data); err != nil {
-					return err
+				if dd, err = decodeFTDC(data); err != nil {
+					return diagData, err
 				}
 			} else {
-				d.unmarshalFirstBsonDoc(data)
+				dd = unmarshalFirstBsonDoc(data)
 			}
+			diagData.ServerStatusList = append(diagData.ServerStatusList, dd.ServerStatusList...)
+			diagData.SystemMetricsList = append(diagData.SystemMetricsList, dd.SystemMetricsList...)
+			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, dd.ReplSetStatusList...)
 		} else {
 			log.Println("==>", out["type"])
 		}
 	}
-	etm := time.Now()
-	fmt.Println(", chunks:", cnt, ",time:", etm.Sub(btm).String())
-	return err
+	filename = strings.TrimRight(filename, "/")
+	i := strings.LastIndex(filename, "/")
+	if i >= 0 {
+		filename = filename[i+1:]
+	}
+	fmt.Println("->", filename, "read, chunks:", cnt)
+	return diagData, err
 }
 
 // analyzeServerStatus -
@@ -231,10 +259,12 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 // serverStatus
 // replSetGetStatus
 // local.oplog.rs.stats
-func (d *DiagnosticData) unmarshalFirstBsonDoc(data []byte) {
+func unmarshalFirstBsonDoc(data []byte) DiagnosticData {
+	var diagData = DiagnosticData{}
 	var doc DiagnosticDoc
 	bson.Unmarshal(data, &doc) // first document
-	d.ServerStatusList = append(d.ServerStatusList, doc.ServerStatus)
-	d.SystemMetricsList = append(d.SystemMetricsList, doc.SystemMetrics)
-	d.ReplSetStatusList = append(d.ReplSetStatusList, doc.ReplSetGetStatus)
+	diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
+	diagData.SystemMetricsList = append(diagData.SystemMetricsList, doc.SystemMetrics)
+	diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
+	return diagData
 }
