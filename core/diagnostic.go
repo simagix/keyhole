@@ -21,6 +21,23 @@ import (
 	"github.com/globalsign/mgo/bson"
 )
 
+// HostInfo -
+type HostInfo struct {
+	OS     interface{} `json:"os" bson:"os"`
+	System interface{} `json:"system" bson:"system"`
+}
+
+// BuildInfo -
+type BuildInfo struct {
+	Version string `json:"version" bson:"version"`
+}
+
+// ServerInfoDoc -
+type ServerInfoDoc struct {
+	HostInfo  HostInfo  `json:"hostInfo" bson:"hostInfo"`
+	BuildInfo BuildInfo `json:"buildInfo" bson:"buildInfo"`
+}
+
 // DiagnosticData -
 type DiagnosticData struct {
 	ServerInfo        interface{}
@@ -66,19 +83,26 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb
 		}
 	}
 
-	if d.ServerInfo != nil {
-		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
-		log.Println(string(b))
-	}
-
 	if len(d.ServerStatusList) == 0 {
 		return "No FTDC data found.", err
 	}
 
 	if isWeb == true {
+		if d.ServerInfo != nil {
+			var si = ServerInfoDoc{}
+			b, _ := json.Marshal(d.ServerInfo)
+			json.Unmarshal(b, &si)
+			b, _ = json.MarshalIndent(si, "", "  ")
+			fmt.Println(string(b))
+		}
 		str := d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z") +
 			" - " + d.ServerStatusList[len(d.ServerStatusList)-1].LocalTime.Format("2006-01-02T15:04:05Z")
 		return str, err
+	}
+
+	if d.ServerInfo != nil {
+		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
+		fmt.Println(string(b))
 	}
 	return PrintAllStats(d.ServerStatusList, span), err
 }
@@ -136,6 +160,9 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	}
 	wg.Wait()
 	for threadNum := 0; threadNum < len(filenames); threadNum++ {
+		if diagDataMap[strconv.Itoa(threadNum)].ServerInfo != nil {
+			d.ServerInfo = diagDataMap[strconv.Itoa(threadNum)].ServerInfo
+		}
 		d.ServerStatusList = append(d.ServerStatusList, diagDataMap[strconv.Itoa(threadNum)].ServerStatusList...)
 		d.SystemMetricsList = append(d.SystemMetricsList, diagDataMap[strconv.Itoa(threadNum)].SystemMetricsList...)
 		d.ReplSetStatusList = append(d.ReplSetStatusList, diagDataMap[strconv.Itoa(threadNum)].ReplSetStatusList...)
