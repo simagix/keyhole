@@ -28,6 +28,15 @@ type DiagnosticData struct {
 	verbose           bool
 }
 
+// DiagnosticDoc -
+type DiagnosticDoc struct {
+	Start            time.Time        `json:"start" bson:"start"`
+	ServerStatus     ServerStatusDoc  `json:"serverStatus" bson:"serverStatus"`
+	ReplSetGetStatus ReplSetStatusDoc `json:"replSetGetStatus" bson:"replSetGetStatus"`
+	SystemMetrics    SystemMetricsDoc `json:"systemMetrics" bson:"systemMetrics"`
+	End              time.Time        `json:"end" bson:"end"`
+}
+
 // NewDiagnosticData -
 func NewDiagnosticData(verbose bool) *DiagnosticData {
 	return &DiagnosticData{ServerStatusList: []ServerStatusDoc{}, ReplSetStatusList: []ReplSetStatusDoc{}, verbose: verbose}
@@ -223,26 +232,9 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 // replSetGetStatus
 // local.oplog.rs.stats
 func (d *DiagnosticData) unmarshalFirstBsonDoc(data []byte) {
-	var doc = bson.M{}
+	var doc DiagnosticDoc
 	bson.Unmarshal(data, &doc) // first document
-	var docs ServerStatusDoc
-	if doc["serverStatus"] != nil {
-		buf, _ := json.Marshal(doc["serverStatus"])
-		json.Unmarshal(buf, &docs)
-		d.ServerStatusList = append(d.ServerStatusList, docs)
-	}
-
-	var metrics SystemMetricsDoc
-	if doc["systemMetrics"] != nil {
-		buf, _ := json.Marshal(doc["systemMetrics"])
-		json.Unmarshal(buf, &metrics)
-		d.SystemMetricsList = append(d.SystemMetricsList, metrics)
-	}
-
-	var repls ReplSetStatusDoc
-	if doc["replSetGetStatus"] != nil {
-		buf, _ := json.Marshal(doc["replSetGetStatus"])
-		json.Unmarshal(buf, &repls)
-		d.ReplSetStatusList = append(d.ReplSetStatusList, repls)
-	}
+	d.ServerStatusList = append(d.ServerStatusList, doc.ServerStatus)
+	d.SystemMetricsList = append(d.SystemMetricsList, doc.SystemMetrics)
+	d.ReplSetStatusList = append(d.ReplSetStatusList, doc.ReplSetGetStatus)
 }

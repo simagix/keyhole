@@ -154,14 +154,16 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 
 func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []keyhole.SystemMetricsDoc) {
 	var pstat = keyhole.SystemMetricsDoc{}
-	var disk = keyhole.DiskMetrics{}
 
 	for i, stat := range systemMetricsList {
 		t := float64(stat.Start.UnixNano() / (1000 * 1000))
-		for k, v := range stat.Disks {
-			disk = v.(keyhole.DiskMetrics)
+		for k, disk := range stat.Disks {
 			disk.IO = disk.Reads + disk.Writes
-			u := float64(100 * disk.IOTimeMS / (disk.ReadTimeMS + disk.WriteTimeMS))
+			totalMS := disk.ReadTimeMS + disk.WriteTimeMS
+			if totalMS == 0 {
+				continue
+			}
+			u := float64(100 * disk.IOTimeMS / totalMS)
 			// u := float64(disk.IO-pmdisk[k].IO) / stat.Start.Sub(pdstat.Start).Seconds() // IOPS
 			// u := 100 * float64(disk.IOTimeMS-pmdisk[k].IOTimeMS) / (stat.Start.Sub(pdstat.Start).Seconds() * 1000) // Disk Utilization (%)
 			x := g.diskUtils[k]

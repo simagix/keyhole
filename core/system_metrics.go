@@ -4,15 +4,13 @@ package keyhole
 
 import (
 	"time"
-
-	"github.com/globalsign/mgo/bson"
 )
 
 // SystemMetricsDoc -
 type SystemMetricsDoc struct {
-	Start time.Time  `json:"start" bson:"start"`
-	CPU   CPUMetrics `json:"cpu" bson:"cpu"`
-	Disks bson.M     `json:"disks" bson:"disks"`
+	Start time.Time              `json:"start" bson:"start"`
+	CPU   CPUMetrics             `json:"cpu" bson:"cpu"`
+	Disks map[string]DiskMetrics `json:"disks" bson:"disks"`
 }
 
 // CPUMetrics -
