@@ -65,23 +65,31 @@ func main() {
 	var err error
 	if *diag != "" {
 		var str string
-		d := keyhole.NewDiagnosticData(*span)
 		var filenames = []string{*diag}
 		if len(flag.Args()) > 0 {
 			filenames = append(filenames, flag.Args()...)
 		}
+		tspan := *span
+		if *webserver { // get data points summary if web server is enabled
+			tspan = 300
+		}
+		d := keyhole.NewDiagnosticData(tspan)
 		if str, err = d.PrintDiagnosticData(filenames, *webserver); err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}
 		fmt.Println(str)
 		if *webserver {
-			var hostname string
-			if hostname, err = os.Hostname(); err != nil {
-				hostname = "localhost"
+			g := charts.NewGrafana(d)
+			if *span > 0 && *span < 300 {
+				fmt.Println("Get more granular data points, data point every ", *span, "seconds ")
+				go func() {
+					d = keyhole.NewDiagnosticData(*span)
+					d.PrintDiagnosticData(filenames, *webserver)
+					g.ReinitGrafana(d)
+				}()
 			}
-			fmt.Println("url: http://" + hostname + ":5408/")
-			charts.HTTPServer(5408, d)
+			charts.HTTPServer(5408, d, g)
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {

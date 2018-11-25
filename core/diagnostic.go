@@ -106,13 +106,6 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (st
 	}
 
 	if isWeb == true {
-		if d.ServerInfo != nil {
-			var si = ServerInfoDoc{}
-			b, _ := json.Marshal(d.ServerInfo)
-			json.Unmarshal(b, &si)
-			b, _ = json.MarshalIndent(si, "", "  ")
-			fmt.Println(string(b))
-		}
 		str := d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z") +
 			" - " + d.ServerStatusList[len(d.ServerStatusList)-1].LocalTime.Format("2006-01-02T15:04:05Z")
 		return str, err
@@ -122,7 +115,7 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (st
 		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
 		fmt.Println(string(b))
 	}
-	return PrintAllStats(d.ServerStatusList, d.span), err
+	return PrintAllStats(d.ServerStatusList, -1), err
 }
 
 // readDiagnosticDir reads diagnotics.data from a directory
@@ -231,12 +224,8 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 
 			cnt++
 			var dd DiagnosticData
-			if d.span < 300 {
-				if dd, err = decodeFTDC(data, d.span); err != nil {
-					return diagData, err
-				}
-			} else {
-				dd = unmarshalFirstBsonDoc(data)
+			if dd, err = decodeFTDC(data, d.span); err != nil {
+				return diagData, err
 			}
 			diagData.ServerStatusList = append(diagData.ServerStatusList, dd.ServerStatusList...)
 			diagData.SystemMetricsList = append(diagData.SystemMetricsList, dd.SystemMetricsList...)

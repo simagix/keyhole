@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -101,12 +102,17 @@ var base = 144
 var frac int
 
 // HTTPServer listens to port 5408
-func HTTPServer(port int, d *keyhole.DiagnosticData) {
+func HTTPServer(port int, d *keyhole.DiagnosticData, g *Grafana) {
+	var err error
 	diagnosticData = *d
-	g := NewGrafana(d)
 	http.HandleFunc("/grafana", cors(g.handler))
 	http.HandleFunc("/grafana/", cors(g.handler))
 	http.HandleFunc("/", cors(handler))
+	var hostname string
+	if hostname, err = os.Hostname(); err != nil {
+		hostname = "localhost"
+	}
+	fmt.Println("HTTP server ready, URL: http://" + hostname + ":5408/")
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }
 
