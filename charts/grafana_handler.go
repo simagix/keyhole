@@ -26,8 +26,8 @@ func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {
 }
 
 type directoryReq struct {
-	Dir     string `json:"dir"`
-	Verbose bool   `json:"verbose"`
+	Dir  string `json:"dir"`
+	Span int    `json:"span"`
 }
 
 func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
@@ -40,11 +40,11 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 		if err := decoder.Decode(&dr); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0})
 		}
-		d := keyhole.NewDiagnosticData(dr.Verbose)
+		d := keyhole.NewDiagnosticData(dr.Span)
 		var filenames = []string{dr.Dir}
 		var str string
 		var err error
-		if str, err = d.PrintDiagnosticData(filenames, 300, true); err != nil {
+		if str, err = d.PrintDiagnosticData(filenames, true); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}

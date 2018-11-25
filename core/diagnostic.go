@@ -59,7 +59,7 @@ type DiagnosticData struct {
 	ServerStatusList  []ServerStatusDoc
 	ReplSetStatusList []ReplSetStatusDoc
 	SystemMetricsList []SystemMetricsDoc
-	verbose           bool
+	span              int
 }
 
 // DiagnosticDoc -
@@ -72,12 +72,15 @@ type DiagnosticDoc struct {
 }
 
 // NewDiagnosticData -
-func NewDiagnosticData(verbose bool) *DiagnosticData {
-	return &DiagnosticData{ServerStatusList: []ServerStatusDoc{}, ReplSetStatusList: []ReplSetStatusDoc{}, verbose: verbose}
+func NewDiagnosticData(span int) *DiagnosticData {
+	if span <= 0 {
+		span = 300 // 5 minutes
+	}
+	return &DiagnosticData{ServerStatusList: []ServerStatusDoc{}, ReplSetStatusList: []ReplSetStatusDoc{}, span: span}
 }
 
 // PrintDiagnosticData prints diagnostic data of MongoD
-func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb bool) (string, error) {
+func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (string, error) {
 	var err error
 	var fi os.FileInfo
 
@@ -119,7 +122,7 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, span int, isWeb
 		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
 		fmt.Println(string(b))
 	}
-	return PrintAllStats(d.ServerStatusList, span), err
+	return PrintAllStats(d.ServerStatusList, d.span), err
 }
 
 // readDiagnosticDir reads diagnotics.data from a directory
@@ -157,7 +160,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	btime := time.Now()
 	fmt.Println("reading", len(filenames), "files.")
 	var diagDataMap = map[string]DiagnosticData{}
-	nThreads := runtime.NumCPU() - 1
+	nThreads := runtime.NumCPU()
 	if nThreads < 4 {
 		nThreads = 4
 	}
@@ -228,8 +231,8 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 
 			cnt++
 			var dd DiagnosticData
-			if d.verbose == true {
-				if dd, err = decodeFTDC(data); err != nil {
+			if d.span < 300 {
+				if dd, err = decodeFTDC(data, d.span); err != nil {
 					return diagData, err
 				}
 			} else {

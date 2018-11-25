@@ -65,12 +65,12 @@ func main() {
 	var err error
 	if *diag != "" {
 		var str string
-		d := keyhole.NewDiagnosticData(*verbose)
+		d := keyhole.NewDiagnosticData(*span)
 		var filenames = []string{*diag}
 		if len(flag.Args()) > 0 {
 			filenames = append(filenames, flag.Args()...)
 		}
-		if str, err = d.PrintDiagnosticData(filenames, *span, *webserver); err != nil {
+		if str, err = d.PrintDiagnosticData(filenames, *webserver); err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}

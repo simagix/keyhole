@@ -379,9 +379,9 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	if filename, err = b.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}
-	d := NewDiagnosticData(b.verbose)
+	d := NewDiagnosticData(span)
 	var filenames = []string{filename}
-	if str, err = d.PrintDiagnosticData(filenames, span, false); err != nil {
+	if str, err = d.PrintDiagnosticData(filenames, false); err != nil {
 		return filename, err
 	}
 	fmt.Println(str)

@@ -11,7 +11,7 @@ const filename = "/tmp/metrics.2018-10-18T12-06-57Z-00000"
 
 func getServerStatusDocs() []ServerStatusDoc {
 	var docs []ServerStatusDoc
-	d := NewDiagnosticData(false)
+	d := NewDiagnosticData(300)
 	d.readDiagnosticFile(filename)
 
 	for _, ss := range d.ServerStatusList {
