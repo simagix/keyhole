@@ -224,7 +224,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 
 			cnt++
 			var dd DiagnosticData
-			if dd, err = decodeFTDC(data, d.span); err != nil {
+			if dd, err = getDiagnosticData(data, d.span); err != nil {
 				return diagData, err
 			}
 			diagData.ServerStatusList = append(diagData.ServerStatusList, dd.ServerStatusList...)

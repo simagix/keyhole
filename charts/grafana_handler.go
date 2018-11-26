@@ -34,21 +34,19 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodOptions:
 	case http.MethodPost:
-		fmt.Println(r.Body)
+		var err error
 		decoder := json.NewDecoder(r.Body)
 		var dr directoryReq
-		if err := decoder.Decode(&dr); err != nil {
-			json.NewEncoder(w).Encode(bson.M{"ok": 0})
-		}
-		d := keyhole.NewDiagnosticData(dr.Span)
-		var filenames = []string{dr.Dir}
-		var str string
-		var err error
-		if str, err = d.PrintDiagnosticData(filenames, true); err != nil {
+		if err = decoder.Decode(&dr); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}
-		fmt.Println(str)
+		d := keyhole.NewDiagnosticData(dr.Span)
+		var filenames = []string{dr.Dir}
+		if _, err = d.PrintDiagnosticData(filenames, true); err != nil {
+			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
+			return
+		}
 		g.ReinitGrafana(d)
 		json.NewEncoder(w).Encode(bson.M{"ok": 1, "dir": dr.Dir})
 	default:
