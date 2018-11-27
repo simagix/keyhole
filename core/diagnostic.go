@@ -184,6 +184,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 
 // readDiagnosticFile reads diagnostic.data from a file
 func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, error) {
+	btm := time.Now()
 	var diagData = DiagnosticData{}
 	var buffer []byte
 	var err error
@@ -239,7 +240,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if i >= 0 {
 		filename = filename[i+1:]
 	}
-	fmt.Println("->", filename, "read, chunks:", cnt)
+	fmt.Println("->", filename, "chunks:", cnt, ", time:", time.Now().Sub(btm))
 	return diagData, err
 }
 
