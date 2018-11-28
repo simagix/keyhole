@@ -120,10 +120,10 @@ func GetIndexesFromDB(session *mgo.Session, dbName string, verbose bool) string 
 			for _, result := range results {
 				if result["name"].(string) == idx.Name {
 					accesses := result["accesses"].(bson.M)
+					host := result["host"].(string)
 					ops, _ := json.Marshal(accesses["ops"])
 					since, _ := json.Marshal(accesses["since"])
-					keystr += "ops: " + string(ops) + ", since: " + string(since)
-					break
+					keystr += "\n\thost: " + host + ", ops: " + string(ops) + ", since: " + string(since)
 				}
 			}
 			list = append(list, keystr)
