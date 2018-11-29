@@ -4,6 +4,8 @@ package keyhole
 
 import (
 	"time"
+
+	"github.com/globalsign/mgo/bson"
 )
 
 // PRIMARY - primary node
@@ -14,15 +16,15 @@ const SECONDARY = "SECONDARY"
 
 // OptimeDoc -
 type OptimeDoc struct {
-	T  int `json:"t" bson:"t"`
-	TS int `json:"ts" bson:"ts"`
+	T  int                 `json:"t" bson:"t"`
+	TS bson.MongoTimestamp `json:"ts" bson:"ts"`
 }
 
 // MemberDoc stores replset status
 type MemberDoc struct {
-	Name     string    `json:"name" bson:"name"`
-	Optime   OptimeDoc `json:"optime" bson:"optime"`
-	StateStr string    `json:"stateStr" bson:"stateStr"`
+	Name     string      `json:"name" bson:"name"`
+	Optime   interface{} `json:"optime" bson:"optime"`
+	StateStr string      `json:"stateStr" bson:"stateStr"`
 }
 
 // ReplSetStatusDoc stores replset status

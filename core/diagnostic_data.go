@@ -77,7 +77,11 @@ func getDiagnosticData(data []byte, span int) (DiagnosticData, error) {
 	// replSetGetStatus
 	var doc DiagnosticDoc
 	bson.Unmarshal(data, &doc) // first document
-	diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
+	repl := doc.ReplSetGetStatus
+	for _, mb := range repl.Members {
+		mb.Optime = GetOptime(mb.Optime)
+	}
+	diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, repl)
 	return diagData, nil
 }
 

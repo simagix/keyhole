@@ -300,7 +300,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 
 				for _, mb := range replSetStatus.Members {
 					if mb.StateStr == PRIMARY {
-						ts = mb.Optime.TS
+						ts = mb.Optime.(int)
 						break
 					}
 				}
@@ -308,7 +308,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 				str := fmt.Sprintf("[%s] replication lags: ", mapKey)
 				for _, mb := range replSetStatus.Members {
 					if mb.StateStr == SECONDARY {
-						str += " - " + mb.Name + ": " + strconv.Itoa((ts-mb.Optime.TS)/(1000*1000*1000))
+						str += " - " + mb.Name + ": " + strconv.Itoa((ts-mb.Optime.(int))/(1000*1000*1000))
 					}
 				}
 				channel <- str

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
 )
 
@@ -145,7 +146,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	var replicationLags = map[string]TimeSeriesDoc{}
 	var hosts []string
-	var ts int
+	var ts bson.MongoTimestamp
 
 	for _, legend := range replSetChartsLegends {
 		timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
@@ -173,7 +174,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 
 		for _, mb := range stat.Members {
 			if mb.StateStr == keyhole.PRIMARY {
-				ts = mb.Optime.TS
+				ts = keyhole.GetOptime(mb.Optime)
 				break
 			}
 		}
@@ -185,7 +186,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 			for i, mb := range stat.Members {
 				v := 0.0
 				if mb.StateStr == keyhole.SECONDARY {
-					v = float64(ts-mb.Optime.TS) / 1000 / 1000 / 1000
+					v = float64(ts - keyhole.GetOptime(mb.Optime))
 				} else if mb.StateStr == keyhole.PRIMARY {
 					v = 0
 				}

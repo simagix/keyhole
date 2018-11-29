@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"syscall"
 
 	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -141,4 +143,21 @@ func GetUint32(r io.Reader) uint32 {
 	var size uint32
 	binary.Read(r, binary.LittleEndian, &size)
 	return size
+}
+
+// GetOptime -
+func GetOptime(optime interface{}) bson.MongoTimestamp {
+	var ts bson.MongoTimestamp
+	switch optime.(type) {
+	case bson.M:
+		bm := optime.(bson.M)
+		b, _ := json.Marshal(bm)
+		var optm OptimeDoc
+		json.Unmarshal(b, &optm)
+		ts = optm.TS
+	case bson.MongoTimestamp:
+		ts = optime.(bson.MongoTimestamp)
+	}
+	ts = ts >> 32
+	return ts
 }

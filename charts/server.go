@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
 )
 
@@ -356,7 +357,7 @@ func GetQueuesTSV() []string {
 // GetReplLagsTSV -
 func GetReplLagsTSV() []string {
 	var docs []string
-	var ts int
+	var ts bson.MongoTimestamp
 
 	str := "date"
 	for i, stat := range diagnosticData.ReplSetStatusList {
@@ -379,7 +380,7 @@ func GetReplLagsTSV() []string {
 		}
 		for _, mb := range stat.Members {
 			if mb.StateStr == keyhole.PRIMARY {
-				ts = mb.Optime.TS
+				ts = keyhole.GetOptime(mb.Optime)
 				break
 			}
 		}
@@ -390,7 +391,7 @@ func GetReplLagsTSV() []string {
 		} else {
 			for _, mb := range stat.Members {
 				if mb.StateStr == keyhole.SECONDARY {
-					str += "\t" + strconv.Itoa((ts-mb.Optime.TS)/1000/1000/1000)
+					str += "\t" + strconv.FormatInt(int64(ts-keyhole.GetOptime(mb.Optime)), 10)
 				} else if mb.StateStr == keyhole.PRIMARY {
 					str += "\t0"
 				}
