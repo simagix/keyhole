@@ -296,11 +296,10 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 
 			if b.monitor == false {
 				sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
-				var ts int
-
+				var ts bson.MongoTimestamp
 				for _, mb := range replSetStatus.Members {
 					if mb.StateStr == PRIMARY {
-						ts = mb.Optime.(int)
+						ts = GetOptime(mb.Optime)
 						break
 					}
 				}
@@ -308,7 +307,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 				str := fmt.Sprintf("[%s] replication lags: ", mapKey)
 				for _, mb := range replSetStatus.Members {
 					if mb.StateStr == SECONDARY {
-						str += " - " + mb.Name + ": " + strconv.Itoa((ts-mb.Optime.(int))/(1000*1000*1000))
+						str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-GetOptime(mb.Optime)))
 					}
 				}
 				channel <- str

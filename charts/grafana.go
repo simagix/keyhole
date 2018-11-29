@@ -189,8 +189,9 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 					v = float64(ts - keyhole.GetOptime(mb.Optime))
 				} else if mb.StateStr == keyhole.PRIMARY {
 					v = 0
+				} else if mb.StateStr == "ARBITER" {
+					continue
 				}
-
 				x := replicationLags[hosts[i]]
 				x.DataPoints = append(x.DataPoints, getDataPoint(v, t))
 				replicationLags[hosts[i]] = x
