@@ -146,7 +146,7 @@ func GetUint32(r io.Reader) uint32 {
 }
 
 // GetOptime -
-func GetOptime(optime interface{}) bson.MongoTimestamp {
+func GetOptime(optime interface{}) int64 {
 	var ts bson.MongoTimestamp
 	switch optime.(type) {
 	case bson.M:
@@ -158,6 +158,5 @@ func GetOptime(optime interface{}) bson.MongoTimestamp {
 	case bson.MongoTimestamp:
 		ts = optime.(bson.MongoTimestamp)
 	}
-	ts = ts >> 32
-	return ts
+	return int64(ts) >> 32
 }

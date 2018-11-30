@@ -296,7 +296,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 
 			if b.monitor == false {
 				sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
-				var ts bson.MongoTimestamp
+				var ts int64
 				for _, mb := range replSetStatus.Members {
 					if mb.StateStr == PRIMARY {
 						ts = GetOptime(mb.Optime)

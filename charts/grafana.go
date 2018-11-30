@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
 )
 
@@ -146,15 +145,18 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	var replicationLags = map[string]TimeSeriesDoc{}
 	var hosts []string
-	var ts bson.MongoTimestamp
+	var ts int64
 
 	for _, legend := range replSetChartsLegends {
 		timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
 	}
-	for i, stat := range replSetGetStatusList {
+	for _, stat := range replSetGetStatusList {
+		if len(stat.Members) == 0 { // missing, shouldn't happen
+			continue
+		}
 		ts = 0
 		sort.Slice(stat.Members, func(i, j int) bool { return stat.Members[i].Name < stat.Members[j].Name })
-		if i == 0 {
+		if len(hosts) == 0 {
 			for n, mb := range stat.Members {
 				a := strings.Index(mb.Name, ".")
 				b := strings.LastIndex(mb.Name, ":")

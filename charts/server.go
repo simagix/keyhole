@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/globalsign/mgo/bson"
 	keyhole "github.com/simagix/keyhole/core"
 )
 
@@ -357,7 +356,7 @@ func GetQueuesTSV() []string {
 // GetReplLagsTSV -
 func GetReplLagsTSV() []string {
 	var docs []string
-	var ts bson.MongoTimestamp
+	var ts int64
 
 	str := "date"
 	for i, stat := range diagnosticData.ReplSetStatusList {
