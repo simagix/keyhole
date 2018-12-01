@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo/bson"
+	"github.com/simagix/keyhole/ftdc"
 )
 
 // OSDoc -
@@ -200,7 +201,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 			break
 		}
 		bs := buffer[pos:(pos + 4)]
-		var length = GetUint32(bytes.NewReader(bs))
+		var length = ftdc.GetUint32(bytes.NewReader(bs))
 
 		bs = buffer[pos:(pos + length)]
 		pos += length
