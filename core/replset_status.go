@@ -22,9 +22,9 @@ type OptimeDoc struct {
 
 // MemberDoc stores replset status
 type MemberDoc struct {
-	Name     string      `json:"name" bson:"name"`
-	Optime   interface{} `json:"optime" bson:"optime"`
-	StateStr string      `json:"stateStr" bson:"stateStr"`
+	Name   string      `json:"name" bson:"name"`
+	Optime interface{} `json:"optime" bson:"optime"`
+	State  int         `json:"state" bson:"state"`
 }
 
 // ReplSetStatusDoc stores replset status

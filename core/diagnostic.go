@@ -4,14 +4,11 @@ package keyhole
 
 import (
 	"bufio"
-	"bytes"
-	"compress/zlib"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -19,6 +16,7 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo/bson"
+	"github.com/simagix/keyhole/ftdc"
 )
 
 // OSDoc -
@@ -188,53 +186,45 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	var diagData = DiagnosticData{}
 	var buffer []byte
 	var err error
-	var pos uint32
+	var cnt int
+
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
 		return diagData, err
 	}
-	var r io.ReadCloser
-	var cnt int
 
-	for {
-		if pos >= uint32(len(buffer)) {
-			break
-		}
-		bs := buffer[pos:(pos + 4)]
-		var length = GetUint32(bytes.NewReader(bs))
-
-		bs = buffer[pos:(pos + length)]
-		pos += length
-		var out = bson.M{}
-		if err = bson.Unmarshal(bs, &out); err != nil {
-			log.Println(err)
-			continue
-		} else if out["type"] == 0 {
-			diagData.ServerInfo = out["doc"]
-		} else if out["type"] == 1 {
-			bytesBuf := bytes.NewReader(out["data"].([]byte)[4:])
-			// zlib decompress
-			if r, err = zlib.NewReader(bytesBuf); err != nil {
-				log.Println(err)
-				continue
+	ftdc := ftdc.NewMetrics()
+	summaryOnly := false
+	if d.span >= 300 {
+		summaryOnly = true
+	}
+	ftdc.ReadMetricsSummary(buffer)
+	for _, block := range ftdc.Blocks {
+		var doc DiagnosticDoc
+		bson.Unmarshal(block.Bytes(), &doc) // first document
+		// systemMetrics
+		// end
+		// start
+		// serverStatus
+		// replSetGetStatus
+		// local.oplog.rs.stats
+		diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
+		diagData.SystemMetricsList = append(diagData.SystemMetricsList, doc.SystemMetrics)
+		diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
+	}
+	if summaryOnly == false {
+		diagData.ServerStatusList = diagData.ServerStatusList[:0]
+		diagData.SystemMetricsList = diagData.SystemMetricsList[:0]
+		ftdc.ReadAllMetrics(buffer)
+		for _, v := range ftdc.Data {
+			for i := uint32(0); i < v.NumDeltas; i += uint32(d.span) {
+				ss := getServerStatusDataPoints(v.DataPointsMap, i)
+				diagData.ServerStatusList = append(diagData.ServerStatusList, ss)
+				sm := getSystemMetricsDataPoints(v.DataPointsMap, i)
+				diagData.SystemMetricsList = append(diagData.SystemMetricsList, sm)
 			}
-			var data []byte
-			if data, err = ioutil.ReadAll(r); err != nil {
-				log.Println(err)
-				continue
-			}
-
-			cnt++
-			var dd DiagnosticData
-			if dd, err = getDiagnosticData(data, d.span); err != nil {
-				return diagData, err
-			}
-			diagData.ServerStatusList = append(diagData.ServerStatusList, dd.ServerStatusList...)
-			diagData.SystemMetricsList = append(diagData.SystemMetricsList, dd.SystemMetricsList...)
-			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, dd.ReplSetStatusList...)
-		} else {
-			log.Println("==>", out["type"])
 		}
 	}
+
 	filename = strings.TrimRight(filename, "/")
 	i := strings.LastIndex(filename, "/")
 	if i >= 0 {
@@ -286,20 +276,4 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 	d.ServerStatusList = append(d.ServerStatusList, allDocs...)
 	d.ReplSetStatusList = append(d.ReplSetStatusList, allRepls...)
 	return err
-}
-
-// systemMetrics
-// end
-// start
-// serverStatus
-// replSetGetStatus
-// local.oplog.rs.stats
-func unmarshalFirstBsonDoc(data []byte) DiagnosticData {
-	var diagData = DiagnosticData{}
-	var doc DiagnosticDoc
-	bson.Unmarshal(data, &doc) // first document
-	diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
-	diagData.SystemMetricsList = append(diagData.SystemMetricsList, doc.SystemMetrics)
-	diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
-	return diagData
 }

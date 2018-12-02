@@ -378,7 +378,7 @@ func GetReplLagsTSV() []string {
 			docs = append(docs, str)
 		}
 		for _, mb := range stat.Members {
-			if mb.StateStr == keyhole.PRIMARY {
+			if mb.State == 1 {
 				ts = keyhole.GetOptime(mb.Optime)
 				break
 			}
@@ -389,9 +389,9 @@ func GetReplLagsTSV() []string {
 			continue
 		} else {
 			for _, mb := range stat.Members {
-				if mb.StateStr == keyhole.SECONDARY {
+				if mb.State == 2 { // SECONDARY
 					str += "\t" + strconv.FormatInt(int64(ts-keyhole.GetOptime(mb.Optime)), 10)
-				} else if mb.StateStr == keyhole.PRIMARY {
+				} else if mb.State == 1 { // PRIMARY
 					str += "\t0"
 				}
 			}

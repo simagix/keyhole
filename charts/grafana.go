@@ -136,6 +136,9 @@ func (g *Grafana) ReinitGrafana(d *keyhole.DiagnosticData) {
 
 func getDataPoint(v float64, t float64) []float64 {
 	dp := []float64{}
+	if v < 0 {
+		v = 0
+	}
 	dp = append(dp, v)
 	dp = append(dp, t)
 	return dp
@@ -175,7 +178,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 		}
 
 		for _, mb := range stat.Members {
-			if mb.StateStr == keyhole.PRIMARY {
+			if mb.State == 1 {
 				ts = keyhole.GetOptime(mb.Optime)
 				break
 			}
@@ -187,11 +190,11 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 			t := float64(stat.Date.UnixNano() / 1000 / 1000)
 			for i, mb := range stat.Members {
 				v := 0.0
-				if mb.StateStr == keyhole.SECONDARY {
+				if mb.State == 2 { // SECONDARY
 					v = float64(ts - keyhole.GetOptime(mb.Optime))
-				} else if mb.StateStr == keyhole.PRIMARY {
+				} else if mb.State == 1 { // PRIMARY
 					v = 0
-				} else if mb.StateStr == "ARBITER" {
+				} else if mb.State == 7 { // ARBITER
 					continue
 				}
 				x := replicationLags[hosts[i]]
