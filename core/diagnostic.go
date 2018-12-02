@@ -186,36 +186,30 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	var diagData = DiagnosticData{}
 	var buffer []byte
 	var err error
-	var cnt int
 
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
 		return diagData, err
 	}
 
 	metrics := ftdc.NewMetrics()
-	summaryOnly := false
 	if d.span >= 300 {
-		summaryOnly = true
-	}
-	metrics.ReadMetricsSummary(buffer)
-	diagData.ServerInfo = metrics.Doc
-	for _, block := range metrics.Blocks {
-		var doc DiagnosticDoc
-		bson.Unmarshal(block.Bytes(), &doc) // first document
-		// systemMetrics
-		// end
-		// start
-		// serverStatus
-		// replSetGetStatus
-		// local.oplog.rs.stats
-		diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
-		diagData.SystemMetricsList = append(diagData.SystemMetricsList, doc.SystemMetrics)
-		diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
-	}
-	if summaryOnly == false {
-		diagData.ServerStatusList = diagData.ServerStatusList[:0]
-		diagData.SystemMetricsList = diagData.SystemMetricsList[:0]
+		metrics.ReadMetricsSummary(buffer)
+		diagData.ServerInfo = metrics.Doc
+		for _, block := range metrics.Blocks {
+			var doc DiagnosticDoc
+			bson.Unmarshal(block, &doc) // first document
+			diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
+			diagData.SystemMetricsList = append(diagData.SystemMetricsList, doc.SystemMetrics)
+			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
+		}
+	} else {
 		metrics.ReadAllMetrics(buffer)
+		diagData.ServerInfo = metrics.Doc
+		for _, block := range metrics.Blocks {
+			var doc DiagnosticDoc
+			bson.Unmarshal(block, &doc) // first document
+			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
+		}
 		for _, v := range metrics.Data {
 			for i := uint32(0); i < v.NumDeltas; i += uint32(d.span) {
 				ss := getServerStatusDataPoints(v.DataPointsMap, i)
@@ -231,7 +225,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if i >= 0 {
 		filename = filename[i+1:]
 	}
-	fmt.Println("->", filename, "chunks:", cnt, ", time:", time.Now().Sub(btm))
+	fmt.Println("->", filename, "blocks:", len(metrics.Blocks), ", time:", time.Now().Sub(btm))
 	return diagData, err
 }
 

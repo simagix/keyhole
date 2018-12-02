@@ -53,7 +53,7 @@ func (m *Metrics) readMetrics(buffer []byte, summaryOnly bool) error {
 				return err
 			}
 
-			m.Blocks = append(m.Blocks, *bytes.NewBuffer(block))
+			m.Blocks = append(m.Blocks, block)
 			if summaryOnly == false {
 				if md, err = m.decode(block); err != nil {
 					return err

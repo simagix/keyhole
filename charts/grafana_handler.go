@@ -132,7 +132,7 @@ func filterTimeSeriesData(tsData TimeSeriesDoc, from time.Time, to time.Time) Ti
 		data.DataPoints = append(data.DataPoints, v)
 	}
 
-	max := 500
+	max := 600 // at most 10 minutes
 	if len(data.DataPoints) > max {
 		frac := len(data.DataPoints) / max
 		var datax = TimeSeriesDoc{DataPoints: [][]float64{}}

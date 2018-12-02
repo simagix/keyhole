@@ -30,6 +30,12 @@ func (m *Metrics) decode(buffer []byte) (MetricsData, error) {
 
 	// use DOM (bson.D) to ensure orders
 	var attribsList = []string{}
+	// systemMetrics
+	// end
+	// start
+	// serverStatus
+	// replSetGetStatus
+	// local.oplog.rs.stats
 	var docElem = bson.D{}
 	bson.Unmarshal(buffer, &docElem) // first document
 	traverseDocElem(&attribsList, &dp.DataPointsMap, docElem, "")

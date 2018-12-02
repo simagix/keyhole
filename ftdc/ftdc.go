@@ -2,14 +2,8 @@
 
 package ftdc
 
-import "bytes"
-
-// Metrics -
-type Metrics struct {
-	Blocks []bytes.Buffer
-	Doc    interface{}   // type 0
-	Data   []MetricsData // type 1
-}
+// Block - buffer holder
+type Block []byte
 
 // MetricsData -
 type MetricsData struct {
@@ -17,6 +11,13 @@ type MetricsData struct {
 	NumAttribs    uint32
 	NumDeltas     uint32
 	DataPointsMap map[string][]int64
+}
+
+// Metrics -
+type Metrics struct {
+	Blocks []Block
+	Doc    interface{}   // type 0
+	Data   []MetricsData // type 1
 }
 
 // NewMetrics -
