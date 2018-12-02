@@ -192,13 +192,14 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 		return diagData, err
 	}
 
-	ftdc := ftdc.NewMetrics()
+	metrics := ftdc.NewMetrics()
 	summaryOnly := false
 	if d.span >= 300 {
 		summaryOnly = true
 	}
-	ftdc.ReadMetricsSummary(buffer)
-	for _, block := range ftdc.Blocks {
+	metrics.ReadMetricsSummary(buffer)
+	diagData.ServerInfo = metrics.Doc
+	for _, block := range metrics.Blocks {
 		var doc DiagnosticDoc
 		bson.Unmarshal(block.Bytes(), &doc) // first document
 		// systemMetrics
@@ -214,8 +215,8 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if summaryOnly == false {
 		diagData.ServerStatusList = diagData.ServerStatusList[:0]
 		diagData.SystemMetricsList = diagData.SystemMetricsList[:0]
-		ftdc.ReadAllMetrics(buffer)
-		for _, v := range ftdc.Data {
+		metrics.ReadAllMetrics(buffer)
+		for _, v := range metrics.Data {
 			for i := uint32(0); i < v.NumDeltas; i += uint32(d.span) {
 				ss := getServerStatusDataPoints(v.DataPointsMap, i)
 				diagData.ServerStatusList = append(diagData.ServerStatusList, ss)
