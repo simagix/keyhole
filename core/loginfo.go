@@ -89,7 +89,7 @@ func getConfigOptions(reader *bufio.Reader) []string {
 }
 
 // LogInfo -
-func LogInfo(filename string, collscan bool, verbose bool) error {
+func LogInfo(filename string, collscan bool) error {
 	var err error
 	var reader *bufio.Reader
 	var file *os.File
@@ -269,11 +269,11 @@ func LogInfo(filename string, collscan bool, verbose bool) error {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
 	})
-	printLogsSummary(arr, verbose)
+	printLogsSummary(arr)
 	return nil
 }
 
-func printLogsSummary(arr []OpPerformanceDoc, verbose bool) {
+func printLogsSummary(arr []OpPerformanceDoc) {
 	fmt.Fprintf(os.Stderr, "\r100%% ")
 	fmt.Println("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
 	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern")
@@ -321,8 +321,8 @@ func printLogsSummary(arr []OpPerformanceDoc, verbose bool) {
 				}
 			}
 		}
-		if verbose == true && value.Index != "" {
-			fmt.Printf("|------- index: \x1b[32;1m%-71s\x1b[0m\n\n", value.Index)
+		if value.Index != "" {
+			fmt.Printf("|------- index: \x1b[32;1m%-71s\x1b[0m\n", value.Index)
 		}
 	}
 	fmt.Println("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")

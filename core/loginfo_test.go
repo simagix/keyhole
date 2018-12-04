@@ -28,3 +28,10 @@ func TestRemoveInElements(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestLogInfo(t *testing.T) {
+	filename := "../test_data/mongod.log"
+	if err := LogInfo(filename, false); err != nil {
+		t.Fatal(err)
+	}
+}
