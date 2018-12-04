@@ -7,14 +7,15 @@ import (
 	"testing"
 )
 
-const filename = "/tmp/metrics.2018-10-18T12-06-57Z-00000"
+const filename = "../test_data/diagnostic.data/metrics.2017-10-12T20-08-53Z-00000"
 
 func getServerStatusDocs() []ServerStatusDoc {
+	var diag DiagnosticData
 	var docs []ServerStatusDoc
 	d := NewDiagnosticData(300)
-	d.readDiagnosticFile(filename)
+	diag, _ = d.readDiagnosticFile(filename)
 
-	for _, ss := range d.ServerStatusList {
+	for _, ss := range diag.ServerStatusList {
 		b, _ := json.Marshal(ss)
 		doc := ServerStatusDoc{}
 		json.Unmarshal(b, &doc)

@@ -8,45 +8,40 @@ import (
 )
 
 func TestReadDiagnosticDir(t *testing.T) {
-	var serverInfo interface{}
-	var serverStatusList []ServerStatusDoc
-	var replSetStatusList []ReplSetStatusDoc
 	var err error
 	d := NewDiagnosticData(300)
-	if err = d.readDiagnosticDir("/tmp/diagnostic.data/"); err != nil {
+	if err = d.readDiagnosticDir("../test_data/diagnostic.data/"); err != nil {
 		t.Fatal(err)
 	}
-	b, _ := json.MarshalIndent(serverInfo, "", "  ")
+	b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
 	t.Log(string(b))
-	t.Log("serverStatus length", len(serverStatusList))
-	t.Log("replSetStatus length", len(replSetStatusList))
-	span := int(serverStatusList[(len(serverStatusList)-1)].LocalTime.Sub(serverStatusList[0].LocalTime).Seconds()) / 20
-	if PrintAllStats(serverStatusList, span) == "" { // every 10 minutes
+	t.Log("serverStatus length", len(d.ServerStatusList))
+	t.Log("replSetStatus length", len(d.ReplSetStatusList))
+	span := int(d.ServerStatusList[(len(d.ServerStatusList)-1)].LocalTime.Sub(d.ServerStatusList[0].LocalTime).Seconds()) / 20
+	if PrintAllStats(d.ServerStatusList, span) == "" { // every 10 minutes
 		t.Fatal()
 	}
 }
 
 func TestReadDiagnosticFile(t *testing.T) {
-	var serverInfo interface{}
-	var serverStatusList []ServerStatusDoc
-	var replSetStatusList []ReplSetStatusDoc
 	var err error
+	var diag DiagnosticData
 	d := NewDiagnosticData(300)
-	if _, err = d.readDiagnosticFile("/tmp/metrics.2018-10-12T23-37-51Z-00000"); err != nil {
+	if diag, err = d.readDiagnosticFile("../test_data/diagnostic.data/metrics.2017-10-12T20-08-53Z-00000"); err != nil {
 		t.Fatal(err)
 	}
-	b, _ := json.MarshalIndent(serverInfo, "", "  ")
+	b, _ := json.MarshalIndent(diag.ServerInfo, "", "  ")
 	t.Log(string(b))
-	t.Log("serverStatus length", len(serverStatusList))
-	t.Log("replSetStatus length", len(replSetStatusList))
-	span := int(serverStatusList[(len(serverStatusList)-1)].LocalTime.Sub(serverStatusList[0].LocalTime).Seconds()) / 20
-	if PrintAllStats(serverStatusList, span) == "" { // every 10 minutes
+	t.Log("serverStatus length", len(diag.ServerStatusList))
+	t.Log("replSetStatus length", len(diag.ReplSetStatusList))
+	span := int(diag.ServerStatusList[(len(diag.ServerStatusList)-1)].LocalTime.Sub(diag.ServerStatusList[0].LocalTime).Seconds()) / 20
+	if PrintAllStats(diag.ServerStatusList, span) == "" { // every 10 minutes
 		t.Fatal()
 	}
 }
 
 func TestAnalyzeServerStatus(t *testing.T) {
-	var filename = "/tmp/keyhole_stats.2018-10-18T080737-standalone.gz"
+	var filename = "../test_data/tmp/keyhole_stats.2018-12-04T080240-standalone.gz"
 	var err error
 
 	d := NewDiagnosticData(300)

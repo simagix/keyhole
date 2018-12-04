@@ -9,7 +9,7 @@ import (
 func TestGetDocByTemplate(t *testing.T) {
 	var err error
 
-	if _, err = GetDocByTemplate("/tmp/template.json", false); err != nil {
+	if _, err = GetDocByTemplate("../test_data/template.json", false); err != nil {
 		t.Fatal(err)
 	}
 }
