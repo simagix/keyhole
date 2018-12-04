@@ -1,0 +1,57 @@
+{
+	"indexes": [{
+		"email": 1,
+		"hostIp": 1
+	}],
+	"transactions": [{
+		"c": "insert"
+	}, {
+		"c": "find",
+		"filter": {
+			"email": "simagix@example.com"
+		}
+	}, {
+		"c": "findOne",
+		"filter": {
+			"email": "simagix@example.com"
+		}
+	}, {
+		"c": "update",
+		"filter": {
+			"email": "simagix@example.com"
+		},
+		"op": {
+			"$set": {
+				"email": "simagix@example.com"
+			}
+		}
+	}, {
+		"c": "updateAll",
+		"filter": {
+			"email": "simagix@example.com"
+		},
+		"op": {
+			"$set": {
+				"email": "simagix@example.com"
+			}
+		}
+	}, {
+		"c": "remove",
+		"filter": "{'email': 'simagix@example.com'}"
+	}, {
+		"c": "removeAll",
+		"filter": "{'email': 'simagix@example.com'}"
+	}, {
+		"c": "aggregate",
+		"pipe": [{
+			"$match": {
+				"email": "simagix@example.com"
+			}
+		}, {
+			"$project": {
+				"email": 1,
+				"lastUpdated": 1
+			}
+		}]
+	}]
+}
