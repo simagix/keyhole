@@ -93,8 +93,7 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {
-		err = keyhole.LogInfo(*loginfo, *collscan, *verbose)
-		if err != nil {
+		if err = keyhole.LogInfo(*loginfo, *collscan); err != nil {
 			fmt.Println(err)
 		}
 		os.Exit(0)
