@@ -1,5 +1,5 @@
 # Keyhole - MongoDB Performance Analytic
-Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  Moreover, keyhole can read MongoDB full-time diagnostic data (FTDC) data and is [integrated with Grafana's Simple JSON plugin](https://github.com/simagix/keyhole/wiki/MongoDB-FTDC-and-Grafana-Integration) seamlessly.  Golang was chosen to eliminate the needs to install an interpreter (such as Java) or 3pp modules (such as Python or Node.js).  [Download executable](https://github.com/simagix/keyhole#download).
+Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  Moreover, keyhole can read MongoDB full-time diagnostic data (FTDC) data and is [integrated with Grafana's Simple JSON plugin](https://github.com/simagix/keyhole/wiki/MongoDB-FTDC-and-Grafana-Integration) seamlessly.  Golang was chosen to eliminate the needs to install an interpreter or 3pp modules.  [Download executable](https://github.com/simagix/keyhole#download).
 
 With Keyhole, experienced users should be able to spot performance issues and to determine whether upgrades are needed quickly from a few minutes of testing and analyzing the results.  Keyhole supports TLS/SSL connections.
 
@@ -13,10 +13,10 @@ Several features are available, and they are
   - Metrics: index keys examined, collection scan, in-memory sort, and ops
   - WiredTiger analytic
 - Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](docs/LOADTEST.md) for details).
-- **Monitoring** mode to collect stats (see above) from `mongod` periodically.  Detail analytic results are displayed when the tool exists or can be viewed at a later time.
 - **Cluster Info** to display information of a cluster including stats to help determine physical memory size.
-- [**Seed data**](docs/SEED.md) for demo and educational purposes as a trainer.
-- [Display average ops time](docs/LOGINFO.md) and query patterns by parsing logs.
+- [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/List-All-Indexes-with-Usages)
+- [**Seed data**](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for demo and educational purposes as a trainer.
+- [Display average ops time](https://github.com/simagix/keyhole/wiki/Mongo-Logs-Analytics) and query patterns by parsing logs.
 
 ## Use Cases
 Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
@@ -57,109 +57,6 @@ keyhole mongodb://localhost/?replicaSet=replset
 ```
 
 It works on standalone, replica, and sharded cluster.  For a sharded cluster, *keyhole* collects stats from the primary node of all shards and display stats individually.  See [LOADTEST](docs/LOADTEST.md) document for more details.
-
-### Monitoring
-Only collects data from `db.serverStatus()` command.  The [outputs](docs/LOADTEST.md) share the same format from load test.
-
-```
-keyhole --peek mongodb://localhost/?replicaSet=replset
-```
-
-Collected server status data is saved to a file and can be viewed later using the command below.
-
-```
-keyhole --diag your_db_stats_file
-```
-
-### Cluster Info
-Collect cluster information:
-
-- Sharded cluster
-- Replica set
-- Standalone
-
-```
-keyhole --info mongodb://localhost/?replicaSet=replset
-```
-
-**The command also displays total data and indexes sizes to help determine physical memory requirement from indexes and working set data size.**  Here is an example from a MongoDB Atlas cluster.
-
-```
-{
-  "cluster": "replica",
-  "host": "cluster0-shard-00-02-nhftn.mongodb.net:27017",
-  "process": "mongod",
-  "version": "3.6.4",
-  "sharding": {},
-  "repl": {
-    "hosts": [
-      "cluster0-shard-00-00-nhftn.mongodb.net:27017",
-      "cluster0-shard-00-01-nhftn.mongodb.net:27017",
-      "cluster0-shard-00-02-nhftn.mongodb.net:27017"
-    ],
-    "ismaster": false,
-    "lastWrite": {
-      "lastWriteDate": "2018-05-28T08:07:37-04:00",
-      "majorityOpTime": {
-        "t": 3,
-        "ts": 6560602303152279000
-      },
-      "majorityWriteDate": "2018-05-28T08:07:37-04:00",
-      "opTime": {
-        "t": 3,
-        "ts": 6560602303152279000
-      }
-    },
-    "me": "cluster0-shard-00-02-nhftn.mongodb.net:27017",
-    "primary": "cluster0-shard-00-00-nhftn.mongodb.net:27017",
-    "rbid": 1,
-    "secondary": true,
-    "setName": "Cluster0-shard-0",
-    "setVersion": 2
-  },
-  "TotalDBStats": {
-    "statsDetails": [
-      {
-        "dataSize": 21191251,
-        "db": "_KEYHOLE_",
-        "indexSize": 2998272
-      },
-      {
-        "dataSize": 0,
-        "db": "admin",
-        "indexSize": 0
-      },
-      {
-        "dataSize": 0,
-        "db": "local",
-        "indexSize": 0
-      }
-    ],
-    "totalDataSize": 21191251,
-    "totalIndexSize": 2998272
-  }
-}
-```
-
-### Seed Data
-Populate a small amount of data to *\_KEYHOLE\_* database for [demo](docs/SEED.md) and educational purposes such as CRUD, `$elemMatch`, `$lookup` (outer left join), indexes, and aggregation framework.
-
-```
-keyhole --seed mongodb://localhost/?replicaSet=replset
-```
-
-Seeding data from a template is also supported, see [document](docs/SEED.md) for details.
-
-```
-keyhole] --seed --file <json_file> [--drop] mongodb://localhost/?replicaSet=replset
-```
-
-### Ops Performance Analytic
-Display ops average execution with query patterns using `--loginfo` flag.  See [LOGINFO.md](docs/LOGINFO.md) for details.
-
-```
-keyhole --loginfo ~/ws/demo/mongod.log
-```
 
 ## Usages
 ### Build
@@ -213,13 +110,7 @@ or
 keyhole --info "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net:27017,cluster0-shard-00-01-v7due.gcp.mongodb.net:27017,cluster0-shard-00-02-v7due.gcp.mongodb.net:27017/test?replicaSet=Cluster0-shard-0&authSource=admin&ssl=true"
 ```
 
-or
-
-```
-keyhole  --ssl --info  "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net:27017,cluster0-shard-00-01-v7due.gcp.mongodb.net:27017,cluster0-shard-00-02-v7due.gcp.mongodb.net:27017/test?replicaSet=Cluster0-shard-0&authSource=admin"
-```
-
 ### TLS/SSL Mode
 ```
-keyhole --info --ssl --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem "mongodb://user:password@localhost/keyhole?authSource=admin"
+keyhole --info --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem "mongodb://user:password@localhost/keyhole?authSource=admin&ssl=true"
 ```
