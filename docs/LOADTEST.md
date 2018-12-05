@@ -6,8 +6,31 @@ Load test a cluster/replica.  A default cycle last six minutes.
 - Burst test until before the last minute
 - Perform cleanup ops in the last minute
 
+## Write Throughputs Test
+Measure MongoDB write throughputs.
+
+```
+keyhole --duration 1 mongodb://localhost/?replicaSet=replset
+```
+
+By default, it writes 2K size documents at 60 transactions per second from 10 different threads, a total of 600 TPS.  See sample outputs below.
+
+```
+Duration in minute(s): 5
+...
+Total TPS: 300 (tps) * 10 (conns) = 3000, duration: 5 (mins), bulk size: 512
+...
+
+2018-06-10T14:40:25-04:00 [replset] Memory - resident: 1067, virtual: 6100
+2018-06-10T14:40:36-04:00 [replset] Storage: 460.6 -> 809.3, rate: 34.8 MB/sec
+2018-06-10T14:40:46-04:00 [replset] Storage: 809.3 -> 1091.8, rate: 28.1 MB/sec
+2018-06-10T14:40:56-04:00 [replset] Storage: 1091.8 -> 1375.6, rate: 28.2 MB/sec
+2018-06-10T14:41:06-04:00 [replset] Storage: 1375.6 -> 1662.1, rate: 28.2 MB/sec
+2018-06-10T14:41:16-04:00 [replset] Storage: 1662.1 -> 1869.0, rate: 20.6 MB/sec
+```
+
 ## Load Test
-Keyhole uses a template to read in a sample document and then generates randomized documents based on the template (see [SEED.md](SEED,md) for details.  To execute a load test with a template, do
+Keyhole uses a template to read in a sample document and then generates randomized documents based on the template (see [wiki](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for details.  To execute a load test with a template, do
 
 ```
 keyhole --file example/template.json "mongodb://localhost/?replicaSet=replset"
