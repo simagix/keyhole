@@ -1,4 +1,6 @@
-package charts
+// Copyright 2018 Kuei-chun Chen. All rights reserved.
+
+package keyhole
 
 // IndexHTML is a HTML template for D3 charts
 var IndexHTML = `

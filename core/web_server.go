@@ -1,6 +1,6 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package charts
+package keyhole
 
 import (
 	"fmt"
@@ -10,8 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	keyhole "github.com/simagix/keyhole/core"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -97,12 +95,12 @@ func cors(f http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-var diagnosticData keyhole.DiagnosticData
+var diagnosticData DiagnosticData
 var base = 144
 var frac int
 
 // HTTPServer listens to port 5408
-func HTTPServer(port int, d *keyhole.DiagnosticData, g *Grafana) {
+func HTTPServer(port int, d *DiagnosticData, g *Grafana) {
 	var err error
 	diagnosticData = *d
 	http.HandleFunc("/grafana", cors(g.handler))
@@ -138,7 +136,7 @@ func GetMemoryTSV() []string {
 // GetPageFaultsTSV -
 func GetPageFaultsTSV() []string {
 	var docs []string
-	pstat := keyhole.ServerStatusDoc{}
+	pstat := ServerStatusDoc{}
 	docs = append(docs, "date\tPage Faults")
 
 	for i, stat := range diagnosticData.ServerStatusList {
@@ -160,7 +158,7 @@ func GetMetricsTSV() []string {
 	var docs []string
 	var s1, s2, s3 int64
 	var d, ii, r, u int
-	var pstat keyhole.ServerStatusDoc
+	var pstat ServerStatusDoc
 
 	docs = append(docs, "date\tScanned Keys\tScanned Objects\tScan And Order\tDeleted\tInserted\tReturned\tUpdated")
 	for i, stat := range diagnosticData.ServerStatusList {
@@ -210,7 +208,7 @@ func GetWiredTigerCacheTSV() []string {
 // GetWiredTigerPagingTSV -
 func GetWiredTigerPagingTSV() []string {
 	var docs []string
-	var pstat keyhole.ServerStatusDoc
+	var pstat ServerStatusDoc
 	var m, u, r, w float64
 
 	docs = append(docs, "date\tModified Evicted\tUnmodified Evicted\tRead In Cache\tWritten From Cache")
@@ -255,7 +253,7 @@ func GetWiredTigerTicketsTSV() []string {
 // GetOpCountersTSV -
 func GetOpCountersTSV() []string {
 	var docs []string
-	pstat := keyhole.ServerStatusDoc{}
+	pstat := ServerStatusDoc{}
 	docs = append(docs, "date\tQuery\tInsert\tUpdate\tDelete\tGet More\tCommand")
 	for i, stat := range diagnosticData.ServerStatusList {
 		if len(diagnosticData.ServerStatusList) > base && frac > 0 && i%frac != 0 {
@@ -283,7 +281,7 @@ func GetOpCountersTSV() []string {
 func GetLatenciesTSV() []string {
 	var docs []string
 	var r, w, c float64
-	// var pstat keyhole.ServerStatusDoc
+	// var pstat ServerStatusDoc
 
 	docs = append(docs, "date\tReads (ms)\tWrites (ms)\tCommands (ms)")
 	for i, stat := range diagnosticData.ServerStatusList {
@@ -314,7 +312,7 @@ func GetLatenciesTSV() []string {
 // GetConnectionsTSV -
 func GetConnectionsTSV() []string {
 	var docs []string
-	var pstat keyhole.ServerStatusDoc
+	var pstat ServerStatusDoc
 
 	docs = append(docs, "date\tCurrent\tAvailable\tCreated per minute")
 	for i, stat := range diagnosticData.ServerStatusList {
@@ -379,7 +377,7 @@ func GetReplLagsTSV() []string {
 		}
 		for _, mb := range stat.Members {
 			if mb.State == 1 {
-				ts = keyhole.GetOptime(mb.Optime)
+				ts = GetOptime(mb.Optime)
 				break
 			}
 		}
@@ -390,7 +388,7 @@ func GetReplLagsTSV() []string {
 		} else {
 			for _, mb := range stat.Members {
 				if mb.State == 2 { // SECONDARY
-					str += "\t" + strconv.FormatInt(int64(ts-keyhole.GetOptime(mb.Optime)), 10)
+					str += "\t" + strconv.FormatInt(int64(ts-GetOptime(mb.Optime)), 10)
 				} else if mb.State == 1 { // PRIMARY
 					str += "\t0"
 				}

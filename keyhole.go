@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
-	"github.com/simagix/keyhole/charts"
 	keyhole "github.com/simagix/keyhole/core"
 )
 
@@ -80,16 +79,14 @@ func main() {
 		}
 		fmt.Println(str)
 		if *webserver {
-			g := charts.NewGrafana(d)
-			if *span > 0 && *span < 300 {
-				fmt.Println("Get more granular data points, data point every ", *span, "seconds ")
-				go func() {
-					d = keyhole.NewDiagnosticData(*span)
-					d.PrintDiagnosticData(filenames, *webserver)
-					g.ReinitGrafana(d)
-				}()
-			}
-			charts.HTTPServer(5408, d, g)
+			g := keyhole.NewGrafana(d)
+			fmt.Println("Get more granular data points, data point every second.")
+			go func(g *keyhole.Grafana) {
+				d = keyhole.NewDiagnosticData(1)
+				d.PrintDiagnosticData(filenames, *webserver)
+				g.ReinitGrafana(d)
+			}(g)
+			keyhole.HTTPServer(5408, d, g)
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {

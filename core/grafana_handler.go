@@ -1,6 +1,6 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package charts
+package keyhole
 
 import (
 	"encoding/json"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo/bson"
-	keyhole "github.com/simagix/keyhole/core"
 )
 
 func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +40,10 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}
-		d := keyhole.NewDiagnosticData(dr.Span)
+		if dr.Span < 1 {
+			dr.Span = 1
+		}
+		d := NewDiagnosticData(dr.Span)
 		var filenames = []string{dr.Dir}
 		if _, err = d.PrintDiagnosticData(filenames, true); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
@@ -102,7 +104,7 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 				headerList := []bson.M{}
 				headerList = append(headerList, bson.M{"text": "Info", "type": "string"})
 				headerList = append(headerList, bson.M{"text": "Value", "type": "string"})
-				var si keyhole.ServerInfoDoc
+				var si ServerInfoDoc
 				b, _ := json.Marshal(g.serverInfo)
 				json.Unmarshal(b, &si)
 				rowList := [][]string{}

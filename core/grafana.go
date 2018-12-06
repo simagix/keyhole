@@ -1,6 +1,6 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package charts
+package keyhole
 
 import (
 	"fmt"
@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	keyhole "github.com/simagix/keyhole/core"
 )
 
 // TimeSeriesDoc -
@@ -76,7 +74,7 @@ type DiskStats struct {
 var g Grafana
 
 // NewGrafana -
-func NewGrafana(d *keyhole.DiagnosticData) *Grafana {
+func NewGrafana(d *DiagnosticData) *Grafana {
 	g = Grafana{serverInfo: d.ServerInfo}
 	g.RLock()
 	defer g.RUnlock()
@@ -85,7 +83,7 @@ func NewGrafana(d *keyhole.DiagnosticData) *Grafana {
 }
 
 // ReinitGrafana -
-func (g *Grafana) ReinitGrafana(d *keyhole.DiagnosticData) {
+func (g *Grafana) ReinitGrafana(d *DiagnosticData) {
 	btm := time.Now()
 	var serverStatusTSD map[string]TimeSeriesDoc
 	var wiredTigerTSD map[string]TimeSeriesDoc
@@ -94,7 +92,7 @@ func (g *Grafana) ReinitGrafana(d *keyhole.DiagnosticData) {
 	var replicationLags map[string]TimeSeriesDoc
 	var diskStats map[string]DiskStats
 
-	var wg = keyhole.NewWaitGroup(4) // use 4 threads to read
+	var wg = NewWaitGroup(4) // use 4 threads to read
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -144,7 +142,7 @@ func getDataPoint(v float64, t float64) []float64 {
 	return dp
 }
 
-func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyhole.ReplSetStatusDoc) (map[string]TimeSeriesDoc, map[string]TimeSeriesDoc) {
+func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []ReplSetStatusDoc) (map[string]TimeSeriesDoc, map[string]TimeSeriesDoc) {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	var replicationLags = map[string]TimeSeriesDoc{}
 	var hosts []string
@@ -179,7 +177,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 
 		for _, mb := range stat.Members {
 			if mb.State == 1 {
-				ts = keyhole.GetOptime(mb.Optime)
+				ts = GetOptime(mb.Optime)
 				break
 			}
 		}
@@ -191,7 +189,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 			for i, mb := range stat.Members {
 				v := 0.0
 				if mb.State == 2 { // SECONDARY
-					v = float64(ts - keyhole.GetOptime(mb.Optime))
+					v = float64(ts - GetOptime(mb.Optime))
 				} else if mb.State == 1 { // PRIMARY
 					v = 0
 				} else if mb.State == 7 { // ARBITER
@@ -207,10 +205,10 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []keyho
 	return timeSeriesData, replicationLags
 }
 
-func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []keyhole.SystemMetricsDoc) (map[string]TimeSeriesDoc, map[string]DiskStats) {
+func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []SystemMetricsDoc) (map[string]TimeSeriesDoc, map[string]DiskStats) {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	var diskStats = map[string]DiskStats{}
-	var pstat = keyhole.SystemMetricsDoc{}
+	var pstat = SystemMetricsDoc{}
 
 	for _, legend := range systemMetricsChartsLegends {
 		timeSeriesData[legend] = TimeSeriesDoc{legend, [][]float64{}}
@@ -272,9 +270,9 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []keyhole.Sys
 	return timeSeriesData, diskStats
 }
 
-func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []keyhole.ServerStatusDoc) map[string]TimeSeriesDoc {
+func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []ServerStatusDoc) map[string]TimeSeriesDoc {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
-	pstat := keyhole.ServerStatusDoc{}
+	pstat := ServerStatusDoc{}
 	var x TimeSeriesDoc
 
 	for _, legend := range serverStatusChartsLegends {
@@ -358,9 +356,9 @@ func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []keyhole.Serve
 	return timeSeriesData
 }
 
-func (g *Grafana) initWiredTigerTimeSeriesDoc(serverStatusList []keyhole.ServerStatusDoc) map[string]TimeSeriesDoc {
+func (g *Grafana) initWiredTigerTimeSeriesDoc(serverStatusList []ServerStatusDoc) map[string]TimeSeriesDoc {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
-	pstat := keyhole.ServerStatusDoc{}
+	pstat := ServerStatusDoc{}
 	var x TimeSeriesDoc
 
 	for _, legend := range wiredTigerChartsLegends {
