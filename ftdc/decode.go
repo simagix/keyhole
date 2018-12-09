@@ -7,9 +7,9 @@ import (
 	"errors"
 	"io"
 	"strconv"
-	"time"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 // PathSeparator -
@@ -72,7 +72,7 @@ func (m *Metrics) decode(buffer []byte) (MetricsData, error) {
 
 func traverseDocElem(attribsList *[]string, attribsMap *map[string][]int64, docElem interface{}, parentPath string) {
 	switch value := docElem.(type) {
-	case []interface{}:
+	case bson.A:
 		for i, v := range value {
 			fld := parentPath + PathSeparator + strconv.Itoa(i)
 			traverseDocElem(attribsList, attribsMap, v, fld)
@@ -88,20 +88,20 @@ func traverseDocElem(attribsList *[]string, attribsMap *map[string][]int64, docE
 	case bson.D:
 		elem := docElem.(bson.D)
 		for _, elem := range elem {
-			name := elem.Name
+			name := elem.Key
 			if parentPath != "" {
 				name = parentPath + PathSeparator + name
 			}
 			traverseDocElem(attribsList, attribsMap, elem.Value, name)
 		}
-	case bson.MongoTimestamp:
+	case primitive.Timestamp:
 		tKey := parentPath + "/t"
-		iKey := parentPath + "/i"
-		(*attribsMap)[tKey] = []int64{int64(value)}
+		(*attribsMap)[tKey] = []int64{int64(0)}
 		(*attribsList) = append((*attribsList), tKey)
-		(*attribsMap)[iKey] = []int64{int64(value)}
+		iKey := parentPath + "/i"
+		(*attribsMap)[iKey] = []int64{int64(0)}
 		(*attribsList) = append((*attribsList), iKey)
-	case bson.ObjectId: // ignore it
+	case primitive.ObjectID: // ignore it
 	case string: // ignore it
 	case float64:
 		(*attribsMap)[parentPath] = []int64{int64(value)}
@@ -109,13 +109,16 @@ func traverseDocElem(attribsList *[]string, attribsMap *map[string][]int64, docE
 	case int:
 		(*attribsMap)[parentPath] = []int64{int64(value)}
 		(*attribsList) = append((*attribsList), parentPath)
+	case int32:
+		(*attribsMap)[parentPath] = []int64{int64(value)}
+		(*attribsList) = append((*attribsList), parentPath)
 	case int64:
 		(*attribsMap)[parentPath] = []int64{value}
 		(*attribsList) = append((*attribsList), parentPath)
-	case time.Time:
-		(*attribsMap)[parentPath] = []int64{time.Time(value).UnixNano() / 1000 / 1000}
+	case primitive.DateTime: // ignore it
+		(*attribsMap)[parentPath] = []int64{int64(value)}
 		(*attribsList) = append((*attribsList), parentPath)
 	default:
-		// log.Fatalf("%s %T\n", parentPath, value)
+		// log.Fatalf("'%s' ==> %T\n", parentPath, value)
 	}
 }
