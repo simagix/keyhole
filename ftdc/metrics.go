@@ -53,8 +53,10 @@ func (m *Metrics) readMetrics(buffer []byte, summaryOnly bool) error {
 				return err
 			}
 
-			m.Blocks = append(m.Blocks, block)
-			if summaryOnly == false {
+			if summaryOnly == true {
+				md = MetricsData{Buffer: block}
+				metricsData = append(metricsData, md)
+			} else {
 				if md, err = m.decode(block); err != nil {
 					return err
 				}

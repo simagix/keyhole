@@ -18,11 +18,11 @@ const PathSeparator = "/" // path separator
 // Decode decodes MongoDB FTDC data
 func (m *Metrics) decode(buffer []byte) (MetricsData, error) {
 	var err error
-	var dp = MetricsData{DataPointsMap: map[string][]int64{}}
+	var dp = MetricsData{DataPointsMap: map[string][]int64{}, Buffer: buffer}
 
 	r := bytes.NewReader(buffer)
-	dp.DataSize = GetUint32(r) // first bson document length
-	r.Seek(int64(dp.DataSize), io.SeekStart)
+	dp.DocSize = GetUint32(r) // first bson document length
+	r.Seek(int64(dp.DocSize), io.SeekStart)
 	dp.NumAttribs = GetUint32(r) // 4 bytes # of keys
 	dp.NumDeltas = GetUint32(r)  // 4 bytes # of deltas
 	ptr, _ := r.Seek(0, io.SeekCurrent)
@@ -37,7 +37,7 @@ func (m *Metrics) decode(buffer []byte) (MetricsData, error) {
 	// replSetGetStatus
 	// local.oplog.rs.stats
 	var docElem = bson.D{}
-	bson.Unmarshal(buffer, &docElem) // first document
+	bson.Unmarshal(buffer[:dp.DocSize], &docElem) // first document
 	traverseDocElem(&attribsList, &dp.DataPointsMap, docElem, "")
 
 	if len(dp.DataPointsMap) != int(dp.NumAttribs) || len(attribsList) != int(dp.NumAttribs) {

@@ -20,11 +20,11 @@ func TestDecode(t *testing.T) {
 	}
 	m := NewMetrics()
 	m.ReadAllMetrics(buffer)
-	if len(m.Blocks) == 0 {
+	if len(m.Data) == 0 {
 		t.Fatal()
 	}
 
-	if _, err = m.decode([]byte(m.Blocks[0])); err != nil {
+	if _, err = m.decode([]byte(m.Data[0].Buffer)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -38,14 +38,14 @@ func TestTraverseDocElem(t *testing.T) {
 	}
 	m := NewMetrics()
 	m.ReadAllMetrics(buffer)
-	if len(m.Blocks) == 0 {
+	if len(m.Data) == 0 {
 		t.Fatal()
 	}
 
 	var dp = MetricsData{DataPointsMap: map[string][]int64{}}
 	var docElem = bson.D{}
 	var attribsList = []string{}
-	bson.Unmarshal([]byte(m.Blocks[0]), &docElem) // first document
+	bson.Unmarshal(m.Data[0].Buffer[:m.Data[0].DocSize], &docElem) // first document
 	traverseDocElem(&attribsList, &dp.DataPointsMap, docElem, "")
 	if len(attribsList) == 0 || len(dp.DataPointsMap) != len(attribsList) {
 		t.Fatal()

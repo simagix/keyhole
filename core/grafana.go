@@ -157,7 +157,8 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []ReplS
 		}
 		ts = 0
 		sort.Slice(stat.Members, func(i, j int) bool { return stat.Members[i].Name < stat.Members[j].Name })
-		if len(hosts) == 0 {
+		if len(hosts) == 0 || len(hosts) != len(stat.Members) {
+			hosts = hosts[:0]
 			for n, mb := range stat.Members {
 				a := strings.Index(mb.Name, ".")
 				b := strings.LastIndex(mb.Name, ":")

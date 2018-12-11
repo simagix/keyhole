@@ -106,7 +106,9 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 				headerList = append(headerList, bson.M{"text": "Value", "type": "string"})
 				var si ServerInfoDoc
 				b, _ := json.Marshal(g.serverInfo)
-				json.Unmarshal(b, &si)
+				if err := json.Unmarshal(b, &si); err != nil {
+					return
+				}
 				rowList := [][]string{}
 
 				rowList = append(rowList, []string{"CPU", strconv.Itoa(si.HostInfo.System.NumCores) + " cores (" + si.HostInfo.System.CPUArch + ")"})

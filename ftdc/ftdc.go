@@ -7,7 +7,8 @@ type Block []byte
 
 // MetricsData -
 type MetricsData struct {
-	DataSize      uint32
+	Buffer        Block
+	DocSize       uint32
 	NumAttribs    uint32
 	NumDeltas     uint32
 	DataPointsMap map[string][]int64
@@ -15,9 +16,8 @@ type MetricsData struct {
 
 // Metrics -
 type Metrics struct {
-	Blocks []Block
-	Doc    interface{}   // type 0
-	Data   []MetricsData // type 1
+	Doc  interface{}   // type 0
+	Data []MetricsData // type 1
 }
 
 // NewMetrics -
