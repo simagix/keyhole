@@ -195,7 +195,8 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if d.span >= 300 {
 		metrics.ReadMetricsSummary(buffer)
 		diagData.ServerInfo = metrics.Doc
-		for _, block := range metrics.Blocks {
+		for _, v := range metrics.Data {
+			block := v.Buffer
 			var doc DiagnosticDoc
 			bson.Unmarshal(block, &doc) // first document
 			diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
@@ -205,7 +206,8 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	} else {
 		metrics.ReadAllMetrics(buffer)
 		diagData.ServerInfo = metrics.Doc
-		for _, block := range metrics.Blocks {
+		for _, v := range metrics.Data {
+			block := v.Buffer
 			var doc DiagnosticDoc
 			bson.Unmarshal(block, &doc) // first document
 			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
@@ -225,7 +227,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if i >= 0 {
 		filename = filename[i+1:]
 	}
-	fmt.Println("->", filename, "blocks:", len(metrics.Blocks), ", time:", time.Now().Sub(btm))
+	fmt.Println("->", filename, "blocks:", len(metrics.Data), ", time:", time.Now().Sub(btm))
 	return diagData, err
 }
 

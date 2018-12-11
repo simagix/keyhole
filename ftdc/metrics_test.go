@@ -15,7 +15,7 @@ func TestReadMetricsSummary(t *testing.T) {
 	}
 	m := NewMetrics()
 	m.ReadMetricsSummary(buffer)
-	if len(m.Blocks) != 164 {
+	if len(m.Data) != 164 {
 		t.Fatal()
 	}
 }
@@ -28,7 +28,7 @@ func TestReadAllMetrics(t *testing.T) {
 	}
 	m := NewMetrics()
 	m.ReadAllMetrics(buffer)
-	if len(m.Blocks) != len(m.Data) {
+	if len(m.Data) != 164 {
 		t.Fatal()
 	}
 }
@@ -41,7 +41,7 @@ func TestReadMetrics(t *testing.T) {
 	}
 	m := NewMetrics()
 	m.readMetrics(buffer, false)
-	if len(m.Blocks) != 164 {
+	if len(m.Data) != 164 {
 		t.Fatal()
 	}
 }
