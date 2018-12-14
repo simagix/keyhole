@@ -123,11 +123,11 @@ func GetMongoServerInfo(session *mgo.Session) (MongoServerInfo, error) {
 
 	for _, name := range names {
 		result, _ = AdminCommandOnDB(session, "dbStats", name)
-		bytes, _ := json.Marshal(result)
-		json.Unmarshal(bytes, &dbStats)
+		b, _ := json.Marshal(result)
+		json.Unmarshal(b, &dbStats)
 		dataSize += dbStats.DataSize
 		indexSize += dbStats.IndexSize
-		list = append(list, bson.M{"db": dbStats.DB, "objects": dbStats.Objects, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
+		list = append(list, bson.M{"db": name, "objects": dbStats.Objects, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
 	}
 
 	info.StorageSize = bson.M{"totalDataSize (MB)": dataSize / 1024 / 1024, "totalIndexSize (MB)": indexSize / 1024 / 1024, "statsDetails": list}
