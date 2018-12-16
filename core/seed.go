@@ -156,27 +156,59 @@ func (sb SeedBase) seed(session *mgo.Session) {
 	fmt.Printf("Seeded models: %d, robots: %d, numbers: %d\n", modelsCount, robotsCount, numbersCount)
 
 	carsCollection := session.DB(sb.DBName).C("cars")
+	dealersCollection := session.DB(sb.DBName).C("dealers")
 	favoritesCollection := session.DB(sb.DBName).C("favorites")
 	if sb.IsDrop {
 		carsCollection.DropCollection()
+		dealersCollection.DropCollection()
 		favoritesCollection.DropCollection()
 	}
 
+	for i := 0; i < len(dealers); i++ {
+		dealerID := fmt.Sprintf("DEALER-%d", 1+i)
+		dealer := bson.M{
+			"_id":  dealerID,
+			"name": dealers[i],
+		}
+		dealersCollection.UpsertId(dealerID, dealer)
+	}
+	carsCollection.EnsureIndexKey("filters.k", "filters.v")
 	carsCount := sb.seedCollection(carsCollection, sb.Total, 1)
 	fmt.Printf("Seeded cars: %d\n", carsCount)
 	favoritesCount := sb.seedCollection(favoritesCollection, sb.Total, 2)
 	fmt.Printf("Seeded favorites: %d\n", favoritesCount)
 }
 
-var isNew = []bool{true, false}
+var dealers = []string{"Atlanta Auto", "Buckhead Auto", "Johns Creek Auto"}
+var brands = []string{"Audi", "BMW", "Chevrolet", "Ford", "Honda", "Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
 var styles = []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
 var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
 
-func getCar() bson.M {
+func getVehicle() bson.M {
+	curYear := time.Now().Year()
+	delta := rand.Intn(8)
+	year := curYear - delta
+	used := true
+	if delta == 0 {
+		used = false
+	}
+	brand := brands[rand.Intn(len(styles))]
+	color := colors[rand.Intn(len(colors))]
+	style := styles[rand.Intn(len(styles))]
+
 	return bson.M{
-		"isNew": isNew[rand.Intn(len(isNew))],
-		"style": styles[rand.Intn(len(styles))],
-		"color": colors[rand.Intn(len(colors))],
+		"dealer": fmt.Sprintf("DEALER-%d", 1+rand.Intn(len(dealers))),
+		"brand":  brand,
+		"color":  color,
+		"style":  style,
+		"year":   year,
+		"used":   used,
+		"filters": []bson.M{
+			bson.M{"k": "brand", "v": brand},
+			bson.M{"k": "color", "v": color},
+			bson.M{"k": "style", "v": style},
+			bson.M{"k": "year", "v": year},
+			bson.M{"k": "used", "v": used}},
 	}
 }
 
@@ -192,7 +224,7 @@ func (sb SeedBase) seedCollection(c *mgo.Collection, total int, fnum int) int {
 		var contentArray []interface{}
 		for n := 0; n < num; n++ {
 			if fnum == 1 {
-				contentArray = append(contentArray, getCar())
+				contentArray = append(contentArray, getVehicle())
 			} else if fnum == 2 {
 				contentArray = append(contentArray, GetDemoDoc())
 			}
