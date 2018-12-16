@@ -2,7 +2,7 @@
 # Copyright 2018 Kuei-chun Chen. All rights reserved.
 
 # dep init
-# dep ensure
+dep ensure
 export version="master-$(date "+%Y%m%d.%s")"
 mkdir -p build
 env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
