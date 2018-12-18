@@ -33,29 +33,3 @@ func TestGetSchemaFromCollection(t *testing.T) {
 
 	t.Log(str)
 }
-
-func TestGetIndexes(t *testing.T) {
-	var err error
-	var dialInfo *mgo.DialInfo
-	var session *mgo.Session
-	uri := "mongodb://localhost/"
-	if os.Getenv("DATABASE_URL") != "" {
-		uri = os.Getenv("DATABASE_URL")
-	}
-
-	if dialInfo, err = ParseDialInfo(uri); err != nil {
-		t.Fatal(err)
-	}
-	if session, err = GetSession(dialInfo, false, false, "", ""); err != nil {
-		t.Fatal(err)
-	}
-	defer session.Close()
-	var str string
-	// get all indexes
-	str = GetIndexes(session, "", false)
-	t.Log(str)
-
-	// get index from keyhole database
-	str = GetIndexesFromDB(session, "keyhole", false)
-	t.Log(str)
-}
