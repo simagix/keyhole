@@ -14,13 +14,18 @@ import (
 	"github.com/globalsign/mgo/bson"
 )
 
-// IndexStats -
-type IndexStats struct {
+// UsageDoc -
+type UsageDoc struct {
+	Hostname string
+	Ops      int
+	Since    string
+}
+
+// IndexStatsDoc -
+type IndexStatsDoc struct {
 	Key          string
 	EffectiveKey string
-	Hostname     string
-	Ops          int
-	Since        string
+	Usage        []UsageDoc
 }
 
 // GetIndexes list all indexes of collections of databases
@@ -64,7 +69,7 @@ func GetIndexesFromDB(session *mgo.Session, dbName string) string {
 		buffer.WriteString(".")
 		buffer.WriteString(coll)
 		buffer.WriteString(":\n")
-		var list []IndexStats
+		var list []IndexStatsDoc
 
 		for _, idx := range indexes {
 			var strbuf bytes.Buffer
@@ -80,17 +85,18 @@ func GetIndexesFromDB(session *mgo.Session, dbName string) string {
 				}
 			}
 
-			o := IndexStats{Key: strbuf.String()}
+			o := IndexStatsDoc{Key: strbuf.String()}
 			o.EffectiveKey = strings.Replace(o.Key[:len(o.Key)-2], ": -1", ": 1", -1)
+			o.Usage = []UsageDoc{}
 			for _, result := range results {
 				if result["name"].(string) == idx.Name {
 					accesses := result["accesses"].(bson.M)
 					host := result["host"].(string)
 					ops, _ := json.Marshal(accesses["ops"])
 					since, _ := json.Marshal(accesses["since"])
-					o.Hostname = host
-					o.Ops, _ = strconv.Atoi(string(ops))
-					o.Since = string(since)
+					x, _ := strconv.Atoi(string(ops))
+					u := UsageDoc{host, x, string(since)}
+					o.Usage = append(o.Usage, u)
 				}
 			}
 			list = append(list, o)
@@ -103,12 +109,20 @@ func GetIndexesFromDB(session *mgo.Session, dbName string) string {
 			if o.Key != "{ _id: 1 }" {
 				if i < len(list)-1 && strings.Index(list[i+1].EffectiveKey, o.EffectiveKey) == 0 {
 					font = "\x1b[31;1mx "
-				} else if o.Ops == 0 {
-					font = "\x1b[33;1m? "
+				} else {
+					sum := 0
+					for _, u := range o.Usage {
+						sum += u.Ops
+					}
+					if sum == 0 {
+						font = "\x1b[33;1m? "
+					}
 				}
 			}
-			// buffer.WriteString("  ")
-			buffer.WriteString(font + o.Key + "\x1b[0m\n\thost: " + o.Hostname + ", ops: " + strconv.Itoa(o.Ops) + ", since: " + o.Since)
+			buffer.WriteString(font + o.Key + "\x1b[0m")
+			for _, u := range o.Usage {
+				buffer.Write([]byte("\n\thost: " + u.Hostname + ", ops: " + strconv.Itoa(u.Ops) + ", since: " + u.Since))
+			}
 			buffer.WriteString("\n")
 		}
 	}
