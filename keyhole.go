@@ -13,6 +13,7 @@ import (
 
 	"github.com/globalsign/mgo"
 	keyhole "github.com/simagix/keyhole/core"
+	"github.com/simagix/keyhole/mongo"
 )
 
 var version string
@@ -162,7 +163,7 @@ func main() {
 		fmt.Println(str)
 		os.Exit(0)
 	} else if *index == true {
-		fmt.Println(keyhole.GetIndexes(session, dbName, *verbose))
+		fmt.Println(mongo.GetIndexes(session, dbName))
 		os.Exit(0)
 	}
 
