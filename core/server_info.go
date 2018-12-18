@@ -7,6 +7,7 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/simagix/keyhole/mongo"
 )
 
 // MongoServerInfo constains server info from db.serverStatus()
@@ -30,14 +31,14 @@ type DBStats struct {
 
 // IsMaster executes dbisMaster()
 func IsMaster(session *mgo.Session) (bson.M, error) {
-	return AdminCommand(session, "isMaster")
+	return mongo.RunAdminCommand(session, "isMaster")
 }
 
 // GetMongoServerInfo returns MongoServerInfo from db.serverStatus()
 func GetMongoServerInfo(session *mgo.Session) (MongoServerInfo, error) {
 	var err error
 	info := MongoServerInfo{}
-	result, err := AdminCommand(session, "serverStatus")
+	result, err := mongo.RunAdminCommand(session, "serverStatus")
 	if err != nil {
 		return info, err
 	}
@@ -71,7 +72,7 @@ func GetMongoServerInfo(session *mgo.Session) (MongoServerInfo, error) {
 	list := []bson.M{}
 
 	for _, name := range names {
-		result, _ = AdminCommandOnDB(session, "dbStats", name)
+		result, _ = mongo.RunCommandOnDB(session, "dbStats", name)
 		b, _ := json.Marshal(result)
 		json.Unmarshal(b, &dbStats)
 		dataSize += dbStats.DataSize

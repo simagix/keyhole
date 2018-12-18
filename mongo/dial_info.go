@@ -4,7 +4,6 @@ package mongo
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strings"
 
@@ -36,8 +35,6 @@ func ParseURL(url string) (*mgo.DialInfo, error) {
 		srvAddr := dialInfo.Addrs[0]
 		params, pe := net.LookupTXT(srvAddr)
 		if pe != nil {
-			log.Println("Error:", pe)
-			log.Println("dialInfo.Addrs:", dialInfo.Addrs)
 			return nil, pe
 		}
 		if strings.Index(url, "?") < 0 {
@@ -48,13 +45,10 @@ func ParseURL(url string) (*mgo.DialInfo, error) {
 
 		dialInfo, err = mgo.ParseURL(url)
 		if err != nil {
-			log.Println("Error:", err)
 			return dialInfo, err
 		}
 		_, addrs, le := net.LookupSRV("mongodb", "tcp", srvAddr)
 		if le != nil {
-			log.Println("Error:", le)
-			log.Println("dialInfo.Addrs:", dialInfo.Addrs)
 			return nil, le
 		}
 		addresses := make([]string, len(addrs))

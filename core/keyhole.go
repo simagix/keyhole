@@ -180,3 +180,13 @@ func (b Base) collectAllStatus(uriList []string, simonly bool) {
 		time.Sleep(time.Second * 1)
 	}
 }
+
+// Cleanup drops the temp database
+func Cleanup(session *mgo.Session) error {
+	var err error
+	log.Println("dropping collection", SimDBName, CollectionName)
+	session.DB(SimDBName).C(CollectionName).DropCollection()
+	log.Println("dropping database", SimDBName)
+	session.DB(SimDBName).DropDatabase()
+	return err
+}
