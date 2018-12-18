@@ -114,7 +114,7 @@ func main() {
 
 	var dialInfo *mgo.DialInfo
 
-	if dialInfo, err = keyhole.ParseDialInfo(*uri); err != nil {
+	if dialInfo, err = mongo.ParseURL(*uri); err != nil {
 		panic(err)
 	}
 
@@ -130,7 +130,7 @@ func main() {
 		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
 
-	session, err := keyhole.GetSessionWithTimeout(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile, 10*time.Second)
+	session, err := mongo.GetSessionWithTimeout(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile, 10*time.Second)
 	if err != nil {
 		panic(err)
 	}

@@ -10,74 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"net"
 	"os"
 	"runtime"
-	"strings"
 	"syscall"
 
-	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	"golang.org/x/crypto/ssh/terminal"
 )
-
-// ParseDialInfo supports seedlist connection string mongodb+srv://
-func ParseDialInfo(uri string) (*mgo.DialInfo, error) {
-	isSRV := false
-	if strings.Index(uri, "mongodb+srv://") == 0 {
-		isSRV = true
-		// *ssl = true
-		uri = "mongodb://" + (uri)[14:]
-		if strings.Index(uri, "ssl=") < 0 {
-			if strings.Index(uri, "?") < 0 {
-				uri = uri + "?ssl=true"
-			} else {
-				uri = uri + "&ssl=true"
-			}
-		}
-	}
-
-	dialInfo, err := mgo.ParseURL(uri)
-	if err != nil {
-		return dialInfo, err
-	}
-
-	if isSRV == true {
-		srvAddr := dialInfo.Addrs[0]
-		params, pe := net.LookupTXT(srvAddr)
-		if pe != nil {
-			log.Println("Error:", pe)
-			log.Println("dialInfo.Addrs:", dialInfo.Addrs)
-			return nil, pe
-		}
-		if strings.Index(uri, "?") < 0 {
-			uri = uri + "?" + params[0]
-		} else {
-			uri = uri + "&" + params[0]
-		}
-
-		dialInfo, err = mgo.ParseURL(uri)
-		if err != nil {
-			log.Println("Error:", err)
-			return dialInfo, err
-		}
-		_, addrs, le := net.LookupSRV("mongodb", "tcp", srvAddr)
-		if le != nil {
-			log.Println("Error:", le)
-			log.Println("dialInfo.Addrs:", dialInfo.Addrs)
-			return nil, le
-		}
-		addresses := make([]string, len(addrs))
-		for i, addr := range addrs {
-			address := strings.TrimSuffix(addr.Target, ".")
-			addresses[i] = fmt.Sprintf("%s:%d", address, addr.Port)
-		}
-		dialInfo.Addrs = addresses
-	}
-
-	return dialInfo, err
-}
 
 // NewReader returns a reader from either a gzip or plain file
 func NewReader(file *os.File) (*bufio.Reader, error) {
