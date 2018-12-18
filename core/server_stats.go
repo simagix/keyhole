@@ -286,7 +286,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 	for {
 		session, err := mongo.GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
-			if doc, err = AdminCommand(session, "replSetGetStatus"); err != nil {
+			if doc, err = mongo.RunAdminCommand(session, "replSetGetStatus"); err != nil {
 				log.Println(err)
 				continue
 			}

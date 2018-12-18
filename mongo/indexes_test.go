@@ -3,7 +3,6 @@
 package mongo
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/globalsign/mgo"
@@ -33,7 +32,6 @@ func TestGetIndexesFromDB(t *testing.T) {
 
 	// get index from keyhole database
 	str = GetIndexesFromDB(session, dbName)
-	fmt.Println(str)
 	t.Log(str)
 }
 

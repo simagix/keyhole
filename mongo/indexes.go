@@ -5,7 +5,6 @@ package mongo
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,9 +56,7 @@ func GetIndexesFromDB(session *mgo.Session, dbName string) string {
 		}
 		results := []bson.M{}
 		err := session.DB(dbName).C(coll).Pipe(pipeline).All(&results)
-		if err != nil {
-			log.Println(err)
-		} else if len(results) < 1 {
+		if err != nil || len(results) == 0 {
 			continue
 		}
 		indexes, _ := session.DB(dbName).C(coll).Indexes()
