@@ -16,6 +16,7 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/simagix/keyhole/mongo"
 )
 
 var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
@@ -177,7 +178,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 
 	var dialInfo *mgo.DialInfo
 	var err error
-	if dialInfo, err = ParseDialInfo(uri); err != nil {
+	if dialInfo, err = mongo.ParseURL(uri); err != nil {
 		return
 	}
 
@@ -187,7 +188,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	}
 	channel <- "[" + mapKey + "] CollectServerStatus begins\n"
 	for {
-		session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := mongo.GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
 			serverStatus := bson.M{}
 			session.DB("admin").Run("serverStatus", &serverStatus)
@@ -265,7 +266,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 
 	var dialInfo *mgo.DialInfo
 	var err error
-	if dialInfo, err = ParseDialInfo(uri); err != nil {
+	if dialInfo, err = mongo.ParseURL(uri); err != nil {
 		return
 	}
 
@@ -283,7 +284,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 	channel <- "[" + mapKey + "] ReplSetGetStatus begins\n"
 
 	for {
-		session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := mongo.GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
 			if doc, err = AdminCommand(session, "replSetGetStatus"); err != nil {
 				log.Println(err)
@@ -325,13 +326,13 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	dialInfo, _ := ParseDialInfo(uri)
+	dialInfo, _ := mongo.ParseURL(uri)
 	mapKey := dialInfo.ReplicaSetName
 	if mapKey == "" {
 		mapKey = STANDALONE
 	}
 	channel <- "[" + mapKey + "] CollectDBStats begins\n"
-	session, err := GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+	session, err := mongo.GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
@@ -365,8 +366,8 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	var filename string
 	var str string
 
-	dialInfo, _ := ParseDialInfo(uri)
-	if session, err = GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	dialInfo, _ := mongo.ParseURL(uri)
+	if session, err = mongo.GetSession(dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return filename, err
 	}
 	defer session.Close()
@@ -392,7 +393,7 @@ func (b Base) saveServerStatusDocsToFile(uri string) (string, error) {
 	var file *os.File
 	var err error
 	var filename string
-	dialInfo, _ := ParseDialInfo(uri)
+	dialInfo, _ := mongo.ParseURL(uri)
 	mapKey := dialInfo.ReplicaSetName
 	if mapKey == "" {
 		mapKey = STANDALONE

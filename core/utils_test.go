@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/simagix/keyhole/mongo"
 )
 
 func TestParseDialInfo(t *testing.T) {
 	uri := "mongodb://root:secret@keyhole-00-jgtm2.mongodb.net,keyhole-01-jgtm2.mongodb.net/test"
-	dialInfo, err := ParseDialInfo(uri)
+	dialInfo, err := mongo.ParseURL(uri)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +24,7 @@ func TestParseDialInfo(t *testing.T) {
 
 func TestParseDialInfoSrv(t *testing.T) {
 	uri := "mongodb+srv://root:secret@keyhole-jgtm2.mongodb.net/test"
-	dialInfo, err := ParseDialInfo(uri)
+	dialInfo, err := mongo.ParseURL(uri)
 	if err != nil {
 		t.Fatal(err)
 	}

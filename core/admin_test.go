@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/globalsign/mgo"
+	"github.com/simagix/keyhole/mongo"
 )
 
 var unitTestURI = "mongodb://localhost/"
@@ -21,10 +22,10 @@ func getSession() (*mgo.Session, error) {
 		unitTestURI = os.Getenv("DATABASE_URL")
 	}
 
-	if dialInfo, err = ParseDialInfo(unitTestURI); err != nil {
+	if dialInfo, err = mongo.ParseURL(unitTestURI); err != nil {
 		return session, err
 	}
-	return GetSession(dialInfo, false, false, "", "")
+	return mongo.GetSession(dialInfo, false, false, "", "")
 }
 
 func TestAdminCommand(t *testing.T) {

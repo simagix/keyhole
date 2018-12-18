@@ -4,34 +4,24 @@ package mongo
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/globalsign/mgo"
-	keyhole "github.com/simagix/keyhole/core"
 )
 
 var dbName = "keyhole"
 
 func indexesTestInit(t *testing.T) *mgo.Session {
 	var err error
-	var dialInfo *mgo.DialInfo
 	var session *mgo.Session
-	uri := "mongodb://localhost/"
-	if os.Getenv("DATABASE_URL") != "" {
-		uri = os.Getenv("DATABASE_URL")
+	if session, err = GetTestSession(); err != nil {
+		return nil
 	}
-
-	if dialInfo, err = keyhole.ParseDialInfo(uri); err != nil {
-		t.Fatal(err)
-	}
-	if session, err = keyhole.GetSession(dialInfo, false, false, "", ""); err != nil {
-		t.Fatal(err)
-	}
-
-	c := session.DB(dbName).C("vehicles")
+	c := session.DB(dbName).C("examples")
 	c.EnsureIndexKey("a")
+	c.EnsureIndexKey("a", "b", "c")
 	c.EnsureIndexKey("a", "b")
+	c.EnsureIndexKey("a", "c")
 	c.EnsureIndexKey("a", "-b")
 	return session
 }

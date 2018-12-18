@@ -9,6 +9,7 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/simagix/keyhole/mongo"
 )
 
 // Shard information
@@ -37,7 +38,7 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 		isSRV = true
 		uri = strings.Replace(uri, "mongodb+srv", "mongodb", 1)
 	}
-	dialInfo, _ := ParseDialInfo(uri)
+	dialInfo, _ := mongo.ParseURL(uri)
 	shards := ShardList{}
 	bytes, _ := json.Marshal(result)
 	json.Unmarshal(bytes, &shards)
