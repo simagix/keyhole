@@ -19,8 +19,11 @@ import (
 	"github.com/simagix/keyhole/mongo"
 )
 
-// ServerStatusDoc -
+// ServerStatusDoc server status document
 type ServerStatusDoc mongo.ServerStatusDoc
+
+// ReplSetStatusDoc replset document
+type ReplSetStatusDoc mongo.ReplSetStatusDoc
 
 var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
 var loc, _ = time.LoadLocation("Local")
