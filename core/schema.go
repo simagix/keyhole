@@ -31,14 +31,13 @@ func GetDemoFromFile(filename string) string {
 }
 
 // GetSchemaFromCollection returns a masked first doc of a collection
-func GetSchemaFromCollection(session *mgo.Session, dbName string, collection string, verbose bool) (string, error) {
+func GetSchemaFromCollection(session *mgo.Session, dbName string, collection string) (string, error) {
 	if collection == "" {
 		return "", errors.New("usage: keyhole --schema [--file filename | --uri connection_uri --collection collection_name]")
 	}
 	result := bson.M{}
 	c := session.DB(dbName).C(collection)
 	c.Find(bson.M{}).One(&result)
-
 	buf, _ := json.Marshal(result)
 	var f interface{}
 	if err := json.Unmarshal(buf, &f); err != nil {

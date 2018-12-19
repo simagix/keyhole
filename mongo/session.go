@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"net"
-	"time"
 
 	"github.com/globalsign/mgo"
 )
@@ -15,11 +14,6 @@ import (
 // GetSession connects to a mongod server without timeout timeout may interrupt load tests when
 // having multiple go routines
 func GetSession(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
-	return GetSessionWithTimeout(dialInfo, wmajor, ssl, sslCA, sslPEMKeyFile, 0)
-}
-
-// GetSessionWithTimeout returns a MongoDB session
-func GetSessionWithTimeout(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, sslPEMKeyFile string, timeout time.Duration) (*mgo.Session, error) {
 	if ssl {
 		tlsConfig := &tls.Config{}
 		tlsConfig.InsecureSkipVerify = true
@@ -44,8 +38,6 @@ func GetSessionWithTimeout(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA 
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		}
 	}
-	dialInfo.Timeout = time.Duration(timeout)
-
 	var session *mgo.Session
 	var err error
 	session, err = mgo.DialWithInfo(dialInfo)
