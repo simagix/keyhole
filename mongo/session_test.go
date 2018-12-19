@@ -5,6 +5,7 @@ package mongo
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/globalsign/mgo"
 )
@@ -62,7 +63,9 @@ func TestGetSessionWithTimeout(t *testing.T) {
 	if dialInfo, err = ParseURL(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSessionWithTimeout(dialInfo, false, false, "", "", 30); err != nil {
+
+	dialInfo.Timeout = time.Duration(30 * time.Second)
+	if session, err = GetSession(dialInfo, false, false, "", ""); err != nil {
 		t.Log(err)
 	}
 

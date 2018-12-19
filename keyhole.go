@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -16,7 +15,7 @@ import (
 	"github.com/simagix/keyhole/mongo"
 )
 
-var version string
+var version = "self-built"
 
 func main() {
 	bulksize := flag.Int("bulksize", 100, "bulk insert size")
@@ -113,15 +112,10 @@ func main() {
 	}
 
 	var dialInfo *mgo.DialInfo
-
+	var session *mgo.Session
 	if dialInfo, err = mongo.ParseURL(*uri); err != nil {
 		panic(err)
 	}
-
-	if *verbose {
-		log.Println("MongoDB URI:", *uri)
-	}
-
 	if dialInfo.Username != "" && dialInfo.Password == "" {
 		if dialInfo.Password, err = keyhole.ReadPasswordFromStdin(); err != nil {
 			panic(err)
@@ -129,9 +123,8 @@ func main() {
 		index := strings.Index(*uri, "@")
 		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
-
-	session, err := mongo.GetSessionWithTimeout(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile, 10*time.Second)
-	if err != nil {
+	dialInfo.Timeout = time.Duration(1 * time.Second)
+	if session, err = mongo.GetSession(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	defer session.Close()
@@ -157,7 +150,7 @@ func main() {
 		os.Exit(0)
 	} else if *schema == true {
 		var str string
-		if str, err = keyhole.GetSchemaFromCollection(session, dbName, *collection, *verbose); err != nil {
+		if str, err = keyhole.GetSchemaFromCollection(session, dbName, *collection); err != nil {
 			fmt.Println(err)
 		}
 		fmt.Println(str)
@@ -167,6 +160,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	dialInfo.Timeout = time.Duration(0)
 	runner := keyhole.NewBase(dialInfo, *uri, *ssl, *sslCAFile, *sslPEMKeyFile,
 		*tps, *file, *verbose, *peek, *monitor,
 		*bulksize, *duration, *cleanup, *drop,

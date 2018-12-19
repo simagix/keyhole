@@ -28,7 +28,7 @@ func TestGetSchemaFromCollection(t *testing.T) {
 	defer session.Close()
 
 	var str string
-	if str, err = GetSchemaFromCollection(session, "keyhole", "cars", false); err != nil {
+	if str, err = GetSchemaFromCollection(session, "keyhole", "cars"); err != nil {
 		t.Fatal(err)
 	}
 
