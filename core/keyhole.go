@@ -96,6 +96,15 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 		if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
 			return err
 		}
+
+		idx := mgo.Index{
+			Key: []string{"$hashed:_id"},
+		}
+
+		if err = session.DB(SimDBName).C(CollectionName).EnsureIndex(idx); err != nil {
+			return err
+		}
+
 		if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
 			return err
 		}
