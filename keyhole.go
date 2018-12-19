@@ -142,8 +142,8 @@ func main() {
 	}
 
 	if *info == true {
-		var info keyhole.MongoServerInfo
-		if info, err = keyhole.GetMongoServerInfo(session); err != nil {
+		var info mongo.ServerInfo
+		if info, err = mongo.GetServerInfo(session); err != nil {
 			panic(err)
 		}
 		bytes, _ := json.MarshalIndent(info, "", "  ")

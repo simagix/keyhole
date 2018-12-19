@@ -20,3 +20,8 @@ func RunCommandOnDB(session *mgo.Session, command string, db string) (bson.M, er
 	}
 	return result, nil
 }
+
+// IsMaster executes dbisMaster()
+func IsMaster(session *mgo.Session) (bson.M, error) {
+	return RunAdminCommand(session, "isMaster")
+}

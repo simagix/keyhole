@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
+	"github.com/simagix/keyhole/mongo"
 )
 
 // SimDBName - db name for simulation
@@ -40,7 +42,7 @@ type Base struct {
 	dbName        string
 }
 
-var ssi MongoServerInfo
+var ssi mongo.ServerInfo
 
 // NewBase - Constructor
 func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, sslPEMKeyFile string,
@@ -56,12 +58,12 @@ func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, ssl
 func getShardsURIList(session *mgo.Session, uri string) ([]string, error) {
 	var uriList []string
 	var err error
-	if ssi, err = GetMongoServerInfo(session); err != nil {
+	if ssi, err = mongo.GetServerInfo(session); err != nil {
 		return uriList, err
 	}
-	uriList = append(uriList, uri)
-	if ssi.Cluster == SHARDED {
-		if uriList, err = GetShards(session, uri); err != nil {
+	uriList = []string{uri}
+	if ssi.Cluster == mongo.SHARDED {
+		if uriList, err = mongo.GetShards(session, uri); err != nil {
 			return uriList, err
 		}
 	}
@@ -83,7 +85,18 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 			Cleanup(session)
 		}
 
-		if err = ShardCollection(session); err != nil {
+		var ssi mongo.ServerInfo
+		if ssi, err = mongo.GetServerInfo(session); err != nil || ssi.Cluster != mongo.SHARDED {
+			return err
+		}
+
+		collname := SimDBName + "." + CollectionName
+		log.Println("Sharding collection:", collname)
+		result := bson.M{}
+		if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
+			return err
+		}
+		if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
 			return err
 		}
 

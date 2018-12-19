@@ -281,7 +281,6 @@ func GetOpCountersTSV() []string {
 func GetLatenciesTSV() []string {
 	var docs []string
 	var r, w, c float64
-	// var pstat ServerStatusDoc
 
 	docs = append(docs, "date\tReads (ms)\tWrites (ms)\tCommands (ms)")
 	for i, stat := range diagnosticData.ServerStatusList {

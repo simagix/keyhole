@@ -41,3 +41,16 @@ func TestRunCommandOnDB(t *testing.T) {
 		t.Log(string(bytes))
 	}
 }
+
+func TestIsMaster(t *testing.T) {
+	var err error
+	var session *mgo.Session
+	var m bson.M
+	if session, err = GetTestSession(); err != nil {
+		t.Fatal(err)
+	}
+	if m, err = IsMaster(session); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(m)
+}
