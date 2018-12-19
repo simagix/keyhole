@@ -1,19 +1,17 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package keyhole
+package mongo
 
 import (
 	"encoding/json"
-	"log"
 	"strings"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/simagix/keyhole/mongo"
 )
 
-// Shard information
-type Shard struct {
+// ShardDoc information
+type ShardDoc struct {
 	ID    string `json:"_id" bson:"_id"`
 	Host  string `json:"host" bson:"host"`
 	State int    `json:"state" bson:"state"`
@@ -21,8 +19,8 @@ type Shard struct {
 
 // ShardList -
 type ShardList struct {
-	Shards []Shard `json:"shards" bson:"shards"`
-	OK     int     `json:"ok" bson:"ok"`
+	Shards []ShardDoc `json:"shards" bson:"shards"`
+	OK     int        `json:"ok" bson:"ok"`
 }
 
 // GetShards -
@@ -38,7 +36,7 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 		isSRV = true
 		uri = strings.Replace(uri, "mongodb+srv", "mongodb", 1)
 	}
-	dialInfo, _ := mongo.ParseURL(uri)
+	dialInfo, _ := ParseURL(uri)
 	shards := ShardList{}
 	bytes, _ := json.Marshal(result)
 	json.Unmarshal(bytes, &shards)
@@ -67,30 +65,4 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 		list = append(list, ruri)
 	}
 	return list, nil
-}
-
-// ShardCollection -
-func ShardCollection(session *mgo.Session) error {
-	var err error
-	// db := session.DB(SimDBName)
-	// coll := db.C(CollectionName)
-	// coll.DropCollection()
-	ssi, err = GetMongoServerInfo(session)
-	if err != nil {
-		return err
-	}
-	if ssi.Cluster != SHARDED {
-		return nil
-	}
-
-	collname := SimDBName + "." + CollectionName
-	log.Println("Sharding collection:", collname)
-	result := bson.M{}
-	if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
-		return err
-	}
-	if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
-		return err
-	}
-	return nil
 }
