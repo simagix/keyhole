@@ -18,6 +18,12 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// OptimeDoc -
+type OptimeDoc struct {
+	T  int                 `json:"t" bson:"t"`
+	TS bson.MongoTimestamp `json:"ts" bson:"ts"`
+}
+
 // NewReader returns a reader from either a gzip or plain file
 func NewReader(file *os.File) (*bufio.Reader, error) {
 	var buf []byte

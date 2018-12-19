@@ -1,11 +1,9 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package keyhole
+package mongo
 
 import (
 	"time"
-
-	"github.com/globalsign/mgo/bson"
 )
 
 // PRIMARY - primary node
@@ -13,12 +11,6 @@ const PRIMARY = "PRIMARY"
 
 // SECONDARY - secondary node
 const SECONDARY = "SECONDARY"
-
-// OptimeDoc -
-type OptimeDoc struct {
-	T  int                 `json:"t" bson:"t"`
-	TS bson.MongoTimestamp `json:"ts" bson:"ts"`
-}
 
 // MemberDoc stores replset status
 type MemberDoc struct {

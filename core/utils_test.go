@@ -5,32 +5,9 @@ package keyhole
 import (
 	"bufio"
 	"compress/gzip"
-	"encoding/json"
 	"os"
 	"testing"
-
-	"github.com/simagix/keyhole/mongo"
 )
-
-func TestParseDialInfo(t *testing.T) {
-	uri := "mongodb://root:secret@keyhole-00-jgtm2.mongodb.net,keyhole-01-jgtm2.mongodb.net/test"
-	dialInfo, err := mongo.ParseURL(uri)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bytes, _ := json.MarshalIndent(dialInfo.Addrs, "", "  ")
-	t.Log(string(bytes))
-}
-
-func TestParseDialInfoSrv(t *testing.T) {
-	uri := "mongodb+srv://root:secret@keyhole-jgtm2.mongodb.net/test"
-	dialInfo, err := mongo.ParseURL(uri)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bytes, _ := json.MarshalIndent(dialInfo.Addrs, "", "  ")
-	t.Log(string(bytes))
-}
 
 func TestNewReader(t *testing.T) {
 	var err error
