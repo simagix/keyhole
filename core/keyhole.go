@@ -26,7 +26,6 @@ var CollectionName = "examples"
 type Base struct {
 	dialInfo      *mgo.DialInfo
 	uri           string
-	ssl           bool
 	sslCAFile     string
 	sslPEMKeyFile string
 	tps           int
@@ -44,10 +43,10 @@ type Base struct {
 var ssi mongo.ServerInfo
 
 // NewBase - Constructor
-func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, sslPEMKeyFile string,
+func NewBase(dialInfo *mgo.DialInfo, uri string, sslCAFile string, sslPEMKeyFile string,
 	tps int, filename string, verbose bool, peek bool, monitor bool,
 	bulkSize int, duration int, cleanup bool, drop bool, dbName string) Base {
-	runner := Base{dialInfo, uri, ssl, sslCAFile, sslPEMKeyFile,
+	runner := Base{dialInfo, uri, sslCAFile, sslPEMKeyFile,
 		tps, filename, verbose, peek, monitor,
 		bulkSize, duration, cleanup, drop, dbName}
 	runner.initSimDocs()

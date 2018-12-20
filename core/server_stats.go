@@ -56,7 +56,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	}
 	channel <- "[" + mapKey + "] CollectServerStatus begins\n"
 	for {
-		session, err := mongo.GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
 			serverStatus := bson.M{}
 			session.DB("admin").Run("serverStatus", &serverStatus)
@@ -152,7 +152,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 	channel <- "[" + mapKey + "] ReplSetGetStatus begins\n"
 
 	for {
-		session, err := mongo.GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile)
 		if err == nil {
 			if doc, err = mongo.RunAdminCommand(session, "replSetGetStatus"); err != nil {
 				log.Println(err)
@@ -200,7 +200,7 @@ func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
 		mapKey = mongo.STANDALONE
 	}
 	channel <- "[" + mapKey + "] CollectDBStats begins\n"
-	session, err := mongo.GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile)
+	session, err := mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
@@ -235,7 +235,7 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	var str string
 
 	dialInfo, _ := mongo.ParseURL(uri)
-	if session, err = mongo.GetSession(dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, err = mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return filename, err
 	}
 	defer session.Close()
