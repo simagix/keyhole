@@ -11,7 +11,6 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/simagix/keyhole/mongo"
 )
 
 var simDocs []bson.M
@@ -68,7 +67,7 @@ func (b Base) initSimDocs() {
 func (b Base) PopulateData() error {
 	var session *mgo.Session
 	var err error
-	if session, err = mongo.GetSession(b.dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, err = mgo.DialWithInfo(b.dialInfo); err != nil {
 		return err
 	}
 	defer session.Close()
@@ -95,10 +94,9 @@ func (b Base) PopulateData() error {
 func (b Base) Simulate(duration int, transactions []Transaction) {
 	isTeardown := false
 	var totalTPS int
-
 	var session *mgo.Session
 	var err error
-	if session, err = mongo.GetSession(b.dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, err = mgo.DialWithInfo(b.dialInfo); err != nil {
 		return
 	}
 	defer session.Close()
@@ -182,7 +180,7 @@ func cloneDoc(doc bson.M) bson.M {
 func (b Base) CreateIndexes(docs []bson.M) error {
 	var session *mgo.Session
 	var err error
-	if session, _ = mongo.GetSession(b.dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, _ = mgo.DialWithInfo(b.dialInfo); err != nil {
 		return err
 	}
 	defer session.Close()

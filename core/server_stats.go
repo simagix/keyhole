@@ -32,22 +32,16 @@ var serverStatusDocs = map[string][]bson.M{}
 var replSetStatusDocs = map[string][]ReplSetStatusDoc{}
 
 // CollectServerStatus collects db.serverStatus() every minute
-func (b Base) CollectServerStatus(uri string, channel chan string) {
-	pstat := ServerStatusDoc{}
-	stat := ServerStatusDoc{}
+func (b Base) CollectServerStatus(dialInfo *mgo.DialInfo, uri string, channel chan string) {
+	var pstat = ServerStatusDoc{}
+	var stat = ServerStatusDoc{}
 	var iop int
 	var piop int
-	wSeconds := 10
+	var wSeconds = 10
 	var r, w, c float64
 	if b.verbose {
 		rstr := fmt.Sprintf("CollectServerStatus collects every %d seconds(s)\n", wSeconds)
 		channel <- rstr
-	}
-
-	var dialInfo *mgo.DialInfo
-	var err error
-	if dialInfo, err = mongo.ParseURL(uri); err != nil {
-		return
 	}
 
 	mapKey := dialInfo.ReplicaSetName
@@ -56,7 +50,7 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 	}
 	channel <- "[" + mapKey + "] CollectServerStatus begins\n"
 	for {
-		session, err := mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := mgo.DialWithInfo(dialInfo)
 		if err == nil {
 			serverStatus := bson.M{}
 			session.DB("admin").Run("serverStatus", &serverStatus)
@@ -128,17 +122,10 @@ func (b Base) CollectServerStatus(uri string, channel chan string) {
 }
 
 // ReplSetGetStatus collects {replSetGetStatus: 1} every minute
-func (b Base) ReplSetGetStatus(uri string, channel chan string) {
+func (b Base) ReplSetGetStatus(dialInfo *mgo.DialInfo, uri string, channel chan string) {
 	var replSetStatus = ReplSetStatusDoc{}
 	var doc bson.M
-
-	var dialInfo *mgo.DialInfo
-	var err error
-	if dialInfo, err = mongo.ParseURL(uri); err != nil {
-		return
-	}
-
-	mapKey := dialInfo.ReplicaSetName
+	var mapKey = dialInfo.ReplicaSetName
 	if mapKey == "" {
 		rstr := fmt.Sprintf("Not a replica set, collector exiting\n")
 		channel <- rstr
@@ -152,7 +139,7 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 	channel <- "[" + mapKey + "] ReplSetGetStatus begins\n"
 
 	for {
-		session, err := mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile)
+		session, err := mgo.DialWithInfo(dialInfo)
 		if err == nil {
 			if doc, err = mongo.RunAdminCommand(session, "replSetGetStatus"); err != nil {
 				log.Println(err)
@@ -188,19 +175,19 @@ func (b Base) ReplSetGetStatus(uri string, channel chan string) {
 }
 
 // CollectDBStats collects dbStats every 10 seconds
-func (b Base) CollectDBStats(uri string, channel chan string, dbName string) {
+func (b Base) CollectDBStats(dialInfo *mgo.DialInfo, channel chan string, dbName string) {
 	var docs map[string]interface{}
 	var prevDataSize float64
 	var dataSize float64
+	var err error
 	prevTime := time.Now()
 	now := prevTime
-	dialInfo, _ := mongo.ParseURL(uri)
 	mapKey := dialInfo.ReplicaSetName
 	if mapKey == "" {
 		mapKey = mongo.STANDALONE
 	}
 	channel <- "[" + mapKey + "] CollectDBStats begins\n"
-	session, err := mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile)
+	session, err := mgo.DialWithInfo(dialInfo)
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
@@ -233,9 +220,14 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 	var err error
 	var filename string
 	var str string
-
-	dialInfo, _ := mongo.ParseURL(uri)
-	if session, err = mongo.GetSession(dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	var dialInfo *mgo.DialInfo
+	if dialInfo, err = mongo.ParseURL(uri); err != nil {
+		return filename, err
+	}
+	if err = mongo.AddCertificates(dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+		return filename, err
+	}
+	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
 		return filename, err
 	}
 	defer session.Close()

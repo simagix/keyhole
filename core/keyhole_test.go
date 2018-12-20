@@ -24,7 +24,7 @@ func getSession() (*mgo.Session, error) {
 	if dialInfo, err = mongo.ParseURL(unitTestURI); err != nil {
 		return session, err
 	}
-	return mongo.GetSession(dialInfo, "", "")
+	return mgo.DialWithInfo(dialInfo)
 }
 
 func TestGetShardsURIList(t *testing.T) {

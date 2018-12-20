@@ -84,27 +84,29 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 		}
 
 		var ssi mongo.ServerInfo
-		if ssi, err = mongo.GetServerInfo(session); err != nil || ssi.Cluster != mongo.SHARDED {
+		if ssi, err = mongo.GetServerInfo(session); err != nil {
 			return err
 		}
 
-		collname := SimDBName + "." + CollectionName
-		log.Println("Sharding collection:", collname)
-		result := bson.M{}
-		if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
-			return err
-		}
+		if ssi.Cluster == mongo.SHARDED {
+			collname := SimDBName + "." + CollectionName
+			log.Println("Sharding collection:", collname)
+			result := bson.M{}
+			if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
+				return err
+			}
 
-		idx := mgo.Index{
-			Key: []string{"$hashed:_id"},
-		}
+			idx := mgo.Index{
+				Key: []string{"$hashed:_id"},
+			}
 
-		if err = session.DB(SimDBName).C(CollectionName).EnsureIndex(idx); err != nil {
-			return err
-		}
+			if err = session.DB(SimDBName).C(CollectionName).EnsureIndex(idx); err != nil {
+				return err
+			}
 
-		if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
-			return err
+			if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
+				return err
+			}
 		}
 
 		// Simulation mode
@@ -163,8 +165,8 @@ func (b Base) terminate(session *mgo.Session, uriList []string) {
 	var filename string
 	var err error
 
-	for _, value := range uriList {
-		if filename, err = b.PrintServerStatus(value, 60); err != nil {
+	for _, uri := range uriList {
+		if filename, err = b.PrintServerStatus(uri, 60); err != nil {
 			log.Println(err)
 			continue
 		}
@@ -181,16 +183,25 @@ func (b Base) terminate(session *mgo.Session, uriList []string) {
 
 func (b Base) collectAllStatus(uriList []string, simonly bool) {
 	var channel = make(chan string)
-	for _, value := range uriList {
+	var err error
+	var dialInfo *mgo.DialInfo
+
+	for _, uri := range uriList {
+		if dialInfo, err = mongo.ParseURL(uri); err != nil {
+			continue
+		}
+		if err = mongo.AddCertificates(dialInfo, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+			continue
+		}
 		if b.monitor == false {
 			if b.peek == true { // peek mode watch a defined db
-				go b.CollectDBStats(value, channel, b.dbName)
+				go b.CollectDBStats(dialInfo, channel, b.dbName)
 			} else if simonly == false { // load test mode watches _KEYHOLE_88000
-				go b.CollectDBStats(value, channel, SimDBName)
+				go b.CollectDBStats(dialInfo, channel, SimDBName)
 			}
 		}
-		go b.ReplSetGetStatus(value, channel)
-		go b.CollectServerStatus(value, channel)
+		go b.ReplSetGetStatus(dialInfo, uri, channel)
+		go b.CollectServerStatus(dialInfo, uri, channel)
 	}
 
 	// infinite loop waits for goroutine to send messages back
