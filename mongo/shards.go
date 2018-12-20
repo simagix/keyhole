@@ -25,9 +25,11 @@ type ShardList struct {
 
 // GetShards -
 func GetShards(session *mgo.Session, uri string) ([]string, error) {
+	var err error
+	var m bson.M
 	var list []string
-	result := bson.M{}
-	if err := session.DB("admin").Run("listShards", &result); err != nil {
+
+	if m, err = RunAdminCommand(session, "listShards"); err != nil {
 		return list, err
 	}
 
@@ -38,7 +40,7 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 	}
 	dialInfo, _ := ParseURL(uri)
 	shards := ShardList{}
-	bytes, _ := json.Marshal(result)
+	bytes, _ := json.Marshal(m)
 	json.Unmarshal(bytes, &shards)
 
 	for s := range shards.Shards {
@@ -49,18 +51,18 @@ func GetShards(session *mgo.Session, uri string) ([]string, error) {
 		}
 		ruri := "mongodb://"
 		if dialInfo.Username != "" {
-			ruri = ruri + dialInfo.Username + ":" + dialInfo.Password + "@"
+			ruri += dialInfo.Username + ":" + dialInfo.Password + "@"
 		}
 		if len(s) == 1 {
-			ruri = ruri + s[0] + "/?"
+			ruri += s[0] + "/?"
 		} else {
-			ruri = ruri + s[1] + "/?replicaSet=" + dialInfo.ReplicaSetName
+			ruri += s[1] + "/?replicaSet=" + dialInfo.ReplicaSetName
 		}
 		if dialInfo.Source != "" {
-			ruri = ruri + "&authSource=" + dialInfo.Source
+			ruri += "&authSource=" + dialInfo.Source
 		}
 		if isSRV == true {
-			ruri = ruri + "&authSource=admin&ssl=true"
+			ruri += "&authSource=admin&ssl=true"
 		}
 		list = append(list, ruri)
 	}
