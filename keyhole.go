@@ -115,8 +115,11 @@ func main() {
 		index := strings.Index(*uri, "@")
 		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
+	if err = mongo.AddCertificates(dialInfo, *sslCAFile, *sslPEMKeyFile); err != nil {
+		panic(err)
+	}
 	dialInfo.Timeout = time.Duration(1 * time.Second)
-	if session, err = mongo.GetSession(dialInfo, *sslCAFile, *sslPEMKeyFile); err != nil {
+	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
 		panic(err)
 	}
 	defer session.Close()

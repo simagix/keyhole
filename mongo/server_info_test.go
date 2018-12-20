@@ -24,7 +24,7 @@ func TestGetServerInfo(t *testing.T) {
 	if dialInfo, err = ParseURL(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, "", ""); err != nil {
+	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
 		t.Fatal(err)
 	}
 

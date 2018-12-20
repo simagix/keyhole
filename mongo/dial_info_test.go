@@ -3,10 +3,31 @@
 package mongo
 
 import (
+	"os"
 	"testing"
 
 	"github.com/globalsign/mgo"
 )
+
+var UnitTestURL = "mongodb://localhost/"
+
+func GetTestSession() (*mgo.Session, error) {
+	var err error
+	var dialInfo *mgo.DialInfo
+	var session *mgo.Session
+
+	if os.Getenv("DATABASE_URL") != "" {
+		UnitTestURL = os.Getenv("DATABASE_URL")
+	}
+
+	if dialInfo, err = ParseURL(UnitTestURL); err != nil {
+		return session, err
+	}
+	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
+		return session, err
+	}
+	return session, err
+}
 
 func TestParseURL(t *testing.T) {
 	var err error
@@ -27,4 +48,7 @@ func TestParseURL(t *testing.T) {
 	if dialInfo.Username != "user" {
 		t.Fatal()
 	}
+}
+
+func TestAddCertificates(t *testing.T) {
 }

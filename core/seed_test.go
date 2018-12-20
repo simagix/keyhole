@@ -23,7 +23,7 @@ func TestSeed(t *testing.T) {
 	if dialInfo, err = mongo.ParseURL(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = mongo.GetSession(dialInfo, "", ""); err != nil {
+	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
 		t.Fatal(err)
 	}
 	defer session.Close()
@@ -63,7 +63,7 @@ func TestSeedFromTemplate(t *testing.T) {
 	if dialInfo, err = mongo.ParseURL(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = mongo.GetSession(dialInfo, "", ""); err != nil {
+	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
 		t.Fatal(err)
 	}
 	defer session.Close()
