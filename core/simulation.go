@@ -65,14 +65,10 @@ func (b Base) initSimDocs() {
 //	favoriteSports2
 //	favoriteSports3
 // }
-func (b Base) PopulateData(wmajor bool) error {
+func (b Base) PopulateData() error {
 	var session *mgo.Session
 	var err error
-
-	if b.verbose {
-		log.Println("PopulateData", wmajor)
-	}
-	if session, err = mongo.GetSession(b.dialInfo, wmajor, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, err = mongo.GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return err
 	}
 	defer session.Close()
@@ -96,16 +92,13 @@ func (b Base) PopulateData(wmajor bool) error {
 }
 
 // Simulate simulates CRUD for load tests
-func (b Base) Simulate(duration int, transactions []Transaction, wmajor bool) {
-	if b.verbose {
-		log.Println("Simulate", duration, transactions, wmajor)
-	}
+func (b Base) Simulate(duration int, transactions []Transaction) {
 	isTeardown := false
 	var totalTPS int
 
 	var session *mgo.Session
 	var err error
-	if session, err = mongo.GetSession(b.dialInfo, wmajor, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, err = mongo.GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return
 	}
 	defer session.Close()
@@ -189,7 +182,7 @@ func cloneDoc(doc bson.M) bson.M {
 func (b Base) CreateIndexes(docs []bson.M) error {
 	var session *mgo.Session
 	var err error
-	if session, _ = mongo.GetSession(b.dialInfo, false, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
+	if session, _ = mongo.GetSession(b.dialInfo, b.ssl, b.sslCAFile, b.sslPEMKeyFile); err != nil {
 		return err
 	}
 	defer session.Close()

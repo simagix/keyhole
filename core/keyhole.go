@@ -38,7 +38,6 @@ type Base struct {
 	duration      int
 	cleanup       bool
 	drop          bool
-	wmajor        bool
 	dbName        string
 }
 
@@ -47,10 +46,10 @@ var ssi mongo.ServerInfo
 // NewBase - Constructor
 func NewBase(dialInfo *mgo.DialInfo, uri string, ssl bool, sslCAFile string, sslPEMKeyFile string,
 	tps int, filename string, verbose bool, peek bool, monitor bool,
-	bulkSize int, duration int, cleanup bool, drop bool, wmajor bool, dbName string) Base {
+	bulkSize int, duration int, cleanup bool, drop bool, dbName string) Base {
 	runner := Base{dialInfo, uri, ssl, sslCAFile, sslPEMKeyFile,
 		tps, filename, verbose, peek, monitor,
-		bulkSize, duration, cleanup, drop, wmajor, dbName}
+		bulkSize, duration, cleanup, drop, dbName}
 	runner.initSimDocs()
 	return runner
 }
@@ -126,13 +125,13 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 		for i := 0; i < conn; i++ {
 			go func() {
 				if simonly == false {
-					if err = b.PopulateData(b.wmajor); err != nil {
+					if err = b.PopulateData(); err != nil {
 						return
 					}
 					time.Sleep(10 * time.Millisecond)
 				}
 
-				b.Simulate(simTime, tdoc.Transactions, b.wmajor)
+				b.Simulate(simTime, tdoc.Transactions)
 			}()
 		}
 	}
