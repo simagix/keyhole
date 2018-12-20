@@ -105,14 +105,14 @@ func GetIndexesFromDB(session *mgo.Session, dbName string) string {
 			font := "\x1b[0m  "
 			if o.Key != "{ _id: 1 }" {
 				if i < len(list)-1 && strings.Index(list[i+1].EffectiveKey, o.EffectiveKey) == 0 {
-					font = "\x1b[31;1mx "
+					font = "\x1b[31;1mx " // red
 				} else {
 					sum := 0
 					for _, u := range o.Usage {
 						sum += u.Ops
 					}
 					if sum == 0 {
-						font = "\x1b[33;1m? "
+						font = "\x1b[34;1m? " // blue
 					}
 				}
 			}

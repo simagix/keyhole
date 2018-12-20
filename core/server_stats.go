@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -52,16 +51,10 @@ func (b Base) CollectServerStatus(dialInfo *mgo.DialInfo, uri string, channel ch
 	for {
 		session, err := mgo.DialWithInfo(dialInfo)
 		if err == nil {
-			serverStatus := bson.M{}
-			session.DB("admin").Run("serverStatus", &serverStatus)
+			serverStatus, _ := mongo.RunAdminCommand(session, "serverStatus")
 			buf, _ := json.Marshal(serverStatus)
 			json.Unmarshal(buf, &stat)
 			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
-			// dkey := dialInfo.ReplicaSetName + "/" + strings.Join(dialInfo.Addrs[:], ",")
-			// ChartsDocs[dkey] = append(ChartsDocs[dkey], serverStatus)
-			// for len(ChartsDocs[dkey]) > 60 { // shift
-			// 	ChartsDocs[dkey] = ChartsDocs[dkey][1:]
-			// }
 			if len(serverStatusDocs[uri]) > 12 {
 				b.saveServerStatusDocsToFile(uri)
 			}
@@ -141,32 +134,30 @@ func (b Base) ReplSetGetStatus(dialInfo *mgo.DialInfo, uri string, channel chan 
 	for {
 		session, err := mgo.DialWithInfo(dialInfo)
 		if err == nil {
-			if doc, err = mongo.RunAdminCommand(session, "replSetGetStatus"); err != nil {
-				log.Println(err)
-				continue
-			}
+			doc, err = mongo.RunAdminCommand(session, "replSetGetStatus")
+			if err == nil {
+				buf, _ := json.Marshal(doc)
+				json.Unmarshal(buf, &replSetStatus)
+				replSetStatusDocs[uri] = append(replSetStatusDocs[uri], replSetStatus)
 
-			buf, _ := json.Marshal(doc)
-			json.Unmarshal(buf, &replSetStatus)
-			replSetStatusDocs[uri] = append(replSetStatusDocs[uri], replSetStatus)
-
-			if b.monitor == false {
-				sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
-				var ts int64
-				for _, mb := range replSetStatus.Members {
-					if mb.State == 1 {
-						ts = GetOptime(mb.Optime)
-						break
+				if b.monitor == false {
+					sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
+					var ts int64
+					for _, mb := range replSetStatus.Members {
+						if mb.State == 1 {
+							ts = GetOptime(mb.Optime)
+							break
+						}
 					}
-				}
 
-				str := fmt.Sprintf("[%s] replication lags: ", mapKey)
-				for _, mb := range replSetStatus.Members {
-					if mb.State == 2 {
-						str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-GetOptime(mb.Optime)))
+					str := fmt.Sprintf("[%s] replication lags: ", mapKey)
+					for _, mb := range replSetStatus.Members {
+						if mb.State == 2 {
+							str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-GetOptime(mb.Optime)))
+						}
 					}
+					channel <- str
 				}
-				channel <- str
 			}
 			session.Close()
 		}
@@ -191,8 +182,7 @@ func (b Base) CollectDBStats(dialInfo *mgo.DialInfo, channel chan string, dbName
 	defer session.Close()
 	for i := 0; i < 10; i++ { // no need to collect after first 1.5 minutes
 		if err == nil {
-			stat := bson.M{}
-			session.DB(dbName).Run("dbStats", &stat)
+			stat, _ := mongo.RunCommandOnDB(session, "dbStats", dbName)
 			buf, _ := json.Marshal(stat)
 			json.Unmarshal(buf, &docs)
 			if docs["dataSize"] != nil {
@@ -231,8 +221,7 @@ func (b Base) PrintServerStatus(uri string, span int) (string, error) {
 		return filename, err
 	}
 	defer session.Close()
-	serverStatus := bson.M{}
-	session.DB("admin").Run("serverStatus", &serverStatus)
+	serverStatus, _ := mongo.RunAdminCommand(session, "serverStatus")
 	buf, _ := json.Marshal(serverStatus)
 	json.Unmarshal(buf, &serverStatus)
 	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
