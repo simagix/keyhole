@@ -24,7 +24,7 @@ func GetTestSession() (*mgo.Session, error) {
 	if dialInfo, err = ParseURL(UnitTestURL); err != nil {
 		return session, err
 	}
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, "", ""); err != nil {
 		return session, err
 	}
 	return session, err
@@ -43,7 +43,7 @@ func TestGetSession(t *testing.T) {
 	if dialInfo, err = ParseURL(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, "", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -65,7 +65,7 @@ func TestGetSessionWithTimeout(t *testing.T) {
 	}
 
 	dialInfo.Timeout = time.Duration(30 * time.Second)
-	if session, err = GetSession(dialInfo, false, "", ""); err != nil {
+	if session, err = GetSession(dialInfo, "", ""); err != nil {
 		t.Log(err)
 	}
 
@@ -85,7 +85,7 @@ func TestGetSessionWithCertificates(t *testing.T) {
 	if dialInfo, err = ParseURL(uri); err != nil {
 		t.Fatal(err)
 	}
-	if session, err = GetSession(dialInfo, false, "/etc/ssl/certs/ca.pem", "/etc/ssl/certs/server.pem"); err != nil {
+	if session, err = GetSession(dialInfo, "/etc/ssl/certs/ca.pem", "/etc/ssl/certs/server.pem"); err != nil {
 		t.Fatal(err)
 	}
 

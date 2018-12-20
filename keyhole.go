@@ -36,7 +36,6 @@ func main() {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	span := flag.Int("span", -1, "granunarity for summary")
-	ssl := flag.Bool("ssl", false, "use TLS/SSL")
 	sslCAFile := flag.String("sslCAFile", "", "CA file")
 	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
@@ -53,12 +52,6 @@ func main() {
 	}
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
-
-	if *ssl && (len(*sslCAFile) == 0 || len(*sslPEMKeyFile) == 0) {
-		if len(*sslCAFile) != len(*sslPEMKeyFile) {
-			panic("need both CA and PEM files")
-		}
-	}
 
 	var err error
 	if *diag != "" {
@@ -123,7 +116,7 @@ func main() {
 		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
 	dialInfo.Timeout = time.Duration(1 * time.Second)
-	if session, err = mongo.GetSession(dialInfo, *ssl, *sslCAFile, *sslPEMKeyFile); err != nil {
+	if session, err = mongo.GetSession(dialInfo, *sslCAFile, *sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	defer session.Close()
@@ -160,7 +153,7 @@ func main() {
 	}
 
 	dialInfo.Timeout = time.Duration(0)
-	runner := keyhole.NewBase(dialInfo, *uri, *ssl, *sslCAFile, *sslPEMKeyFile,
+	runner := keyhole.NewBase(dialInfo, *uri, *sslCAFile, *sslPEMKeyFile,
 		*tps, *file, *verbose, *peek, *monitor,
 		*bulksize, *duration, *cleanup, *drop,
 		dbName)
