@@ -13,7 +13,7 @@ import (
 
 // GetSession connects to a mongod server without timeout timeout may interrupt load tests when
 // having multiple go routines
-func GetSession(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
+func GetSession(dialInfo *mgo.DialInfo, ssl bool, sslCA string, sslPEMKeyFile string) (*mgo.Session, error) {
 	if ssl {
 		tlsConfig := &tls.Config{}
 		tlsConfig.InsecureSkipVerify = true
@@ -38,14 +38,5 @@ func GetSession(dialInfo *mgo.DialInfo, wmajor bool, ssl bool, sslCA string, ssl
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		}
 	}
-	var session *mgo.Session
-	var err error
-	session, err = mgo.DialWithInfo(dialInfo)
-	if err == nil {
-		session.SetMode(mgo.Primary, true)
-		if wmajor {
-			session.SetSafe(&mgo.Safe{WMode: "majority"})
-		}
-	}
-	return session, err
+	return mgo.DialWithInfo(dialInfo)
 }

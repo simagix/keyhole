@@ -46,7 +46,6 @@ func main() {
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
 	webserver := flag.Bool("web", false, "enable web server")
-	wmajor := flag.Bool("wmajor", false, "{w: majority}")
 
 	flag.Parse()
 	if *uri == "" && len(flag.Args()) > 0 {
@@ -124,7 +123,7 @@ func main() {
 		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
 	}
 	dialInfo.Timeout = time.Duration(1 * time.Second)
-	if session, err = mongo.GetSession(dialInfo, *wmajor, *ssl, *sslCAFile, *sslPEMKeyFile); err != nil {
+	if session, err = mongo.GetSession(dialInfo, *ssl, *sslCAFile, *sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	defer session.Close()
@@ -164,7 +163,7 @@ func main() {
 	runner := keyhole.NewBase(dialInfo, *uri, *ssl, *sslCAFile, *sslPEMKeyFile,
 		*tps, *file, *verbose, *peek, *monitor,
 		*bulksize, *duration, *cleanup, *drop,
-		*wmajor, dbName)
+		dbName)
 	if err = runner.Start(session, *conn, *tx, *simonly); err != nil {
 		panic(err)
 	}
