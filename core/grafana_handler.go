@@ -107,7 +107,10 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 				var si ServerInfoDoc
 				b, _ := json.Marshal(g.serverInfo)
 				if err := json.Unmarshal(b, &si); err != nil {
-					return
+					rowList := [][]string{[]string{"Error", err.Error()}}
+					doc1 := bson.M{"columns": headerList, "type": "table", "rows": rowList}
+					tsData = append(tsData, doc1)
+					continue
 				}
 				rowList := [][]string{}
 
