@@ -86,7 +86,7 @@ func ReadPasswordFromStdin() (string, error) {
 // GetOptime -
 func GetOptime(optime interface{}) int64 {
 	var ts int64
-	switch v := optime.(type) {
+	switch optime.(type) {
 	case map[string]interface{}:
 		bm := optime.(map[string]interface{})
 		b, _ := json.Marshal(bm)
@@ -102,9 +102,7 @@ func GetOptime(optime interface{}) int64 {
 	case primitive.Timestamp:
 		ts = int64((optime.(primitive.Timestamp)).T)
 	default:
-		fmt.Printf("=>%T\n", optime)
-		fmt.Println("default", v)
-		os.Exit(0)
+		fmt.Printf("default =>%T\n", optime)
 	}
 
 	return int64(ts) >> 32
