@@ -57,11 +57,10 @@ func execTXForDemo(c *mgo.Collection, doc bson.M) int {
 	// txCount++
 	c.Find(bson.M{"favoriteCity": city}).Limit(20).All(&results)
 	txCount++
-	c.Find(bson.M{"favoriteCity": city, "favoriteBook": book}).One(&results)
+	c.Find(bson.D{{Name: "favoriteCity", Value: city}, {Name: "favoriteBook", Value: book}}).One(&results)
 	txCount++
 	c.Update(bson.M{"_id": doc["_id"]}, change)
 	txCount++
-	// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
 	c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}).One(&results)
 	txCount++
 	// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
