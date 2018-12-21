@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 // GetDocByTemplate returns a bson.M document
@@ -79,7 +80,7 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 				if value.(string) == "$date" || isDateString(value.(string)) {
 					(*doc)[key] = getDate()
 				} else if value.(string) == "$oId" || (len(value.(string)) == 24 && isHexString(value.(string))) {
-					(*doc)[key] = bson.NewObjectIdWithTime(time.Now())
+					(*doc)[key] = primitive.NewObjectID()
 				} else if value.(string) == "$hex" || isHexString(value.(string)) {
 					(*doc)[key] = getHexString(len(value.(string)))
 				} else {

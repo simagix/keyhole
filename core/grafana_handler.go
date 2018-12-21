@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 )
 
 func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {

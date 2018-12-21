@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/simagix/keyhole/mongo"
 )
 
@@ -92,7 +92,7 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 			collname := SimDBName + "." + CollectionName
 			log.Println("Sharding collection:", collname)
 			result := bson.M{}
-			if err = session.DB("admin").Run(bson.D{{Name: "enableSharding", Value: SimDBName}}, &result); err != nil {
+			if err = session.DB("admin").Run(bson.D{{Key: "enableSharding", Value: SimDBName}}, &result); err != nil {
 				return err
 			}
 
@@ -104,7 +104,7 @@ func (b Base) Start(session *mgo.Session, conn int, tx string, simonly bool) err
 				return err
 			}
 
-			if err = session.DB("admin").Run(bson.D{{Name: "shardCollection", Value: collname}, {Name: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
+			if err = session.DB("admin").Run(bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}, &result); err != nil {
 				return err
 			}
 		}

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 )
 
 func TestRunAdminCommand(t *testing.T) {

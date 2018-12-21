@@ -14,14 +14,15 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
 // OptimeDoc -
 type OptimeDoc struct {
-	T  int                 `json:"t" bson:"t"`
-	TS bson.MongoTimestamp `json:"ts" bson:"ts"`
+	T  int   `json:"t" bson:"t"`
+	TS int64 `json:"ts" bson:"ts"`
 }
 
 // NewReader returns a reader from either a gzip or plain file
@@ -84,16 +85,27 @@ func ReadPasswordFromStdin() (string, error) {
 
 // GetOptime -
 func GetOptime(optime interface{}) int64 {
-	var ts bson.MongoTimestamp
-	switch optime.(type) {
+	var ts int64
+	switch v := optime.(type) {
+	case map[string]interface{}:
+		bm := optime.(map[string]interface{})
+		b, _ := json.Marshal(bm)
+		var optm OptimeDoc
+		json.Unmarshal(b, &optm)
+		ts = optm.TS
 	case bson.M:
 		bm := optime.(bson.M)
 		b, _ := json.Marshal(bm)
 		var optm OptimeDoc
 		json.Unmarshal(b, &optm)
 		ts = optm.TS
-	case bson.MongoTimestamp:
-		ts = optime.(bson.MongoTimestamp)
+	case primitive.Timestamp:
+		ts = int64((optime.(primitive.Timestamp)).T)
+	default:
+		fmt.Printf("=>%T\n", optime)
+		fmt.Println("default", v)
+		os.Exit(0)
 	}
+
 	return int64(ts) >> 32
 }
