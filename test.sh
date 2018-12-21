@@ -6,7 +6,15 @@ mongod --version
 mkdir -p data/db
 rm -rf data/db/*
 mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB .5
+if [ $? != 0 ]; then
+    echo "failed to start mongod"
+    exit
+fi
 mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 10})"
+if [ $? != 0 ]; then
+    echo "failed to set profiling level"
+    exit
+fi
 export DATABASE_URL="mongodb://localhost:30097/"
 
 # Test version
