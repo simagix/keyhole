@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 var simDocs []bson.M
@@ -168,7 +169,7 @@ func (b Base) Simulate(duration int, transactions []Transaction) {
 
 // cloneDoc clones a doc and assign a _id
 func cloneDoc(doc bson.M) bson.M {
-	_id := bson.NewObjectId()
+	_id := primitive.NewObjectID()
 	var ndoc = make(bson.M)
 	bytes, _ := json.Marshal(doc)
 	json.Unmarshal(bytes, &ndoc)

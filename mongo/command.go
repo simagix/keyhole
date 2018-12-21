@@ -4,7 +4,7 @@ package mongo
 
 import (
 	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 )
 
 // RunAdminCommand executes admin Command
