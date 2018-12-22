@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -92,18 +91,21 @@ func GetOptime(optime interface{}) int64 {
 		b, _ := json.Marshal(bm)
 		var optm OptimeDoc
 		json.Unmarshal(b, &optm)
-		ts = optm.TS
-	case bson.M:
-		bm := optime.(bson.M)
-		b, _ := json.Marshal(bm)
-		var optm OptimeDoc
-		json.Unmarshal(b, &optm)
-		ts = optm.TS
-	case primitive.Timestamp:
-		ts = int64((optime.(primitive.Timestamp)).T)
+		ts = optm.TS >> 32
+	case primitive.D:
+		doc := optime.(primitive.D)
+		for _, elem := range doc {
+			if elem.Key == "ts" {
+				b, _ := json.Marshal(elem.Value)
+				var optm OptimeDoc
+				json.Unmarshal(b, &optm)
+				ts = int64(optm.T)
+				break
+			}
+		}
 	default:
-		fmt.Printf("default =>%T\n", optime)
+		panic(fmt.Sprintf("default =>%T\n", optime))
 	}
 
-	return int64(ts) >> 32
+	return ts
 }

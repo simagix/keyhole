@@ -27,6 +27,10 @@
 
 [[constraint]]
   branch = "master"
+  name = "github.com/mongodb/mongo-go-driver"
+
+[[constraint]]
+  branch = "master"
   name = "github.com/globalsign/mgo"
 
 [[constraint]]
