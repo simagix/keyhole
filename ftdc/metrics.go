@@ -54,7 +54,8 @@ func (m *Metrics) readMetrics(buffer []byte, summaryOnly bool) error {
 			}
 
 			if summaryOnly == true {
-				md = MetricsData{Buffer: block}
+				r := bytes.NewReader(block)
+				md = MetricsData{DataPointsMap: map[string][]int64{}, Buffer: block, DocSize: GetUint32(r)}
 				metricsData = append(metricsData, md)
 			} else {
 				if md, err = m.decode(block); err != nil {

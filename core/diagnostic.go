@@ -198,7 +198,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 		for _, v := range metrics.Data {
 			block := v.Buffer
 			var doc DiagnosticDoc
-			bson.Unmarshal(block, &doc) // first document
+			bson.Unmarshal(block[:v.DocSize], &doc) // first document
 			diagData.ServerStatusList = append(diagData.ServerStatusList, doc.ServerStatus)
 			diagData.SystemMetricsList = append(diagData.SystemMetricsList, doc.SystemMetrics)
 			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
@@ -209,7 +209,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 		for _, v := range metrics.Data {
 			block := v.Buffer
 			var doc DiagnosticDoc
-			bson.Unmarshal(block, &doc) // first document
+			bson.Unmarshal(block[:v.DocSize], &doc) // first document
 			diagData.ReplSetStatusList = append(diagData.ReplSetStatusList, doc.ReplSetGetStatus)
 		}
 		for _, v := range metrics.Data {
