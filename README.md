@@ -1,4 +1,7 @@
 # Keyhole - MongoDB Performance Analytic
+
+- 12/24/1018: Replaced globalsign/mgo with mongodb/mongo-go-driver
+
 Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  Moreover, keyhole can read MongoDB full-time diagnostic data (FTDC) data and is [integrated with Grafana's Simple JSON plugin](https://github.com/simagix/keyhole/wiki/MongoDB-FTDC-and-Grafana-Integration) seamlessly.  Golang was chosen to eliminate the needs to install an interpreter or 3pp modules.
 
 With Keyhole, experienced users should be able to spot performance issues and to determine whether upgrades are needed quickly from a few minutes of testing and analyzing the results.  Keyhole supports TLS/SSL connections.
@@ -42,12 +45,6 @@ An example connecting to Atlas
 
 ```
 keyhole --info "mongodb+srv://user:secret@cluster0-v7due.gcp.mongodb.net/test"
-```
-
-or
-
-```
-keyhole --info "mongodb://user:secret@cluster0-shard-00-00-v7due.gcp.mongodb.net:27017,cluster0-shard-00-01-v7due.gcp.mongodb.net:27017,cluster0-shard-00-02-v7due.gcp.mongodb.net:27017/test?replicaSet=Cluster0-shard-0&authSource=admin&ssl=true"
 ```
 
 ### TLS/SSL Mode
