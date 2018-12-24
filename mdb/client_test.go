@@ -24,7 +24,7 @@ func TestMongoClient(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = mongo.NewClient(uri); err != nil {
+	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

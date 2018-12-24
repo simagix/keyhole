@@ -21,7 +21,7 @@ func GetTestClient() (*mongo.Client, error) {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = mongo.NewClient(UnitTestURL); err != nil {
+	if client, err = mongo.NewClient(UnitTestURL); err != nil { // TODO: Add certificates
 		return client, err
 	}
 
@@ -38,7 +38,7 @@ func TestGetServerInfo(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = mongo.NewClient(uri); err != nil {
+	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 		t.Fatal(err)
 	}
 	client.Connect(context.Background())

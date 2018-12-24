@@ -70,7 +70,7 @@ func PopulateData(uri string) error {
 	var err error
 	var client *mongo.Client
 	ctx := context.Background()
-	if client, err = mongo.NewClient(uri); err != nil {
+	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 		panic(err)
 	}
 	if err = client.Connect(ctx); err != nil {
@@ -101,7 +101,7 @@ func (rn Runner) Simulate(duration int, transactions []Transaction) {
 	ctx := context.Background()
 
 	var client *mongo.Client
-	if client, err = mongo.NewClient(rn.uri); err != nil {
+	if client, err = mongo.NewClient(rn.uri); err != nil { // TODO: Add certificates
 		panic(err)
 	}
 	if err = client.Connect(ctx); err != nil {

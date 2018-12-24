@@ -11,7 +11,7 @@ import (
 
 // OptimeDoc -
 type OptimeDoc struct {
-	T  int   `json:"t" bson:"t"`
+	T  int64 `json:"t" bson:"t"`
 	TS int64 `json:"ts" bson:"ts"`
 }
 
@@ -35,6 +35,14 @@ func GetOptime(optime interface{}) int64 {
 				ts = int64(optm.T)
 				break
 			}
+		}
+	case []interface{}:
+		for _, doc := range optime.([]interface{}) {
+			value := (doc.(map[string]interface{}))["Value"]
+			b, _ := json.Marshal(value)
+			var optm OptimeDoc
+			json.Unmarshal(b, &optm)
+			ts = optm.T >> 32
 		}
 	default:
 		panic(fmt.Sprintf("default =>%T\n", optime))
