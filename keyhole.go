@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -10,15 +11,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/globalsign/mgo"
-	keyhole "github.com/simagix/keyhole/core"
-	"github.com/simagix/keyhole/mongo"
+	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/mongodb/mongo-go-driver/x/network/connstring"
+	"github.com/simagix/keyhole/mdb"
+	"github.com/simagix/keyhole/sim"
+	"github.com/simagix/keyhole/sim/util"
+	"github.com/simagix/keyhole/web"
 )
 
 var version = "self-built"
 
 func main() {
-	bulksize := flag.Int("bulksize", 100, "bulk insert size")
 	cleanup := flag.Bool("cleanup", false, "clean up demo database")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
@@ -64,25 +67,25 @@ func main() {
 		if *webserver { // get data points summary if web server is enabled
 			tspan = 300
 		}
-		d := keyhole.NewDiagnosticData(tspan)
+		d := sim.NewDiagnosticData(tspan)
 		if str, err = d.PrintDiagnosticData(filenames, *webserver); err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}
 		fmt.Println(str)
 		if *webserver {
-			g := keyhole.NewGrafana(d)
+			g := web.NewGrafana(d)
 			fmt.Println("Get more granular data points, data point every second.")
-			go func(g *keyhole.Grafana) {
-				d = keyhole.NewDiagnosticData(1)
+			go func(g *web.Grafana) {
+				d = sim.NewDiagnosticData(1)
 				d.PrintDiagnosticData(filenames, *webserver)
 				g.ReinitGrafana(d)
 			}(g)
-			keyhole.HTTPServer(5408, d, g)
+			web.HTTPServer(5408, d, g)
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {
-		if err = keyhole.LogInfo(*loginfo, *collscan); err != nil {
+		if err = util.LogInfo(*loginfo, *collscan); err != nil {
 			fmt.Println(err)
 		}
 		os.Exit(0)
@@ -91,9 +94,9 @@ func main() {
 		os.Exit(0)
 	} else if *schema && *uri == "" {
 		if *file == "" {
-			fmt.Println(keyhole.GetDemoSchema())
+			fmt.Println(util.GetDemoSchema())
 		} else {
-			fmt.Println(keyhole.GetDemoFromFile(*file))
+			fmt.Println(util.GetDemoFromFile(*file))
 		}
 		os.Exit(0)
 	} else if len(*uri) == 0 {
@@ -103,64 +106,71 @@ func main() {
 		os.Exit(0)
 	}
 
-	var dialInfo *mgo.DialInfo
-	var session *mgo.Session
-	if dialInfo, err = mongo.ParseURL(*uri); err != nil {
+	var client *mongo.Client
+	var connString connstring.ConnString
+	if connString, err = connstring.Parse(*uri); err != nil {
 		panic(err)
 	}
-	if dialInfo.Username != "" && dialInfo.Password == "" {
-		if dialInfo.Password, err = keyhole.ReadPasswordFromStdin(); err != nil {
+	if connString.Username != "" && connString.Password == "" {
+		if connString.Password, err = util.ReadPasswordFromStdin(); err != nil {
 			panic(err)
 		}
 		index := strings.Index(*uri, "@")
-		*uri = (*uri)[:index] + ":" + dialInfo.Password + (*uri)[index:]
+		*uri = (*uri)[:index] + ":" + connString.Password + (*uri)[index:]
 	}
-	if err = mongo.AddCertificates(dialInfo, *sslCAFile, *sslPEMKeyFile); err != nil {
+	if client, err = mdb.NewMongoClient(*uri, *sslCAFile, *sslPEMKeyFile); err != nil {
 		panic(err)
 	}
-	dialInfo.Timeout = time.Duration(1 * time.Second)
-	if session, err = mgo.DialWithInfo(dialInfo); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err = client.Connect(ctx); err != nil {
 		panic(err)
 	}
-	defer session.Close()
 
-	dbName := dialInfo.Database
-	if dialInfo.Database == "" && *index == false {
-		dbName = "_KEYHOLE_"
+	if connString.Database == "" && *index == false {
+		connString.Database = "_KEYHOLE_"
+		pos := strings.Index(*uri, "?")
+		if pos > 0 { // found ?query_string
+			*uri = (*uri)[:pos] + connString.Database + (*uri)[pos:]
+		} else {
+			length := len(*uri)
+			if (*uri)[length-1] == '/' {
+				*uri += connString.Database
+			} else {
+				*uri += "/" + connString.Database
+			}
+		}
 	}
 
 	if *info == true {
-		var info mongo.ServerInfo
-		if info, err = mongo.GetServerInfo(session); err != nil {
+		var info mdb.ServerInfo
+		if info, err = mdb.GetServerInfo(client); err != nil {
 			panic(err)
 		}
 		bytes, _ := json.MarshalIndent(info, "", "  ")
 		fmt.Println(string(bytes))
 		os.Exit(0)
 	} else if *seed == true {
-		sb := keyhole.NewSeedBase(*file, *collection, *total, *drop, dbName, *verbose)
-		if err = sb.SeedData(session); err != nil {
+		sb := sim.NewSeedBase(*file, *collection, *total, *drop, connString.Database)
+		if err = sb.SeedData(client); err != nil {
 			fmt.Println(err)
 		}
 		os.Exit(0)
+	} else if *index == true {
+		fmt.Println(mdb.GetIndexes(client, connString.Database))
+		os.Exit(0)
 	} else if *schema == true {
 		var str string
-		if str, err = keyhole.GetSchemaFromCollection(session, dbName, *collection); err != nil {
+		if str, err = sim.GetSchemaFromCollection(client, connString.Database, *collection); err != nil {
 			fmt.Println(err)
 		}
 		fmt.Println(str)
 		os.Exit(0)
-	} else if *index == true {
-		fmt.Println(mongo.GetIndexes(session, dbName))
-		os.Exit(0)
 	}
 
-	dialInfo.Timeout = time.Duration(0)
-	runner := keyhole.NewBase(dialInfo, *uri, *sslCAFile, *sslPEMKeyFile,
-		*tps, *file, *verbose, *peek, *monitor,
-		*bulksize, *duration, *cleanup, *drop,
-		dbName)
-	if err = runner.Start(session, *conn, *tx, *simonly); err != nil {
+	runner := sim.NewRunner(*uri, *sslCAFile, *sslPEMKeyFile, *tps, *file,
+		*verbose, *peek, *monitor, *duration, *cleanup, *drop)
+	if err = runner.Start(client, *conn, *tx, *simonly); err != nil {
 		panic(err)
 	}
 }
