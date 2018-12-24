@@ -31,10 +31,6 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/globalsign/mgo"
-
-[[constraint]]
-  branch = "master"
   name = "golang.org/x/crypto"
 
 [prune]
