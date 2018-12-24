@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 )
 
 var filename = "../test_data/diagnostic.data/metrics.2017-10-12T20-08-53Z-00000"

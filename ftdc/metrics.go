@@ -8,7 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 // ReadMetricsSummary read summary (first doc) of metrics
@@ -40,10 +41,10 @@ func (m *Metrics) readMetrics(buffer []byte, summaryOnly bool) error {
 		var out = bson.M{}
 		if err = bson.Unmarshal(bs, &out); err != nil {
 			return err
-		} else if out["type"] == 0 {
+		} else if out["type"] == int32(0) {
 			m.Doc = out["doc"]
-		} else if out["type"] == 1 {
-			bytesBuf := bytes.NewReader(out["data"].([]byte)[4:])
+		} else if out["type"] == int32(1) {
+			bytesBuf := bytes.NewReader((out["data"].(primitive.Binary)).Data[4:])
 			// zlib decompress
 			if r, err = zlib.NewReader(bytesBuf); err != nil {
 				return err
