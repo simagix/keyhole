@@ -11,8 +11,7 @@ import (
 
 const TestDataDirectory = "testdata/"
 const DiagnosticDataDirectory = TestDataDirectory + "diagnostic.data/"
-const DiagnosticDataFilename = DiagnosticDataDirectory + "metrics.2017-10-12T20-08-53Z-00000"
-const KeyholeStatsFilename = TestDataDirectory + "tmp/keyhole_stats.2018-12-04T080240-standalone.gz"
+const DiagnosticDataFilename = DiagnosticDataDirectory + "metrics.2017-10-19T20-03-15Z-00000"
 
 func TestGetDataPoint(t *testing.T) {
 	tm := float64(time.Now().UnixNano() / 1000 / 1000)

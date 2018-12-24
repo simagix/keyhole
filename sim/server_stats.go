@@ -49,7 +49,7 @@ func (rn Runner) CollectServerStatus(uri string, channel chan string) {
 	}
 	channel <- "[" + mapKey + "] CollectServerStatus begins\n"
 	for {
-		if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			panic(err)
 		}
 		if err = client.Connect(ctx); err != nil {
@@ -140,7 +140,7 @@ func (rn Runner) ReplSetGetStatus(uri string, channel chan string) {
 	channel <- "[" + mapKey + "] ReplSetGetStatus begins\n"
 
 	for {
-		if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			panic(err)
 		}
 		if err = client.Connect(ctx); err != nil {
@@ -224,7 +224,7 @@ func (rn Runner) PrintServerStatus(uri string, span int) (string, error) {
 	var stat mdb.ServerStatusDoc
 	var filename string
 	var str string
-	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+	if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	if err = client.Connect(ctx); err != nil {

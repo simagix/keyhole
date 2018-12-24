@@ -118,10 +118,10 @@ func main() {
 		index := strings.Index(*uri, "@")
 		*uri = (*uri)[:index] + ":" + connString.Password + (*uri)[index:]
 	}
-	if client, err = mongo.NewClient(*uri); err != nil { // TODO: Add certificates
+	if client, err = mdb.NewMongoClient(*uri, *sslCAFile, *sslPEMKeyFile); err != nil {
 		panic(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err = client.Connect(ctx); err != nil {
 		panic(err)

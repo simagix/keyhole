@@ -12,6 +12,7 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 )
 
@@ -66,11 +67,11 @@ func (rn Runner) initSimDocs() {
 //	favoriteSports2
 //	favoriteSports3
 // }
-func PopulateData(uri string) error {
+func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
 	var err error
 	var client *mongo.Client
 	ctx := context.Background()
-	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	if err = client.Connect(ctx); err != nil {
@@ -96,12 +97,12 @@ func PopulateData(uri string) error {
 // Simulate simulates CRUD for load tests
 func (rn Runner) Simulate(duration int, transactions []Transaction) {
 	var err error
+	var client *mongo.Client
+	var ctx = context.Background()
 	var isTeardown = false
 	var totalTPS int
-	ctx := context.Background()
 
-	var client *mongo.Client
-	if client, err = mongo.NewClient(rn.uri); err != nil { // TODO: Add certificates
+	if client, err = mdb.NewMongoClient(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	if err = client.Connect(ctx); err != nil {

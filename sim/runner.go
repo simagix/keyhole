@@ -50,7 +50,7 @@ func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string, tps int, file
 	var err error
 	var client *mongo.Client
 	connString, _ := connstring.Parse(uri)
-	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
 		panic(err)
 	}
 	runner := Runner{uri, sslCAFile, sslPEMKeyFile, tps, filename,
@@ -119,7 +119,7 @@ func (rn Runner) Start(client *mongo.Client, conn int, tx string, simonly bool) 
 		for i := 0; i < conn; i++ {
 			go func() {
 				if simonly == false {
-					if err = PopulateData(rn.uri); err != nil {
+					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 						panic(err)
 					}
 					time.Sleep(10 * time.Millisecond)
@@ -180,7 +180,7 @@ func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
 	var client *mongo.Client
 
 	for _, uri := range uriList {
-		if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			continue
 		}
 		if err = client.Connect(context.Background()); err != nil {
