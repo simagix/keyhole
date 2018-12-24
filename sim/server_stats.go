@@ -23,7 +23,7 @@ import (
 var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
 var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
-var serverStatusDocs = map[string][]bson.M{}
+var serverStatusDocs = map[string][]mdb.ServerStatusDoc{}
 var replSetStatusDocs = map[string][]mdb.ReplSetStatusDoc{}
 
 // CollectServerStatus collects db.serverStatus() every minute
@@ -49,7 +49,7 @@ func (rn Runner) CollectServerStatus(uri string, channel chan string) {
 	}
 	channel <- "[" + mapKey + "] CollectServerStatus begins\n"
 	for {
-		if client, err = mongo.NewClient(uri); err != nil {
+		if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 			panic(err)
 		}
 		if err = client.Connect(ctx); err != nil {
@@ -59,7 +59,7 @@ func (rn Runner) CollectServerStatus(uri string, channel chan string) {
 			serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
 			buf, _ := bson.Marshal(serverStatus)
 			bson.Unmarshal(buf, &stat)
-			serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
+			serverStatusDocs[uri] = append(serverStatusDocs[uri], stat)
 			if len(serverStatusDocs[uri]) > 12 {
 				rn.saveServerStatusDocsToFile(uri)
 			}
@@ -71,8 +71,7 @@ func (rn Runner) CollectServerStatus(uri string, channel chan string) {
 				stat.Metrics.Document.Updated + stat.Metrics.Document.Deleted
 			iops := float64(iop-piop) / 60
 			if len(serverStatusDocs[uri]) > 6 && len(serverStatusDocs[uri])%6 == 1 {
-				buf, _ = json.Marshal(serverStatusDocs[uri][len(serverStatusDocs[uri])-7])
-				json.Unmarshal(buf, &pstat)
+				pstat = serverStatusDocs[uri][len(serverStatusDocs[uri])-7]
 				if stat.Host == pstat.Host {
 					str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
 						(stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
@@ -141,7 +140,7 @@ func (rn Runner) ReplSetGetStatus(uri string, channel chan string) {
 	channel <- "[" + mapKey + "] ReplSetGetStatus begins\n"
 
 	for {
-		if client, err = mongo.NewClient(uri); err != nil {
+		if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 			panic(err)
 		}
 		if err = client.Connect(ctx); err != nil {
@@ -222,9 +221,10 @@ func (rn Runner) PrintServerStatus(uri string, span int) (string, error) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
+	var stat mdb.ServerStatusDoc
 	var filename string
 	var str string
-	if client, err = mongo.NewClient(uri); err != nil {
+	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 		panic(err)
 	}
 	if err = client.Connect(ctx); err != nil {
@@ -232,9 +232,9 @@ func (rn Runner) PrintServerStatus(uri string, span int) (string, error) {
 	}
 	defer client.Disconnect(ctx)
 	serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
-	buf, _ := json.Marshal(serverStatus)
-	json.Unmarshal(buf, &serverStatus)
-	serverStatusDocs[uri] = append(serverStatusDocs[uri], serverStatus)
+	buf, _ := bson.Marshal(serverStatus)
+	bson.Unmarshal(buf, &stat)
+	serverStatusDocs[uri] = append(serverStatusDocs[uri], stat)
 	if filename, err = rn.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}

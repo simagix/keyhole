@@ -118,7 +118,7 @@ func main() {
 		index := strings.Index(*uri, "@")
 		*uri = (*uri)[:index] + ":" + connString.Password + (*uri)[index:]
 	}
-	if client, err = mongo.NewClient(*uri); err != nil {
+	if client, err = mongo.NewClient(*uri); err != nil { // TODO: Add certificates
 		panic(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

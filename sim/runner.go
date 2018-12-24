@@ -47,8 +47,12 @@ var ssi mdb.ServerInfo
 // NewRunner - Constructor
 func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string, tps int, filename string,
 	verbose bool, peek bool, monitor bool, duration int, cleanup bool, drop bool) Runner {
+	var err error
+	var client *mongo.Client
 	connString, _ := connstring.Parse(uri)
-	client, _ := mongo.NewClient(uri)
+	if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
+		panic(err)
+	}
 	runner := Runner{uri, sslCAFile, sslPEMKeyFile, tps, filename,
 		verbose, peek, monitor, duration, cleanup, drop, connString, client}
 	runner.initSimDocs()
@@ -176,7 +180,7 @@ func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
 	var client *mongo.Client
 
 	for _, uri := range uriList {
-		if client, err = mongo.NewClient(uri); err != nil {
+		if client, err = mongo.NewClient(uri); err != nil { // TODO: Add certificates
 			continue
 		}
 		if err = client.Connect(context.Background()); err != nil {

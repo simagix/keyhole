@@ -23,7 +23,7 @@ func GetTestClient() (*mongo.Client, error) {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = mongo.NewClient(UnitTestURL); err != nil {
+	if client, err = mongo.NewClient(UnitTestURL); err != nil { // TODO: Add certificates
 		return client, err
 	}
 	if err = client.Connect(ctx); err != nil {
