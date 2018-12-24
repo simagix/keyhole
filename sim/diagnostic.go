@@ -264,7 +264,11 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 				allDocs = append(allDocs, docs...)
 			} else if err = json.Unmarshal(line, &repls); err == nil { // ReplSetStatusDoc
 				allRepls = append(allRepls, repls...)
+			} else {
+				fmt.Println(err)
 			}
+		} else {
+			fmt.Println(err)
 		}
 	}
 
