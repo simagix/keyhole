@@ -52,9 +52,6 @@ func (rn Runner) CollectServerStatus(uri string, channel chan string) {
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			panic(err)
 		}
-		if err = client.Connect(ctx); err != nil {
-			panic(err)
-		}
 		if err == nil {
 			serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
 			buf, _ := bson.Marshal(serverStatus)
@@ -143,9 +140,6 @@ func (rn Runner) ReplSetGetStatus(uri string, channel chan string) {
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			panic(err)
 		}
-		if err = client.Connect(ctx); err != nil {
-			panic(err)
-		}
 		if err == nil {
 			doc, err = mdb.RunAdminCommand(client, "replSetGetStatus")
 			if err == nil {
@@ -225,9 +219,6 @@ func (rn Runner) PrintServerStatus(uri string, span int) (string, error) {
 	var filename string
 	var str string
 	if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-		panic(err)
-	}
-	if err = client.Connect(ctx); err != nil {
 		panic(err)
 	}
 	defer client.Disconnect(ctx)

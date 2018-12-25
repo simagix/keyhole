@@ -15,7 +15,6 @@ func TestGetSchemaFromCollection(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 
 	var str string

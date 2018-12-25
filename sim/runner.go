@@ -183,12 +183,6 @@ func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			continue
 		}
-		if err = client.Connect(context.Background()); err != nil {
-			continue
-		}
-		// TODO if err = mdb.AddCertificates(dialInfo, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-		// 	continue
-		// }
 		if rn.monitor == false {
 			if rn.peek == true { // peek mode watch a defined db
 				go rn.CollectDBStats(client, channel, rn.connString.Database, uri)
@@ -211,12 +205,7 @@ func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
 // CreateIndexes creates indexes
 func (rn Runner) CreateIndexes(docs []bson.M) error {
 	var err error
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	if err = rn.client.Connect(ctx); err != nil {
-		panic(err)
-	}
-	defer rn.client.Disconnect(ctx)
+	var ctx = context.Background()
 	c := rn.client.Database(SimDBName).Collection(CollectionName)
 	indexView := c.Indexes()
 

@@ -70,11 +70,7 @@ func (rn Runner) initSimDocs() {
 func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
 	var err error
 	var client *mongo.Client
-	ctx := context.Background()
 	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
-		panic(err)
-	}
-	if err = client.Connect(ctx); err != nil {
 		panic(err)
 	}
 	c := client.Database(SimDBName).Collection(CollectionName)
@@ -103,9 +99,6 @@ func (rn Runner) Simulate(duration int, transactions []Transaction) {
 	var totalTPS int
 
 	if client, err = mdb.NewMongoClient(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-		panic(err)
-	}
-	if err = client.Connect(ctx); err != nil {
 		panic(err)
 	}
 	defer client.Disconnect(ctx)

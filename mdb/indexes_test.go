@@ -17,7 +17,6 @@ func TestGetIndexesFromDB(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 	// c := client.Database(dbName).Collection("examples")
 	// c.EnsureIndexKey("a")
@@ -38,7 +37,6 @@ func TestGetIndexes(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 	// c := client.Database(dbName).Collection("examples")
 	// c.EnsureIndexKey("a")

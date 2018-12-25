@@ -18,7 +18,6 @@ func TestRunAdminCommand(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 	if m, err = RunAdminCommand(client, "dbStats"); err != nil {
 		t.Fatal(err)
@@ -35,7 +34,6 @@ func TestRunCommandOnDB(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 	if m, err = RunCommandOnDB(client, "dbStats", "test"); err != nil {
 		t.Fatal(err)
@@ -52,7 +50,6 @@ func TestIsMaster(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 	if m, err = IsMaster(client); err != nil {
 		t.Fatal(err)

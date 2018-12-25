@@ -3,13 +3,11 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/mongodb/mongo-go-driver/x/network/connstring"
@@ -119,11 +117,6 @@ func main() {
 		*uri = (*uri)[:index] + ":" + connString.Password + (*uri)[index:]
 	}
 	if client, err = mdb.NewMongoClient(*uri, *sslCAFile, *sslPEMKeyFile); err != nil {
-		panic(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err = client.Connect(ctx); err != nil {
 		panic(err)
 	}
 

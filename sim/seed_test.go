@@ -18,7 +18,6 @@ func TestSeed(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 
 	file := ""
@@ -50,7 +49,6 @@ func TestSeedFromTemplate(t *testing.T) {
 	if client, err = GetTestClient(); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(ctx)
 	defer client.Disconnect(context.Background())
 	file := "../examples/template.json"
 	collection := "template"
