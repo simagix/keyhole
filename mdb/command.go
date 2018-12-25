@@ -4,7 +4,6 @@ package mdb
 
 import (
 	"context"
-	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -19,10 +18,7 @@ func RunAdminCommand(client *mongo.Client, command string) (bson.M, error) {
 func RunCommandOnDB(client *mongo.Client, command string, db string) (bson.M, error) {
 	var result = bson.M{}
 	var err error
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	singleResult := client.Database(db).RunCommand(ctx, bson.D{{Key: command, Value: 1}})
-	err = singleResult.Decode(&result)
+	err = client.Database(db).RunCommand(context.Background(), bson.D{{Key: command, Value: 1}}).Decode(&result)
 	return result, err
 }
 

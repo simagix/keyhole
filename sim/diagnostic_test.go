@@ -13,7 +13,7 @@ import (
 const TestDataDirectory = "testdata/"
 const DiagnosticDataDirectory = TestDataDirectory + "diagnostic.data/"
 const DiagnosticDataFilename = DiagnosticDataDirectory + "metrics.2017-10-12T20-08-53Z-00000"
-const KeyholeStatsFilename = TestDataDirectory + "tmp/keyhole_stats.2018-12-04T080240-standalone.gz"
+const KeyholeStatsFilename = TestDataDirectory + "keyhole_stats.2018-12-25T094941-standalone.gz"
 
 func TestReadDiagnosticDir(t *testing.T) {
 	var err error

@@ -15,7 +15,7 @@ func TestNewMongoClient(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if _, err = NewMongoClient(uri, "", ""); err != nil {
+	if _, err = NewMongoClient(uri); err != nil {
 		t.Fatal(err)
 	}
 }

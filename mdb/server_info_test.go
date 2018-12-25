@@ -21,7 +21,7 @@ func GetTestClient() (*mongo.Client, error) {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = NewMongoClient(UnitTestURL, "", ""); err != nil {
+	if client, err = NewMongoClient(UnitTestURL); err != nil {
 		return client, err
 	}
 
@@ -38,10 +38,9 @@ func TestGetServerInfo(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = NewMongoClient(uri, "", ""); err != nil {
+	if client, err = NewMongoClient(uri); err != nil {
 		t.Fatal(err)
 	}
-	client.Connect(context.Background())
 	defer client.Disconnect(context.Background())
 	if info, err = GetServerInfo(client); err != nil {
 		t.Fatal(err)

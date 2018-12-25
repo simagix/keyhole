@@ -3,7 +3,6 @@
 package sim
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -17,16 +16,12 @@ var UnitTestURL = "mongodb://localhost/"
 func GetTestClient() (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
-	var ctx = context.Background()
 
 	if os.Getenv("DATABASE_URL") != "" {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = mdb.NewMongoClient(UnitTestURL, "", ""); err != nil {
-		return client, err
-	}
-	if err = client.Connect(ctx); err != nil {
+	if client, err = mdb.NewMongoClient(UnitTestURL); err != nil {
 		return client, err
 	}
 	return client, err
