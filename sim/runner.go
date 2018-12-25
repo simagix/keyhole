@@ -30,6 +30,8 @@ type Runner struct {
 	uri           string
 	sslCAFile     string
 	sslPEMKeyFile string
+	connString    connstring.ConnString
+	client        *mongo.Client
 	tps           int
 	filename      string
 	verbose       bool
@@ -38,45 +40,96 @@ type Runner struct {
 	duration      int
 	cleanup       bool
 	drop          bool
-	connString    connstring.ConnString
-	client        *mongo.Client
+	conns         int
+	txFilename    string
+	simOnly       bool
 }
 
 var ssi mdb.ServerInfo
 
 // NewRunner - Constructor
-func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string, tps int, filename string,
-	verbose bool, peek bool, monitor bool, duration int, cleanup bool, drop bool) Runner {
+func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string) (*Runner, error) {
 	var err error
 	var client *mongo.Client
+	var runner Runner
 	connString, _ := connstring.Parse(uri)
 	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
-		panic(err)
+		return &runner, err
 	}
-	runner := Runner{uri, sslCAFile, sslPEMKeyFile, tps, filename,
-		verbose, peek, monitor, duration, cleanup, drop, connString, client}
+	runner = Runner{uri: uri, sslCAFile: sslCAFile, sslPEMKeyFile: sslPEMKeyFile,
+		cleanup: true, connString: connString, client: client}
 	runner.initSimDocs()
-	return runner
+	return &runner, err
+}
+
+// SetTPS set transaction per second
+func (rn *Runner) SetTPS(tps int) {
+	rn.tps = tps
+}
+
+// SetTemplateFilename -
+func (rn *Runner) SetTemplateFilename(filename string) {
+	rn.filename = filename
+}
+
+// SetVerbose -
+func (rn *Runner) SetVerbose(verbose bool) {
+	rn.verbose = verbose
+}
+
+// SetPeekMode -
+func (rn *Runner) SetPeekMode(mode bool) {
+	rn.peek = mode
+}
+
+// SetMonitorMode -
+func (rn *Runner) SetMonitorMode(mode bool) {
+	rn.monitor = mode
+}
+
+// SetSimulationDuration -
+func (rn *Runner) SetSimulationDuration(duration int) {
+	rn.duration = duration
+}
+
+// SetDropFirstMode -
+func (rn *Runner) SetDropFirstMode(mode bool) {
+	rn.drop = mode
+}
+
+// SetNumberConnections -
+func (rn *Runner) SetNumberConnections(num int) {
+	rn.conns = num
+}
+
+// SetTransactionTemplateFilename -
+func (rn *Runner) SetTransactionTemplateFilename(filename string) {
+	rn.txFilename = filename
+}
+
+// SetSimOnlyMode -
+func (rn *Runner) SetSimOnlyMode(mode bool) {
+	rn.simOnly = mode
 }
 
 // Start process requests
-func (rn Runner) Start(client *mongo.Client, conn int, tx string, simonly bool) error {
+func (rn *Runner) Start() error {
 	var err error
 	var uriList []string
-	if uriList, err = mdb.GetShardsURIList(client, rn.uri); err != nil {
+	if uriList, err = mdb.GetShardsURIList(rn.client, rn.uri); err != nil {
 		return err
 	}
 	ctx := context.Background()
 	log.Println("Duration in minute(s):", rn.duration)
-	rn.terminationHandler(uriList, client)
+	rn.terminationHandler(uriList)
 
 	if rn.peek == false && rn.monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
 		if rn.drop {
-			Cleanup(client)
+			rn.Cleanup()
 		}
 
 		var ssi mdb.ServerInfo
-		if ssi, err = mdb.GetServerInfo(client); err != nil {
+		if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
 			return err
 		}
 
@@ -85,11 +138,11 @@ func (rn Runner) Start(client *mongo.Client, conn int, tx string, simonly bool) 
 			log.Println("Sharding collection:", collname)
 			result := bson.M{}
 
-			if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "enableSharding", Value: SimDBName}}).Decode(&result); err != nil {
+			if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "enableSharding", Value: SimDBName}}).Decode(&result); err != nil {
 				return err
 			}
 
-			indexView := client.Database(SimDBName).Collection(CollectionName).Indexes()
+			indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
 			idx := mongo.IndexModel{
 				Keys: bsonx.Doc{{Key: "_id", Value: bsonx.String("hashed")}},
 			}
@@ -97,7 +150,7 @@ func (rn Runner) Start(client *mongo.Client, conn int, tx string, simonly bool) 
 				return err
 			}
 
-			if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}).Decode(&result); err != nil {
+			if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}).Decode(&result); err != nil {
 				return err
 			}
 		}
@@ -108,17 +161,17 @@ func (rn Runner) Start(client *mongo.Client, conn int, tx string, simonly bool) 
 		// remaining minutes - burst with no delay
 		// last minute - normal TPS ops until exit
 		log.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins)\n",
-			rn.tps, conn, rn.tps*conn, rn.duration)
+			rn.tps, rn.conns, rn.tps*rn.conns, rn.duration)
 
-		tdoc := GetTransactions(tx)
+		tdoc := GetTransactions(rn.txFilename)
 		rn.CreateIndexes(tdoc.Indexes)
 		simTime := rn.duration
-		if simonly == false {
+		if rn.simOnly == false {
 			simTime--
 		}
-		for i := 0; i < conn; i++ {
+		for i := 0; i < rn.conns; i++ {
 			go func() {
-				if simonly == false {
+				if rn.simOnly == false {
 					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 						panic(err)
 					}
@@ -130,34 +183,37 @@ func (rn Runner) Start(client *mongo.Client, conn int, tx string, simonly bool) 
 		}
 	}
 
-	rn.collectAllStatus(uriList, simonly)
+	rn.collectAllStatus(uriList)
 	return err
 }
 
-func (rn Runner) terminationHandler(uriList []string, client *mongo.Client) {
+func (rn *Runner) terminationHandler(uriList []string) {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	timer := time.NewTimer(time.Duration(rn.duration) * time.Minute)
 
-	go func(client *mongo.Client, uriList []string) {
+	go func(uriList []string) {
 		for {
 			select {
 			case <-quit:
-				rn.terminate(client, uriList)
+				rn.terminate(uriList)
 			case <-timer.C:
 				if rn.monitor == false {
-					rn.terminate(client, uriList)
+					rn.terminate(uriList)
 				}
 			}
 		}
-	}(client, uriList)
+	}(uriList)
 }
 
-func (rn Runner) terminate(client *mongo.Client, uriList []string) {
+func (rn *Runner) terminate(uriList []string) {
 	var filenames []string
 	var filename string
 	var err error
 
+	if rn.cleanup {
+		rn.Cleanup()
+	}
 	for _, uri := range uriList {
 		if filename, err = rn.PrintServerStatus(uri, 60); err != nil {
 			log.Println(err)
@@ -168,13 +224,10 @@ func (rn Runner) terminate(client *mongo.Client, uriList []string) {
 	for _, filename := range filenames {
 		log.Println("stats written to", filename)
 	}
-	if rn.cleanup {
-		Cleanup(client)
-	}
 	os.Exit(0)
 }
 
-func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
+func (rn *Runner) collectAllStatus(uriList []string) {
 	var channel = make(chan string)
 	var err error
 	var client *mongo.Client
@@ -186,7 +239,7 @@ func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
 		if rn.monitor == false {
 			if rn.peek == true { // peek mode watch a defined db
 				go rn.CollectDBStats(client, channel, rn.connString.Database, uri)
-			} else if simonly == false { // load test mode watches _KEYHOLE_88000
+			} else if rn.simOnly == false { // load test mode watches _KEYHOLE_88000
 				go rn.CollectDBStats(client, channel, SimDBName, uri)
 			}
 		}
@@ -203,7 +256,7 @@ func (rn Runner) collectAllStatus(uriList []string, simonly bool) {
 }
 
 // CreateIndexes creates indexes
-func (rn Runner) CreateIndexes(docs []bson.M) error {
+func (rn *Runner) CreateIndexes(docs []bson.M) error {
 	var err error
 	var ctx = context.Background()
 	c := rn.client.Database(SimDBName).Collection(CollectionName)
@@ -248,12 +301,16 @@ func (rn Runner) CreateIndexes(docs []bson.M) error {
 }
 
 // Cleanup drops the temp database
-func Cleanup(client *mongo.Client) error {
+func (rn *Runner) Cleanup() error {
 	var err error
 	ctx := context.Background()
 	log.Println("dropping collection", SimDBName, CollectionName)
-	client.Database(SimDBName).Collection(CollectionName).Drop(ctx)
+	if err = rn.client.Database(SimDBName).Collection(CollectionName).Drop(ctx); err != nil {
+		log.Println(err)
+	}
 	log.Println("dropping database", SimDBName)
-	client.Database(SimDBName).Drop(ctx)
+	if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
+		log.Println(err)
+	}
 	return err
 }

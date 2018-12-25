@@ -21,7 +21,7 @@ var simDocs []bson.M
 // initialize an array of documents for simulation test.  If a template is available
 // read the sample json and replace them with random values.  Otherwise, use the demo
 // example.
-func (rn Runner) initSimDocs() {
+func (rn *Runner) initSimDocs() {
 	var err error
 	var sdoc bson.M
 
@@ -91,7 +91,7 @@ func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
 }
 
 // Simulate simulates CRUD for load tests
-func (rn Runner) Simulate(duration int, transactions []Transaction) {
+func (rn *Runner) Simulate(duration int, transactions []Transaction) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
