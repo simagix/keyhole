@@ -27,7 +27,7 @@ var serverStatusDocs = map[string][]mdb.ServerStatusDoc{}
 var replSetStatusDocs = map[string][]mdb.ReplSetStatusDoc{}
 
 // CollectServerStatus collects db.serverStatus() every minute
-func (rn Runner) CollectServerStatus(uri string, channel chan string) {
+func (rn *Runner) CollectServerStatus(uri string, channel chan string) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
@@ -116,7 +116,7 @@ func (rn Runner) CollectServerStatus(uri string, channel chan string) {
 }
 
 // ReplSetGetStatus collects {replSetGetStatus: 1} every minute
-func (rn Runner) ReplSetGetStatus(uri string, channel chan string) {
+func (rn *Runner) ReplSetGetStatus(uri string, channel chan string) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
@@ -173,7 +173,7 @@ func (rn Runner) ReplSetGetStatus(uri string, channel chan string) {
 }
 
 // CollectDBStats collects dbStats every 10 seconds
-func (rn Runner) CollectDBStats(client *mongo.Client, channel chan string, dbName string, uri string) {
+func (rn *Runner) CollectDBStats(client *mongo.Client, channel chan string, dbName string, uri string) {
 	var docs map[string]interface{}
 	var prevDataSize float64
 	var dataSize float64
@@ -211,7 +211,7 @@ func (rn Runner) CollectDBStats(client *mongo.Client, channel chan string, dbNam
 }
 
 // PrintServerStatus prints serverStatusDocs summary for the duration
-func (rn Runner) PrintServerStatus(uri string, span int) (string, error) {
+func (rn *Runner) PrintServerStatus(uri string, span int) (string, error) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
@@ -239,7 +239,7 @@ func (rn Runner) PrintServerStatus(uri string, span int) (string, error) {
 }
 
 // saveServerStatusDocsToFile appends []ServerStatusDoc to a file
-func (rn Runner) saveServerStatusDocsToFile(uri string) (string, error) {
+func (rn *Runner) saveServerStatusDocsToFile(uri string) (string, error) {
 	var file *os.File
 	var err error
 	var filename string

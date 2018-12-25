@@ -13,8 +13,7 @@ func TestCollectServerStatus(t *testing.T) {
 	if os.Getenv("DATABASE_URL") != "" {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
-	runner := NewRunner(UnitTestURL, "", "", 300, "",
-		false, false, false, 1, false, false)
+	runner, _ := NewRunner(UnitTestURL, "", "")
 	fmt.Println(runner.uri)
 	// runner.CollectServerStatus(runner.uri, channel)
 }

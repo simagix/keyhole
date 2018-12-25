@@ -41,20 +41,38 @@ func TestGetShardsURIList(t *testing.T) {
 	t.Log(uriList)
 }
 
+/*
+
+type Runner struct {
+	uri           string
+	sslCAFile     string
+	sslPEMKeyFile string
+	tps           int
+	filename      string
+	verbose       bool
+	peek          bool
+	monitor       bool
+	duration      int
+	cleanup       bool
+	drop          bool
+	connString    connstring.ConnString
+	client        *mongo.Client
+}
+*/
 func TestCreateIndexes(t *testing.T) {
 	var docs = []bson.M{bson.M{"email": 1, "hostIp": 1}}
-	runner := NewRunner("mongodb://localhost/", "", "", 300, "",
-		false, false, false, 1, false, false)
+	runner, _ := NewRunner("mongodb://localhost/", "", "")
 	runner.CreateIndexes(docs)
 }
 
 func TestCleanup(t *testing.T) {
 	var err error
-	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
+	var runner *Runner
+
+	if runner, err = NewRunner(UnitTestURL, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	if err = Cleanup(client); err != nil {
+	if err = runner.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -11,7 +11,7 @@ shutdownServer() {
 validate() {
   if [ $? != 0 ]; then
       echo $1
-      shutdown
+      shutdownServer
   fi
 }
 

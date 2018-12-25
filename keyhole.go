@@ -20,7 +20,6 @@ import (
 var version = "self-built"
 
 func main() {
-	cleanup := flag.Bool("cleanup", false, "clean up demo database")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	conn := flag.Int("conn", 10, "nuumber of connections")
@@ -161,9 +160,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	runner := sim.NewRunner(*uri, *sslCAFile, *sslPEMKeyFile, *tps, *file,
-		*verbose, *peek, *monitor, *duration, *cleanup, *drop)
-	if err = runner.Start(client, *conn, *tx, *simonly); err != nil {
+	var runner *sim.Runner
+	if runner, err = sim.NewRunner(*uri, *sslCAFile, *sslPEMKeyFile); err != nil {
+		panic(err)
+	}
+	runner.SetTPS(*tps)
+	runner.SetTemplateFilename(*file)
+	runner.SetVerbose(*verbose)
+	runner.SetPeekMode(*peek)
+	runner.SetMonitorMode(*monitor)
+	runner.SetSimulationDuration(*duration)
+	runner.SetDropFirstMode(*drop)
+	runner.SetNumberConnections(*conn)
+	runner.SetTransactionTemplateFilename(*tx)
+	runner.SetSimOnlyMode(*simonly)
+	if err = runner.Start(); err != nil {
 		panic(err)
 	}
 }
