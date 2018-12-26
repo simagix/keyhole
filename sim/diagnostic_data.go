@@ -49,13 +49,15 @@ func getServerStatusDataPoints(attribsMap map[string][]int64, i uint32) mdb.Serv
 	ss.WiredTiger.Cache.UnmodifiedPagesEvicted = attribsMap["serverStatus/wiredTiger/cache/unmodified pages evicted"][i]
 	ss.WiredTiger.ConcurrentTransactions.Read.Available = attribsMap["serverStatus/wiredTiger/concurrentTransactions/read/available"][i]
 	ss.WiredTiger.ConcurrentTransactions.Write.Available = attribsMap["serverStatus/wiredTiger/concurrentTransactions/write/available"][i]
-
 	return ss
 }
 
 func getSystemMetricsDataPoints(attribsMap map[string][]int64, i uint32) SystemMetricsDoc {
 	sm := SystemMetricsDoc{}
 	sm.Start = time.Unix(0, int64(time.Millisecond)*attribsMap["serverStatus/localTime"][i])
+	if attribsMap["systemMetrics/cpu/idle_ms"] == nil { // system metrics only available from Linux
+		return sm
+	}
 	sm.CPU.IdleMS = attribsMap["systemMetrics/cpu/idle_ms"][i]
 	sm.CPU.UserMS = attribsMap["systemMetrics/cpu/user_ms"][i]
 	sm.CPU.IOWaitMS = attribsMap["systemMetrics/cpu/iowait_ms"][i]
