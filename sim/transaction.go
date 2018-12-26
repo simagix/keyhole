@@ -75,62 +75,52 @@ func execTXForDemo(c *mongo.Collection, doc bson.M) int {
 }
 
 func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Transaction) int {
-	/*
-		results := []bson.M{}
-		var op = make(map[string]interface{})
-		var pipe []map[string]interface{}
-		var pipeline []map[string]interface{}
+	var ctx = context.Background()
+	var op = make(map[string]interface{})
 
-		for _, tx := range transactions {
-			if tx.C == "insert" {
-				c.Insert(doc)
-			} else {
-				bytes, _ := json.Marshal(tx.Filter)
-				cmd := make(map[string]interface{})
-				filter := make(map[string]interface{})
-				json.Unmarshal(bytes, &cmd)
-				RandomizeDocument(&filter, cmd, false)
+	for _, tx := range transactions {
+		if tx.C == "insert" {
+			c.InsertOne(ctx, doc)
+		} else {
+			bytes, _ := json.Marshal(tx.Filter)
+			cmd := make(map[string]interface{})
+			filter := make(map[string]interface{})
+			json.Unmarshal(bytes, &cmd)
+			util.RandomizeDocument(&filter, cmd, false)
 
-				if tx.C == "find" {
-					c.Find(filter).Limit(20).All(&results)
-				} else if tx.C == "findOne" {
-					c.Find(filter).One(&results)
-				} else if tx.C == "update" {
-					bytes, _ = json.Marshal(tx.Op)
-					json.Unmarshal(bytes, &op)
-					RandomizeDocument(&filter, op, false)
-					c.Update(filter, op)
-				} else if tx.C == "updateAll" {
-					bytes, _ = json.Marshal(tx.Op)
-					json.Unmarshal(bytes, &op)
-					RandomizeDocument(&filter, op, false)
-					c.UpdateAll(filter, op)
-				} else if tx.C == "remove" {
-					c.Remove(filter)
-				} else if tx.C == "removeAll" {
-					c.RemoveAll(filter)
-				} else if tx.C == "aggregate" {
-					bytes, _ := json.Marshal(tx.Pipe)
-					json.Unmarshal(bytes, &pipe)
-					for _, p := range pipe {
-						for k, v := range p {
-							if k == "$match" {
-								q := make(map[string]interface{})
-								RandomizeDocument(&q, v, false)
-								pipeline = append(pipeline, bson.M{"$match": q})
-							} else {
-								pipeline = append(pipeline, p)
-							}
-						}
-					}
-					c.Pipe(pipeline).All(&results)
-				}
+			if tx.C == "find" {
+				c.Find(ctx, filter)
+			} else if tx.C == "findOne" {
+				c.FindOne(ctx, filter)
+			} else if tx.C == "update" {
+				bytes, _ = json.Marshal(tx.Op)
+				json.Unmarshal(bytes, &op)
+				util.RandomizeDocument(&filter, op, false)
+				c.UpdateMany(ctx, filter, op)
+			} else if tx.C == "updateAll" || tx.C == "updateMany" {
+				bytes, _ = json.Marshal(tx.Op)
+				json.Unmarshal(bytes, &op)
+				util.RandomizeDocument(&filter, op, false)
+				c.UpdateMany(ctx, filter, op)
+			} else if tx.C == "remove" || tx.C == "deleteOne" {
+				c.DeleteOne(ctx, filter)
+			} else if tx.C == "removeAll" || tx.C == "deleteMany" {
+				c.DeleteMany(ctx, filter)
+			} else if tx.C == "aggregate" {
+				var pipeline []bson.D
+				bytes, _ := json.Marshal(tx.Pipe)
+				json.Unmarshal(bytes, &pipeline)
+				// example
+				// var pipeline = mongo.Pipeline{{
+				// 	{"$group", bson.D{{"_id", "$state"}, {"totalPop", bson.D{{"$sum", "$pop"}}}}},
+				// 	{"$match", bson.D{{"totalPop", bson.D{{"$gte", 10 * 1000 * 1000}}}}},
+				// }}
+				c.Aggregate(ctx, pipeline)
 			}
 		}
+	}
 
-		return len(transactions)
-	*/
-	return 0
+	return len(transactions)
 }
 
 func execTXByTemplate(c *mongo.Collection, doc bson.M) int {
