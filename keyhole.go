@@ -3,13 +3,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/mongodb/mongo-go-driver/x/network/connstring"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim"
@@ -36,8 +35,8 @@ func main() {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	span := flag.Int("span", -1, "granunarity for summary")
-	sslCAFile := flag.String("sslCAFile", "", "CA file")
-	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
+	caFile := flag.String("sslCAFile", "", "CA file")
+	clientPEMFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
@@ -103,35 +102,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	var client *mongo.Client
-	var connString connstring.ConnString
-	if connString, err = connstring.Parse(*uri); err != nil {
-		panic(err)
-	}
-	if connString.Username != "" && connString.Password == "" {
-		if connString.Password, err = util.ReadPasswordFromStdin(); err != nil {
-			panic(err)
-		}
-		index := strings.Index(*uri, "@")
-		*uri = (*uri)[:index] + ":" + connString.Password + (*uri)[index:]
-	}
-	if client, err = mdb.NewMongoClient(*uri, *sslCAFile, *sslPEMKeyFile); err != nil {
+	if *uri, err = mdb.Parse(*uri); err != nil {
 		panic(err)
 	}
 
-	if connString.Database == "" && *index == false {
-		connString.Database = "_KEYHOLE_"
-		pos := strings.Index(*uri, "?")
-		if pos > 0 { // found ?query_string
-			*uri = (*uri)[:pos] + connString.Database + (*uri)[pos:]
-		} else {
-			length := len(*uri)
-			if (*uri)[length-1] == '/' {
-				*uri += connString.Database
-			} else {
-				*uri += "/" + connString.Database
-			}
-		}
+	client, err := mdb.NewMongoClient(*uri, *caFile, *clientPEMFile)
+	if err != nil {
+		panic(err)
+	}
+	connString, err := connstring.Parse(*uri)
+	if err != nil {
+		panic(err)
 	}
 
 	if *info == true {
@@ -149,6 +130,9 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *index == true {
+		if connString.Database == mdb.KEYHOLEDB {
+			connString.Database = ""
+		}
 		fmt.Println(mdb.GetIndexes(client, connString.Database))
 		os.Exit(0)
 	} else if *schema == true {
@@ -160,8 +144,9 @@ func main() {
 		os.Exit(0)
 	}
 
+	client.Disconnect(context.Background())
 	var runner *sim.Runner
-	if runner, err = sim.NewRunner(*uri, *sslCAFile, *sslPEMKeyFile); err != nil {
+	if runner, err = sim.NewRunner(*uri, *caFile, *clientPEMFile); err != nil {
 		panic(err)
 	}
 	runner.SetTPS(*tps)

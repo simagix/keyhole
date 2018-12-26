@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -53,6 +54,22 @@ func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string) (*Runner, err
 	var client *mongo.Client
 	var runner Runner
 	connString, _ := connstring.Parse(uri)
+
+	if connString.Database == "" {
+		connString.Database = mdb.KEYHOLEDB
+		pos := strings.Index(uri, "?")
+		if pos > 0 { // found ?query_string
+			uri = (uri)[:pos] + connString.Database + (uri)[pos:]
+		} else {
+			length := len(uri)
+			if (uri)[length-1] == '/' {
+				uri += connString.Database
+			} else {
+				uri += "/" + connString.Database
+			}
+		}
+	}
+
 	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
 		return &runner, err
 	}
