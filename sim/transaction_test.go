@@ -41,3 +41,18 @@ func TestExecTXByTemplate(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestExecTXByTemplateAndTX(t *testing.T) {
+	var filename = "testdata/transactions.json"
+	var err error
+	var client *mongo.Client
+	if client, err = GetTestClient(); err != nil {
+		t.Fatal(err)
+	}
+	c := client.Database(SimDBName).Collection(CollectionName)
+	tx := GetTransactions(filename)
+	n := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions)
+	if n != 8 {
+		t.Fatal()
+	}
+}
