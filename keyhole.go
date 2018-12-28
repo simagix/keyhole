@@ -124,8 +124,13 @@ func main() {
 		fmt.Println(string(bytes))
 		os.Exit(0)
 	} else if *seed == true {
-		sb := sim.NewSeedBase(*file, *collection, *total, *drop, connString.Database)
-		if err = sb.SeedData(client); err != nil {
+		f := sim.NewFeeder()
+		f.SetCollection(*collection)
+		f.SetDatabase(connString.Database)
+		f.SetFile(*file)
+		f.SetIsDrop(*drop)
+		f.SetTotal(*total)
+		if err = f.SeedData(client); err != nil {
 			fmt.Println(err)
 		}
 		os.Exit(0)
