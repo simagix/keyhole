@@ -15,7 +15,6 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
-	"github.com/mongodb/mongo-go-driver/x/bsonx"
 	"github.com/mongodb/mongo-go-driver/x/network/connstring"
 	"github.com/simagix/keyhole/mdb"
 )
@@ -161,7 +160,7 @@ func (rn *Runner) Start() error {
 
 			indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
 			idx := mongo.IndexModel{
-				Keys: bsonx.Doc{{Key: "_id", Value: bsonx.String("hashed")}},
+				Keys: bson.D{{Key: "_id", Value: "hashed"}},
 			}
 			if _, err = indexView.CreateOne(ctx, idx); err != nil {
 				return err
@@ -281,17 +280,21 @@ func (rn *Runner) CreateIndexes(docs []bson.M) error {
 
 	if len(docs) == 0 {
 		idx := mongo.IndexModel{
-			Keys: bsonx.Doc{{Key: "favoriteCity", Value: bsonx.Int32(1)}},
+			Keys: bson.D{{Key: "favoriteCity", Value: 1}},
 		}
-		indexView.CreateOne(ctx, idx)
+		if _, err = indexView.CreateOne(ctx, idx); err != nil {
+			return err
+		}
 	}
 	idx := mongo.IndexModel{
-		Keys: bsonx.Doc{{Key: "_search", Value: bsonx.Int32(1)}},
+		Keys: bson.D{{Key: "_search", Value: 1}},
 	}
-	indexView.CreateOne(ctx, idx)
+	if _, err = indexView.CreateOne(ctx, idx); err != nil {
+		return err
+	}
 
 	for _, doc := range docs {
-		keys := bsonx.Doc{}
+		keys := bson.D{}
 		fmt.Println(doc)
 		for k, v := range doc {
 			x := int32(1)
@@ -306,12 +309,14 @@ func (rn *Runner) CreateIndexes(docs []bson.M) error {
 				}
 			}
 
-			keys = append(keys, bsonx.Elem{Key: k, Value: bsonx.Int32(int32(x))})
+			keys = append(keys, bson.E{Key: k, Value: x})
 		}
 		idx := mongo.IndexModel{
 			Keys: keys,
 		}
-		indexView.CreateOne(ctx, idx)
+		if _, err = indexView.CreateOne(ctx, idx); err != nil {
+			return err
+		}
 	}
 
 	return err

@@ -3,7 +3,7 @@
 
 shutdownServer() {
     echo "Shutdown mongod"
-    mongo --quiet --port 30097 --eval 'db.getSisterDB("admin").shutdownServer()'
+    mongo --quiet --port 30097 --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
     rm -rf data/db data/mongod.log.*.gz
     exit
 }
