@@ -10,6 +10,7 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 )
 
@@ -107,15 +108,16 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Trans
 			} else if tx.C == "removeAll" || tx.C == "deleteMany" {
 				c.DeleteMany(ctx, filter)
 			} else if tx.C == "aggregate" {
-				var pipeline []bson.D
-				bytes, _ := json.Marshal(tx.Pipe)
-				json.Unmarshal(bytes, &pipeline)
+				// var pipeline []bson.D
+				// bytes, _ := json.Marshal(tx.Pipe)
+				// json.Unmarshal(bytes, &pipeline)
 				// example
 				// var pipeline = mongo.Pipeline{{
 				// 	{"$group", bson.D{{"_id", "$state"}, {"totalPop", bson.D{{"$sum", "$pop"}}}}},
 				// 	{"$match", bson.D{{"totalPop", bson.D{{"$gte", 10 * 1000 * 1000}}}}},
 				// }}
-				c.Aggregate(ctx, pipeline)
+				b, _ := json.Marshal(tx.Pipe)
+				c.Aggregate(ctx, mdb.GetAggregatePipeline(string(b)))
 			}
 		}
 	}
