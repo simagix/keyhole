@@ -15,7 +15,6 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/mongodb/mongo-go-driver/mongo/options"
-	"github.com/mongodb/mongo-go-driver/x/bsonx"
 	"github.com/simagix/keyhole/sim/util"
 )
 
@@ -196,19 +195,19 @@ func (f *Feeder) seedNumbers(client *mongo.Client) {
 	// create index example
 	indexView := numbersCollection.Indexes()
 	idx := mongo.IndexModel{
-		Keys: bsonx.Doc{{Key: "a", Value: bsonx.Int32(1)}},
+		Keys: bson.D{{Key: "a", Value: 1}},
 	}
 	indexView.CreateOne(ctx, idx)
 	idx = mongo.IndexModel{
-		Keys: bsonx.Doc{{Key: "a", Value: bsonx.Int32(1)}, {Key: "b", Value: bsonx.Int32(1)}},
+		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}},
 	}
 	indexView.CreateOne(ctx, idx)
 	idx = mongo.IndexModel{
-		Keys: bsonx.Doc{{Key: "a", Value: bsonx.Int32(1)}, {Key: "b", Value: bsonx.Int32(-1)}},
+		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}},
 	}
 	indexView.CreateOne(ctx, idx)
 	idx = mongo.IndexModel{
-		Keys: bsonx.Doc{{Key: "a", Value: bsonx.Int32(1)}, {Key: "b", Value: bsonx.Int32(1)}, {Key: "c", Value: bsonx.Int32(1)}},
+		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}, {Key: "c", Value: 1}},
 	}
 	indexView.CreateOne(ctx, idx)
 
@@ -239,7 +238,7 @@ func (f *Feeder) SeedCars(client *mongo.Client) {
 	// create index example
 	indexView := carsCollection.Indexes()
 	idx := mongo.IndexModel{
-		Keys: bsonx.Doc{{Key: "filters.k", Value: bsonx.Int32(1)}, {Key: "filters.v", Value: bsonx.Int32(1)}},
+		Keys: bson.D{{Key: "filters.k", Value: 1}, {Key: "filters.v", Value: 1}},
 	}
 	indexView.CreateOne(ctx, idx)
 
