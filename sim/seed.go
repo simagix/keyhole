@@ -19,13 +19,14 @@ import (
 	"github.com/simagix/keyhole/sim/util"
 )
 
-// SeedBase -
-type SeedBase struct {
-	File       string
-	Collection string
-	Total      int
-	IsDrop     bool
-	DBName     string
+// Feeder seeds feeder
+type Feeder struct {
+	collection   string
+	database     string
+	file         string
+	isDrop       bool
+	showProgress bool
+	total        int
 }
 
 // Model - robot model
@@ -51,27 +52,56 @@ type Robot struct {
 	Tasks      []Task  `json:"tasks" bson:"tasks"`
 }
 
-// NewSeedBase establish seeding parameters
-func NewSeedBase(file string, collection string, total int, isDrop bool, dbName string) SeedBase {
-	sb := SeedBase{file, collection, total, isDrop, dbName}
-	return sb
+// NewFeeder establish seeding parameters
+func NewFeeder() *Feeder {
+	return &Feeder{isDrop: false, total: 1000, showProgress: true}
 }
 
-// SeedData seeds demo data
-func (sb SeedBase) SeedData(client *mongo.Client) error {
-	if sb.File == "" {
-		sb.seed(client)
+// SetCollection set collection
+func (f *Feeder) SetCollection(collection string) {
+	f.collection = collection
+}
+
+// SetDatabase set database
+func (f *Feeder) SetDatabase(database string) {
+	f.database = database
+}
+
+// SetFile set file
+func (f *Feeder) SetFile(file string) {
+	f.file = file
+}
+
+// SetIsDrop set isDrop
+func (f *Feeder) SetIsDrop(isDrop bool) {
+	f.isDrop = isDrop
+}
+
+// SetShowProgress set showProgress
+func (f *Feeder) SetShowProgress(showProgress bool) {
+	f.showProgress = showProgress
+}
+
+// SetTotal set total
+func (f *Feeder) SetTotal(total int) {
+	f.total = total
+}
+
+// SeedData seeds all demo data
+func (f *Feeder) SeedData(client *mongo.Client) error {
+	if f.file == "" {
+		f.SeedAllDemoData(client)
 	} else {
-		if sb.Collection == "" {
+		if f.collection == "" {
 			return errors.New("usage: keyhole --uri connection_uri --seed [--file filename --collection collection_name]")
 		}
-		sb.seedFromTemplate(client)
+		f.seedFromTemplate(client)
 	}
 
 	return nil
 }
 
-// Seed - seed data for demo
+// SeedAllDemoData - seed data for demo
 //  models: {
 //    "_id": string
 //   "name": string,
@@ -86,12 +116,20 @@ func (sb SeedBase) SeedData(client *mongo.Client) error {
 //   "batteryPct": float,
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
-func (sb SeedBase) seed(client *mongo.Client) {
-	var err error
-	ctx := context.Background()
-	c := client.Database(sb.DBName).Collection("lookups")
-	if sb.IsDrop {
+func (f *Feeder) SeedAllDemoData(client *mongo.Client) {
+	f.seedLookups(client)
+	f.seedRobots(client)
+	f.seedNumbers(client)
+	f.SeedCars(client)
+}
+
+func (f *Feeder) seedLookups(client *mongo.Client) {
+	var ctx = context.Background()
+	c := client.Database(f.database).Collection("lookups")
+	favoritesCollection := client.Database(f.database).Collection("favorites")
+	if f.isDrop {
 		c.Drop(ctx)
+		favoritesCollection.Drop(ctx)
 	}
 
 	for i := 0; i < 10; i++ {
@@ -101,10 +139,16 @@ func (sb SeedBase) seed(client *mongo.Client) {
 		c.InsertOne(ctx, bson.M{"_id": i + 1300, "type": "city", "name": util.Favorites.Cities[i]})
 		c.InsertOne(ctx, bson.M{"_id": i + 1400, "type": "music", "name": util.Favorites.Music[i]})
 	}
+	favoritesCount := f.seedCollection(favoritesCollection, 2)
+	fmt.Printf("Seeded favorites: %d\n", favoritesCount)
+}
 
-	modelsCollection := client.Database(sb.DBName).Collection("models")
-	robotsCollection := client.Database(sb.DBName).Collection("robots")
-	if sb.IsDrop {
+func (f *Feeder) seedRobots(client *mongo.Client) {
+	var err error
+	var ctx = context.Background()
+	modelsCollection := client.Database(f.database).Collection("models")
+	robotsCollection := client.Database(f.database).Collection("robots")
+	if f.isDrop {
 		modelsCollection.Drop(ctx)
 		robotsCollection.Drop(ctx)
 	}
@@ -130,9 +174,14 @@ func (sb SeedBase) seed(client *mongo.Client) {
 	}
 	modelsCount, _ := modelsCollection.Count(ctx, bson.M{})
 	robotsCount, _ := robotsCollection.Count(ctx, bson.M{})
+	fmt.Printf("Seeded models: %d, robots: %d\n", modelsCount, robotsCount)
+}
 
-	numbersCollection := client.Database(sb.DBName).Collection("numbers")
-	if sb.IsDrop {
+func (f *Feeder) seedNumbers(client *mongo.Client) {
+	var err error
+	var ctx = context.Background()
+	numbersCollection := client.Database(f.database).Collection("numbers")
+	if f.isDrop {
 		numbersCollection.Drop(ctx)
 	}
 
@@ -163,15 +212,17 @@ func (sb SeedBase) seed(client *mongo.Client) {
 	indexView.CreateOne(ctx, idx)
 
 	numbersCount, _ := numbersCollection.Count(ctx, bson.M{})
-	fmt.Printf("Seeded models: %d, robots: %d, numbers: %d\n", modelsCount, robotsCount, numbersCount)
+	fmt.Printf("Seeded numbers: %d\n", numbersCount)
+}
 
-	carsCollection := client.Database(sb.DBName).Collection("cars")
-	dealersCollection := client.Database(sb.DBName).Collection("dealers")
-	favoritesCollection := client.Database(sb.DBName).Collection("favorites")
-	if sb.IsDrop {
+// SeedCars seeds cars collection
+func (f *Feeder) SeedCars(client *mongo.Client) {
+	var ctx = context.Background()
+	carsCollection := client.Database(f.database).Collection("cars")
+	dealersCollection := client.Database(f.database).Collection("dealers")
+	if f.isDrop {
 		carsCollection.Drop(ctx)
 		dealersCollection.Drop(ctx)
-		favoritesCollection.Drop(ctx)
 	}
 
 	// Upsert examples
@@ -185,17 +236,15 @@ func (sb SeedBase) seed(client *mongo.Client) {
 	}
 
 	// create index example
-	indexView = carsCollection.Indexes()
-	idx = mongo.IndexModel{
+	indexView := carsCollection.Indexes()
+	idx := mongo.IndexModel{
 		Keys: bsonx.Doc{{Key: "filters.k", Value: bsonx.Int32(1)}, {Key: "filters.v", Value: bsonx.Int32(1)}},
 	}
 	indexView.CreateOne(ctx, idx)
 
 	dealersCount, _ := dealersCollection.Count(ctx, bson.M{})
-	carsCount := sb.seedCollection(carsCollection, 1)
+	carsCount := f.seedCollection(carsCollection, 1)
 	fmt.Printf("Seeded cars: %d, dealers: %d\n", carsCount, dealersCount)
-	favoritesCount := sb.seedCollection(favoritesCollection, 2)
-	fmt.Printf("Seeded favorites: %d\n", favoritesCount)
 }
 
 var dealers = []string{"Atlanta Auto", "Buckhead Auto", "Johns Creek Auto"}
@@ -231,13 +280,13 @@ func getVehicle() bson.M {
 	}
 }
 
-func (sb SeedBase) seedCollection(c *mongo.Collection, fnum int) int {
+func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
 	var err error
 	var ctx = context.Background()
 	var bsize = 1000
-	var remaining = sb.Total
+	var remaining = f.total
 
-	for i := 0; i < sb.Total; {
+	for i := 0; i < f.total; {
 		num := bsize
 		if remaining < bsize {
 			num = remaining
@@ -255,37 +304,41 @@ func (sb SeedBase) seedCollection(c *mongo.Collection, fnum int) int {
 		if _, err = c.InsertMany(ctx, contentArray); err != nil {
 			panic(err)
 		}
-		fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(sb.Total))
+		if f.showProgress {
+			fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(f.total))
+		}
 	}
-	fmt.Fprintf(os.Stderr, "\r100%%\r     \r")
+	if f.showProgress {
+		fmt.Fprintf(os.Stderr, "\r100%%\r     \r")
+	}
 	cnt, _ := c.Count(ctx, bson.M{})
 	return int(cnt)
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func (sb SeedBase) seedFromTemplate(client *mongo.Client) {
+func (f *Feeder) seedFromTemplate(client *mongo.Client) {
 	var err error
 	var ctx = context.Background()
 	var bsize = 1000
-	var remaining = sb.Total
+	var remaining = f.total
 	var sdoc bson.M
-	if sdoc, err = util.GetDocByTemplate(sb.File, true); err != nil {
+	if sdoc, err = util.GetDocByTemplate(f.file, true); err != nil {
 		return
 	}
 	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
-	collName := sb.Collection
+	collName := f.collection
 	if collName == "" {
 		collName = "examples"
 	}
 	log.Println("Seed data to collection", collName)
-	c := client.Database(sb.DBName).Collection(collName)
-	if sb.IsDrop {
+	c := client.Database(f.database).Collection(collName)
+	if f.isDrop {
 		c.Drop(ctx)
 	}
 
-	for i := 0; i < sb.Total; {
+	for i := 0; i < f.total; {
 		num := bsize
 		if remaining < bsize {
 			num = remaining
@@ -302,10 +355,14 @@ func (sb SeedBase) seedFromTemplate(client *mongo.Client) {
 		if _, err = c.InsertMany(ctx, contentArray); err != nil {
 			panic(err)
 		}
-		fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(sb.Total))
+		if f.showProgress {
+			fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(f.total))
+		}
 	}
 
-	fmt.Fprintf(os.Stderr, "\r100%%   \n")
+	if f.showProgress {
+		fmt.Fprintf(os.Stderr, "\r100%%   \n")
+	}
 	cnt, _ := c.Count(ctx, bson.M{})
-	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, sb.Total, cnt)
+	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, f.total, cnt)
 }

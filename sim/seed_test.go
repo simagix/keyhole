@@ -19,17 +19,16 @@ func TestSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Disconnect(context.Background())
-
-	file := ""
-	collection := ""
-	total := 1000
-	isDrop := true
 	dbName := "keyhole"
-
-	sb := NewSeedBase(file, collection, total, isDrop, dbName)
+	total := 100
+	f := NewFeeder()
+	f.SetDatabase(dbName)
+	f.SetTotal(total)
+	f.SetIsDrop(true)
+	f.SetShowProgress(false)
 
 	// calling seed()
-	sb.SeedData(client)
+	f.SeedData(client)
 	db := client.Database(dbName)
 	coll := db.Collection("cars")
 	var count int64
@@ -52,14 +51,18 @@ func TestSeedFromTemplate(t *testing.T) {
 	defer client.Disconnect(context.Background())
 	file := "../examples/template.json"
 	collection := "template"
-	total := 1000
-	isDrop := true
+	total := 100
 	dbName := "keyhole"
-
-	sb := NewSeedBase(file, collection, total, isDrop, dbName)
+	f := NewFeeder()
+	f.SetCollection(collection)
+	f.SetDatabase(dbName)
+	f.SetFile(file)
+	f.SetIsDrop(true)
+	f.SetShowProgress(false)
+	f.SetTotal(total)
 
 	// calling seedFromTemplate
-	sb.SeedData(client)
+	f.SeedData(client)
 	db := client.Database(dbName)
 	coll := db.Collection("cars")
 	var count int64
