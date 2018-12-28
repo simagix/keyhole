@@ -117,13 +117,14 @@ func (f *Feeder) SeedData(client *mongo.Client) error {
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
 func (f *Feeder) SeedAllDemoData(client *mongo.Client) {
-	f.seedLookups(client)
+	f.SeedFavorites(client)
 	f.seedRobots(client)
 	f.seedNumbers(client)
 	f.SeedCars(client)
 }
 
-func (f *Feeder) seedLookups(client *mongo.Client) {
+// SeedFavorites seeds demo data of collection favorites
+func (f *Feeder) SeedFavorites(client *mongo.Client) {
 	var ctx = context.Background()
 	c := client.Database(f.database).Collection("lookups")
 	favoritesCollection := client.Database(f.database).Collection("favorites")
