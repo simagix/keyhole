@@ -14,10 +14,7 @@ import (
 func TestSeed(t *testing.T) {
 	var err error
 	var client *mongo.Client
-	ctx := context.Background()
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	dbName := "keyhole"
 	total := 100
@@ -32,7 +29,7 @@ func TestSeed(t *testing.T) {
 	db := client.Database(dbName)
 	coll := db.Collection("cars")
 	var count int64
-	if count, err = coll.Count(ctx, bson.M{}); err != nil {
+	if count, err = coll.Count(context.Background(), bson.M{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,9 +42,7 @@ func TestSeedFromTemplate(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	ctx := context.Background()
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	file := "../examples/template.json"
 	collection := "template"
