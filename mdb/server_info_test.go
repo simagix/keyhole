@@ -13,34 +13,25 @@ import (
 
 var UnitTestURL = "mongodb://localhost/"
 
-func GetTestClient() (*mongo.Client, error) {
+func getMongoClient() *mongo.Client {
 	var err error
 	var client *mongo.Client
 
 	if os.Getenv("DATABASE_URL") != "" {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
-
-	if client, err = NewMongoClient(UnitTestURL); err != nil {
-		return client, err
+	if client, err = mongo.Connect(context.Background(), UnitTestURL); err != nil {
+		panic(err)
 	}
 
-	return client, err
+	return client
 }
 
 func TestGetServerInfo(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	var info ServerInfo
-
-	uri := "mongodb://localhost/"
-	if os.Getenv("DATABASE_URL") != "" {
-		uri = os.Getenv("DATABASE_URL")
-	}
-
-	if client, err = NewMongoClient(uri); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	if info, err = GetServerInfo(client); err != nil {
 		t.Fatal(err)

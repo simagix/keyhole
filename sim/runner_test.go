@@ -3,6 +3,7 @@
 package sim
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -13,26 +14,25 @@ import (
 
 var UnitTestURL = "mongodb://localhost/"
 
-func GetTestClient() (*mongo.Client, error) {
+func getMongoClient() *mongo.Client {
 	var err error
 	var client *mongo.Client
 
 	if os.Getenv("DATABASE_URL") != "" {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
-
-	if client, err = mdb.NewMongoClient(UnitTestURL); err != nil {
-		return client, err
+	if client, err = mongo.Connect(context.Background(), UnitTestURL); err != nil {
+		panic(err)
 	}
-	return client, err
+
+	return client
 }
 
 func TestGetShardsURIList(t *testing.T) {
 	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
+	defer client.Disconnect(context.Background())
 	uriList, err := mdb.GetShardsURIList(client, UnitTestURL)
 	if err != nil {
 		t.Fatal(err)

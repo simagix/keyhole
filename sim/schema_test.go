@@ -12,9 +12,7 @@ import (
 func TestGetSchemaFromCollection(t *testing.T) {
 	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 
 	var str string

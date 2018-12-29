@@ -15,9 +15,7 @@ func TestRunAdminCommand(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	var m bson.M
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	if m, err = RunAdminCommand(client, "dbStats"); err != nil {
 		t.Fatal(err)
@@ -31,9 +29,7 @@ func TestRunCommandOnDB(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	var m bson.M
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	if m, err = RunCommandOnDB(client, "dbStats", "test"); err != nil {
 		t.Fatal(err)
@@ -47,9 +43,7 @@ func TestIsMaster(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	var m bson.M
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	if m, err = IsMaster(client); err != nil {
 		t.Fatal(err)

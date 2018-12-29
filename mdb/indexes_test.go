@@ -4,48 +4,68 @@ package mdb
 
 import (
 	"context"
+	"log"
+	"math/rand"
 	"testing"
 
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
 var dbName = "keyhole"
 
 func TestGetIndexesFromDB(t *testing.T) {
-	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	// c := client.Database(dbName).Collection("examples")
-	// c.EnsureIndexKey("a")
-	// c.EnsureIndexKey("a", "b", "c")
-	// c.EnsureIndexKey("a", "b")
-	// c.EnsureIndexKey("a", "c")
-	// c.EnsureIndexKey("a", "-b")
+	c := client.Database(dbName).Collection("examples")
+	seedNumbers(c)
 
 	// get index from keyhole database
-	var str string
-	str = GetIndexesFromDB(client, dbName)
+	str := GetIndexesFromDB(client, dbName)
 	t.Log(str)
 }
 
 func TestGetIndexes(t *testing.T) {
-	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	// c := client.Database(dbName).Collection("examples")
-	// c.EnsureIndexKey("a")
-	// c.EnsureIndexKey("a", "b", "c")
-	// c.EnsureIndexKey("a", "b")
-	// c.EnsureIndexKey("a", "c")
-	// c.EnsureIndexKey("a", "-b")
-	// var str string
+	c := client.Database(dbName).Collection("examples")
+	seedNumbers(c)
+
 	// get all indexes
-	// str = GetIndexes(client, "")
-	// t.Log(str)
+	str := GetIndexes(client, "")
+	t.Log(str)
+}
+
+func seedNumbers(c *mongo.Collection) {
+	var err error
+	var ctx = context.Background()
+	c.Drop(ctx)
+
+	var docs []interface{}
+	for n := 0; n < 1000; n++ {
+		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100)})
+	}
+	if _, err = c.InsertMany(ctx, docs); err != nil {
+		log.Fatal(err)
+	}
+	// create index example
+	indexView := c.Indexes()
+	idx := mongo.IndexModel{
+		Keys: bson.D{{Key: "a", Value: 1}},
+	}
+	indexView.CreateOne(ctx, idx)
+	idx = mongo.IndexModel{
+		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}},
+	}
+	indexView.CreateOne(ctx, idx)
+	idx = mongo.IndexModel{
+		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}},
+	}
+	indexView.CreateOne(ctx, idx)
+	idx = mongo.IndexModel{
+		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}, {Key: "c", Value: 1}},
+	}
+	indexView.CreateOne(ctx, idx)
 }

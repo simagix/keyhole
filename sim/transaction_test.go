@@ -3,6 +3,7 @@
 package sim
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -17,11 +18,9 @@ func TestGetTransactions(t *testing.T) {
 }
 
 func TestExecTXForDemo(t *testing.T) {
-	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
+	defer client.Disconnect(context.Background())
 	c := client.Database(SimDBName).Collection(CollectionName)
 	n := execTXForDemo(c, util.GetDemoDoc())
 	if n != 5 {
@@ -30,11 +29,9 @@ func TestExecTXForDemo(t *testing.T) {
 }
 
 func TestExecTXByTemplate(t *testing.T) {
-	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
+	defer client.Disconnect(context.Background())
 	c := client.Database(SimDBName).Collection(CollectionName)
 	n := execTXByTemplate(c, util.GetDemoDoc())
 	if n != 5 {
@@ -44,11 +41,9 @@ func TestExecTXByTemplate(t *testing.T) {
 
 func TestExecTXByTemplateAndTX(t *testing.T) {
 	var filename = "testdata/transactions.json"
-	var err error
 	var client *mongo.Client
-	if client, err = GetTestClient(); err != nil {
-		t.Fatal(err)
-	}
+	client = getMongoClient()
+	defer client.Disconnect(context.Background())
 	c := client.Database(SimDBName).Collection(CollectionName)
 	tx := GetTransactions(filename)
 	n := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions)
