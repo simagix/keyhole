@@ -10,6 +10,7 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 )
@@ -61,14 +62,17 @@ func execTXForDemo(c *mongo.Collection, doc bson.M) int {
 	txCount++
 	// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
 	// txCount++
-	c.Find(ctx, bson.M{"favoriteCity": city})
+	opts := options.Find()
+	opts.SetLimit(20)
+	c.Find(ctx, bson.D{{Key: "favoriteCity", Value: city}}, opts)
 	txCount++
-	c.Find(ctx, bson.M{"favoriteCity": city, "favoriteBook": book})
+	c.Find(ctx, bson.D{{Key: "favoriteCity", Value: city}, {Key: "favoriteBook", Value: book}}, opts)
 	txCount++
 	c.UpdateOne(ctx, bson.M{"_id": doc["_id"]}, change)
 	txCount++
 	// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
-	c.Find(ctx, bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}})
+	opts.SetSort(bson.D{{Key: "favoriteCity", Value: 1}})
+	c.Find(ctx, bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}, opts)
 	txCount++
 	// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
 	// txCount++
@@ -136,7 +140,9 @@ func execTXByTemplate(c *mongo.Collection, doc bson.M) int {
 	txCount++
 	c.UpdateOne(ctx, bson.M{"_id": _id}, change)
 	txCount++
-	c.Find(ctx, bson.M{"_search": doc["_search"]})
+	opts := options.Find()
+	opts.SetLimit(20)
+	c.Find(ctx, bson.M{"_search": doc["_search"]}, opts)
 	txCount++
 	c.DeleteOne(ctx, bson.M{"_id": _id})
 	txCount++
