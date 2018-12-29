@@ -121,7 +121,7 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Trans
 				// 	{"$match", bson.D{{"totalPop", bson.D{{"$gte", 10 * 1000 * 1000}}}}},
 				// }}
 				b, _ := json.Marshal(tx.Pipe)
-				c.Aggregate(ctx, mdb.GetAggregatePipeline(string(b)))
+				c.Aggregate(ctx, mdb.MongoPipeline(string(b)))
 			}
 		}
 	}

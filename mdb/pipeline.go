@@ -4,20 +4,32 @@ package mdb
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
-// GetAggregatePipeline get aggregation pipeline from a string
-func GetAggregatePipeline(str string) []bson.D {
+// MongoPipeline gets aggregation pipeline from a string
+func MongoPipeline(str string) mongo.Pipeline {
 	var pipeline = []bson.D{}
-	var docs []bson.M
-	json.Unmarshal([]byte(str), &docs)
-	for _, doc := range docs {
+	str = strings.TrimSpace(str)
+	if strings.Index(str, "[") != 0 {
+		var doc bson.M
+		json.Unmarshal([]byte(str), &doc)
 		var v bson.D
 		b, _ := bson.Marshal(doc)
 		bson.Unmarshal(b, &v)
 		pipeline = append(pipeline, v)
+	} else {
+		var docs []bson.M
+		json.Unmarshal([]byte(str), &docs)
+		for _, doc := range docs {
+			var v bson.D
+			b, _ := bson.Marshal(doc)
+			bson.Unmarshal(b, &v)
+			pipeline = append(pipeline, v)
+		}
 	}
 	return pipeline
 }

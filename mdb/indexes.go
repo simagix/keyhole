@@ -55,7 +55,7 @@ func GetIndexesFromDB(client *mongo.Client, dbName string) string {
 	var buffer bytes.Buffer
 	var ctx = context.Background()
 	// var pipeline = mongo.Pipeline{{{Key: "$indexStats", Value: bson.M{}}}}
-	var pipeline = GetAggregatePipeline(`[{"$indexStats": {}}]`)
+	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
 	if cur, err = client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
 		return buffer.String()
 	}
