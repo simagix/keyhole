@@ -11,7 +11,7 @@ if [ "$DEP" == "" ]; then
 fi
 
 $DEP ensure
-export version="master-$(date "+%Y%m%d.%s")"
+export version="$(git symbolic-ref --short HEAD)-$(date "+%Y%m%d.%s")"
 mkdir -p build
 env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
 env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-osx-x64 keyhole.go
