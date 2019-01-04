@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -18,8 +18,8 @@ import (
 // UsageDoc -
 type UsageDoc struct {
 	Hostname string
-	Ops      int
-	Since    string
+	Ops      int       `json:"ops" bson:"ops"`
+	Since    time.Time `json:"since" bson:"since"`
 }
 
 // IndexStatsDoc -
@@ -159,7 +159,7 @@ func GetIndexesFromDB(client *mongo.Client, dbName string) string {
 			}
 			buffer.WriteString(font + o.Key + "\x1b[0m")
 			for _, u := range o.Usage {
-				buffer.Write([]byte("\n\thost: " + u.Hostname + ", ops: " + strconv.Itoa(u.Ops) + ", since: " + u.Since))
+				buffer.Write([]byte("\n\thost: " + u.Hostname + ", ops: " + fmt.Sprintf("%v", u.Ops) + ", since: " + fmt.Sprintf("%v", u.Since)))
 			}
 			buffer.WriteString("\n")
 		}
