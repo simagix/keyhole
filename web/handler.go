@@ -5,6 +5,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -140,16 +141,26 @@ func filterTimeSeriesData(tsData TimeSeriesDoc, from time.Time, to time.Time) Ti
 		data.DataPoints = append(data.DataPoints, v)
 	}
 
-	max := 600 // at most 10 minutes
+	max := 1000 // max data points
 	if len(data.DataPoints) > max {
 		frac := len(data.DataPoints) / max
 		var datax = TimeSeriesDoc{DataPoints: [][]float64{}}
 		datax.Target = tsData.Target
+		count := 0
+		sum := float64(0)
+		last := len(data.DataPoints) - 1
 		for i, v := range data.DataPoints {
-			if i%frac != 0 {
+			if v[0] > 0 || count == 0 { // has value or the first value
+				sum += v[0]
+				count++
+			}
+			if i%frac != 0 && i != last {
 				continue
 			}
+			v[0] = math.Round(sum / float64(count))
 			datax.DataPoints = append(datax.DataPoints, v)
+			count = 0
+			sum = 0
 		}
 		return datax
 	}
