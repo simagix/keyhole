@@ -19,12 +19,12 @@ type OptimeDoc struct {
 func GetOptime(optime interface{}) int64 {
 	var ts int64
 	switch optime.(type) {
-	case map[string]interface{}:
-		bm := optime.(map[string]interface{})
-		b, _ := json.Marshal(bm)
-		var optm OptimeDoc
-		json.Unmarshal(b, &optm)
-		ts = optm.TS >> 32
+	// case map[string]interface{}:
+	// 	bm := optime.(map[string]interface{})
+	// 	b, _ := json.Marshal(bm)
+	// 	var optm OptimeDoc
+	// 	json.Unmarshal(b, &optm)
+	// 	ts = optm.TS >> 32
 	case primitive.D:
 		doc := optime.(primitive.D)
 		for _, elem := range doc {
@@ -36,14 +36,14 @@ func GetOptime(optime interface{}) int64 {
 				break
 			}
 		}
-	case []interface{}:
-		for _, doc := range optime.([]interface{}) {
-			value := (doc.(map[string]interface{}))["Value"]
-			b, _ := json.Marshal(value)
-			var optm OptimeDoc
-			json.Unmarshal(b, &optm)
-			ts = optm.T >> 32
-		}
+	// case []interface{}:
+	// 	for _, doc := range optime.([]interface{}) {
+	// 		value := (doc.(map[string]interface{}))["Value"]
+	// 		b, _ := json.Marshal(value)
+	// 		var optm OptimeDoc
+	// 		json.Unmarshal(b, &optm)
+	// 		ts = optm.T >> 32
+	// 	}
 	default:
 		panic(fmt.Sprintf("default =>%T\n", optime))
 	}

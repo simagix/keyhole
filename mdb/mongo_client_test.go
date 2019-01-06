@@ -32,3 +32,14 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestParse(t *testing.T) {
+	uri := "mongodb://localhost/keyhole?replicaSet=replset"
+	str, err := Parse(uri)
+	if err != nil || str != uri {
+		t.Fatal(err)
+	}
+}
+
+func TestReadPasswordFromStdin(t *testing.T) {
+}
