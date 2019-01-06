@@ -42,3 +42,12 @@ func TestGetServerInfo(t *testing.T) {
 	bytes, _ := json.MarshalIndent(info, "", "  ")
 	t.Log(string(bytes))
 }
+
+func TestListDatabaseNames(t *testing.T) {
+	client := getMongoClient()
+	defer client.Disconnect(context.Background())
+	_, err := ListDatabaseNames(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

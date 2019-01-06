@@ -66,8 +66,8 @@ func GetIndexesFromDB(client *mongo.Client, dbName string) string {
 		if err = cur.Decode(&elem); err != nil {
 			continue
 		}
-		coll := elem["name"].(string)
-		collType := elem["type"].(string)
+		coll := fmt.Sprintf("%v", elem["name"])
+		collType := fmt.Sprintf("%v", elem["type"])
 		if strings.Index(coll, "system.") == 0 || collType != "collection" {
 			continue
 		}

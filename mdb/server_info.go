@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
@@ -84,9 +83,8 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 	return serverInfo, nil
 }
 
-// GetDatabaseNames gets all database names
-// Doesn't work on Atlas b/c of filter priviledge
-func GetDatabaseNames(client *mongo.Client) ([]string, error) {
+// ListDatabaseNames gets all database names
+func ListDatabaseNames(client *mongo.Client) ([]string, error) {
 	var err error
 	var names []string
 	var result mongo.ListDatabasesResult
@@ -95,20 +93,6 @@ func GetDatabaseNames(client *mongo.Client) ([]string, error) {
 	}
 	for _, db := range result.Databases {
 		names = append(names, db.Name)
-	}
-	return names, err
-}
-
-// ListDatabaseNames gets all database names
-func ListDatabaseNames(client *mongo.Client) ([]string, error) {
-	var err error
-	var m bson.M
-	var names []string
-	if m, err = RunAdminCommand(client, "listDatabases"); err != nil {
-		return names, err
-	}
-	for _, db := range m["databases"].(primitive.A) {
-		names = append(names, (db.(bson.M))["name"].(string))
 	}
 	return names, err
 }
