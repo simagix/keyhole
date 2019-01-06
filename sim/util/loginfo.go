@@ -89,7 +89,7 @@ func getConfigOptions(reader *bufio.Reader) []string {
 }
 
 // LogInfo -
-func LogInfo(filename string, collscan bool) error {
+func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 	var err error
 	var reader *bufio.Reader
 	var file *os.File
@@ -97,32 +97,33 @@ func LogInfo(filename string, collscan bool) error {
 
 	opsMap = make(map[string]OpPerformanceDoc)
 	if file, err = os.Open(filename); err != nil {
-		return err
+		return "", err
 	}
 	defer file.Close()
 
 	if reader, err = NewReader(file); err != nil {
-		return err
+		return "", err
 	}
 	lineCounts, _ := CountLines(reader)
 
 	file.Seek(0, 0)
 	reader, _ = NewReader(file)
+	var buffer bytes.Buffer
 	if strs := getConfigOptions(reader); len(strs) > 0 {
 		for _, s := range strs {
-			fmt.Println(s)
+			buffer.WriteString(s + "\n")
 		}
 	}
 
 	matched := regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
 	file.Seek(0, 0)
 	if reader, err = NewReader(file); err != nil {
-		return err
+		return "", err
 	}
 
 	index := 0
 	for {
-		if index%25 == 1 {
+		if index%25 == 1 && len(silent) == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		}
 		buf, _, err := reader.ReadLine() // 0x0A separator = newline
@@ -163,7 +164,7 @@ func LogInfo(filename string, collscan bool) error {
 			re := regexp.MustCompile(`^(\w+) ({.*})$`)
 			op := result[2]
 			ns := result[3]
-			if ns == "local.oplog.rs" {
+			if ns == "local.oplog.rs" || strings.HasSuffix(ns, ".$cmd") == true {
 				continue
 			}
 			filter := result[4][:epos]
@@ -269,15 +270,17 @@ func LogInfo(filename string, collscan bool) error {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
 	})
-	printLogsSummary(arr)
-	return nil
+	if len(silent) == 0 {
+		fmt.Fprintf(os.Stderr, "\r     \r")
+	}
+	return buffer.String() + printLogsSummary(arr), nil
 }
 
-func printLogsSummary(arr []OpPerformanceDoc) {
-	fmt.Fprintf(os.Stderr, "\r100%% ")
-	fmt.Println("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
-	fmt.Printf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern")
-	fmt.Println("|-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|")
+func printLogsSummary(arr []OpPerformanceDoc) string {
+	var buffer bytes.Buffer
+	buffer.WriteString("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+\n")
+	buffer.WriteString(fmt.Sprintf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern"))
+	buffer.WriteString("|-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|\n")
 	for _, value := range arr {
 		str := value.Filter
 		if len(value.Command) > 13 {
@@ -291,13 +294,15 @@ func printLogsSummary(arr []OpPerformanceDoc) {
 			idx := strings.LastIndex(str, " ")
 			str = value.Filter[:idx]
 		}
+		output := ""
 		if value.Scan == COLLSCAN {
-			fmt.Printf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s \x1b[31;1m%-71s\x1b[0m|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s \x1b[31;1m%-71s\x1b[0m|\n", value.Command, value.Scan,
 				float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
 		} else {
-			fmt.Printf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s %-71s|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s %-71s|\n", value.Command, value.Scan,
 				float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
 		}
+		buffer.WriteString(output)
 		if len(value.Filter) > 70 {
 			remaining := value.Filter[len(str):]
 			for i := 0; i < len(remaining); i += 70 {
@@ -315,17 +320,22 @@ func printLogsSummary(arr []OpPerformanceDoc) {
 					}
 				}
 				if value.Scan == COLLSCAN {
-					fmt.Printf("|%72s   \x1b[31;1m%-70s\x1b[0m||\n", " ", pstr)
+					output = fmt.Sprintf("|%72s   \x1b[31;1m%-70s\x1b[0m||\n", " ", pstr)
+					buffer.WriteString(output)
 				} else {
-					fmt.Printf("|%72s   %-70s|\n", " ", pstr)
+					output = fmt.Sprintf("|%72s   %-70s|\n", " ", pstr)
+					buffer.WriteString(output)
 				}
+				buffer.WriteString(output)
 			}
 		}
 		if value.Index != "" {
-			fmt.Printf("|------- index: \x1b[32;1m%-71s\x1b[0m\n", value.Index)
+			output = fmt.Sprintf("|------- index: \x1b[32;1m%-71s\x1b[0m\n", value.Index)
+			buffer.WriteString(output)
 		}
 	}
-	fmt.Println("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+")
+	buffer.WriteString("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+\n")
+	return buffer.String()
 }
 
 // convert $in: [...] to $in: [ ]
