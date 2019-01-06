@@ -81,8 +81,11 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {
-		if err = util.LogInfo(*loginfo, *collscan); err != nil {
+		var str string
+		if str, err = util.LogInfo(*loginfo, *collscan); err != nil {
 			fmt.Println(err)
+		} else {
+			fmt.Println(str)
 		}
 		os.Exit(0)
 	} else if *ver {
