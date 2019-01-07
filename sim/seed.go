@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -220,9 +221,11 @@ func (f *Feeder) SeedCars(client *mongo.Client) {
 	var ctx = context.Background()
 	carsCollection := client.Database(f.database).Collection("cars")
 	dealersCollection := client.Database(f.database).Collection("dealers")
+	employeesCollection := client.Database(f.database).Collection("employees")
 	if f.isDrop {
 		carsCollection.Drop(ctx)
 		dealersCollection.Drop(ctx)
+		employeesCollection.Drop(ctx)
 	}
 
 	// Upsert examples
@@ -232,6 +235,31 @@ func (f *Feeder) SeedCars(client *mongo.Client) {
 		opts.SetUpsert(true)
 		if _, err := dealersCollection.UpdateOne(ctx, bson.M{"_id": dealerID}, bson.M{"$set": bson.M{"name": dealers[i]}}, opts); err != nil {
 			log.Fatal(err)
+		}
+	}
+
+	var emp bson.M
+	opts := options.Replace()
+	opts.SetUpsert(true)
+	var empID = int(1001)
+	emp = getEmployee(empID, 0)
+	empID++
+	employeesCollection.ReplaceOne(ctx, bson.M{"_id": emp["_id"]}, emp, opts)
+	for i := 0; i < 2; i++ {
+		emp = getEmployee(empID, 1001)
+		parent := empID
+		employeesCollection.ReplaceOne(ctx, bson.M{"_id": emp["_id"]}, emp, opts)
+		empID++
+		for j := 0; j < 3; j++ {
+			emp = getEmployee(empID, parent)
+			pID := empID
+			employeesCollection.ReplaceOne(ctx, bson.M{"_id": emp["_id"]}, emp, opts)
+			empID++
+			for k := 0; k < 5; k++ {
+				emp = getEmployee(empID, pID)
+				employeesCollection.ReplaceOne(ctx, bson.M{"_id": emp["_id"]}, emp, opts)
+				empID++
+			}
 		}
 	}
 
@@ -365,4 +393,15 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) {
 	}
 	cnt, _ := c.Count(ctx, bson.M{})
 	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, f.total, cnt)
+}
+
+func getEmployee(id int, supervisor int) bson.M {
+	dealerID := "DEALER-1"
+	email := util.GetEmailAddress()
+	s := strings.Split(strings.Split(email, "@")[0], ".")
+	doc := bson.M{"_id": int32(id), "dealer": dealerID, "email": email, "name": s[0] + " " + s[2]}
+	if supervisor != 0 {
+		doc["manager"] = int32(supervisor)
+	}
+	return doc
 }
