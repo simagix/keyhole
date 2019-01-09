@@ -36,6 +36,11 @@ func GetOptime(optime interface{}) int64 {
 				break
 			}
 		}
+	case primitive.Timestamp:
+		b, _ := json.Marshal(optime.(primitive.Timestamp))
+		var optm OptimeDoc
+		json.Unmarshal(b, &optm)
+		ts = int64(optm.T)
 	// case []interface{}:
 	// 	for _, doc := range optime.([]interface{}) {
 	// 		value := (doc.(map[string]interface{}))["Value"]
