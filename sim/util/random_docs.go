@@ -5,6 +5,7 @@ package util
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"regexp"
@@ -27,9 +28,11 @@ func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 	}
 
 	re := regexp.MustCompile(`ObjectId\(\S+\)`)
-	str = re.ReplaceAllString(string(buf), "\"11223344556677889900aabb\"")
+	str = re.ReplaceAllString(string(buf), "\"$$oId\"")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
-	str = re.ReplaceAllString(str, "\"2018-06-13T17:48:10Z\"")
+	str = re.ReplaceAllString(str, "\"$$date\"")
+	re = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
+	str = re.ReplaceAllString(str, "\"$$email\"")
 
 	var f interface{}
 	if err = json.Unmarshal([]byte(str), &f); err != nil {
@@ -77,18 +80,15 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 			}
 		case string:
 			if meta == false {
-				if value.(string) == "$date" || isDateString(value.(string)) {
+				if value.(string) == metaDate || isDateString(value.(string)) {
 					(*doc)[key] = getDate()
-				} else if value.(string) == "$oId" || (len(value.(string)) == 24 && isHexString(value.(string))) {
+					continue
+				} else if value.(string) == metaOID || (len(value.(string)) == 24 && isHexString(value.(string))) {
 					(*doc)[key] = primitive.NewObjectID()
-				} else if value.(string) == "$hex" || isHexString(value.(string)) {
-					(*doc)[key] = getHexString(len(value.(string)))
-				} else {
-					(*doc)[key] = getMagicString(value.(string), meta)
+					continue
 				}
-			} else {
-				(*doc)[key] = getMagicString(value.(string), meta)
 			}
+			(*doc)[key] = getMagicString(value.(string), meta)
 		default:
 			(*doc)[key] = value
 		}
@@ -124,36 +124,43 @@ func getArrayOfRandomDocs(obj []interface{}, subdoc *[]interface{}, meta bool) {
 	}
 }
 
+const metaEmail = "$email"
+const metaIP = "$ip"
+const metaSSN = "$ssn"
+const metaTEL = "$tel"
+const metaDate = "$date"
+const metaOID = "$oId"
+
 // Returns randomized string.  if meta is true, it intends to avoid future regex
-// actions by replacing the values with $mail, $ip, and $date.
+// actions by replacing the values with $email, $ip, and $date.
 func getMagicString(str string, meta bool) string {
-	if meta {
-		if isEmailAddress(str) {
-			return "$mail"
-		} else if isIP(str) {
-			return "$ip"
-		} else if isSSN(str) {
-			return "$ssn"
-		} else if isPhoneNumber(str) {
-			return "$tel"
-		} else if isDateString(str) {
-			return "$date"
-		} else if isHexString(str) && len(str) == 24 {
-			return "$oId"
-		} else if isHexString(str) {
-			return "$hex"
+	if meta == true {
+		if str == metaEmail || isEmailAddress(str) {
+			return metaEmail
+		} else if str == metaIP || isIP(str) {
+			return metaIP
+		} else if str == metaSSN || isSSN(str) {
+			return metaSSN
+		} else if str == metaTEL || isPhoneNumber(str) {
+			return metaTEL
+		} else if str == metaDate || isDateString(str) {
+			return metaDate
+		} else if str == metaOID || (len(str) == 24 && isHexString(str)) {
+			return metaOID
 		}
 		return str
 	}
 
-	if str == "$mail" || isEmailAddress(str) {
+	if str == metaEmail || isEmailAddress(str) {
 		return GetEmailAddress()
-	} else if str == "$ip" || isIP(str) {
+	} else if str == metaIP || isIP(str) {
 		return getIP()
-	} else if str == "$ssn" || isSSN(str) {
+	} else if str == metaSSN || isSSN(str) {
 		return getSSN()
-	} else if str == "$tel" || isPhoneNumber(str) {
+	} else if str == metaTEL || isPhoneNumber(str) {
 		return getPhoneNumber()
+	} else if isHexString(str) {
+		return getHexString(len(str))
 	}
 
 	if len(str) < 10 {
@@ -201,8 +208,7 @@ func isSSN(str string) bool {
 }
 
 func getSSN() string {
-	return strconv.Itoa(100+rand.Intn(899)) + "-" + strconv.Itoa(10+rand.Intn(89)) + "-" +
-		strconv.Itoa(1000+rand.Intn(8999))
+	return fmt.Sprintf("%v-%v-5408", (100 + rand.Intn(899)), (10 + rand.Intn(89)))
 }
 
 func isPhoneNumber(str string) bool {
@@ -211,8 +217,7 @@ func isPhoneNumber(str string) bool {
 }
 
 func getPhoneNumber() string {
-	return "(" + strconv.Itoa(100+rand.Intn(899)) + ") " + strconv.Itoa(100+rand.Intn(899)) + "-" +
-		strconv.Itoa(1000+rand.Intn(8999))
+	return fmt.Sprintf("(%v) 555-%v", (100 + rand.Intn(899)), (1000 + rand.Intn(8999)))
 }
 
 func isHexString(str string) bool {
@@ -233,10 +238,12 @@ func isDateString(str string) bool {
 	return matched.MatchString(str)
 }
 
+var now = time.Now()
+var min = now.AddDate(-1, 0, 0).Unix()
+var max = now.AddDate(0, 3, 0).Unix()
+var delta = max - min
+
 func getDate() time.Time {
-	min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
-	max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
-	delta := max - min
 	sec := rand.Int63n(delta) + min
 	return time.Unix(sec, 0)
 }

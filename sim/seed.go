@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -347,13 +348,13 @@ func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
 func (f *Feeder) seedFromTemplate(client *mongo.Client) {
 	var err error
 	var ctx = context.Background()
-	var bsize = 1000
+	var bsize = 100
 	var remaining = f.total
 	var sdoc bson.M
 	if sdoc, err = util.GetDocByTemplate(f.file, true); err != nil {
 		return
 	}
-	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
+	bytes, _ := json.Marshal(sdoc)
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
 	collName := f.collection
@@ -366,27 +367,32 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) {
 		c.Drop(ctx)
 	}
 
-	for i := 0; i < f.total; {
+	var wg = util.NewWaitGroup(runtime.NumCPU())
+	for threadNum := 0; threadNum < f.total; threadNum += bsize {
+		wg.Add(1)
 		num := bsize
 		if remaining < bsize {
 			num = remaining
 		}
-		var contentArray []interface{}
-		for n := 0; n < num; n++ {
-			ndoc := make(map[string]interface{})
-			util.RandomizeDocument(&ndoc, doc, false)
-			delete(ndoc, "_id")
-			contentArray = append(contentArray, ndoc)
-			i++
-			remaining--
-		}
-		if _, err = c.InsertMany(ctx, contentArray); err != nil {
-			panic(err)
-		}
+		remaining -= num
 		if f.showProgress {
-			fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(f.total))
+			fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*(f.total-remaining))/float64(f.total))
 		}
+		go func(threadNum int, num int) {
+			defer wg.Done()
+			var contentArray []interface{}
+			for n := 0; n < num; n++ {
+				ndoc := make(map[string]interface{})
+				util.RandomizeDocument(&ndoc, doc, false)
+				delete(ndoc, "_id")
+				contentArray = append(contentArray, ndoc)
+			}
+			if _, err = c.InsertMany(ctx, contentArray); err != nil {
+				panic(err)
+			}
+		}(threadNum, num)
 	}
+	wg.Wait()
 
 	if f.showProgress {
 		fmt.Fprintf(os.Stderr, "\r100%%   \n")

@@ -40,7 +40,7 @@ func (rn *Runner) initSimDocs() {
 	if sdoc, err = util.GetDocByTemplate(rn.filename, true); err != nil {
 		return
 	}
-	bytes, _ := json.MarshalIndent(sdoc, "", "   ")
+	bytes, _ := json.Marshal(sdoc)
 	if rn.verbose {
 		log.Println(string(bytes))
 	}
