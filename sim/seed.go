@@ -92,14 +92,13 @@ func (f *Feeder) SetTotal(total int) {
 func (f *Feeder) SeedData(client *mongo.Client) error {
 	if f.file == "" {
 		f.SeedAllDemoData(client)
+		return nil
 	} else {
 		if f.collection == "" {
 			return errors.New("usage: keyhole --uri connection_uri --seed [--file filename --collection collection_name]")
 		}
-		f.seedFromTemplate(client)
+		return f.seedFromTemplate(client)
 	}
-
-	return nil
 }
 
 // SeedAllDemoData - seed data for demo
@@ -345,14 +344,14 @@ func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func (f *Feeder) seedFromTemplate(client *mongo.Client) {
+func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	var bsize = 100
 	var remaining = f.total
 	var sdoc bson.M
 	if sdoc, err = util.GetDocByTemplate(f.file, true); err != nil {
-		return
+		return err
 	}
 	bytes, _ := json.Marshal(sdoc)
 	doc := make(map[string]interface{})
@@ -399,6 +398,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) {
 	}
 	cnt, _ := c.Count(ctx, bson.M{})
 	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, f.total, cnt)
+	return err
 }
 
 func getEmployee(id int, supervisor int) bson.M {

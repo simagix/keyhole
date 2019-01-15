@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -47,13 +46,6 @@ func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 	elems := f.(map[string]interface{})
 	for key, value := range elems {
-		if meta {
-			_, ok := value.(string)
-			if !ok {
-				(*doc)[key] = value
-				continue
-			}
-		}
 		switch o := value.(type) {
 		case map[string]interface{}:
 			subdoc := make(map[string]interface{})
@@ -67,17 +59,15 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 			randBool = !randBool
 			(*doc)[key] = randBool
 		case int, int8, int16, int32, int64:
-			if value.(int) == 1 { // 1 may have special meaning of true
-				(*doc)[key] = 1
+			if value.(int) == 1 || value.(int) == 0 { // 1 may have special meaning of true
+				(*doc)[key] = value
 			} else {
-				(*doc)[key] = rand.Intn(10000)
+				(*doc)[key] = value.(int) + rand.Intn(10)
 			}
-		case float32, float64:
-			if value.(float64) == 1 { // 1 may have special meaning of true
-				(*doc)[key] = 1
-			} else {
-				(*doc)[key] = rand.Intn(10000)
-			}
+		case float32:
+			(*doc)[key] = value.(float32) + float32(rand.Intn(10))
+		case float64:
+			(*doc)[key] = value.(float64) + float64(rand.Intn(10))
 		case string:
 			if meta == false {
 				if value.(string) == metaDate || isDateString(value.(string)) {
@@ -97,29 +87,43 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 
 var randBool bool
 
-func getArrayOfRandomDocs(obj []interface{}, subdoc *[]interface{}, meta bool) {
+func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 	for key, value := range obj {
 		switch o := value.(type) {
 		case bool:
 			randBool = !randBool
-			(*subdoc)[key] = randBool
+			(*doc)[key] = randBool
 		case int, int8, int16, int32, int64:
-			(*subdoc)[key] = rand.Intn(1000)
-		case float32, float64:
-			(*subdoc)[key] = rand.Intn(1000)
+			if value.(int) == 1 || value.(int) == 0 { // 1 may have special meaning of true
+				(*doc)[key] = value
+			} else {
+				(*doc)[key] = value.(int) + rand.Intn(10)
+			}
+		case float32:
+			(*doc)[key] = value.(float32) + float32(rand.Intn(10))
+		case float64:
+			(*doc)[key] = value.(float64) + float64(rand.Intn(10))
 		case string:
-			(*subdoc)[key] = getMagicString(value.(string), meta)
+			if meta == false {
+				if value.(string) == metaDate || isDateString(value.(string)) {
+					(*doc)[key] = getDate()
+					continue
+				} else if value.(string) == metaOID || (len(value.(string)) == 24 && isHexString(value.(string))) {
+					(*doc)[key] = primitive.NewObjectID()
+					continue
+				}
+			}
+			(*doc)[key] = getMagicString(value.(string), meta)
 		case []interface{}:
 			subdocument := make([]interface{}, len(o))
 			getArrayOfRandomDocs(o, &subdocument, meta)
-			(*subdoc)[key] = subdocument
+			(*doc)[key] = subdocument
 		case map[string]interface{}:
 			subdoc1 := make(map[string]interface{})
 			RandomizeDocument(&subdoc1, value, meta)
-			(*subdoc)[key] = subdoc1
-		case interface{}:
-			(*subdoc)[key] = value
+			(*doc)[key] = subdoc1
 		default:
+			(*doc)[key] = value
 		}
 	}
 }
@@ -134,6 +138,9 @@ const metaOID = "$oId"
 // Returns randomized string.  if meta is true, it intends to avoid future regex
 // actions by replacing the values with $email, $ip, and $date.
 func getMagicString(str string, meta bool) string {
+	if len(str) <= 3 {
+		return "ATL"[:len(str)]
+	}
 	if meta == true {
 		if str == metaEmail || isEmailAddress(str) {
 			return metaEmail
@@ -148,7 +155,12 @@ func getMagicString(str string, meta bool) string {
 		} else if str == metaOID || (len(str) == 24 && isHexString(str)) {
 			return metaOID
 		}
-		return str
+		// hash string
+		r := []rune(str)
+		for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+2, j-2 {
+			r[i], r[j] = r[j], r[i]
+		}
+		return string(r)
 	}
 
 	if str == metaEmail || isEmailAddress(str) {
@@ -159,24 +171,13 @@ func getMagicString(str string, meta bool) string {
 		return getSSN()
 	} else if str == metaTEL || isPhoneNumber(str) {
 		return getPhoneNumber()
-	} else if isHexString(str) {
-		return getHexString(len(str))
+		// } else if isHexString(str) {
+		// 	return getHexString(len(str))
 	}
 
-	if len(str) < 10 {
-		return lnames[rand.Intn(len(lnames))]
-	}
-	quote := ""
-	for len(quote) < len(str) {
-		quote += quotes[rand.Intn(len(quotes))] + " "
-	}
-	quote = quote[:len(str)]
-	idx := strings.LastIndex(quote, " ")
-	if idx < 0 {
-		return strings.Trim(quote, " ")
-	}
-
-	return strings.Trim(quote[:idx], " ")
+	// rotate string
+	p := rand.Intn(len(str))
+	return str[p:] + str[:p]
 }
 
 func isEmailAddress(str string) bool {
@@ -186,10 +187,9 @@ func isEmailAddress(str string) bool {
 
 // GetEmailAddress exposes getEmailAddress()
 func GetEmailAddress() string {
-	return fnames[rand.Intn(len(fnames)-1)] + "." +
-		string(fnames[rand.Intn(len(fnames)-1)][0]) + "." +
-		lnames[rand.Intn(len(lnames)-1)] + "@" +
-		domains[rand.Intn(len(domains)-1)]
+	return fmt.Sprintf("%s.%s.%s@%s",
+		fnames[rand.Intn(len(fnames)-1)], string(fnames[rand.Intn(len(fnames)-1)][0]),
+		lnames[rand.Intn(len(lnames)-1)], domains[rand.Intn(len(domains)-1)])
 }
 
 func isIP(str string) bool {
