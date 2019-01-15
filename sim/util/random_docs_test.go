@@ -3,14 +3,34 @@
 package util
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 func TestGetDocByTemplate(t *testing.T) {
 	var err error
+	var doc bson.M
 
-	if _, err = GetDocByTemplate("testdata/template.json", false); err != nil {
+	if doc, err = GetDocByTemplate("testdata/template.json", true); err != nil {
 		t.Fatal(err)
+	}
+
+	if doc["_id"] != "$oId" {
+		t.Fatal("expected $oid but got", doc["_id"])
+	} else if doc["lastUpdated"] != "$date" {
+		t.Fatal("expected $date but got", doc["lastUpdated"])
+	}
+
+	if doc, err = GetDocByTemplate("testdata/template.json", false); err != nil {
+		t.Fatal(err)
+	}
+
+	_, ok := doc["_id"].(primitive.ObjectID)
+	if !ok {
+		t.Fatal("expected ObjectId but got", reflect.TypeOf(doc["_id"]))
 	}
 }
 
