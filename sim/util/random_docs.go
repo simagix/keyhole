@@ -30,6 +30,8 @@ func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 	str = re.ReplaceAllString(string(buf), "\"$$oId\"")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
 	str = re.ReplaceAllString(str, "\"$$date\"")
+	re = regexp.MustCompile(`Number\S+\((\d+)\)`)
+	str = re.ReplaceAllString(str, "$1")
 	re = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
 	str = re.ReplaceAllString(str, "\"$$email\"")
 
