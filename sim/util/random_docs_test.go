@@ -24,13 +24,18 @@ func TestGetDocByTemplate(t *testing.T) {
 		t.Fatal("expected $date but got", doc["lastUpdated"])
 	}
 
+	_, ok := doc["numberLong"].(float64) // number data type
+	if !ok {
+		t.Fatal("expected int but got", reflect.TypeOf(doc["numberLong"]))
+	}
+
 	if doc, err = GetDocByTemplate("testdata/template.json", false); err != nil {
 		t.Fatal(err)
 	}
 
-	_, ok := doc["_id"].(primitive.ObjectID)
+	_, ok = doc["_id"].(primitive.ObjectID)
 	if !ok {
-		t.Fatal("expected ObjectId but got", reflect.TypeOf(doc["_id"]))
+		t.Fatal("expected ObjectID but got", reflect.TypeOf(doc["_id"]))
 	}
 }
 
