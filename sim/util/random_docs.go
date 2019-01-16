@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -64,12 +65,10 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 			if value.(int) == 1 || value.(int) == 0 { // 1 may have special meaning of true
 				(*doc)[key] = value
 			} else {
-				(*doc)[key] = value.(int) + rand.Intn(10)
+				(*doc)[key] = getNumber(value)
 			}
-		case float32:
-			(*doc)[key] = value.(float32) + float32(rand.Intn(10))
-		case float64:
-			(*doc)[key] = value.(float64) + float64(rand.Intn(10))
+		case float32, float64:
+			(*doc)[key] = getNumber(value)
 		case string:
 			if meta == false {
 				if value.(string) == metaDate || isDateString(value.(string)) {
@@ -99,12 +98,10 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 			if value.(int) == 1 || value.(int) == 0 { // 1 may have special meaning of true
 				(*doc)[key] = value
 			} else {
-				(*doc)[key] = value.(int) + rand.Intn(10)
+				(*doc)[key] = getNumber(value)
 			}
-		case float32:
-			(*doc)[key] = value.(float32) + float32(rand.Intn(10))
-		case float64:
-			(*doc)[key] = value.(float64) + float64(rand.Intn(10))
+		case float32, float64:
+			(*doc)[key] = getNumber(value)
 		case string:
 			if meta == false {
 				if value.(string) == metaDate || isDateString(value.(string)) {
@@ -248,6 +245,38 @@ var delta = max - min
 func getDate() time.Time {
 	sec := rand.Int63n(delta) + min
 	return time.Unix(sec, 0)
+}
+
+func getNumber(num interface{}) interface{} {
+	var value float64
+	switch num.(type) {
+	case int:
+		return int(getRandomNumber(float64(num.(int))))
+	case int8:
+		return int8(getRandomNumber(float64(num.(int8))))
+	case int32:
+		return int32(getRandomNumber(float64(num.(int32))))
+	case int64:
+		return int64(getRandomNumber(float64(num.(int64))))
+	case float32:
+		return float32(getRandomNumber(float64(num.(float32))))
+	case float64:
+		return getRandomNumber(num.(float64))
+	default:
+		return value
+	}
+}
+
+func getRandomNumber(x float64) float64 {
+	mul := float64(1)
+	for mul <= x {
+		mul *= 10
+	}
+	v := mul * (rand.Float64() + .1)
+	if x == math.Trunc(x) {
+		return math.Round(v)
+	}
+	return math.Round(v*100) / 100
 }
 
 var quotes = []string{
