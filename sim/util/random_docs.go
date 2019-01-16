@@ -21,12 +21,17 @@ import (
 func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 	var buf []byte
 	var err error
-	var str string
 
 	if buf, err = ioutil.ReadFile(filename); err != nil {
 		return nil, err
 	}
+	return GetRandomizedDoc(buf, meta)
+}
 
+// GetRandomizedDoc returns a randomized doc from byte string
+func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
+	var err error
+	var str string
 	re := regexp.MustCompile(`ObjectId\(\S+\)`)
 	str = re.ReplaceAllString(string(buf), "\"$$oId\"")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
