@@ -152,3 +152,45 @@ func TestGetDate(t *testing.T) {
 	utime := getDate()
 	t.Log(utime)
 }
+
+func TestGetNumber(t *testing.T) {
+	x := getNumber(int(123))
+	if x.(int) < 100 || x.(int) >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getNumber(int8(23))
+	if x.(int8) < 10 || x.(int8) >= 100 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getNumber(int32(123))
+	if x.(int32) < 100 || x.(int32) >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getNumber(int64(123))
+	if x.(int64) < 100 || x.(int64) >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getNumber(float32(123))
+	if x.(float32) < 100 || x.(float32) >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getNumber(float64(123))
+	if x.(float64) < 100 || x.(float64) >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+}
+
+func TestGetRandomNumber(t *testing.T) {
+	x := getRandomNumber(float64(123))
+	if x < 100 || x >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getRandomNumber(float64(100))
+	if x < 100 || x >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+	x = getRandomNumber(float64(999))
+	if x < 100 || x >= 1000 {
+		t.Fatal("expected between 100 and 1000, but got", x)
+	}
+}
