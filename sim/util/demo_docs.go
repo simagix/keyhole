@@ -3,7 +3,6 @@
 package util
 
 import (
-	"bytes"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -33,11 +32,6 @@ type FavoritesDoc struct {
 
 // GetDemoDoc returns a demo document
 func GetDemoDoc() bson.M {
-	var filler1, filler2 bytes.Buffer
-	for i := 0; i < 80/len("simagix."); i++ {
-		filler1.WriteString("simagix.")
-		filler2.WriteString("mongodb.")
-	}
 	var n = len(Favorites.Sports)
 	favoriteSports := []string{Favorites.Sports[rand.Intn(n)], Favorites.Sports[rand.Intn(n)], Favorites.Sports[rand.Intn(n)]}
 	favoriteSports = unique(append(favoriteSports, Favorites.Sports[0:3]...), 3)
@@ -59,6 +53,26 @@ func GetDemoDoc() bson.M {
 		bson.M{"sport": favoriteSports[1], "music": favoriteMusic[1], "city": favoriteCities[1], "book": favoriteBooks[1], "movie": favoriteMovies[1]},
 		bson.M{"sport": favoriteSports[2], "music": favoriteMusic[2], "city": favoriteCities[2], "book": favoriteBooks[2], "movie": favoriteMovies[2]},
 	}
+	favoritesKVList := []bson.M{}
+	for i := 0; i < 3; i++ {
+		favoritesKVList = append(favoritesKVList,
+			bson.M{
+				"level": int32(i + 1),
+				"categories": []bson.M{
+					bson.M{"key": "sport", "value": favoriteSports[i]},
+					bson.M{"key": "music", "value": favoriteMusic[i]},
+					bson.M{"key": "city", "value": favoriteCities[i]},
+					bson.M{"key": "book", "value": favoriteBooks[i]},
+					bson.M{"key": "movie", "value": favoriteMovies[i]},
+				}})
+	}
+	favoritesKVSet := []bson.M{}
+	favoritesKVSet = append(favoritesKVSet, bson.M{"key": "sport", "value": favoriteSports})
+	favoritesKVSet = append(favoritesKVSet, bson.M{"key": "music", "value": favoriteMusic})
+	favoritesKVSet = append(favoritesKVSet, bson.M{"key": "city", "value": favoriteCities})
+	favoritesKVSet = append(favoritesKVSet, bson.M{"key": "book", "value": favoriteBooks})
+	favoritesKVSet = append(favoritesKVSet, bson.M{"key": "movie", "value": favoriteMovies})
+
 	email := GetEmailAddress()
 	s := strings.Split(strings.Split(email, "@")[0], ".")
 	doc := bson.M{
@@ -66,30 +80,30 @@ func GetDemoDoc() bson.M {
 		"email":     email,
 		"firstName": s[0],
 		"lastName":  s[2],
-		"Favorites": bson.M{
-			"sports": favoriteSports, "sport": favoriteSports[0],
-			"musics": favoriteMusic, "music": favoriteMusic[0],
-			"cities": favoriteCities, "city": favoriteCities[0],
-			"books": favoriteBooks, "book": favoriteBooks[0],
-			"movies": favoriteMovies, "movie": favoriteMovies[0],
+		"favoritesAll": bson.M{
+			"sports": favoriteSports,
+			"musics": favoriteMusic,
+			"cities": favoriteCities,
+			"books":  favoriteBooks,
+			"movies": favoriteMovies,
 		},
-		"favoritesList":  favoritesList,
-		"favoriteSports": favoriteSports,
-		"favoriteMusics": favoriteMusic,
-		"favoriteCities": favoriteCities,
-		"favoriteBooks":  favoriteBooks,
-		"favoriteMovies": favoriteMovies,
-		"favoriteSport":  favoriteSports[0],
-		"favoriteMusic":  favoriteMusic[0],
-		"favoriteCity":   favoriteCities[0],
-		"favoriteBook":   favoriteBooks[0],
-		"favoriteBookId": 1100 + x,
-		"favoriteMovie":  favoriteMovies[0],
-		"filler1":        filler1.String(),
-		"filler2":        filler2.String(),
-		"number":         rand.Intn(1000),
-		"numbers":        []int{rand.Intn(1000), rand.Intn(1000), rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)},
-		"ts":             time.Now(),
+		"favoritesList":   favoritesList,
+		"favoritesKVList": favoritesKVList,
+		"favoritesKVSet":  favoritesKVSet,
+		"favoriteBookId":  1100 + x,
+		"favoriteBook":    favoriteBooks[0],
+		"favoriteBooks":   favoriteBooks,
+		"favoriteCity":    favoriteCities[0],
+		"favoriteCities":  favoriteCities,
+		"favoriteMovie":   favoriteMovies[0],
+		"favoriteMovies":  favoriteMovies,
+		"favoriteMusic":   favoriteMusic[0],
+		"favoriteMusics":  favoriteMusic,
+		"favoriteSport":   favoriteSports[0],
+		"favoriteSports":  favoriteSports,
+		"number":          rand.Intn(1000),
+		"numbers":         []int{rand.Intn(1000), rand.Intn(1000), rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)},
+		"ts":              time.Now(),
 	}
 	return doc
 }
