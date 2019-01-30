@@ -22,7 +22,7 @@ func GetDemoFromFile(filename string) string {
 	var doc bson.M
 	var err error
 	if doc, err = GetDocByTemplate(filename, false); err != nil {
-		return ""
+		return err.Error()
 	}
 	buf, _ := json.MarshalIndent(doc, "", "  ")
 	return string(buf)
