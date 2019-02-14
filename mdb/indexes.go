@@ -49,9 +49,9 @@ func GetIndexes(client *mongo.Client, dbName string) string {
 // GetIndexesFromDB list all indexes of collections of a database
 func GetIndexesFromDB(client *mongo.Client, dbName string) string {
 	var err error
-	var cur mongo.Cursor
-	var icur mongo.Cursor
-	var scur mongo.Cursor
+	var cur *mongo.Cursor
+	var icur *mongo.Cursor
+	var scur *mongo.Cursor
 	var buffer bytes.Buffer
 	var ctx = context.Background()
 	// var pipeline = mongo.Pipeline{{{Key: "$indexStats", Value: bson.M{}}}}
