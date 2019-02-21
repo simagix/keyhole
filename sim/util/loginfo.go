@@ -213,6 +213,20 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 				if s != "" {
 					filter = s
 				}
+			} else if op == "aggregate" {
+				nstr := ""
+				s := ""
+				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
+					s = getDocByField(result[4], mstr)
+					if s != "" {
+						nstr = s
+						filter = nstr
+						break
+					}
+				}
+				if s == "" {
+					continue
+				}
 			} else if op == "getMore" {
 				nstr := ""
 				s := getDocByField(result[4], "originatingCommand: ")
@@ -298,16 +312,17 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 
 func printLogsSummary(arr []OpPerformanceDoc) string {
 	var buffer bytes.Buffer
-	buffer.WriteString("\r+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+\n")
-	buffer.WriteString(fmt.Sprintf("|Command|COLLSCAN| avg ms| max ms| Count| %-32s| %-70s|\n", "Namespace", "Query Pattern"))
-	buffer.WriteString("|-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------|\n")
+	buffer.WriteString("\r+---------+--------+------+--------+------+---------------------------------+-------------------------------------------------------------+\n")
+	buffer.WriteString(fmt.Sprintf("| Command |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s|\n", "Namespace", "Query Pattern"))
+	buffer.WriteString("|---------+--------+------+--------+------+---------------------------------+-------------------------------------------------------------|\n")
 	for _, value := range arr {
 		str := value.Filter
 		if len(value.Command) > 13 {
 			value.Command = value.Command[:13]
 		}
 		if len(value.Namespace) > 33 {
-			value.Namespace = value.Namespace[:33]
+			length := len(value.Namespace)
+			value.Namespace = value.Namespace[:1] + "*" + value.Namespace[(length-31):]
 		}
 		if len(str) > 70 {
 			str = value.Filter[:70]
@@ -315,18 +330,30 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 			str = value.Filter[:idx]
 		}
 		output := ""
+		avg := float64(value.TotalMilli) / float64(value.Count)
+		avgstr := fmt.Sprintf("%6.0f", avg)
+		if avg >= 3600000 {
+			avg /= 3600000
+			avgstr = fmt.Sprintf("%4.1fh", avg)
+		} else if avg >= 60000 {
+			avg /= 60000
+			avgstr = fmt.Sprintf("%3.1fm", avg)
+		} else if avg >= 1000 {
+			avg /= 1000
+			avgstr = fmt.Sprintf("%3.1fs", avg)
+		}
 		if value.Scan == COLLSCAN {
-			output = fmt.Sprintf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s \x1b[31;1m%-71s\x1b[0m|\n", value.Command, value.Scan,
-				float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
+			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-61s\x1b[0m|\n", value.Command, value.Scan,
+				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		} else {
-			output = fmt.Sprintf("|%-7s \x1b[31;1m%8s\x1b[0m %7.0f %7d %6d %-33s %-71s|\n", value.Command, value.Scan,
-				float64(value.TotalMilli)/float64(value.Count), value.MaxMilli, value.Count, value.Namespace, str)
+			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-61s|\n", value.Command, value.Scan,
+				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		}
 		buffer.WriteString(output)
-		if len(value.Filter) > 70 {
+		if len(value.Filter) > 60 {
 			remaining := value.Filter[len(str):]
 			for i := 0; i < len(remaining); i += 70 {
-				epos := i + 70
+				epos := i + 60
 				var pstr string
 				if epos > len(remaining) {
 					epos = len(remaining)
@@ -336,7 +363,7 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 					idx := strings.LastIndex(str, " ")
 					if idx > 0 {
 						pstr = str[:idx]
-						i -= (70 - idx)
+						i -= (60 - idx)
 					}
 				}
 				if value.Scan == COLLSCAN {
@@ -350,11 +377,11 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 			}
 		}
 		if value.Index != "" {
-			output = fmt.Sprintf("|------- index: \x1b[32;1m%-71s\x1b[0m\n", value.Index)
+			output = fmt.Sprintf("|---index: \x1b[32;1m%-71s\x1b[0m\n", value.Index)
 			buffer.WriteString(output)
 		}
 	}
-	buffer.WriteString("+-------+--------+-------+-------+------+---------------------------------+-----------------------------------------------------------------------+\n")
+	buffer.WriteString("+---------+--------+------+--------+------+---------------------------------+-------------------------------------------------------------+\n")
 	return buffer.String()
 }
 
@@ -387,7 +414,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update", "getMore"}
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {
