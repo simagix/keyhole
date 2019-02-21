@@ -204,7 +204,8 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 				filter = nstr
 			} else if op == "delete" || op == "update" || op == "remove" {
 				var s string
-				if result[1] == "WRITE" {
+				// if result[1] == "WRITE" {
+				if strings.Index(filter, "query: ") >= 0 {
 					s = getDocByField(filter, "query: ")
 				} else {
 					s = getDocByField(filter, "q: ")
@@ -215,12 +216,30 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 			} else if op == "getMore" {
 				nstr := ""
 				s := getDocByField(result[4], "originatingCommand: ")
+
 				if s != "" {
-					nstr = s
+					for _, mstr := range []string{"filter: ", "pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
+						s = getDocByField(result[4], mstr)
+						if s != "" {
+							nstr = s
+							filter = nstr
+							break
+						}
+					}
+					if s == "" {
+						continue
+					}
+				} else {
+					continue
 				}
-				filter = nstr
 			}
 			index := getDocByField(str, "planSummary: IXSCAN")
+			if index == "" && strings.Index(str, "planSummary: IDHACK") >= 0 {
+				index = "IDHACK"
+			}
+			if scan == "" && strings.Index(str, "planSummary: COUNT_SCAN") >= 0 {
+				index = "COUNT_SCAN"
+			}
 			filter = removeInElements(filter, "$in: [ ")
 			filter = removeInElements(filter, "$nin: [ ")
 			filter = removeInElements(filter, "$in: [ ")
@@ -242,11 +261,12 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 			filter = re.ReplaceAllString(filter, ":1")
 			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
 			filter = re.ReplaceAllString(filter, "")
-			re = regexp.MustCompile(`( ObjectId\('\S+'\))|( Timestamp\(\d+, \d+\))`)
+			re = regexp.MustCompile(`( ObjectId\('\S+'\))|(UUID\("\S+"\))|( Timestamp\(\d+, \d+\))|(BinData\(\d+, \S+\))`)
 			filter = re.ReplaceAllString(filter, "1")
-
+			re = regexp.MustCompile(`(: \/.*\/(.?) })`)
+			filter = re.ReplaceAllString(filter, ": /regex/$2}")
 			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
-			key := op + "." + filter
+			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
 			if ok {
