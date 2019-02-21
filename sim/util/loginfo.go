@@ -312,9 +312,9 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 
 func printLogsSummary(arr []OpPerformanceDoc) string {
 	var buffer bytes.Buffer
-	buffer.WriteString("\r+---------+--------+------+--------+------+---------------------------------+-------------------------------------------------------------+\n")
-	buffer.WriteString(fmt.Sprintf("| Command |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s|\n", "Namespace", "Query Pattern"))
-	buffer.WriteString("|---------+--------+------+--------+------+---------------------------------+-------------------------------------------------------------|\n")
+	buffer.WriteString("\r+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
+	buffer.WriteString(fmt.Sprintf("| Command |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
+	buffer.WriteString("|---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
 	for _, value := range arr {
 		str := value.Filter
 		if len(value.Command) > 13 {
@@ -324,8 +324,8 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 			length := len(value.Namespace)
 			value.Namespace = value.Namespace[:1] + "*" + value.Namespace[(length-31):]
 		}
-		if len(str) > 70 {
-			str = value.Filter[:70]
+		if len(str) > 60 {
+			str = value.Filter[:60]
 			idx := strings.LastIndex(str, " ")
 			str = value.Filter[:idx]
 		}
@@ -343,16 +343,16 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 			avgstr = fmt.Sprintf("%3.1fs", avg)
 		}
 		if value.Scan == COLLSCAN {
-			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-61s\x1b[0m|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		} else {
-			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-61s|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-62s|\n", value.Command, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		}
 		buffer.WriteString(output)
 		if len(value.Filter) > 60 {
 			remaining := value.Filter[len(str):]
-			for i := 0; i < len(remaining); i += 70 {
+			for i := 0; i < len(remaining); i += 60 {
 				epos := i + 60
 				var pstr string
 				if epos > len(remaining) {
@@ -367,21 +367,21 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 					}
 				}
 				if value.Scan == COLLSCAN {
-					output = fmt.Sprintf("|%72s   \x1b[31;1m%-70s\x1b[0m||\n", " ", pstr)
+					output = fmt.Sprintf("|%73s   \x1b[31;1m%-62s\x1b[0m|\n", " ", pstr)
 					buffer.WriteString(output)
 				} else {
-					output = fmt.Sprintf("|%72s   %-70s|\n", " ", pstr)
+					output = fmt.Sprintf("|%73s   %-62s|\n", " ", pstr)
 					buffer.WriteString(output)
 				}
 				buffer.WriteString(output)
 			}
 		}
 		if value.Index != "" {
-			output = fmt.Sprintf("|---index: \x1b[32;1m%-71s\x1b[0m\n", value.Index)
+			output = fmt.Sprintf("|...index: \x1b[32;1m%-128s\x1b[0m|\n", value.Index)
 			buffer.WriteString(output)
 		}
 	}
-	buffer.WriteString("+---------+--------+------+--------+------+---------------------------------+-------------------------------------------------------------+\n")
+	buffer.WriteString("+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	return buffer.String()
 }
 
