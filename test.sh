@@ -72,7 +72,12 @@ go run keyhole.go --schema --file examples/template.json
 validate ""
 
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
-go run keyhole.go --schema --collection cars mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --schema --collection favorites mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+validate ""
+
+# Test Cardinality
+echo ; echo "==> Test printing number of distinct fileds values (--card)"
+go run keyhole.go --card --collection favorites mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
 validate ""
 
 # Test load test

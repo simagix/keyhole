@@ -21,6 +21,7 @@ var version = "self-built"
 func main() {
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
+	card := flag.Bool("card", false, "check collection cardinality")
 	conn := flag.Int("conn", 10, "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -149,6 +150,16 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Println(str)
+		os.Exit(0)
+	} else if *card == true {
+		card := mdb.NewCardinality(connString.Database, *collection)
+		card.SetVerbose(*verbose)
+		doc, e := card.CheckCardinality(client)
+		if e != nil {
+			fmt.Println(e)
+		} else {
+			fmt.Println(mdb.Stringify(doc, "", "   "))
+		}
 		os.Exit(0)
 	}
 
