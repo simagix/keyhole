@@ -248,6 +248,9 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 				}
 			}
 			index := getDocByField(str, "planSummary: IXSCAN")
+			if index == "" && strings.Index(str, "planSummary: EOF") >= 0 {
+				index = "EOF"
+			}
 			if index == "" && strings.Index(str, "planSummary: IDHACK") >= 0 {
 				index = "IDHACK"
 			}
