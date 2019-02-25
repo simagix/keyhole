@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestGetSchemaFromCollection(t *testing.T) {
@@ -19,7 +19,7 @@ func TestGetSchemaFromCollection(t *testing.T) {
 	collection := client.Database("keyhole").Collection("cars")
 	filter := bson.D{{}}
 	var count int64
-	if count, err = collection.Count(context.Background(), filter); err != nil {
+	if count, err = collection.CountDocuments(context.Background(), filter); err != nil {
 		t.Fatal(err)
 	}
 	if count == 0 {

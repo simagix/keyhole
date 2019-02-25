@@ -26,8 +26,9 @@
 
 
 [[constraint]]
-  version = "v0.3.0"
-  name = "github.com/mongodb/mongo-go-driver"
+  #version = "v1.0.0-rc1"
+  branch = "master"
+  name = "go.mongodb.org/mongo-driver"
 
 [[constraint]]
   branch = "master"

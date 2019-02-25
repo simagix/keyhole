@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mongodb/mongo-go-driver/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestMongoPipeline(t *testing.T) {

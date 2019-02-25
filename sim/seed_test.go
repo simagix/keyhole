@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestSeed(t *testing.T) {
@@ -29,7 +29,7 @@ func TestSeed(t *testing.T) {
 	db := client.Database(dbName)
 	coll := db.Collection("cars")
 	var count int64
-	if count, err = coll.Count(context.Background(), bson.M{}); err != nil {
+	if count, err = coll.CountDocuments(context.Background(), bson.M{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,7 +61,7 @@ func TestSeedFromTemplate(t *testing.T) {
 	db := client.Database(dbName)
 	coll := db.Collection("cars")
 	var count int64
-	if count, err = coll.Count(ctx, bson.M{}); err != nil {
+	if count, err = coll.CountDocuments(ctx, bson.M{}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -8,7 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var UnitTestURL = "mongodb://localhost/"
@@ -20,7 +21,7 @@ func getMongoClient() *mongo.Client {
 	if os.Getenv("DATABASE_URL") != "" {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
-	if client, err = mongo.Connect(context.Background(), UnitTestURL); err != nil {
+	if client, err = mongo.Connect(context.Background(), options.Client().ApplyURI(UnitTestURL)); err != nil {
 		panic(err)
 	}
 

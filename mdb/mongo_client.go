@@ -4,16 +4,20 @@ package mdb
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/mongo"
-	"github.com/mongodb/mongo-go-driver/mongo/options"
-	"github.com/mongodb/mongo-go-driver/x/network/connstring"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/network/connstring"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -24,18 +28,31 @@ const KEYHOLEDB = "_KEYHOLE_"
 func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
+
+	opt := options.Client().ApplyURI(uri)
 	if len(opts) >= 2 && opts[0] != "" && opts[1] != "" {
-		var opt *options.ClientOptions
-		opt = options.Client()
-		var sslOpt = options.SSLOpt{Enabled: true, CaFile: opts[0], ClientCertificateKeyFile: opts[1]}
-		opt.SetSSL(&sslOpt)
-		if client, err = mongo.NewClientWithOptions(uri, opt); err != nil {
-			return client, err
+		var caBytes []byte
+		var clientBytes []byte
+		if caBytes, err = ioutil.ReadFile(opts[0]); err != nil {
+			return nil, err
 		}
-	} else {
-		if client, err = mongo.NewClient(uri); err != nil {
-			return client, err
+		if clientBytes, err = ioutil.ReadFile(opts[1]); err != nil {
+			return nil, err
 		}
+
+		roots := x509.NewCertPool()
+		if ok := roots.AppendCertsFromPEM(caBytes); !ok {
+			panic("failed to parse root certificate")
+		}
+		certs, e := tls.X509KeyPair(clientBytes, clientBytes)
+		if e != nil {
+			log.Fatalf("invalid key pair: %v", e)
+		}
+		cfg := &tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}}
+		opt.SetTLSConfig(cfg)
+	}
+	if client, err = mongo.NewClient(opt); err != nil {
+		return client, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

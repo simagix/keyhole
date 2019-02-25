@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/simagix/keyhole/sim/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Feeder seeds feeder
@@ -173,8 +173,8 @@ func (f *Feeder) seedRobots(client *mongo.Client) {
 			}
 		}
 	}
-	modelsCount, _ := modelsCollection.Count(ctx, bson.M{})
-	robotsCount, _ := robotsCollection.Count(ctx, bson.M{})
+	modelsCount, _ := modelsCollection.CountDocuments(ctx, bson.M{})
+	robotsCount, _ := robotsCollection.CountDocuments(ctx, bson.M{})
 	fmt.Printf("Seeded models: %d, robots: %d\n", modelsCount, robotsCount)
 }
 
@@ -212,7 +212,7 @@ func (f *Feeder) seedNumbers(client *mongo.Client) {
 	}
 	indexView.CreateOne(ctx, idx)
 
-	numbersCount, _ := numbersCollection.Count(ctx, bson.M{})
+	numbersCount, _ := numbersCollection.CountDocuments(ctx, bson.M{})
 	fmt.Printf("Seeded numbers: %d\n", numbersCount)
 }
 
@@ -270,7 +270,7 @@ func (f *Feeder) SeedCars(client *mongo.Client) {
 	}
 	indexView.CreateOne(ctx, idx)
 
-	dealersCount, _ := dealersCollection.Count(ctx, bson.M{})
+	dealersCount, _ := dealersCollection.CountDocuments(ctx, bson.M{})
 	carsCount := f.seedCollection(carsCollection, 1)
 	fmt.Printf("Seeded cars: %d, dealers: %d\n", carsCount, dealersCount)
 }
@@ -339,7 +339,7 @@ func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
 	if f.showProgress {
 		fmt.Fprintf(os.Stderr, "\r100%%\r     \r")
 	}
-	cnt, _ := c.Count(ctx, bson.M{})
+	cnt, _ := c.CountDocuments(ctx, bson.M{})
 	return int(cnt)
 }
 
@@ -396,7 +396,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	if f.showProgress {
 		fmt.Fprintf(os.Stderr, "\r100%%   \n")
 	}
-	cnt, _ := c.Count(ctx, bson.M{})
+	cnt, _ := c.CountDocuments(ctx, bson.M{})
 	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, f.total, cnt)
 	return err
 }
