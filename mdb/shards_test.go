@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestGetShards(t *testing.T) {

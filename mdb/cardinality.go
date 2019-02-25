@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	"github.com/mongodb/mongo-go-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Cardinality -
@@ -53,7 +53,7 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 
 	collection := client.Database(card.database).Collection(card.collection)
 	var count int64
-	if count, err = collection.Count(ctx, bson.M{}); err != nil {
+	if count, err = collection.CountDocuments(ctx, bson.M{}); err != nil {
 		return nil, err
 	}
 
@@ -74,8 +74,8 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 	if cur, err = collection.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
 		return nil, err
 	}
-	cur.Close(ctx)
 	if cur.Next(ctx) == false {
+		cur.Close(ctx)
 		return nil, err
 	}
 
@@ -93,6 +93,7 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
     {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}]`
 
 	cur.Decode(&doc)
+	cur.Close(ctx)
 	groups := []string{}
 	items := []string{}
 	for _, elem := range doc["keys"].(primitive.A) {

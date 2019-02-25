@@ -26,7 +26,7 @@ sleep 2
 mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 10})"
 validate "failed to set profiling level"
 
-export DATABASE_URL="mongodb://localhost:30097/"
+export DATABASE_URL="mongodb://localhost:30097/keyhole?replicaSet=replset&authSource=admin"
 
 # Test version
 echo ; echo "==> Test version (--version)"
@@ -35,31 +35,31 @@ validate ""
 
 # Test Info
 echo ; echo "==> Test printing cluster info (--info <uri>)"
-go run keyhole.go --info mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --info $DATABASE_URL
 if [ $? != 0 ]; then
     exit
 fi
 
 # Test seed
 echo ; echo "==> Test seeding default docs (--seed <uri>)"
-go run keyhole.go --seed mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --seed $DATABASE_URL
 validate ""
 
 echo ; echo "==> Test seeding default docs after dropping collection (--seed --drop <uri>)"
-go run keyhole.go --seed --drop mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --seed --drop $DATABASE_URL
 validate ""
 
 echo ; echo "==> Test seeding docs from a template (--file <file> --collection <collection> <uri>)"
-go run keyhole.go --seed --file examples/template.json --collection template mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --seed --file examples/template.json --collection template $DATABASE_URL
 validate ""
 
 echo ; echo "==> Test seeding docs from a template after dropping collection (--file <file> --collection <collection> --drop <uri>)"
-go run keyhole.go --seed --file examples/template.json --collection template --drop mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --seed --file examples/template.json --collection template --drop $DATABASE_URL
 validate ""
 
 # Test Index
 echo ; echo "==> Test printing cluster indexes (--index <uri>)"
-go run keyhole.go --index mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --index $DATABASE_URL
 validate ""
 
 # Test Schema
@@ -72,22 +72,22 @@ go run keyhole.go --schema --file examples/template.json
 validate ""
 
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
-go run keyhole.go --schema --collection favorites mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --schema --collection favorites $DATABASE_URL
 validate ""
 
 # Test Cardinality
 echo ; echo "==> Test printing number of distinct fileds values (--card)"
-go run keyhole.go --card --collection favorites mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+go run keyhole.go --card --collection favorites $DATABASE_URL
 validate ""
 
 # Test load test
 echo ; echo "==> Test load from a template (--file <file> <uri>)"
 go run keyhole.go --file examples/template.json --duration 2 \
-    --tps 300 --conn 10 --simonly mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+    --tps 300 --conn 10 --simonly $DATABASE_URL
 validate ""
 
 go run keyhole.go --file examples/template.json --duration 3 \
-    --tps 300 --conn 10 --tx examples/transactions.json mongodb://localhost:30097/KEYHOLEDB?replicaSet=replset
+    --tps 300 --conn 10 --tx examples/transactions.json $DATABASE_URL
 validate ""
 
 # Test loginfo
