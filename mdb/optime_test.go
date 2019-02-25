@@ -5,7 +5,7 @@ package mdb
 import (
 	"testing"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 

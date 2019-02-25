@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
 )
 
 func TestSilent(t *testing.T) {
