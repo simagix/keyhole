@@ -50,6 +50,19 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
     {"$group":{"_id":null,"keys":{"$addToSet":"$kvs.k"}}},
     {"$project": {"_id": 0,"keys": {"$filter": {"input": "$keys","as": "key","cond": {"$ne": ["$$key","_id"]}}}}}
   ]`
+	facetFmt := `
+  [
+      {"$sample": {"size": %d}},
+      {"$facet": {%s}},
+      {"$project": {%s}}
+  ]`
+	countFmt := `
+	"%s": [
+    {"$redact": {"$cond": {"if": { "$and": [{"$ne": [{"$type": "$%s"}, "array"]}, {"$ne": [{"$type": "$%s"}, "object"]}]},
+      "then": "$$DESCEND",
+      "else": "$$PRUNE"}} },
+    {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}
+	]`
 
 	collection := client.Database(card.database).Collection(card.collection)
 	var count int64
@@ -78,20 +91,6 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 		cur.Close(ctx)
 		return nil, err
 	}
-
-	facetFmt := `
-  [
-      {"$sample": {"size": %d}},
-      {"$facet": {%s}},
-      {"$project": {%s}}
-  ]
-  `
-	countFmt := `"%s": [
-    {"$redact": {"$cond": {"if": { "$and": [{"$ne": [{"$type": "$%s"}, "array"]}, {"$ne": [{"$type": "$%s"}, "object"]}]},
-      "then": "$$DESCEND",
-      "else": "$$PRUNE"}} },
-    {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}]`
-
 	cur.Decode(&doc)
 	cur.Close(ctx)
 	groups := []string{}
@@ -115,7 +114,6 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 	}
 	doc = bson.M{}
 	cur.Decode(&doc)
-	delete(doc, "keys") // a hack, the driver includes keys (a bug)
 	for k, v := range doc {
 		if fmt.Sprintf("%v", v) == "0" {
 			delete(doc, k)
