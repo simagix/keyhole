@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"os"
 
-	"go.mongodb.org/mongo-driver/x/network/connstring"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
+	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
 var version = "self-built"
