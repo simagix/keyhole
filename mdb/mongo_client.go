@@ -76,6 +76,13 @@ func Parse(uri string) (string, error) {
 		}
 		index := strings.Index(uri, "@")
 		uri = (uri)[:index] + ":" + connString.Password + (uri)[index:]
+	} else if connString.Username == "" { // a hack, default to authSource=admin
+		pos := strings.Index(uri, "?")
+		if pos > 0 {
+			uri += "&authSource=admin"
+		} else {
+			uri += "?authSource=admin"
+		}
 	}
 
 	if connString.Database == "" {
