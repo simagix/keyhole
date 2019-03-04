@@ -7,36 +7,15 @@ import (
 	"encoding/json"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"github.com/simagix/keyhole/sim/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestGetTransactions(t *testing.T) {
 	TransactionDoc := GetTransactions("")
 	bytes, _ := json.MarshalIndent(TransactionDoc, "", "  ")
 	t.Log(string(bytes))
-}
-
-func TestExecTXForDemo(t *testing.T) {
-	var client *mongo.Client
-	client = getMongoClient()
-	defer client.Disconnect(context.Background())
-	c := client.Database(SimDBName).Collection(CollectionName)
-	n := execTXForDemo(c, util.GetDemoDoc())
-	if n != 5 {
-		t.Fatal()
-	}
-}
-
-func TestExecTXByTemplate(t *testing.T) {
-	var client *mongo.Client
-	client = getMongoClient()
-	defer client.Disconnect(context.Background())
-	c := client.Database(SimDBName).Collection(CollectionName)
-	n := execTXByTemplate(c, util.GetDemoDoc())
-	if n != 5 {
-		t.Fatal()
-	}
 }
 
 func TestExecTXByTemplateAndTX(t *testing.T) {
@@ -49,5 +28,21 @@ func TestExecTXByTemplateAndTX(t *testing.T) {
 	n := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions)
 	if n != 8 {
 		t.Fatal()
+	}
+}
+
+func TestExecTx(t *testing.T) {
+	var err error
+	var client *mongo.Client
+	var tm bson.M
+	client = getMongoClient()
+	defer client.Disconnect(context.Background())
+	c := client.Database(SimDBName).Collection(CollectionName)
+	if tm, err = execTx(c, util.GetDemoDoc()); err != nil {
+		t.Fatal()
+	}
+
+	for k, v := range tm {
+		t.Log(k, v)
 	}
 }

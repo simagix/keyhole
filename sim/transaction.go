@@ -8,11 +8,10 @@ import (
 	"io/ioutil"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Transaction -
@@ -42,41 +41,6 @@ func GetTransactions(filename string) TransactionDoc {
 	var doc TransactionDoc
 	json.Unmarshal(bytes, &doc)
 	return doc
-}
-
-func execTXForDemo(c *mongo.Collection, doc bson.M) int {
-	var err error
-	ctx := context.Background()
-	schema := util.FavoritesSchema{}
-	change := bson.M{"$set": bson.M{"ts": time.Now()}}
-	bytes, _ := json.Marshal(doc)
-	json.Unmarshal(bytes, &schema)
-	city := schema.FavoriteCity
-	book := schema.FavoriteBook
-	movie := schema.FavoriteMovie
-	txCount := 0
-
-	if _, err = c.InsertOne(ctx, doc); err != nil {
-		panic(err)
-	}
-	txCount++
-	// c.Find(bson.M{"favoriteCity": city}).Sort("favoriteCity").Limit(512).All(&results)
-	// txCount++
-	opts := options.Find()
-	opts.SetLimit(20)
-	c.Find(ctx, bson.D{{Key: "favoriteCity", Value: city}}, opts)
-	txCount++
-	c.Find(ctx, bson.D{{Key: "favoriteCity", Value: city}, {Key: "favoriteBook", Value: book}}, opts)
-	txCount++
-	c.UpdateOne(ctx, bson.M{"_id": doc["_id"]}, change)
-	txCount++
-	// c.Find(bson.M{"favoriteCity": city, "favoriteBook": book, "FavoriteMovie": movie}).One(&results)
-	opts.SetSort(bson.D{{Key: "favoriteCity", Value: 1}})
-	c.Find(ctx, bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"movie": movie}}}, opts)
-	txCount++
-	// c.Find(bson.M{"favoritesList": bson.M{"$elemMatch": bson.M{"book": book}}}).Limit(100).All(&results)
-	// txCount++
-	return txCount
 }
 
 func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Transaction) int {
@@ -126,22 +90,56 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Trans
 	return len(transactions)
 }
 
-func execTXByTemplate(c *mongo.Collection, doc bson.M) int {
+func execTx(c *mongo.Collection, doc bson.M) (bson.M, error) {
+	var err error
+	var results *mongo.InsertManyResult
+	var docs []interface{}
+	var tm []time.Time
+	var execTime = bson.M{}
 	ctx := context.Background()
-	change := bson.M{"$set": bson.M{"ts": time.Now()}}
-	_id := doc["_id"]
-	txCount := 0
-	c.InsertOne(ctx, doc)
-	txCount++
-	c.FindOne(ctx, bson.M{"_id": _id})
-	txCount++
-	c.UpdateOne(ctx, bson.M{"_id": _id}, change)
-	txCount++
-	opts := options.Find()
-	opts.SetLimit(20)
-	c.Find(ctx, bson.M{"_search": doc["_search"]}, opts)
-	txCount++
-	c.DeleteOne(ctx, bson.M{"_id": _id})
-	txCount++
-	return txCount
+	ts := time.Now()
+	change := bson.M{"$set": bson.M{"timestamp": ts}}
+
+	for i := 0; i < 3; i++ {
+		d := util.CloneDoc(doc)
+		d["ts"] = ts
+		delete(d, "_id")
+		docs = append(docs, d)
+	}
+	tm = append(tm, time.Now())
+	if results, err = c.InsertMany(ctx, docs); err != nil {
+		return execTime, err
+	}
+	filters := bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: results.InsertedIDs}}}}
+	filter := bson.D{{Key: "_id", Value: results.InsertedIDs[0]}}
+	tm = append(tm, time.Now())
+	if c.FindOne(ctx, filter).Err() != nil {
+		return execTime, err
+	}
+	tm = append(tm, time.Now())
+	if _, err = c.Find(ctx, filters); err != nil {
+		return execTime, err
+	}
+	tm = append(tm, time.Now())
+	if _, err = c.UpdateOne(ctx, filter, change); err != nil {
+		return execTime, err
+	}
+	tm = append(tm, time.Now())
+	if _, err = c.UpdateMany(ctx, filters, change); err != nil {
+		return execTime, err
+	}
+	tm = append(tm, time.Now())
+	if _, err = c.DeleteOne(ctx, filter); err != nil {
+		return execTime, err
+	}
+	tm = append(tm, time.Now())
+	if _, err = c.DeleteMany(ctx, filters); err != nil {
+		return execTime, err
+	}
+	tm = append(tm, time.Now())
+	keys := []string{"InsertMany", "FindOne", "Find", "UpdateOne", "UpdateMany", "DeleteOne", "DeleteMany"}
+	for i := 1; i < len(tm); i++ {
+		execTime[keys[i-1]] = tm[i].Sub(tm[i-1])
+	}
+	return execTime, err
 }
