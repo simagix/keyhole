@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
-	"github.com/simagix/keyhole/mdb"
 )
 
 // SimDBName - db name for simulation
@@ -186,7 +186,7 @@ func (rn *Runner) Start() error {
 			simTime--
 		}
 		for i := 0; i < rn.conns; i++ {
-			go func() {
+			go func(thread int) {
 				if rn.simOnly == false {
 					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 						panic(err)
@@ -194,8 +194,8 @@ func (rn *Runner) Start() error {
 					time.Sleep(10 * time.Millisecond)
 				}
 
-				rn.Simulate(simTime, tdoc.Transactions)
-			}()
+				rn.Simulate(simTime, tdoc.Transactions, thread)
+			}(i)
 		}
 	}
 
@@ -295,7 +295,6 @@ func (rn *Runner) CreateIndexes(docs []bson.M) error {
 
 	for _, doc := range docs {
 		keys := bson.D{}
-		fmt.Println(doc)
 		for k, v := range doc {
 			x := int32(1)
 			switch v.(type) {
