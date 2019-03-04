@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var UnitTestURL = "mongodb://localhost/"
+var UnitTestURL = "mongodb://localhost/?authSource=admin"
 
 func getMongoClient() *mongo.Client {
 	var err error
@@ -62,7 +62,7 @@ type Runner struct {
 */
 func TestCreateIndexes(t *testing.T) {
 	var docs = []bson.M{bson.M{"email": 1, "hostIp": 1}}
-	runner, _ := NewRunner("mongodb://localhost/", "", "")
+	runner, _ := NewRunner(UnitTestURL, "", "")
 	if err := runner.CreateIndexes(docs); err != nil {
 		t.Fatal(err)
 	}

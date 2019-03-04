@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var simDocs []bson.M
@@ -91,7 +91,7 @@ func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
 }
 
 // Simulate simulates CRUD for load tests
-func (rn *Runner) Simulate(duration int, transactions []Transaction) {
+func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
@@ -122,6 +122,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction) {
 		totalCount := 0
 		beginTime := time.Now()
 		counter := 0
+		results := []bson.M{}
 		for time.Now().Sub(beginTime) < time.Minute {
 			innerTime := time.Now()
 			txCount := 0
@@ -132,12 +133,16 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction) {
 					c.DeleteMany(ctx, bson.M{"_search": doc["_search"]})
 				} else if len(transactions) > 0 { // --file and --tx
 					txCount += execTXByTemplateAndTX(c, util.CloneDoc(doc), transactions)
-				} else if len(transactions) == 0 { // --file
-					txCount += execTXByTemplate(c, util.CloneDoc(doc))
-				} else if rn.filename == "" {
-					txCount += execTXForDemo(c, util.CloneDoc(doc))
+				} else {
+					var res bson.M
+					if res, err = execTx(c, doc); err != nil {
+						break
+					}
+					if thread == 0 {
+						results = append(results, res)
+					}
+					txCount += len(res)
 				}
-				// time.Sleep(1 * time.Millisecond)
 			} // for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS
 			totalCount += txCount
 			counter++
@@ -147,12 +152,31 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction) {
 			}
 		} // for time.Now().Sub(beginTime) < time.Minute
 
+		if thread == 0 && len(results) > 0 {
+			durations := map[string]time.Duration{}
+			for _, res := range results {
+				for k, v := range res {
+					if durations[k] == 0 {
+						durations[k] = time.Duration(0)
+					}
+					durations[k] += v.(time.Duration)
+				}
+			}
+			tm := time.Now()
+			client.Ping(ctx, nil)
+			log.Println("Average Executions Time (including network latency):")
+			log.Printf("\t[%12s] %v\n", "Ping", time.Now().Sub(tm))
+			for k, v := range durations {
+				log.Printf("\t[%12s] %v\n", k, v/time.Duration(len(results)))
+			}
+		}
+
 		if rn.verbose {
 			log.Println("=>", time.Now().Sub(beginTime), time.Now().Sub(beginTime) > time.Minute,
 				totalCount, totalCount/counter < totalTPS, counter)
 		}
 		tenPctOff := float64(totalTPS) * .95
-		if rn.verbose || totalCount/counter < int(tenPctOff) {
+		if rn.verbose && totalCount/counter < int(tenPctOff) {
 			log.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
 		}
 
