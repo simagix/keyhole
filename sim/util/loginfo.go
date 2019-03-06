@@ -121,18 +121,26 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 		return "", err
 	}
 
+	var slowOps []string
+	slowOps = append(slowOps, buffer.String())
+	slowOps = append(slowOps, "Ops slower than 1 minute:")
 	index := 0
 	for {
 		if index%25 == 1 && len(silent) == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		}
-		buf, _, err := reader.ReadLine() // 0x0A separator = newline
+		buf, isPrefix, err := reader.ReadLine() // 0x0A separator = newline
+		str := string(buf)
+		for isPrefix == true {
+			var bbuf []byte
+			bbuf, isPrefix, err = reader.ReadLine()
+			str += string(bbuf)
+		}
 		index++
 		scan := ""
 		if err != nil {
 			break
-		} else if matched.MatchString(string(buf)) == true {
-			str := string(buf)
+		} else if matched.MatchString(str) == true {
 			if strings.Index(str, "COLLSCAN") >= 0 {
 				scan = COLLSCAN
 			}
@@ -181,7 +189,6 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 			if hasFilter(op) == false {
 				continue
 			}
-
 			if op == "delete" && strings.Index(filter, "writeConcern:") >= 0 {
 				continue
 			} else if op == "find" {
@@ -213,7 +220,7 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 				if s != "" {
 					filter = s
 				}
-			} else if op == "aggregate" {
+			} else if op == "aggregate" || (op == "getmore" && strings.Index(filter, "pipeline:") > 0) {
 				nstr := ""
 				s := ""
 				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
@@ -227,7 +234,7 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 				if s == "" {
 					continue
 				}
-			} else if op == "getMore" {
+			} else if op == "getMore" || op == "getmore" {
 				nstr := ""
 				s := getDocByField(result[4], "originatingCommand: ")
 
@@ -286,6 +293,9 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
+			if milli >= 60000 && len(slowOps) <= 10 { // >= a minute too slow, first 10
+				slowOps = append(slowOps, getAvgStr(float64(milli))+" => "+str)
+			}
 			if ok {
 				max := opsMap[key].MaxMilli
 				if milli > max {
@@ -310,7 +320,9 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 	if len(silent) == 0 {
 		fmt.Fprintf(os.Stderr, "\r     \r")
 	}
-	return buffer.String() + printLogsSummary(arr), nil
+
+	slowOps = append(slowOps, printLogsSummary(arr))
+	return strings.Join(slowOps, "\n\n"), nil
 }
 
 func printLogsSummary(arr []OpPerformanceDoc) string {
@@ -334,17 +346,7 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 		}
 		output := ""
 		avg := float64(value.TotalMilli) / float64(value.Count)
-		avgstr := fmt.Sprintf("%6.0f", avg)
-		if avg >= 3600000 {
-			avg /= 3600000
-			avgstr = fmt.Sprintf("%4.1fh", avg)
-		} else if avg >= 60000 {
-			avg /= 60000
-			avgstr = fmt.Sprintf("%3.1fm", avg)
-		} else if avg >= 1000 {
-			avg /= 1000
-			avgstr = fmt.Sprintf("%3.1fs", avg)
-		}
+		avgstr := getAvgStr(avg)
 		if value.Scan == COLLSCAN {
 			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
@@ -417,7 +419,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore"}
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {
@@ -426,4 +428,19 @@ func hasFilter(op string) bool {
 		}
 	}
 	return false
+}
+
+func getAvgStr(avg float64) string {
+	avgstr := fmt.Sprintf("%6.0f", avg)
+	if avg >= 3600000 {
+		avg /= 3600000
+		avgstr = fmt.Sprintf("%4.1fh", avg)
+	} else if avg >= 60000 {
+		avg /= 60000
+		avgstr = fmt.Sprintf("%3.1fm", avg)
+	} else if avg >= 1000 {
+		avg /= 1000
+		avgstr = fmt.Sprintf("%3.1fs", avg)
+	}
+	return avgstr
 }
