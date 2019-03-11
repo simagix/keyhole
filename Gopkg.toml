@@ -26,7 +26,7 @@
 
 
 [[constraint]]
-  version = "v1.0.0-rc1"
+  version = "v1.0.0-rc2"
   #branch = "master"
   name = "go.mongodb.org/mongo-driver"
 
