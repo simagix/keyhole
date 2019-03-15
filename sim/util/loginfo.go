@@ -115,15 +115,14 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 		}
 	}
 
-	matched := regexp.MustCompile(`^\S+ .? (\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`)
+	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
 	file.Seek(0, 0)
 	if reader, err = NewReader(file); err != nil {
 		return "", err
 	}
 
+	summaries := append([]string{}, buffer.String())
 	var slowOps []string
-	slowOps = append(slowOps, buffer.String())
-	slowOps = append(slowOps, "Ops slower than 1 minute:")
 	index := 0
 	for {
 		if index%25 == 1 && len(silent) == 0 {
@@ -293,7 +292,7 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if milli >= 60000 && len(slowOps) <= 10 { // >= a minute too slow, first 10
+			if milli >= 60000 && len(slowOps) < 10 { // >= a minute too slow, first 10
 				slowOps = append(slowOps, getAvgStr(float64(milli))+" => "+str)
 			}
 			if ok {
@@ -321,8 +320,13 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 		fmt.Fprintf(os.Stderr, "\r     \r")
 	}
 
-	slowOps = append(slowOps, printLogsSummary(arr))
-	return strings.Join(slowOps, "\n\n"), nil
+	if len(slowOps) > 0 {
+		summaries = append(summaries, "Ops slower than 1 minute:")
+		summaries = append(summaries, slowOps...)
+		summaries = append(summaries, "\n")
+	}
+	summaries = append(summaries, printLogsSummary(arr))
+	return strings.Join(summaries, "\n"), nil
 }
 
 func printLogsSummary(arr []OpPerformanceDoc) string {
