@@ -8,8 +8,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/simagix/keyhole/mdb"
+	"github.com/simagix/keyhole/mdb/atlas"
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
@@ -28,7 +30,7 @@ func main() {
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	file := flag.String("file", "", "template file for seedibg data")
 	index := flag.Bool("index", false, "get indexes info")
-	info := flag.Bool("info", false, "get cluster info")
+	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	monitor := flag.Bool("monitor", false, "collects server status every 10 seconds")
 	peek := flag.Bool("peek", false, "only collect stats")
@@ -81,9 +83,49 @@ func main() {
 			web.HTTPServer(5408, d, g)
 		}
 		os.Exit(0)
+	} else if *info == true && strings.Index(*uri, "atlas://") == 0 {
+		var str string
+		idx := strings.Index(*uri, "@")
+		if idx > 0 {
+			*uri = (*uri)[:idx]
+		}
+		*uri = (*uri)[8:]
+		su := atlas.NewSummary(*uri)
+		su.SetVerbose(*verbose)
+		if str, err = su.GetSummary(); err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println(str)
+		}
+		os.Exit(0)
+	} else if strings.Index(*loginfo, "atlas://") == 0 {
+		lg := atlas.ParseAtlasURI(*loginfo)
+		lg.SetVerbose(*verbose)
+		if lg.Error() != "" {
+			panic(lg.Error())
+		}
+		var filenames []string
+		if filenames, err = lg.DownloadLogs("."); err != nil {
+			panic(err)
+		}
+		for _, filename := range filenames {
+			fmt.Println("=> processing", filename)
+			var str string
+			li := util.NewLogInfo(filename)
+			li.SetVerbose(*verbose)
+			if str, err = li.Analyze(); err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(str)
+			}
+		}
+		os.Exit(0)
 	} else if *loginfo != "" {
 		var str string
-		if str, err = util.LogInfo(*loginfo, *collscan); err != nil {
+		li := util.NewLogInfo(*loginfo)
+		li.SetCollscan(*collscan)
+		li.SetVerbose(*verbose)
+		if str, err = li.Analyze(); err != nil {
 			fmt.Println(err)
 		} else {
 			fmt.Println(str)

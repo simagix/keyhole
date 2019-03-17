@@ -17,6 +17,14 @@ import (
 // COLLSCAN constance
 const COLLSCAN = "COLLSCAN"
 
+// LogInfo keeps loginfo struct
+type LogInfo struct {
+	collscan bool
+	filename string
+	silent   bool
+	verbose  bool
+}
+
 // OpPerformanceDoc stores performance data
 type OpPerformanceDoc struct {
 	Command    string // count, delete, find, remove, and update
@@ -27,6 +35,26 @@ type OpPerformanceDoc struct {
 	Scan       string // COLLSCAN
 	TotalMilli int    // total milliseconds
 	Index      string // index used
+}
+
+// NewLogInfo -
+func NewLogInfo(filename string) *LogInfo {
+	return &LogInfo{filename: filename, collscan: false, silent: false, verbose: false}
+}
+
+// SetCollscan -
+func (li *LogInfo) SetCollscan(collscan bool) {
+	li.collscan = collscan
+}
+
+// SetSilent -
+func (li *LogInfo) SetSilent(silent bool) {
+	li.silent = silent
+}
+
+// SetVerbose -
+func (li *LogInfo) SetVerbose(verbose bool) {
+	li.verbose = verbose
 }
 
 func getDocByField(str string, field string) string {
@@ -88,15 +116,15 @@ func getConfigOptions(reader *bufio.Reader) []string {
 	return strs
 }
 
-// LogInfo -
-func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
+// Analyze -
+func (li *LogInfo) Analyze() (string, error) {
 	var err error
 	var reader *bufio.Reader
 	var file *os.File
 	var opsMap map[string]OpPerformanceDoc
 
 	opsMap = make(map[string]OpPerformanceDoc)
-	if file, err = os.Open(filename); err != nil {
+	if file, err = os.Open(li.filename); err != nil {
 		return "", err
 	}
 	defer file.Close()
@@ -121,11 +149,14 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 		return "", err
 	}
 
-	summaries := append([]string{}, buffer.String())
+	summaries := []string{}
+	if li.verbose == true {
+		summaries = append([]string{}, buffer.String())
+	}
 	var slowOps []string
 	index := 0
 	for {
-		if index%25 == 1 && len(silent) == 0 {
+		if index%25 == 1 && li.silent == false {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		}
 		buf, isPrefix, err := reader.ReadLine() // 0x0A separator = newline
@@ -143,7 +174,7 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 			if strings.Index(str, "COLLSCAN") >= 0 {
 				scan = COLLSCAN
 			}
-			if collscan == true && scan != COLLSCAN {
+			if li.collscan == true && scan != COLLSCAN {
 				continue
 			}
 			result := matched.FindStringSubmatch(str)
@@ -316,7 +347,7 @@ func LogInfo(filename string, collscan bool, silent ...bool) (string, error) {
 	sort.Slice(arr, func(i, j int) bool {
 		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
 	})
-	if len(silent) == 0 {
+	if li.silent == false {
 		fmt.Fprintf(os.Stderr, "\r     \r")
 	}
 
