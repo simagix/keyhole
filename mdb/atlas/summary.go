@@ -71,7 +71,7 @@ func (su *Summary) GetSummary() (string, error) {
 
 	// downloads := `curl --user $ATLAS_AUTH --digest --header 'Accept: application/gzip' --output "${hostname}.gz" \
 	//   --request GET "https://cloud.mongodb.com/api/atlas/v1.0/groups/${group_id}/clusters/${hostname}/logs/mongodb.gz"`
-	downloads := `keyhole --loginfo atlas://{user_name}:{api_key}@{group_id}/{cluster_name}"`
+	downloads := `keyhole --loginfo atlas://{user_name}:{api_key}@{group_id}/{cluster_name}/yyyy-mm-dd"`
 	buffers = append(buffers, fmt.Sprint("Usage: ", downloads))
 	return strings.Join(buffers, "\n"), err
 }

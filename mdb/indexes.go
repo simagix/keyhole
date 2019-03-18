@@ -57,18 +57,19 @@ func GetIndexesFromDB(client *mongo.Client, dbName string) string {
 	// var pipeline = mongo.Pipeline{{{Key: "$indexStats", Value: bson.M{}}}}
 	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
 	if cur, err = client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
-		return buffer.String()
+		return err.Error()
 	}
 	defer cur.Close(ctx)
 
 	for cur.Next(ctx) {
 		var elem = bson.M{}
 		if err = cur.Decode(&elem); err != nil {
+			fmt.Println("0.1", err)
 			continue
 		}
 		coll := fmt.Sprintf("%v", elem["name"])
 		collType := fmt.Sprintf("%v", elem["type"])
-		if strings.Index(coll, "system.") == 0 || collType != "collection" {
+		if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
 			continue
 		}
 
