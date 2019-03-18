@@ -5,6 +5,7 @@ package atlas
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestDownloadLogs(t *testing.T) {
@@ -18,7 +19,9 @@ func TestDownloadLogs(t *testing.T) {
 func TestDownloadLog(t *testing.T) {
 	var err error
 	atlas := ParseAtlasURI("atlas://" + os.Getenv("ATLAS_AUTH") + "@" + os.Getenv("ATLAS_GROUP") + "/keyhole")
-	if _, err = atlas.downloadLog(os.TempDir(), "keyhole-shard-00-00-jgtm2.mongodb.net"); err != nil {
+	startUnix := time.Now().Add(time.Hour * -24 * 3).Unix()
+	endUnix := time.Now().Unix()
+	if _, err = atlas.downloadLog(os.TempDir(), "keyhole-shard-00-00-jgtm2.mongodb.net", startUnix, endUnix); err != nil {
 		t.Fatal(err)
 	}
 }
