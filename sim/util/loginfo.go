@@ -208,6 +208,10 @@ func (li *LogInfo) Analyze() (string, error) {
 			filter := result[4][:epos]
 			ms := result[5]
 			if op == "command" {
+				idx := strings.Index(filter, "command: ")
+				if idx > 0 {
+					filter = filter[idx+len("command: "):]
+				}
 				res := re.FindStringSubmatch(filter)
 				if len(res) < 3 {
 					continue
