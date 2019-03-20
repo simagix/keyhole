@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var UnitTestURL = "mongodb://localhost/"
+var UnitTestURL = "mongodb://localhost/?replicaSet=replset"
 
 func getMongoClient() *mongo.Client {
 	var err error

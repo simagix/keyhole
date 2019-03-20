@@ -64,7 +64,6 @@ func GetIndexesFromDB(client *mongo.Client, dbName string) string {
 	for cur.Next(ctx) {
 		var elem = bson.M{}
 		if err = cur.Decode(&elem); err != nil {
-			fmt.Println("0.1", err)
 			continue
 		}
 		coll := fmt.Sprintf("%v", elem["name"])
