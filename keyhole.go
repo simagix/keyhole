@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -162,12 +161,13 @@ func main() {
 	}
 
 	if *info == true {
-		var info mdb.ServerInfo
-		if info, err = mdb.GetServerInfo(client); err != nil {
-			panic(err)
+		mc := mdb.NewMongoCluster(client)
+		mc.SetVerbose(*verbose)
+		doc, e := mc.GetInfo()
+		if e != nil {
+			panic(e)
 		}
-		bytes, _ := json.MarshalIndent(info, "", "  ")
-		fmt.Println(string(bytes))
+		fmt.Println(mdb.Stringify(doc, "", "  "))
 		os.Exit(0)
 	} else if *seed == true {
 		f := sim.NewFeeder()

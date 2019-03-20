@@ -27,7 +27,7 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 	var err error
 	var client *mongo.Client
 
-	uri := "mongodb://localhost/keyhole"
+	uri := "mongodb://localhost/keyhole?replicaSet=replset"
 	if os.Getenv("DATABASE_URL") != "" {
 		uri = os.Getenv("DATABASE_URL")
 	}
