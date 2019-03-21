@@ -187,7 +187,7 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 	var b []byte
 	var strs []string
 
-	strs = append(strs, "<h1>2 Sizing</h1>")
+	strs = append(strs, "<h1>3 Cluster Data Stats</h1>")
 	counter := 0
 	for _, database := range cluster["databases"].([]bson.M) {
 		db := database["DB"].(string)
@@ -200,8 +200,8 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 			stats := collection["stats"].(bson.M)
 			indexes := collection["indexes"].([]bson.M)
 			// collection stats
-			strs = append(strs, "<h2>2."+cnt+" Collection "+collection["NS"].(string)+"</h2>")
-			strs = append(strs, "<h3>2."+cnt+".1 Stats</h3>")
+			strs = append(strs, "<h2>3."+cnt+" Collection "+collection["NS"].(string)+"</h2>")
+			strs = append(strs, "<h3>3."+cnt+".1 Stats</h3>")
 			strs = append(strs, "<table>")
 			strs = append(strs, "<thead>")
 			strs = append(strs, " <tr>")
@@ -234,7 +234,7 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 			strs = append(strs, "</table><br/>")
 
 			// indexes
-			strs = append(strs, "<h3>2."+cnt+".2 Indexes</h3>")
+			strs = append(strs, "<h3>3."+cnt+".2 Indexes</h3>")
 			strs = append(strs, "<table>")
 			strs = append(strs, "<thead>")
 			strs = append(strs, " <tr>")
@@ -257,7 +257,7 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 			strs = append(strs, " </tbody>")
 			strs = append(strs, "</table><br/>")
 
-			strs = append(strs, "<h3>2."+cnt+".3 Sample Document</h3>")
+			strs = append(strs, "<h3>3."+cnt+".3 Sample Document</h3>")
 			strs = append(strs, "<pre>")
 			strs = append(strs, Stringify(collection["document"], "", "  "))
 			strs = append(strs, "</pre><br/>")
