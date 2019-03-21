@@ -149,7 +149,9 @@ func (mc *MongoCluster) GetInfo() (bson.M, error) {
 
 			// stats
 			var stats bson.M
-			stats, _ = RunCommandOnDB(mc.client, "dbStats", collectionName)
+			err = mc.client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
+			delete(stats, "indexDetails")
+			delete(stats, "wiredTiger")
 			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc, "indexes": indexes, "stats": trimMap(stats)})
 		}
 		var stats bson.M
