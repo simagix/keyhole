@@ -186,7 +186,10 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 	var err error
 	var b []byte
 	var strs []string
+	var toc []string
 
+	toc = append(toc, "<a name=toc></a>")
+	toc = append(toc, "<h2>TOC</h2><ul>")
 	strs = append(strs, "<h1>3 Cluster Data Stats</h1>")
 	counter := 0
 	for _, database := range cluster["databases"].([]bson.M) {
@@ -196,12 +199,15 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 		}
 		for _, collection := range database["collections"].([]bson.M) {
 			counter++
-			cnt := fmt.Sprintf("%d", counter)
+			tag := fmt.Sprintf("3.%d", counter)
 			stats := collection["stats"].(bson.M)
 			indexes := collection["indexes"].([]bson.M)
 			// collection stats
-			strs = append(strs, "<h2>3."+cnt+" Collection "+collection["NS"].(string)+"</h2>")
-			strs = append(strs, "<h3>3."+cnt+".1 Stats</h3>")
+			toc = append(toc, "<li><a href=#"+tag+">"+tag+" Collection "+collection["NS"].(string)+"</a></li>")
+			strs = append(strs, "<a name="+tag+"></a>")
+			strs = append(strs, "<a href=#toc>top</a>")
+			strs = append(strs, "<h2>"+tag+" Collection "+collection["NS"].(string)+"</h2>")
+			strs = append(strs, "<h3>"+tag+".1 Stats</h3>")
 			strs = append(strs, "<table>")
 			strs = append(strs, "<thead>")
 			strs = append(strs, " <tr>")
@@ -234,7 +240,7 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 			strs = append(strs, "</table><br/>")
 
 			// indexes
-			strs = append(strs, "<h3>3."+cnt+".2 Indexes</h3>")
+			strs = append(strs, "<h3>"+tag+".2 Indexes</h3>")
 			strs = append(strs, "<table>")
 			strs = append(strs, "<thead>")
 			strs = append(strs, " <tr>")
@@ -257,13 +263,15 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 			strs = append(strs, " </tbody>")
 			strs = append(strs, "</table><br/>")
 
-			strs = append(strs, "<h3>3."+cnt+".3 Sample Document</h3>")
+			strs = append(strs, "<h3>"+tag+".3 Sample Document</h3>")
 			strs = append(strs, "<pre>")
 			strs = append(strs, Stringify(collection["document"], "", "  "))
 			strs = append(strs, "</pre><br/>")
 		}
 	}
-	htmlTemplate = strings.Replace(htmlTemplate, "{TODO}", strings.Join(strs, "\n"), -1)
+	toc = append(toc, "</ul>")
+	toc = append(toc, strs...)
+	htmlTemplate = strings.Replace(htmlTemplate, "{TODO}", strings.Join(toc, "\n"), -1)
 	b = []byte(htmlTemplate)
 	err = ioutil.WriteFile(mc.htmlFilename, b, 0644)
 	return err
@@ -361,6 +369,35 @@ var htmlTemplate = `
     {
     	font-weight:bold;
     }
+		ul {
+		  list-style-type: none;
+		  margin: 0;
+		  padding: 0;
+		}
+
+		li {
+			padding-left: 20px;
+		}
+
+		li:last-child {
+		  border: none;
+		}
+
+		a {
+		  text-decoration: none;
+		  color: #000;
+		  display: block;
+
+		  -webkit-transition: font-size 0.3s ease, background-color 0.3s ease;
+		  -moz-transition: font-size 0.3s ease, background-color 0.3s ease;
+		  -o-transition: font-size 0.3s ease, background-color 0.3s ease;
+		  -ms-transition: font-size 0.3s ease, background-color 0.3s ease;
+		  transition: font-size 0.3s ease, background-color 0.3s ease;
+		}
+
+		a:hover {
+			color: blue;
+		}
     </style>
 </head>
 
