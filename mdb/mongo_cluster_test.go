@@ -29,9 +29,23 @@ func TestGetInfo(t *testing.T) {
 	client := getClient()
 	mc := NewMongoCluster(client)
 	mc.SetVerbose(true)
-	doc, err := mc.GetInfo()
+	cluster, err := mc.GetInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(Stringify(doc, "", "  "))
+	t.Log(Stringify(cluster, "", "  "))
+}
+
+func TestOutputHTML(t *testing.T) {
+	client := getClient()
+	mc := NewMongoCluster(client)
+	mc.SetVerbose(true)
+	cluster, err := mc.GetInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = mc.outputHTML(cluster); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -163,6 +163,7 @@ func main() {
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
+		mc.SetHostname(connString.Hosts[0])
 		doc, e := mc.GetInfo()
 		if e != nil {
 			panic(e)
