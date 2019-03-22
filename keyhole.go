@@ -163,12 +163,21 @@ func main() {
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
-		mc.SetHostname(connString.Hosts[0])
-		doc, e := mc.GetInfo()
+		doc, e := mc.GetClusterInfo()
 		if e != nil {
 			panic(e)
 		}
-		fmt.Println(mdb.Stringify(doc, "", "  "))
+		if *verbose == true {
+			if err = mc.WriteJSON(connString.Hosts[0] + ".json"); err != nil {
+				panic(err)
+			}
+			if err = mc.WriteHTML(connString.Hosts[0] + ".html"); err != nil {
+				panic(err)
+			}
+			fmt.Println("JSON and HTML are written to", connString.Hosts[0]+".json", "and", connString.Hosts[0]+".html")
+		} else {
+			fmt.Println(mdb.Stringify(doc, "", "  "))
+		}
 		os.Exit(0)
 	} else if *seed == true {
 		f := sim.NewFeeder()
