@@ -3,6 +3,7 @@
 package mdb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -150,9 +151,34 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 
 			indexes := []bson.M{}
 			for icur.Next(ctx) {
+				idx := bson.D{}
+				icur.Decode(&idx)
 				val := bson.M{}
 				icur.Decode(&val)
 				val["stats"] = []bson.M{}
+
+				var strbuf bytes.Buffer
+				var keys bson.D
+
+				for _, v := range idx {
+					if v.Key == "key" {
+						keys = v.Value.(bson.D)
+					}
+				}
+
+				for n, value := range keys {
+					if n == 0 {
+						strbuf.WriteString("{ ")
+					}
+					strbuf.WriteString(value.Key + ": " + fmt.Sprint(value.Value))
+					if n == len(keys)-1 {
+						strbuf.WriteString(" }")
+					} else {
+						strbuf.WriteString(", ")
+					}
+				}
+				keystr := strbuf.String()
+				val["effectiveKey"] = strings.Replace(keystr[2:len(keystr)-2], ": -1", ": 1", -1)
 				indexes = append(indexes, val)
 			}
 			icur.Close(ctx)
