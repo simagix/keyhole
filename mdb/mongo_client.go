@@ -28,6 +28,19 @@ const KEYHOLEDB = "_KEYHOLE_"
 func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
+	var connString connstring.ConnString
+
+	if connString, err = connstring.Parse(uri); err != nil {
+		return client, err
+	}
+	if connString.Username == "" && strings.Index(uri, "authSource") < 0 { // a hack, default to authSource=admin
+		pos := strings.Index(uri, "?")
+		if pos > 0 {
+			uri += "&authSource=admin"
+		} else {
+			uri += "?authSource=admin"
+		}
+	}
 
 	opt := options.Client().ApplyURI(uri)
 	if len(opts) >= 2 && opts[0] != "" && opts[1] != "" {
@@ -76,13 +89,6 @@ func Parse(uri string) (string, error) {
 		}
 		index := strings.Index(uri, "@")
 		uri = (uri)[:index] + ":" + connString.Password + (uri)[index:]
-	} else if connString.Username == "" { // a hack, default to authSource=admin
-		pos := strings.Index(uri, "?")
-		if pos > 0 {
-			uri += "&authSource=admin"
-		} else {
-			uri += "?authSource=admin"
-		}
 	}
 
 	if connString.Database == "" {

@@ -16,11 +16,9 @@ import (
 
 // MongoCluster holds mongo cluster info
 type MongoCluster struct {
-	client       *mongo.Client
-	hostname     string
-	htmlFilename string
-	jsonFilename string
-	verbose      bool
+	client  *mongo.Client
+	cluster bson.M
+	verbose bool
 }
 
 // NewMongoCluster server info struct
@@ -28,26 +26,19 @@ func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	return &MongoCluster{client: client}
 }
 
-// SetHostname -
-func (mc *MongoCluster) SetHostname(hostname string) {
-	mc.hostname = hostname
-	mc.htmlFilename = hostname + ".html"
-	mc.jsonFilename = hostname + ".json"
-}
-
 // SetVerbose -
 func (mc *MongoCluster) SetVerbose(verbose bool) {
 	mc.verbose = verbose
 }
 
-// GetInfo -
-func (mc *MongoCluster) GetInfo() (bson.M, error) {
+// GetClusterInfo -
+func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
 	var cur *mongo.Cursor
 	var icur *mongo.Cursor
 	var ctx = context.Background()
 	var config = bson.M{}
-	var cluster = bson.M{"config": config}
+	mc.cluster = bson.M{"config": config}
 	var info ServerInfo
 	if info, err = GetServerInfo(mc.client); err != nil {
 		return nil, err
@@ -61,37 +52,37 @@ func (mc *MongoCluster) GetInfo() (bson.M, error) {
 
 	info.StorageSize["databases"] = info.StorageSize["statsDetails"]
 	delete(info.StorageSize, "statsDetails")
-	cluster["cluster"] = info.Cluster
-	cluster["host"] = info.Host
-	cluster["process"] = info.Process
-	cluster["sharding"] = info.Sharding
-	cluster["storage"] = info.StorageSize
-	cluster["version"] = info.Version
+	mc.cluster["cluster"] = info.Cluster
+	mc.cluster["host"] = info.Host
+	mc.cluster["process"] = info.Process
+	mc.cluster["sharding"] = info.Sharding
+	mc.cluster["storage"] = info.StorageSize
+	mc.cluster["version"] = info.Version
 	// hostInfo
 	var hostInfo bson.M
 	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err != nil {
-		return cluster, err
+		return mc.cluster, err
 	}
 	config["hostInfo"] = trimMap(hostInfo)
 
 	// getCmdLineOpts
 	var getCmdLineOpts bson.M
 	if getCmdLineOpts, err = RunAdminCommand(mc.client, "getCmdLineOpts"); err != nil {
-		return cluster, err
+		return mc.cluster, err
 	}
 	config["getCmdLineOpts"] = trimMap(getCmdLineOpts)
 
 	// buildInfo
 	var buildInfo bson.M
 	if buildInfo, err = RunAdminCommand(mc.client, "buildInfo"); err != nil {
-		return cluster, err
+		return mc.cluster, err
 	}
 	config["buildInfo"] = trimMap(buildInfo)
 
 	// ServerStatus
 	var serverStatus bson.M
 	if serverStatus, err = RunAdminCommand(mc.client, "serverStatus"); err != nil {
-		return cluster, err
+		return mc.cluster, err
 	}
 	config["serverStatus"] = trimMap(serverStatus)
 
@@ -99,7 +90,7 @@ func (mc *MongoCluster) GetInfo() (bson.M, error) {
 	if info.Cluster == "replica" {
 		var replSetGetStatus bson.M
 		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err != nil {
-			return cluster, err
+			return mc.cluster, err
 		}
 		config["replSetGetStatus"] = trimMap(replSetGetStatus)
 	}
@@ -126,7 +117,7 @@ func (mc *MongoCluster) GetInfo() (bson.M, error) {
 		// 	continue
 		// }
 		if cur, err = mc.client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
-			return cluster, err
+			return mc.cluster, err
 		}
 		defer cur.Close(ctx)
 		var collections = []bson.M{}
@@ -171,20 +162,26 @@ func (mc *MongoCluster) GetInfo() (bson.M, error) {
 		stats, _ = RunCommandOnDB(mc.client, "dbStats", dbName)
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
-	cluster["databases"] = databases
-	if mc.hostname != "" {
-		b := []byte(Stringify(cluster, "", "  "))
-		ioutil.WriteFile(mc.jsonFilename, b, 0644)
-		if err = mc.outputHTML(cluster); err != nil {
-			fmt.Println("Error writing", mc.htmlFilename, err)
-		}
-	}
-	return cluster, err
+	mc.cluster["databases"] = databases
+	return mc.cluster, err
 }
 
-func (mc *MongoCluster) outputHTML(cluster bson.M) error {
+// WriteJSON outputs cluster into to a JSON file
+func (mc *MongoCluster) WriteJSON(filename string) error {
+	b := []byte(Stringify(mc.cluster))
+	return ioutil.WriteFile(filename, b, 0644)
+}
+
+// WriteHTML outputs cluster into to a HTML file
+func (mc *MongoCluster) WriteHTML(filename string) error {
+	html, _ := mc.getClusterHTML()
+	b := []byte(html)
+	return ioutil.WriteFile(filename, b, 0644)
+}
+
+// getClusterHTML -
+func (mc *MongoCluster) getClusterHTML() (string, error) {
 	var err error
-	var b []byte
 	var strs []string
 	var toc []string
 
@@ -192,7 +189,7 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 	toc = append(toc, "<h2>TOC</h2><ul>")
 	strs = append(strs, "<h1>3 Cluster Data Stats</h1>")
 	counter := 0
-	for _, database := range cluster["databases"].([]bson.M) {
+	for _, database := range mc.cluster["databases"].([]bson.M) {
 		db := database["DB"].(string)
 		if db == "admin" || db == "local" || db == "config" {
 			continue
@@ -271,10 +268,8 @@ func (mc *MongoCluster) outputHTML(cluster bson.M) error {
 	}
 	toc = append(toc, "</ul>")
 	toc = append(toc, strs...)
-	htmlTemplate = strings.Replace(htmlTemplate, "{TODO}", strings.Join(toc, "\n"), -1)
-	b = []byte(htmlTemplate)
-	err = ioutil.WriteFile(mc.htmlFilename, b, 0644)
-	return err
+	htmlTemplate = strings.Replace(htmlTemplate, "{TODO}", strings.Join(toc, ""), -1)
+	return htmlTemplate, err
 }
 
 func trimMap(doc bson.M) bson.M {
@@ -337,7 +332,6 @@ var htmlTemplate = `
     	min-width:400px;
     	#text-align:center;
     }
-
     caption
     {
     	caption-side:top;
@@ -345,26 +339,22 @@ var htmlTemplate = `
     	font-style:italic;
     	margin:4px;
     }
-
     table,th, td
     {
     	border: 1px solid gray;
     }
-
     th, td
     {
     	height: 24px;
     	padding:4px;
     	vertical-align:middle;
     }
-
     th
     {
     	#background-image:url(table-shaded.png);
       background-color: #000;
       color: #FFF;
     }
-
     .rowtitle
     {
     	font-weight:bold;
@@ -374,15 +364,12 @@ var htmlTemplate = `
 		  margin: 0;
 		  padding: 0;
 		}
-
 		li {
 			padding-left: 20px;
 		}
-
 		li:last-child {
 		  border: none;
 		}
-
 		a {
 		  text-decoration: none;
 		  color: #000;
@@ -394,7 +381,6 @@ var htmlTemplate = `
 		  -ms-transition: font-size 0.3s ease, background-color 0.3s ease;
 		  transition: font-size 0.3s ease, background-color 0.3s ease;
 		}
-
 		a:hover {
 			color: blue;
 		}
@@ -414,8 +400,6 @@ var htmlTemplate = `
 
     window.onload = colourize;
   </script>
-
 	{TODO}
-
 </body>
 `
