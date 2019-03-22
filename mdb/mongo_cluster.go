@@ -222,19 +222,19 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Average Document Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["avgObjSize"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["avgObjSize"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Storage Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["storageSize"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["storageSize"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Data Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["size"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["size"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Total Indexes Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["totalIndexSize"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["totalIndexSize"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, " </tbody>")
 			strs = append(strs, "</table><br/>")
@@ -256,7 +256,7 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 				strs = append(strs, "<tr>")
 				strs = append(strs, `<td>`+name+`</td>`)
 				strs = append(strs, `<td>`+Stringify(index["key"])+`</td>`)
-				strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["indexSizes"].(bson.M)[name]))+"</td>")
+				strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["indexSizes"].(bson.M)[name]))+"</td>")
 				strs = append(strs, "</tr>")
 			}
 
@@ -282,7 +282,8 @@ func trimMap(doc bson.M) bson.M {
 	return doc
 }
 
-func getSize(num interface{}) string {
+// GetStorageSize returns storage size in [TGMK] B
+func GetStorageSize(num interface{}) string {
 	f := fmt.Sprintf("%v", num)
 	x, err := strconv.ParseFloat(f, 64)
 	if err != nil {
