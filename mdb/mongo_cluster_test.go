@@ -25,27 +25,27 @@ func getClient() *mongo.Client {
 	return client
 }
 
-func TestGetInfo(t *testing.T) {
+func TestGetClusterInfo(t *testing.T) {
 	client := getClient()
 	mc := NewMongoCluster(client)
 	mc.SetVerbose(true)
-	cluster, err := mc.GetInfo()
+	cluster, err := mc.GetClusterInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(Stringify(cluster, "", "  "))
 }
 
-func TestOutputHTML(t *testing.T) {
+func TestGetClusterHTML(t *testing.T) {
 	client := getClient()
 	mc := NewMongoCluster(client)
 	mc.SetVerbose(true)
-	cluster, err := mc.GetInfo()
+	_, err := mc.GetClusterInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = mc.outputHTML(cluster); err != nil {
+	if _, err = mc.getClusterHTML(); err != nil {
 		t.Fatal(err)
 	}
 }
