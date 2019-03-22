@@ -12,6 +12,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // MongoCluster holds mongo cluster info
@@ -188,6 +190,7 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 	toc = append(toc, "<a name=toc></a>")
 	toc = append(toc, "<h2>TOC</h2><ul>")
 	strs = append(strs, "<h1>3 Cluster Data Stats</h1>")
+	p := message.NewPrinter(language.English)
 	counter := 0
 	for _, database := range mc.cluster["databases"].([]bson.M) {
 		db := database["DB"].(string)
@@ -215,7 +218,7 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 			strs = append(strs, " <tbody>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Number of Documents</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["count"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", p.Sprintf("%d", stats["count"].(int32)))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Average Document Size</td>`)
