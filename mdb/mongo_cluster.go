@@ -38,8 +38,11 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
 	var cur *mongo.Cursor
 	var icur *mongo.Cursor
+	var scur *mongo.Cursor
 	var ctx = context.Background()
 	var config = bson.M{}
+	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
+
 	mc.cluster = bson.M{"config": config}
 	var info ServerInfo
 	if info, err = GetServerInfo(mc.client); err != nil {
@@ -149,6 +152,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			for icur.Next(ctx) {
 				val := bson.M{}
 				icur.Decode(&val)
+				val["stats"] = []bson.M{}
 				indexes = append(indexes, val)
 			}
 			icur.Close(ctx)
@@ -158,7 +162,27 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			mc.client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 			delete(stats, "indexDetails")
 			delete(stats, "wiredTiger")
-			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc, "indexes": indexes, "stats": trimMap(stats)})
+
+			if scur, err = mc.client.Database(dbName).Collection(collectionName).Aggregate(ctx, pipeline); err != nil {
+				log.Fatal(err)
+			}
+			for scur.Next(ctx) {
+				var result = bson.M{}
+				if err = scur.Decode(&result); err != nil {
+					continue
+				}
+				for _, index := range indexes {
+					if index["name"] == result["name"] {
+						delete(result, "key")
+						delete(result, "name")
+						index["stats"] = append(index["stats"].([]bson.M), result)
+						break
+					}
+				}
+			}
+			scur.Close(ctx)
+			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
+				"indexes": indexes, "stats": trimMap(stats)})
 		}
 		var stats bson.M
 		stats, _ = RunCommandOnDB(mc.client, "dbStats", dbName)
