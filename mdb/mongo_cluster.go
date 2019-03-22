@@ -189,24 +189,26 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			delete(stats, "indexDetails")
 			delete(stats, "wiredTiger")
 
-			if scur, err = mc.client.Database(dbName).Collection(collectionName).Aggregate(ctx, pipeline); err != nil {
-				log.Fatal(err)
-			}
-			for scur.Next(ctx) {
-				var result = bson.M{}
-				if err = scur.Decode(&result); err != nil {
-					continue
+			if dbName != "admin" && dbName != "local" && dbName != "config" {
+				if scur, err = mc.client.Database(dbName).Collection(collectionName).Aggregate(ctx, pipeline); err != nil {
+					log.Fatal(dbName, err)
 				}
-				for _, index := range indexes {
-					if index["name"] == result["name"] {
-						delete(result, "key")
-						delete(result, "name")
-						index["stats"] = append(index["stats"].([]bson.M), result)
-						break
+				for scur.Next(ctx) {
+					var result = bson.M{}
+					if err = scur.Decode(&result); err != nil {
+						continue
+					}
+					for _, index := range indexes {
+						if index["name"] == result["name"] {
+							delete(result, "key")
+							delete(result, "name")
+							index["stats"] = append(index["stats"].([]bson.M), result)
+							break
+						}
 					}
 				}
+				scur.Close(ctx)
 			}
-			scur.Close(ctx)
 			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
 				"indexes": indexes, "stats": trimMap(stats)})
 		}
