@@ -1,0 +1,38 @@
+# Copyright 2019 Kuei-chun Chen. All rights reserved.
+version: "2"
+
+services:
+  grafana:
+    image: grafana/grafana
+    hostname: grafana
+    ports:
+      - "3030:3000"
+    volumes:
+      - ./var/lib/grafana:/var/lib/grafana
+      - ./var/log/grafana:/var/log/grafana
+      - ./etc/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      GF_INSTALL_PLUGINS: grafana-simple-json-datasource
+    restart: unless-stopped
+    networks:
+      keyhole_net:
+        ipv4_address: 172.16.0.8
+
+  keyhole:
+    image: simagix/keyhole
+    hostname: keyhole
+    volumes:
+      - ./diagnostic.data:/diagnostic.data
+    command: /keyhole --web --diag /diagnostic.data
+    restart: unless-stopped
+    networks:
+      keyhole_net:
+        ipv4_address: 172.16.0.9
+
+networks:
+  keyhole_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.0.0/24
