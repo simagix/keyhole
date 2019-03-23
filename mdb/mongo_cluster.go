@@ -3,6 +3,7 @@
 package mdb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // MongoCluster holds mongo cluster info
@@ -36,8 +39,11 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
 	var cur *mongo.Cursor
 	var icur *mongo.Cursor
+	var scur *mongo.Cursor
 	var ctx = context.Background()
 	var config = bson.M{}
+	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
+
 	mc.cluster = bson.M{"config": config}
 	var info ServerInfo
 	if info, err = GetServerInfo(mc.client); err != nil {
@@ -145,8 +151,34 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 
 			indexes := []bson.M{}
 			for icur.Next(ctx) {
+				idx := bson.D{}
+				icur.Decode(&idx)
 				val := bson.M{}
 				icur.Decode(&val)
+				val["stats"] = []bson.M{}
+
+				var strbuf bytes.Buffer
+				var keys bson.D
+
+				for _, v := range idx {
+					if v.Key == "key" {
+						keys = v.Value.(bson.D)
+					}
+				}
+
+				for n, value := range keys {
+					if n == 0 {
+						strbuf.WriteString("{ ")
+					}
+					strbuf.WriteString(value.Key + ": " + fmt.Sprint(value.Value))
+					if n == len(keys)-1 {
+						strbuf.WriteString(" }")
+					} else {
+						strbuf.WriteString(", ")
+					}
+				}
+				keystr := strbuf.String()
+				val["effectiveKey"] = strings.Replace(keystr[2:len(keystr)-2], ": -1", ": 1", -1)
 				indexes = append(indexes, val)
 			}
 			icur.Close(ctx)
@@ -156,7 +188,29 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			mc.client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 			delete(stats, "indexDetails")
 			delete(stats, "wiredTiger")
-			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc, "indexes": indexes, "stats": trimMap(stats)})
+
+			if dbName != "admin" && dbName != "local" && dbName != "config" {
+				if scur, err = mc.client.Database(dbName).Collection(collectionName).Aggregate(ctx, pipeline); err != nil {
+					log.Fatal(dbName, err)
+				}
+				for scur.Next(ctx) {
+					var result = bson.M{}
+					if err = scur.Decode(&result); err != nil {
+						continue
+					}
+					for _, index := range indexes {
+						if index["name"] == result["name"] {
+							delete(result, "key")
+							delete(result, "name")
+							index["stats"] = append(index["stats"].([]bson.M), result)
+							break
+						}
+					}
+				}
+				scur.Close(ctx)
+			}
+			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
+				"indexes": indexes, "stats": trimMap(stats)})
 		}
 		var stats bson.M
 		stats, _ = RunCommandOnDB(mc.client, "dbStats", dbName)
@@ -188,6 +242,7 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 	toc = append(toc, "<a name=toc></a>")
 	toc = append(toc, "<h2>TOC</h2><ul>")
 	strs = append(strs, "<h1>3 Cluster Data Stats</h1>")
+	p := message.NewPrinter(language.English)
 	counter := 0
 	for _, database := range mc.cluster["databases"].([]bson.M) {
 		db := database["DB"].(string)
@@ -215,23 +270,23 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 			strs = append(strs, " <tbody>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Number of Documents</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["count"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", p.Sprintf("%d", stats["count"].(int32)))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Average Document Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["avgObjSize"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["avgObjSize"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Storage Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["storageSize"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["storageSize"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Data Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["size"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["size"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, "<tr>")
 			strs = append(strs, `<td class="rowtitle">Total Indexes Size</td>`)
-			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["totalIndexSize"]))+"</td>")
+			strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["totalIndexSize"]))+"</td>")
 			strs = append(strs, "</tr>")
 			strs = append(strs, " </tbody>")
 			strs = append(strs, "</table><br/>")
@@ -253,7 +308,7 @@ func (mc *MongoCluster) getClusterHTML() (string, error) {
 				strs = append(strs, "<tr>")
 				strs = append(strs, `<td>`+name+`</td>`)
 				strs = append(strs, `<td>`+Stringify(index["key"])+`</td>`)
-				strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", getSize(stats["indexSizes"].(bson.M)[name]))+"</td>")
+				strs = append(strs, "<td align=right>"+fmt.Sprintf("%v", GetStorageSize(stats["indexSizes"].(bson.M)[name]))+"</td>")
 				strs = append(strs, "</tr>")
 			}
 
@@ -279,7 +334,8 @@ func trimMap(doc bson.M) bson.M {
 	return doc
 }
 
-func getSize(num interface{}) string {
+// GetStorageSize returns storage size in [TGMK] B
+func GetStorageSize(num interface{}) string {
 	f := fmt.Sprintf("%v", num)
 	x, err := strconv.ParseFloat(f, 64)
 	if err != nil {
