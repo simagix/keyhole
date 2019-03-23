@@ -20,5 +20,5 @@ env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o bu
 #env GOOS=darwin GOARCH=amd64 go build -tags delta -o ~/bin/keyhole keyhole.go
 
 if [ "$1" == "docker" ]; then
-    docker build -t simagix/keyhole ./build
+    docker build -t simagix/keyhole .
 fi
