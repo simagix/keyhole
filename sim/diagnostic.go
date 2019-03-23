@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"github.com/simagix/keyhole/ftdc"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // OSDoc -
@@ -136,6 +136,9 @@ func (d *DiagnosticData) readDiagnosticDir(dirname string) error {
 		filenames = append(filenames, filename)
 	}
 
+	if len(filenames) == 0 {
+		return errors.New("No metrics file found under " + dirname)
+	}
 	return d.readDiagnosticFiles(filenames)
 }
 
