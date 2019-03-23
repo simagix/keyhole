@@ -1,15 +1,30 @@
 # Keyhole FTDC Metrics and Charts
 
 ## Startup
+- Change directory to grafana and there is a `diagnostic.data/` directory
 
 ```
-docker-compose -f docker-compose.yaml up
+$ ls -d diagnostic.data/
+diagnostic.data/
 ```
+- Copy FTDC files to under `diagnostic.data/`
+
+```
+$ cp $SOMEWHERE/metrics.* ./diagnostic.data/
+```
+- Start Keyhole and Grafana
+
+```
+$ docker-compose -f docker-compose.yaml up
+```
+- View results from `http://localhost:3030/`
+- Choose **Keyhole Analytics** from dashboard
+- Change correct *From* and *To* date/time in the *Custom Range* panel
 
 ## Shutdown
 
 ```
-docker-compose -f docker-compose.yaml down
+$ docker-compose -f docker-compose.yaml down
 ```
 
 ## Grafana File Tree
