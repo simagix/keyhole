@@ -136,7 +136,7 @@ func (li *LogInfo) Analyze() (string, error) {
 	if len(slowOps) > 0 {
 		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(slowOps)))
 		for _, op := range slowOps {
-			summaries = append(summaries, getAvgStr(float64(op.milli))+" => "+op.log)
+			summaries = append(summaries, MilliToTimeString(float64(op.milli))+" => "+op.log)
 		}
 		summaries = append(summaries, "\n")
 	}
@@ -411,7 +411,7 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 		}
 		output := ""
 		avg := float64(value.TotalMilli) / float64(value.Count)
-		avgstr := getAvgStr(avg)
+		avgstr := MilliToTimeString(avg)
 		if value.Scan == COLLSCAN {
 			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
@@ -495,17 +495,18 @@ func hasFilter(op string) bool {
 	return false
 }
 
-func getAvgStr(avg float64) string {
-	avgstr := fmt.Sprintf("%6.0f", avg)
-	if avg >= 3600000 {
-		avg /= 3600000
-		avgstr = fmt.Sprintf("%4.1fh", avg)
-	} else if avg >= 60000 {
-		avg /= 60000
-		avgstr = fmt.Sprintf("%3.1fm", avg)
-	} else if avg >= 1000 {
-		avg /= 1000
-		avgstr = fmt.Sprintf("%3.1fs", avg)
+// MilliToTimeString converts milliseconds to time string, e.g. 1.5m
+func MilliToTimeString(milli float64) string {
+	avgstr := fmt.Sprintf("%6.0f", milli)
+	if milli >= 3600000 {
+		milli /= 3600000
+		avgstr = fmt.Sprintf("%4.1fh", milli)
+	} else if milli >= 60000 {
+		milli /= 60000
+		avgstr = fmt.Sprintf("%3.1fm", milli)
+	} else if milli >= 1000 {
+		milli /= 1000
+		avgstr = fmt.Sprintf("%3.1fs", milli)
 	}
 	return avgstr
 }
