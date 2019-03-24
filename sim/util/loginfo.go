@@ -40,8 +40,8 @@ type OpPerformanceDoc struct {
 
 // SlowOps holds slow ops log and time
 type SlowOps struct {
-	milli int
-	log   string
+	Milli int
+	Log   string
 }
 
 // NewLogInfo -
@@ -136,7 +136,7 @@ func (li *LogInfo) Analyze() (string, error) {
 	if len(slowOps) > 0 {
 		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(slowOps)))
 		for _, op := range slowOps {
-			summaries = append(summaries, MilliToTimeString(float64(op.milli))+" => "+op.log)
+			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
 		}
 		summaries = append(summaries, "\n")
 	}
@@ -355,10 +355,10 @@ func (li *LogInfo) Parse() ([]OpPerformanceDoc, []SlowOps, error) {
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
 			if milli >= 10000 { // >= 10 seconds too slow, top 10
-				slowOps = append(slowOps, SlowOps{milli: milli, log: str})
+				slowOps = append(slowOps, SlowOps{Milli: milli, Log: str})
 				if len(slowOps) > 10 {
 					sort.Slice(slowOps, func(i, j int) bool {
-						return slowOps[i].milli > slowOps[j].milli
+						return slowOps[i].Milli > slowOps[j].Milli
 					})
 					slowOps = slowOps[:10]
 				}
