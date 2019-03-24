@@ -19,10 +19,11 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	collscan bool
-	filename string
-	silent   bool
-	verbose  bool
+	collscan  bool
+	filename  string
+	mongoInfo string
+	silent    bool
+	verbose   bool
 }
 
 // OpPerformanceDoc stores performance data
@@ -35,6 +36,12 @@ type OpPerformanceDoc struct {
 	Scan       string // COLLSCAN
 	TotalMilli int    // total milliseconds
 	Index      string // index used
+}
+
+// SlowOps holds slow ops log and time
+type SlowOps struct {
+	milli int
+	log   string
 }
 
 // NewLogInfo -
@@ -118,19 +125,42 @@ func getConfigOptions(reader *bufio.Reader) []string {
 
 // Analyze -
 func (li *LogInfo) Analyze() (string, error) {
+	arr, slowOps, err := li.Parse()
+	if err != nil {
+		return "", err
+	}
+	summaries := []string{}
+	if li.verbose == true {
+		summaries = append([]string{}, li.mongoInfo)
+	}
+	if len(slowOps) > 0 {
+		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(slowOps)))
+		for _, op := range slowOps {
+			summaries = append(summaries, getAvgStr(float64(op.milli))+" => "+op.log)
+		}
+		summaries = append(summaries, "\n")
+	}
+	summaries = append(summaries, printLogsSummary(arr))
+	return strings.Join(summaries, "\n"), nil
+}
+
+// Parse -
+func (li *LogInfo) Parse() ([]OpPerformanceDoc, []SlowOps, error) {
 	var err error
 	var reader *bufio.Reader
 	var file *os.File
+	var slowOps []SlowOps
 	var opsMap map[string]OpPerformanceDoc
+	var arr []OpPerformanceDoc
 
 	opsMap = make(map[string]OpPerformanceDoc)
 	if file, err = os.Open(li.filename); err != nil {
-		return "", err
+		return arr, slowOps, err
 	}
 	defer file.Close()
 
 	if reader, err = NewReader(file); err != nil {
-		return "", err
+		return arr, slowOps, err
 	}
 	lineCounts, _ := CountLines(reader)
 
@@ -142,24 +172,21 @@ func (li *LogInfo) Analyze() (string, error) {
 			buffer.WriteString(s + "\n")
 		}
 	}
+	li.mongoInfo = buffer.String()
 
 	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
 	file.Seek(0, 0)
 	if reader, err = NewReader(file); err != nil {
-		return "", err
+		return arr, slowOps, err
 	}
-
-	summaries := []string{}
-	if li.verbose == true {
-		summaries = append([]string{}, buffer.String())
-	}
-	var slowOps []string
 	index := 0
 	for {
 		if index%25 == 1 && li.silent == false {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		}
-		buf, isPrefix, err := reader.ReadLine() // 0x0A separator = newline
+		var buf []byte
+		var isPrefix bool
+		buf, isPrefix, err = reader.ReadLine() // 0x0A separator = newline
 		str := string(buf)
 		for isPrefix == true {
 			var bbuf []byte
@@ -327,8 +354,14 @@ func (li *LogInfo) Analyze() (string, error) {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if milli >= 60000 && len(slowOps) < 10 { // >= a minute too slow, first 10
-				slowOps = append(slowOps, getAvgStr(float64(milli))+" => "+str)
+			if milli >= 10000 { // >= 10 seconds too slow, top 10
+				slowOps = append(slowOps, SlowOps{milli: milli, log: str})
+				if len(slowOps) > 10 {
+					sort.Slice(slowOps, func(i, j int) bool {
+						return slowOps[i].milli > slowOps[j].milli
+					})
+					slowOps = slowOps[:10]
+				}
 			}
 			if ok {
 				max := opsMap[key].MaxMilli
@@ -344,7 +377,7 @@ func (li *LogInfo) Analyze() (string, error) {
 		}
 	}
 
-	arr := make([]OpPerformanceDoc, 0, len(opsMap))
+	arr = make([]OpPerformanceDoc, 0, len(opsMap))
 	for _, value := range opsMap {
 		arr = append(arr, value)
 	}
@@ -354,14 +387,7 @@ func (li *LogInfo) Analyze() (string, error) {
 	if li.silent == false {
 		fmt.Fprintf(os.Stderr, "\r     \r")
 	}
-
-	if len(slowOps) > 0 {
-		summaries = append(summaries, "Ops slower than 1 minute:")
-		summaries = append(summaries, slowOps...)
-		summaries = append(summaries, "\n")
-	}
-	summaries = append(summaries, printLogsSummary(arr))
-	return strings.Join(summaries, "\n"), nil
+	return arr, slowOps, nil
 }
 
 func printLogsSummary(arr []OpPerformanceDoc) string {
