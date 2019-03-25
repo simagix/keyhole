@@ -73,12 +73,12 @@ func main() {
 		fmt.Println(str)
 		if *webserver {
 			g := web.NewGrafana(d)
+			d = sim.NewDiagnosticData(1)
 			fmt.Println("Get more granular data points, data point every second.")
-			go func(g *web.Grafana) {
-				d = sim.NewDiagnosticData(1)
-				d.PrintDiagnosticData(filenames, *webserver)
+			go func(g *web.Grafana, d *sim.DiagnosticData, filenames []string) {
+				d.PrintDiagnosticData(filenames, true)
 				g.ReinitGrafana(d)
-			}(g)
+			}(g, d, filenames)
 			web.HTTPServer(5408, d, g)
 		}
 		os.Exit(0)
