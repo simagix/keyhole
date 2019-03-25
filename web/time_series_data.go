@@ -88,6 +88,7 @@ func NewGrafana(d *sim.DiagnosticData) *Grafana {
 
 // ReinitGrafana -
 func (g *Grafana) ReinitGrafana(d *sim.DiagnosticData) {
+	g.serverInfo = d.ServerInfo
 	btm := time.Now()
 	var serverStatusTSD map[string]TimeSeriesDoc
 	var wiredTigerTSD map[string]TimeSeriesDoc
