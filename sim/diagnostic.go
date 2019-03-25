@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"strconv"
+	"sort"
 	"strings"
 	"time"
 
@@ -83,6 +83,7 @@ func NewDiagnosticData(span int) *DiagnosticData {
 func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (string, error) {
 	var err error
 	var fi os.FileInfo
+	fnames := []string{}
 
 	for _, filename := range filenames {
 		if fi, err = os.Stat(filename); err != nil {
@@ -90,15 +91,19 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (st
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
-			if err = d.readDiagnosticDir(filename); err != nil {
-				return "", err
+			files, _ := ioutil.ReadDir(filename)
+			for _, file := range files {
+				if file.IsDir() == false {
+					fnames = append(fnames, filename+"/"+file.Name())
+				}
 			}
 		case mode.IsRegular():
-			filenames = []string{filename}
-			if err = d.readDiagnosticFiles(filenames); err != nil {
-				return "", err
-			}
+			fnames = append(fnames, filename)
 		}
+	}
+
+	if err = d.readDiagnosticFiles(fnames); err != nil {
+		return "", err
 	}
 
 	if len(d.ServerStatusList) == 0 {
@@ -145,7 +150,7 @@ func (d *DiagnosticData) readDiagnosticDir(dirname string) error {
 // readDiagnosticFiles reads multiple files
 func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var err error
-
+	sort.Strings(filenames)
 	if strings.Index(filenames[0], "keyhole_stats.") >= 0 {
 		for _, filename := range filenames {
 			d.analyzeServerStatus(filename)
@@ -163,23 +168,32 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var wg = util.NewWaitGroup(nThreads) // use 4 threads to read
 	for threadNum := 0; threadNum < len(filenames); threadNum++ {
 		filename := filenames[threadNum]
+		if strings.Index(filename, "metrics.") < 0 {
+			continue
+		}
 		wg.Add(1)
-		go func(threadNum int, filename string) {
+		go func(filename string) {
 			defer wg.Done()
 			var diagData DiagnosticData
 			if diagData, err = d.readDiagnosticFile(filename); err == nil {
-				diagDataMap[strconv.Itoa(threadNum)] = diagData
+				diagDataMap[filename] = diagData
 			}
-		}(threadNum, filename)
+		}(filename)
 	}
 	wg.Wait()
-	for threadNum := 0; threadNum < len(filenames); threadNum++ {
-		if diagDataMap[strconv.Itoa(threadNum)].ServerInfo != nil {
-			d.ServerInfo = diagDataMap[strconv.Itoa(threadNum)].ServerInfo
+
+	keys := []string{}
+	for k := range diagDataMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if diagDataMap[key].ServerInfo != nil {
+			d.ServerInfo = diagDataMap[key].ServerInfo
 		}
-		d.ServerStatusList = append(d.ServerStatusList, diagDataMap[strconv.Itoa(threadNum)].ServerStatusList...)
-		d.SystemMetricsList = append(d.SystemMetricsList, diagDataMap[strconv.Itoa(threadNum)].SystemMetricsList...)
-		d.ReplSetStatusList = append(d.ReplSetStatusList, diagDataMap[strconv.Itoa(threadNum)].ReplSetStatusList...)
+		d.ServerStatusList = append(d.ServerStatusList, diagDataMap[key].ServerStatusList...)
+		d.SystemMetricsList = append(d.SystemMetricsList, diagDataMap[key].SystemMetricsList...)
+		d.ReplSetStatusList = append(d.ReplSetStatusList, diagDataMap[key].ReplSetStatusList...)
 	}
 	fmt.Println(len(filenames), "files loaded, time spent:", time.Now().Sub(btime))
 	return err
