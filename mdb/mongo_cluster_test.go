@@ -35,17 +35,3 @@ func TestGetClusterInfo(t *testing.T) {
 	}
 	t.Log(Stringify(cluster, "", "  "))
 }
-
-func TestGetClusterHTML(t *testing.T) {
-	client := getClient()
-	mc := NewMongoCluster(client)
-	mc.SetVerbose(true)
-	_, err := mc.GetClusterInfo()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = mc.getClusterHTML(); err != nil {
-		t.Fatal(err)
-	}
-}

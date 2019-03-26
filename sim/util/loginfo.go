@@ -5,9 +5,13 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -19,11 +23,14 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	collscan  bool
-	filename  string
-	mongoInfo string
-	silent    bool
-	verbose   bool
+	OpsPatterns    []OpPerformanceDoc
+	OutputFilename string
+	SlowOps        []SlowOps
+	collscan       bool
+	filename       string
+	mongoInfo      string
+	silent         bool
+	verbose        bool
 }
 
 // OpPerformanceDoc stores performance data
@@ -46,7 +53,13 @@ type SlowOps struct {
 
 // NewLogInfo -
 func NewLogInfo(filename string) *LogInfo {
-	return &LogInfo{filename: filename, collscan: false, silent: false, verbose: false}
+	li := LogInfo{filename: filename, collscan: false, silent: false, verbose: false}
+	li.OutputFilename = filepath.Base(filename)
+	if strings.HasSuffix(li.OutputFilename, ".gz") {
+		li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
+	}
+	li.OutputFilename += ".enc"
+	return &li
 }
 
 // SetCollscan -
@@ -125,7 +138,7 @@ func getConfigOptions(reader *bufio.Reader) []string {
 
 // Analyze -
 func (li *LogInfo) Analyze() (string, error) {
-	arr, slowOps, err := li.Parse()
+	err := li.Parse()
 	if err != nil {
 		return "", err
 	}
@@ -133,34 +146,38 @@ func (li *LogInfo) Analyze() (string, error) {
 	if li.verbose == true {
 		summaries = append([]string{}, li.mongoInfo)
 	}
-	if len(slowOps) > 0 {
-		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(slowOps)))
-		for _, op := range slowOps {
+	if len(li.SlowOps) > 0 {
+		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
+		for _, op := range li.SlowOps {
 			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
 		}
 		summaries = append(summaries, "\n")
 	}
-	summaries = append(summaries, printLogsSummary(arr))
+	summaries = append(summaries, printLogsSummary(li.OpsPatterns))
+	var data bytes.Buffer
+	enc := gob.NewEncoder(&data)
+	if err = enc.Encode(li); err != nil {
+		log.Println("encode error:", err)
+	}
+	ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
 	return strings.Join(summaries, "\n"), nil
 }
 
 // Parse -
-func (li *LogInfo) Parse() ([]OpPerformanceDoc, []SlowOps, error) {
+func (li *LogInfo) Parse() error {
 	var err error
 	var reader *bufio.Reader
 	var file *os.File
-	var slowOps []SlowOps
 	var opsMap map[string]OpPerformanceDoc
-	var arr []OpPerformanceDoc
 
 	opsMap = make(map[string]OpPerformanceDoc)
 	if file, err = os.Open(li.filename); err != nil {
-		return arr, slowOps, err
+		return err
 	}
 	defer file.Close()
 
 	if reader, err = NewReader(file); err != nil {
-		return arr, slowOps, err
+		return err
 	}
 	lineCounts, _ := CountLines(reader)
 
@@ -177,7 +194,7 @@ func (li *LogInfo) Parse() ([]OpPerformanceDoc, []SlowOps, error) {
 	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
 	file.Seek(0, 0)
 	if reader, err = NewReader(file); err != nil {
-		return arr, slowOps, err
+		return err
 	}
 	index := 0
 	for {
@@ -355,12 +372,12 @@ func (li *LogInfo) Parse() ([]OpPerformanceDoc, []SlowOps, error) {
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
 			if milli >= 10000 { // >= 10 seconds too slow, top 10
-				slowOps = append(slowOps, SlowOps{Milli: milli, Log: str})
-				if len(slowOps) > 10 {
-					sort.Slice(slowOps, func(i, j int) bool {
-						return slowOps[i].Milli > slowOps[j].Milli
+				li.SlowOps = append(li.SlowOps, SlowOps{Milli: milli, Log: str})
+				if len(li.SlowOps) > 10 {
+					sort.Slice(li.SlowOps, func(i, j int) bool {
+						return li.SlowOps[i].Milli > li.SlowOps[j].Milli
 					})
-					slowOps = slowOps[:10]
+					li.SlowOps = li.SlowOps[:10]
 				}
 			}
 			if ok {
@@ -377,17 +394,17 @@ func (li *LogInfo) Parse() ([]OpPerformanceDoc, []SlowOps, error) {
 		}
 	}
 
-	arr = make([]OpPerformanceDoc, 0, len(opsMap))
+	li.OpsPatterns = make([]OpPerformanceDoc, 0, len(opsMap))
 	for _, value := range opsMap {
-		arr = append(arr, value)
+		li.OpsPatterns = append(li.OpsPatterns, value)
 	}
-	sort.Slice(arr, func(i, j int) bool {
-		return float64(arr[i].TotalMilli)/float64(arr[i].Count) > float64(arr[j].TotalMilli)/float64(arr[j].Count)
+	sort.Slice(li.OpsPatterns, func(i, j int) bool {
+		return float64(li.OpsPatterns[i].TotalMilli)/float64(li.OpsPatterns[i].Count) > float64(li.OpsPatterns[j].TotalMilli)/float64(li.OpsPatterns[j].Count)
 	})
 	if li.silent == false {
 		fmt.Fprintf(os.Stderr, "\r     \r")
 	}
-	return arr, slowOps, nil
+	return nil
 }
 
 func printLogsSummary(arr []OpPerformanceDoc) string {
