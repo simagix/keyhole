@@ -3,6 +3,7 @@
 package util
 
 import (
+	"os"
 	"testing"
 )
 
@@ -35,4 +36,5 @@ func TestLogInfo(t *testing.T) {
 	if _, err := loginfo.Analyze(); err != nil {
 		t.Fatal(err)
 	}
+	os.Remove(loginfo.OutputFilename)
 }

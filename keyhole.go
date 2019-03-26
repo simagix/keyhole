@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -125,10 +126,10 @@ func main() {
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
 		if str, err = li.Analyze(); err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(str)
+			log.Fatal(err)
 		}
+		fmt.Println(str)
+		log.Println("Encoded output written to", li.OutputFilename)
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)
@@ -171,10 +172,7 @@ func main() {
 			if err = mc.WriteJSON(connString.Hosts[0] + ".json"); err != nil {
 				panic(err)
 			}
-			if err = mc.WriteHTML(connString.Hosts[0] + ".html"); err != nil {
-				panic(err)
-			}
-			fmt.Println("JSON and HTML are written to", connString.Hosts[0]+".json", "and", connString.Hosts[0]+".html")
+			fmt.Println("JSON is written to", connString.Hosts[0]+".json")
 		} else {
 			fmt.Println(mdb.Stringify(doc, "", "  "))
 		}
