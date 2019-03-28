@@ -31,7 +31,7 @@ type Logs struct {
 func ParseAtlasURI(uri string) *Logs {
 	matched := regexp.MustCompile(`^atlas:\/\/(\S+):(\S+)@([^\/]+)\/([^\/]+)(\/([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])))?`)
 	if matched.MatchString(uri) == false {
-		return &Logs{err: errors.New(`Incorrect format, should be "atlas://user:apiKey@groupID/clusterName"`)}
+		return &Logs{err: errors.New(`Incorrect format, should be "atlas://user:apiKey@groupID/clusterName[/yyyy-mm-dd]"`)}
 	}
 
 	results := matched.FindStringSubmatch(uri)
