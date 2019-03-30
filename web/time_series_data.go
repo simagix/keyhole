@@ -63,6 +63,12 @@ var replSetChartsLegends = []string{"replication_lags"}
 // grafana-cli plugins install grafana-simple-json-datasource
 type Grafana struct {
 	sync.RWMutex
+	summaryFTDC FTDCStats
+	detailFTDC  FTDCStats
+}
+
+// FTDCStats FTDC stats
+type FTDCStats struct {
 	serverInfo      interface{}
 	timeSeriesData  map[string]TimeSeriesDoc
 	replicationLags map[string]TimeSeriesDoc
@@ -78,17 +84,28 @@ type DiskStats struct {
 var g Grafana
 
 // NewGrafana -
-func NewGrafana(d *sim.DiagnosticData) *Grafana {
-	g = Grafana{serverInfo: d.ServerInfo}
-	g.RLock()
-	defer g.RUnlock()
-	g.ReinitGrafana(d)
+func NewGrafana() *Grafana {
+	g = Grafana{}
 	return &g
 }
 
-// ReinitGrafana -
-func (g *Grafana) ReinitGrafana(d *sim.DiagnosticData) {
-	g.serverInfo = d.ServerInfo
+// SetFTDCSummaryStats -
+func (g *Grafana) SetFTDCSummaryStats(diag *sim.DiagnosticData) {
+	g.RLock()
+	defer g.RUnlock()
+	setFTDCStats(diag, &g.summaryFTDC)
+}
+
+// SetFTDCDetailStats -
+func (g *Grafana) SetFTDCDetailStats(diag *sim.DiagnosticData) {
+	g.RLock()
+	defer g.RUnlock()
+	setFTDCStats(diag, &g.detailFTDC)
+}
+
+// setFTDCStats -
+func setFTDCStats(diag *sim.DiagnosticData, g *FTDCStats) {
+	g.serverInfo = diag.ServerInfo
 	btm := time.Now()
 	var serverStatusTSD map[string]TimeSeriesDoc
 	var wiredTigerTSD map[string]TimeSeriesDoc
@@ -101,22 +118,22 @@ func (g *Grafana) ReinitGrafana(d *sim.DiagnosticData) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		replicationTSD, replicationLags = g.initReplSetGetStatusTimeSeriesDoc(d.ReplSetStatusList) // replSetGetStatus
+		replicationTSD, replicationLags = initReplSetGetStatusTimeSeriesDoc(diag.ReplSetStatusList) // replSetGetStatus
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		systemMetricsTSD, diskStats = g.initSystemMetricsTimeSeriesDoc(d.SystemMetricsList) // SystemMetrics
+		systemMetricsTSD, diskStats = initSystemMetricsTimeSeriesDoc(diag.SystemMetricsList) // SystemMetrics
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		serverStatusTSD = g.initServerStatusTimeSeriesDoc(d.ServerStatusList) // ServerStatus
+		serverStatusTSD = initServerStatusTimeSeriesDoc(diag.ServerStatusList) // ServerStatus
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		wiredTigerTSD = g.initWiredTigerTimeSeriesDoc(d.ServerStatusList) // ServerStatus
+		wiredTigerTSD = initWiredTigerTimeSeriesDoc(diag.ServerStatusList) // ServerStatus
 	}()
 	wg.Wait()
 
@@ -147,7 +164,7 @@ func getDataPoint(v float64, t float64) []float64 {
 	return dp
 }
 
-func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []mdb.ReplSetStatusDoc) (map[string]TimeSeriesDoc, map[string]TimeSeriesDoc) {
+func initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []mdb.ReplSetStatusDoc) (map[string]TimeSeriesDoc, map[string]TimeSeriesDoc) {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	var replicationLags = map[string]TimeSeriesDoc{}
 	var hosts []string
@@ -211,7 +228,7 @@ func (g *Grafana) initReplSetGetStatusTimeSeriesDoc(replSetGetStatusList []mdb.R
 	return timeSeriesData, replicationLags
 }
 
-func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []sim.SystemMetricsDoc) (map[string]TimeSeriesDoc, map[string]DiskStats) {
+func initSystemMetricsTimeSeriesDoc(systemMetricsList []sim.SystemMetricsDoc) (map[string]TimeSeriesDoc, map[string]DiskStats) {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	var diskStats = map[string]DiskStats{}
 	var pstat = sim.SystemMetricsDoc{}
@@ -276,7 +293,7 @@ func (g *Grafana) initSystemMetricsTimeSeriesDoc(systemMetricsList []sim.SystemM
 	return timeSeriesData, diskStats
 }
 
-func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []mdb.ServerStatusDoc) map[string]TimeSeriesDoc {
+func initServerStatusTimeSeriesDoc(serverStatusList []mdb.ServerStatusDoc) map[string]TimeSeriesDoc {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	pstat := mdb.ServerStatusDoc{}
 	var x TimeSeriesDoc
@@ -362,7 +379,7 @@ func (g *Grafana) initServerStatusTimeSeriesDoc(serverStatusList []mdb.ServerSta
 	return timeSeriesData
 }
 
-func (g *Grafana) initWiredTigerTimeSeriesDoc(serverStatusList []mdb.ServerStatusDoc) map[string]TimeSeriesDoc {
+func initWiredTigerTimeSeriesDoc(serverStatusList []mdb.ServerStatusDoc) map[string]TimeSeriesDoc {
 	var timeSeriesData = map[string]TimeSeriesDoc{}
 	pstat := mdb.ServerStatusDoc{}
 	var x TimeSeriesDoc

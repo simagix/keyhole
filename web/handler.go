@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"github.com/simagix/keyhole/sim"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func (g *Grafana) handler(w http.ResponseWriter, r *http.Request) {
@@ -42,16 +42,20 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}
-		if dr.Span < 1 {
-			dr.Span = 1
-		}
-		d := sim.NewDiagnosticData(dr.Span)
 		var filenames = []string{dr.Dir}
-		if _, err = d.PrintDiagnosticData(filenames, true); err != nil {
+		diag := sim.NewDiagnosticData(300) // summary
+		if _, err = diag.PrintDiagnosticData(filenames, true); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}
-		g.ReinitGrafana(d)
+		g.SetFTDCSummaryStats(diag)
+
+		diag = sim.NewDiagnosticData(1)
+		if _, err = diag.PrintDiagnosticData(filenames, true); err != nil {
+			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
+			return
+		}
+		g.SetFTDCDetailStats(diag)
 		json.NewEncoder(w).Encode(bson.M{"ok": 1, "dir": dr.Dir})
 	default:
 		http.Error(w, "bad method; supported OPTIONS, POST", http.StatusBadRequest)
@@ -62,7 +66,7 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 func (g *Grafana) search(w http.ResponseWriter, r *http.Request) {
 	var list []string
 
-	for _, doc := range g.timeSeriesData {
+	for _, doc := range g.detailFTDC.timeSeriesData {
 		list = append(list, doc.Target)
 	}
 
@@ -77,29 +81,33 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ftdc := g.summaryFTDC
+	if qr.Range.To.Sub(qr.Range.From).Hours() < 24 {
+		ftdc = g.detailFTDC
+	}
 	var tsData []interface{}
 	for _, target := range qr.Targets {
 		if target.Type == "timeserie" {
 			if target.Target == "replication_lags" { // replaced with actual hostname
-				for k, v := range g.replicationLags {
+				for k, v := range ftdc.replicationLags {
 					data := v
 					data.Target = k
 					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 				}
 			} else if target.Target == "disks_utils" {
-				for k, v := range g.diskStats {
+				for k, v := range ftdc.diskStats {
 					data := v.utilization
 					data.Target = k
 					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 				}
 			} else if target.Target == "disks_iops" {
-				for k, v := range g.diskStats {
+				for k, v := range ftdc.diskStats {
 					data := v.iops
 					data.Target = k
 					tsData = append(tsData, filterTimeSeriesData(data, qr.Range.From, qr.Range.To))
 				}
 			} else {
-				tsData = append(tsData, filterTimeSeriesData(g.timeSeriesData[target.Target], qr.Range.From, qr.Range.To))
+				tsData = append(tsData, filterTimeSeriesData(ftdc.timeSeriesData[target.Target], qr.Range.From, qr.Range.To))
 			}
 		} else if target.Type == "table" {
 			if target.Target == "host_info" {
@@ -107,7 +115,7 @@ func (g *Grafana) query(w http.ResponseWriter, r *http.Request) {
 				headerList = append(headerList, bson.M{"text": "Info", "type": "string"})
 				headerList = append(headerList, bson.M{"text": "Value", "type": "string"})
 				var si sim.ServerInfoDoc
-				b, _ := json.Marshal(g.serverInfo)
+				b, _ := json.Marshal(ftdc.serverInfo)
 				if err := json.Unmarshal(b, &si); err != nil {
 					rowList := [][]string{[]string{"Error", err.Error()}}
 					doc1 := bson.M{"columns": headerList, "type": "table", "rows": rowList}
@@ -141,7 +149,7 @@ func filterTimeSeriesData(tsData TimeSeriesDoc, from time.Time, to time.Time) Ti
 		data.DataPoints = append(data.DataPoints, v)
 	}
 
-	max := 1000 // max data points
+	max := 1000 // max data points, 5 minutes * 1000 = 84 hours
 	if len(data.DataPoints) > max {
 		frac := len(data.DataPoints) / max
 		var datax = TimeSeriesDoc{DataPoints: [][]float64{}}
