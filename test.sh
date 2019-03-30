@@ -93,9 +93,9 @@ validate ""
 # Test loginfo
 echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
 go run keyhole.go --loginfo data/mongod.log
+rm -f *-mongod.log.gz
 
 # Test loginfo Atlas
 echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
-go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
-rm -f *-mongod.log.gz
+go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole/2019-03-20"
 shutdownServer
