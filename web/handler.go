@@ -44,14 +44,14 @@ func (g *Grafana) readDirectory(w http.ResponseWriter, r *http.Request) {
 		}
 		var filenames = []string{dr.Dir}
 		diag := sim.NewDiagnosticData(300) // summary
-		if _, err = diag.PrintDiagnosticData(filenames, true); err != nil {
+		if err = diag.DecodeDiagnosticData(filenames); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}
 		g.SetFTDCSummaryStats(diag)
 
 		diag = sim.NewDiagnosticData(1)
-		if _, err = diag.PrintDiagnosticData(filenames, true); err != nil {
+		if err = diag.DecodeDiagnosticData(filenames); err != nil {
 			json.NewEncoder(w).Encode(bson.M{"ok": 0, "err": err.Error()})
 			return
 		}

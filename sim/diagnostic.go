@@ -6,9 +6,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"runtime"
 	"sort"
@@ -80,20 +80,35 @@ func NewDiagnosticData(span int) *DiagnosticData {
 }
 
 // PrintDiagnosticData prints diagnostic data of MongoD
-func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (string, error) {
+func (d *DiagnosticData) PrintDiagnosticData(filenames []string) (string, error) {
+	if err := d.DecodeDiagnosticData(filenames); err != nil {
+		return "", err
+	}
+	strs := []string{}
+	if d.ServerInfo != nil {
+		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
+		strs = append(strs, string(b))
+	}
+	strs = append(strs, PrintAllStats(d.ServerStatusList, -1))
+	return strings.Join(strs, "\n"), nil
+}
+
+// DecodeDiagnosticData decodes FTDC data files
+func (d *DiagnosticData) DecodeDiagnosticData(filenames []string) error {
 	var err error
 	var fi os.FileInfo
 	fnames := []string{}
 
 	for _, filename := range filenames {
 		if fi, err = os.Stat(filename); err != nil {
-			return "", err
+			return err
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
 			files, _ := ioutil.ReadDir(filename)
 			for _, file := range files {
-				if file.IsDir() == false {
+				if file.IsDir() == false &&
+					(strings.HasPrefix(file.Name(), "metrics.") || strings.HasPrefix(file.Name(), "keyhole_stats.")) {
 					fnames = append(fnames, filename+"/"+file.Name())
 				}
 			}
@@ -103,24 +118,16 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string, isWeb bool) (st
 	}
 
 	if err = d.readDiagnosticFiles(fnames); err != nil {
-		return "", err
+		return err
 	}
 
 	if len(d.ServerStatusList) == 0 {
-		return "No FTDC data found.", err
+		return errors.New("no FTDC data found")
 	}
 
-	if isWeb == true {
-		str := d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z") +
-			" - " + d.ServerStatusList[len(d.ServerStatusList)-1].LocalTime.Format("2006-01-02T15:04:05Z")
-		return str, err
-	}
-
-	if d.ServerInfo != nil {
-		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
-		fmt.Println(string(b))
-	}
-	return PrintAllStats(d.ServerStatusList, -1), err
+	log.Printf("FTDC data from %v to %v\n", d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z"),
+		d.ServerStatusList[len(d.ServerStatusList)-1].LocalTime.Format("2006-01-02T15:04:05Z"))
+	return nil
 }
 
 // readDiagnosticDir reads diagnotics.data from a directory
@@ -159,7 +166,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	}
 
 	btime := time.Now()
-	fmt.Println("reading", len(filenames), "files.")
+	log.Printf("reading %d files with %d second(s) interval\n", len(filenames), d.span)
 	var diagDataMap = map[string]DiagnosticData{}
 	nThreads := runtime.NumCPU()
 	if nThreads < 4 {
@@ -195,7 +202,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 		d.SystemMetricsList = append(d.SystemMetricsList, diagDataMap[key].SystemMetricsList...)
 		d.ReplSetStatusList = append(d.ReplSetStatusList, diagDataMap[key].ReplSetStatusList...)
 	}
-	fmt.Println(len(filenames), "files loaded, time spent:", time.Now().Sub(btime))
+	log.Println(len(filenames), "files loaded, time spent:", time.Now().Sub(btime))
 	return err
 }
 
@@ -246,7 +253,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if i >= 0 {
 		filename = filename[i+1:]
 	}
-	fmt.Println("->", filename, "blocks:", len(metrics.Data), ", time:", time.Now().Sub(btm))
+	log.Println(filename, "blocks:", len(metrics.Data), ", time:", time.Now().Sub(btm))
 	return diagData, err
 }
 
@@ -282,10 +289,10 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 			} else if err = json.Unmarshal(line, &repls); err == nil { // ReplSetStatusDoc
 				allRepls = append(allRepls, repls...)
 			} else {
-				fmt.Println(err)
+				log.Println(err)
 			}
 		} else {
-			fmt.Println(err)
+			log.Println(err)
 		}
 	}
 

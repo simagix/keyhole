@@ -3,7 +3,7 @@
 package web
 
 import (
-	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -151,7 +151,7 @@ func setFTDCStats(diag *sim.DiagnosticData, g *FTDCStats) {
 		g.timeSeriesData[k] = v
 	}
 	etm := time.Now()
-	fmt.Println("data points ready, time spent:", etm.Sub(btm).String())
+	log.Println("data points ready, time spent:", etm.Sub(btm).String())
 }
 
 func getDataPoint(v float64, t float64) []float64 {
