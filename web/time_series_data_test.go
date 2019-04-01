@@ -23,17 +23,17 @@ func TestGetDataPoint(t *testing.T) {
 	t.Log(dp)
 }
 
-func TestReinitGrafana(t *testing.T) {
+func TestSetFTDCSummaryStats(t *testing.T) {
 	d := sim.NewDiagnosticData(300)
 	var filenames = []string{DiagnosticDataFilename}
-	d.PrintDiagnosticData(filenames, true)
+	d.DecodeDiagnosticData(filenames)
 	g.SetFTDCSummaryStats(d)
 }
 
 func TestInitServerStatusTimeSeriesDoc(t *testing.T) {
 	d := sim.NewDiagnosticData(300)
 	var filenames = []string{DiagnosticDataFilename}
-	d.PrintDiagnosticData(filenames, true)
+	d.DecodeDiagnosticData(filenames)
 	tsd := initServerStatusTimeSeriesDoc(d.ServerStatusList)
 	if len(tsd) == 0 {
 		t.Fatal()
@@ -43,7 +43,7 @@ func TestInitServerStatusTimeSeriesDoc(t *testing.T) {
 func TestInitSystemMetricsTimeSeriesDoca(t *testing.T) {
 	d := sim.NewDiagnosticData(300)
 	var filenames = []string{DiagnosticDataFilename}
-	d.PrintDiagnosticData(filenames, true)
+	d.DecodeDiagnosticData(filenames)
 	tsd, _ := initSystemMetricsTimeSeriesDoc(d.SystemMetricsList)
 	if len(tsd) == 0 {
 		t.Fatal()
@@ -53,7 +53,7 @@ func TestInitSystemMetricsTimeSeriesDoca(t *testing.T) {
 func TestInitReplSetGetStatusTimeSeriesDoc(t *testing.T) {
 	d := sim.NewDiagnosticData(300)
 	var filenames = []string{DiagnosticDataFilename}
-	d.PrintDiagnosticData(filenames, true)
+	d.DecodeDiagnosticData(filenames)
 	tsd, _ := initReplSetGetStatusTimeSeriesDoc(d.ReplSetStatusList)
 	if len(tsd) == 0 {
 		t.Fatal()
@@ -63,7 +63,7 @@ func TestInitReplSetGetStatusTimeSeriesDoc(t *testing.T) {
 func TestInitWiredTigerTimeSeriesDoc(t *testing.T) {
 	d := sim.NewDiagnosticData(300)
 	var filenames = []string{DiagnosticDataFilename}
-	d.PrintDiagnosticData(filenames, true)
+	d.DecodeDiagnosticData(filenames)
 	tsd := initWiredTigerTimeSeriesDoc(d.ServerStatusList)
 	if len(tsd) == 0 {
 		t.Fatal()

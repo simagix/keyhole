@@ -36,6 +36,15 @@ func (cs *ChangeStream) SetPipeline(pipeline []bson.D) {
 	cs.pipeline = pipeline
 }
 
+// SetPipelineString sets pipeline string
+func (cs *ChangeStream) SetPipelineString(pipe string) {
+	var pipeline = []bson.D{}
+	if pipe != "" {
+		pipeline = MongoPipeline(pipe)
+	}
+	cs.pipeline = pipeline
+}
+
 // NewChangeStream gets a new ChangeStream
 func NewChangeStream() *ChangeStream {
 	return &ChangeStream{}

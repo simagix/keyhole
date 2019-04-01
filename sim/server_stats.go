@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
-	"github.com/simagix/keyhole/mdb"
 )
 
 var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
@@ -231,7 +231,7 @@ func (rn *Runner) PrintServerStatus(uri string, span int) (string, error) {
 	}
 	d := NewDiagnosticData(span)
 	var filenames = []string{filename}
-	if str, err = d.PrintDiagnosticData(filenames, false); err != nil {
+	if str, err = d.PrintDiagnosticData(filenames); err != nil {
 		return filename, err
 	}
 	fmt.Println(str)
