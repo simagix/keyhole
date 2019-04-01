@@ -15,12 +15,16 @@ import (
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
 var version = "self-built"
 
 func main() {
+	caFile := flag.String("sslCAFile", "", "CA file")
+	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
+	clientPEMFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	card := flag.Bool("card", false, "check collection cardinality")
@@ -34,12 +38,11 @@ func main() {
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	monitor := flag.Bool("monitor", false, "collects server status every 10 seconds")
 	peek := flag.Bool("peek", false, "only collect stats")
+	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	span := flag.Int("span", -1, "granunarity for summary")
-	caFile := flag.String("sslCAFile", "", "CA file")
-	clientPEMFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
@@ -212,6 +215,17 @@ func main() {
 		} else {
 			fmt.Println(mdb.Stringify(doc, "", "   "))
 		}
+		os.Exit(0)
+	} else if *changeStreams == true {
+		var pipeline = []bson.D{}
+		if *pipe != "" {
+			pipeline = mdb.MongoPipeline(*pipe)
+		}
+		stream := mdb.NewChangeStream()
+		stream.SetCollection(*collection)
+		stream.SetDatabase(connString.Database)
+		stream.SetPipeline(pipeline)
+		stream.Watch(client, util.Echo)
 		os.Exit(0)
 	}
 
