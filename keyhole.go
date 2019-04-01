@@ -15,7 +15,6 @@ import (
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
@@ -65,27 +64,28 @@ func main() {
 		if len(flag.Args()) > 0 {
 			filenames = append(filenames, flag.Args()...)
 		}
-		tspan := *span
-		if *webserver { // get data points summary if web server is enabled
-			tspan = 300
-		}
-		d := sim.NewDiagnosticData(tspan)
-		if str, err = d.PrintDiagnosticData(filenames, *webserver); err != nil {
-			fmt.Println(err)
-			os.Exit(0)
-		}
-		fmt.Println(str)
-		if *webserver {
-			g := web.NewGrafana()
-			g.SetFTDCSummaryStats(d)
 
-			fmt.Println("Get more granular data points, data point every second.")
-			go func(g *web.Grafana, d *sim.DiagnosticData, filenames []string) {
-				d = sim.NewDiagnosticData(1)
-				d.PrintDiagnosticData(filenames, true)
-				g.SetFTDCDetailStats(d)
-			}(g, d, filenames)
-			web.HTTPServer(5408, d, g)
+		if *webserver == false {
+			metrics := sim.NewDiagnosticData(*span)
+			if str, err = metrics.PrintDiagnosticData(filenames); err != nil {
+				panic(err)
+			}
+			fmt.Println(str)
+		} else {
+			grafana := web.NewGrafana()
+			metrics := sim.NewDiagnosticData(300)
+			if err = metrics.DecodeDiagnosticData(filenames); err != nil { // get summary
+				panic(err)
+			}
+			grafana.SetFTDCSummaryStats(metrics)
+
+			log.Println("get more granular data points, data point every second.")
+			go func(g *web.Grafana, metrics *sim.DiagnosticData, filenames []string) {
+				metrics = sim.NewDiagnosticData(1)
+				metrics.DecodeDiagnosticData(filenames)
+				grafana.SetFTDCDetailStats(metrics)
+			}(grafana, metrics, filenames)
+			web.HTTPServer(5408, metrics, grafana)
 		}
 		os.Exit(0)
 	} else if *info == true && strings.Index(*uri, "atlas://") == 0 {
@@ -190,7 +190,7 @@ func main() {
 		f.SetIsDrop(*drop)
 		f.SetTotal(*total)
 		if err = f.SeedData(client); err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		os.Exit(0)
 	} else if *index == true {
@@ -202,7 +202,7 @@ func main() {
 	} else if *schema == true {
 		var str string
 		if str, err = sim.GetSchemaFromCollection(client, connString.Database, *collection); err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		fmt.Println(str)
 		os.Exit(0)
@@ -211,20 +211,15 @@ func main() {
 		card.SetVerbose(*verbose)
 		doc, e := card.CheckCardinality(client)
 		if e != nil {
-			fmt.Println(e)
-		} else {
-			fmt.Println(mdb.Stringify(doc, "", "   "))
+			panic(e)
 		}
+		fmt.Println(mdb.Stringify(doc, "", "   "))
 		os.Exit(0)
 	} else if *changeStreams == true {
-		var pipeline = []bson.D{}
-		if *pipe != "" {
-			pipeline = mdb.MongoPipeline(*pipe)
-		}
 		stream := mdb.NewChangeStream()
 		stream.SetCollection(*collection)
 		stream.SetDatabase(connString.Database)
-		stream.SetPipeline(pipeline)
+		stream.SetPipelineString(*pipe)
 		stream.Watch(client, util.Echo)
 		os.Exit(0)
 	}

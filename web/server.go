@@ -113,7 +113,7 @@ func HTTPServer(port int, d *sim.DiagnosticData, g *Grafana) {
 	if hostname, err = os.Hostname(); err != nil {
 		hostname = "localhost"
 	}
-	fmt.Println("HTTP server ready, URL: http://" + hostname + ":5408/")
+	log.Println("HTTP server ready, URL: http://" + hostname + ":5408/")
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }
 
