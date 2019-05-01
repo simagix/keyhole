@@ -174,10 +174,10 @@ func main() {
 			panic(e)
 		}
 		if *verbose == true {
-			if err = mc.WriteJSON(connString.Hosts[0] + ".json"); err != nil {
+			if err = mc.WriteGzippedJSON(connString.Hosts[0] + ".json.gz"); err != nil {
 				panic(err)
 			}
-			fmt.Println("JSON is written to", connString.Hosts[0]+".json")
+			fmt.Println("JSON is written to", connString.Hosts[0]+".json.gz")
 		} else {
 			fmt.Println(mdb.Stringify(doc, "", "  "))
 		}
