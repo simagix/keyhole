@@ -4,6 +4,7 @@ package mdb
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -138,6 +140,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			// firstDoc, FindOne
 			var firstDoc bson.M
 			if err = collection.FindOne(ctx, bson.D{{}}).Decode(&firstDoc); err != nil {
+				err = nil
 				continue
 			}
 
@@ -190,10 +193,12 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			if dbName != "admin" && dbName != "local" && dbName != "config" {
 				if scur, err = mc.client.Database(dbName).Collection(collectionName).Aggregate(ctx, pipeline); err != nil {
 					log.Fatal(dbName, err)
+					err = nil
 				}
 				for scur.Next(ctx) {
 					var result = bson.M{}
 					if err = scur.Decode(&result); err != nil {
+						err = nil
 						continue
 					}
 					for _, index := range indexes {
@@ -207,6 +212,15 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 				}
 				scur.Close(ctx)
 			}
+			if stats["shards"] != nil {
+				for k := range stats["shards"].(primitive.M) {
+					m := (stats["shards"].(primitive.M)[k]).(primitive.M)
+					delete(m, "$clusterTime")
+					delete(m, "$gleStats")
+					delete(m, "indexDetails")
+					delete(m, "wiredTiger")
+				}
+			}
 			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
 				"indexes": indexes, "stats": trimMap(stats)})
 		}
@@ -218,10 +232,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	return mc.cluster, err
 }
 
-// WriteJSON outputs cluster into to a JSON file
-func (mc *MongoCluster) WriteJSON(filename string) error {
-	b := []byte(Stringify(mc.cluster))
-	return ioutil.WriteFile(filename, b, 0644)
+// WriteGzippedJSON outputs cluster into to a JSON file
+func (mc *MongoCluster) WriteGzippedJSON(filename string) error {
+	var zbuf bytes.Buffer
+	gz := gzip.NewWriter(&zbuf)
+	gz.Write([]byte(Stringify(mc.cluster)))
+	gz.Close() // close this before flushing the bytes to the buffer.
+	return ioutil.WriteFile(filename, zbuf.Bytes(), 0644)
 }
 
 func trimMap(doc bson.M) bson.M {
