@@ -25,7 +25,7 @@ type IndexesReader struct {
 // AccessesDoc - accessss
 type AccessesDoc struct {
 	Ops   int       `json:"ops" bson:"ops"`
-	Snice time.Time `json:"since" bson:"since"`
+	Since time.Time `json:"since" bson:"since"`
 }
 
 // UsageDoc -
@@ -39,7 +39,7 @@ type IndexStatsDoc struct {
 	Key          string `json:"key"`
 	Name         string `json:"name"`
 	EffectiveKey string `json:"effectiveKey"`
-	isShardKey   bool
+	IsShardKey   bool   `json:"shardKey"`
 	totalOps     int
 	Usage        []UsageDoc `json:"stats"`
 }
@@ -171,7 +171,7 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 		var v bson.M
 		ns := collection.Database().Name() + "." + collection.Name()
 		if err = ir.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": keys}).Decode(&v); err == nil {
-			o.isShardKey = true
+			o.IsShardKey = true
 		}
 		o.EffectiveKey = strings.Replace(o.Key[2:len(o.Key)-2], ": -1", ": 1", -1)
 		o.Usage = []UsageDoc{}
@@ -204,7 +204,7 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 			buffer.WriteString(":\n")
 			for i, o := range list {
 				font := "\x1b[0m  "
-				if o.Key != "{ _id: 1 }" && o.isShardKey == false {
+				if o.Key != "{ _id: 1 }" && o.IsShardKey == false {
 					if i < len(list)-1 && strings.Index(list[i+1].EffectiveKey, o.EffectiveKey) == 0 {
 						font = "\x1b[31;1mx " // red
 					} else {
@@ -212,12 +212,12 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 							font = "\x1b[34;1m? " // blue
 						}
 					}
-				} else if o.isShardKey == true {
+				} else if o.IsShardKey == true {
 					font = "\x1b[0m* "
 				}
 				buffer.WriteString(font + o.Key + "\x1b[0m")
 				for _, u := range o.Usage {
-					buffer.Write([]byte("\n\thost: " + u.Host + ", ops: " + fmt.Sprintf("%v", u.Accesses.Ops) + ", since: " + fmt.Sprintf("%v", u.Accesses.Snice)))
+					buffer.Write([]byte("\n\thost: " + u.Host + ", ops: " + fmt.Sprintf("%v", u.Accesses.Ops) + ", since: " + fmt.Sprintf("%v", u.Accesses.Since)))
 				}
 				buffer.WriteString("\n")
 			}
