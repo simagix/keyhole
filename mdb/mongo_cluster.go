@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 
@@ -270,7 +269,8 @@ func GetStorageSize(num interface{}) string {
 		s := fmt.Sprintf("%v", x/1024)
 		return round(s) + " KB"
 	}
-	return fmt.Sprintf("%v B", math.Round(x))
+	s := fmt.Sprintf("%v", x)
+	return round(s) + " B"
 }
 
 func round(s string) string {
