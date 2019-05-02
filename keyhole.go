@@ -194,10 +194,17 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *index == true {
+		ir := mdb.NewIndexesReader(client)
 		if connString.Database == mdb.KEYHOLEDB {
 			connString.Database = ""
 		}
-		fmt.Println(mdb.GetIndexes(client, connString.Database))
+		ir.SetDBName(connString.Database)
+		ir.SetVerbose(*verbose)
+		m, e := ir.GetIndexes()
+		if e != nil {
+			panic(e)
+		}
+		ir.Print(m)
 		os.Exit(0)
 	} else if *schema == true {
 		var str string

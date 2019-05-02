@@ -22,7 +22,8 @@ func TestGetIndexesFromDB(t *testing.T) {
 	seedNumbers(c)
 
 	// get index from keyhole database
-	str := GetIndexesFromDB(client, dbName)
+	ir := NewIndexesReader(client)
+	str, _ := ir.GetIndexesFromDB(dbName)
 	t.Log(str)
 }
 
@@ -34,7 +35,9 @@ func TestGetIndexes(t *testing.T) {
 	seedNumbers(c)
 
 	// get all indexes
-	str := GetIndexes(client, "")
+	ir := NewIndexesReader(client)
+	ir.SetDBName("")
+	str, _ := ir.GetIndexes()
 	t.Log(str)
 }
 
