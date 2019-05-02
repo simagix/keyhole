@@ -38,11 +38,8 @@ func (mc *MongoCluster) SetVerbose(verbose bool) {
 func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
 	var cur *mongo.Cursor
-	var icur *mongo.Cursor
-	var scur *mongo.Cursor
 	var ctx = context.Background()
 	var config = bson.M{}
-	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
 
 	mc.cluster = bson.M{"config": config}
 	var info ServerInfo
@@ -119,14 +116,15 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	dbNames, _ := ListDatabaseNames(mc.client)
 	var databases = []bson.M{}
 	for _, dbName := range dbNames {
-		// if dbName == "admin" || dbName == "config" || dbName == "local" {
-		// 	continue
-		// }
+		if dbName == "admin" || dbName == "config" || dbName == "local" {
+			continue
+		}
 		if cur, err = mc.client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
 			return mc.cluster, err
 		}
 		defer cur.Close(ctx)
 		var collections = []bson.M{}
+		ir := NewIndexesReader(mc.client)
 
 		for cur.Next(ctx) {
 			var elem = bson.M{}
@@ -145,73 +143,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			}
 
 			// indexes
-			view := collection.Indexes()
-			if icur, err = view.List(ctx); err != nil {
-				continue
-			}
-
-			indexes := []bson.M{}
-			for icur.Next(ctx) {
-				idx := bson.D{}
-				icur.Decode(&idx)
-				val := bson.M{}
-				icur.Decode(&val)
-				val["stats"] = []bson.M{}
-
-				var strbuf bytes.Buffer
-				var keys bson.D
-
-				for _, v := range idx {
-					if v.Key == "key" {
-						keys = v.Value.(bson.D)
-					}
-				}
-
-				for n, value := range keys {
-					if n == 0 {
-						strbuf.WriteString("{ ")
-					}
-					strbuf.WriteString(value.Key + ": " + fmt.Sprint(value.Value))
-					if n == len(keys)-1 {
-						strbuf.WriteString(" }")
-					} else {
-						strbuf.WriteString(", ")
-					}
-				}
-				keystr := strbuf.String()
-				val["effectiveKey"] = strings.Replace(keystr[2:len(keystr)-2], ": -1", ": 1", -1)
-				indexes = append(indexes, val)
-			}
-			icur.Close(ctx)
+			indexes := ir.GetIndexesFromCollection(collection)
 
 			// stats
 			var stats bson.M
 			mc.client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 			delete(stats, "indexDetails")
 			delete(stats, "wiredTiger")
-
-			if dbName != "admin" && dbName != "local" && dbName != "config" {
-				if scur, err = mc.client.Database(dbName).Collection(collectionName).Aggregate(ctx, pipeline); err != nil {
-					log.Fatal(dbName, err)
-					err = nil
-				}
-				for scur.Next(ctx) {
-					var result = bson.M{}
-					if err = scur.Decode(&result); err != nil {
-						err = nil
-						continue
-					}
-					for _, index := range indexes {
-						if index["name"] == result["name"] {
-							delete(result, "key")
-							delete(result, "name")
-							index["stats"] = append(index["stats"].([]bson.M), result)
-							break
-						}
-					}
-				}
-				scur.Close(ctx)
-			}
 			if stats["shards"] != nil {
 				for k := range stats["shards"].(primitive.M) {
 					m := (stats["shards"].(primitive.M)[k]).(primitive.M)
