@@ -36,11 +36,11 @@ type UsageDoc struct {
 
 // IndexStatsDoc -
 type IndexStatsDoc struct {
-	Key          string `json:"key"`
-	Name         string `json:"name"`
-	EffectiveKey string `json:"effectiveKey"`
-	IsShardKey   bool   `json:"shardKey"`
-	totalOps     int
+	Key          string     `json:"key"`
+	Name         string     `json:"name"`
+	EffectiveKey string     `json:"effectiveKey"`
+	IsShardKey   bool       `json:"shardKey"`
+	TotalOps     int        `json:"totalOps"`
 	Usage        []UsageDoc `json:"stats"`
 }
 
@@ -180,7 +180,7 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 				b, _ := bson.Marshal(result)
 				var usage UsageDoc
 				bson.Unmarshal(b, &usage)
-				o.totalOps += usage.Accesses.Ops
+				o.TotalOps += usage.Accesses.Ops
 				o.Usage = append(o.Usage, usage)
 			}
 		}
@@ -208,7 +208,7 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 					if i < len(list)-1 && strings.Index(list[i+1].EffectiveKey, o.EffectiveKey) == 0 {
 						font = "\x1b[31;1mx " // red
 					} else {
-						if o.totalOps == 0 {
+						if o.TotalOps == 0 {
 							font = "\x1b[34;1m? " // blue
 						}
 					}
