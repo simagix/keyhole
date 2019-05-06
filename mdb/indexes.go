@@ -36,6 +36,7 @@ type UsageDoc struct {
 
 // IndexStatsDoc -
 type IndexStatsDoc struct {
+	Fields       []string
 	Key          string     `json:"key"`
 	Name         string     `json:"name"`
 	EffectiveKey string     `json:"effectiveKey"`
@@ -156,7 +157,9 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 			}
 		}
 		var strbuf bytes.Buffer
+		fields := []string{}
 		for n, value := range keys {
+			fields = append(fields, value.Key)
 			if n == 0 {
 				strbuf.WriteString("{ ")
 			}
@@ -167,8 +170,8 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 				strbuf.WriteString(", ")
 			}
 		}
-		o := IndexStatsDoc{Key: strbuf.String(), Name: indexName}
-		// TODO
+		o := IndexStatsDoc{Key: strbuf.String(), Fields: fields, Name: indexName}
+		// Check shard keys
 		var v bson.M
 		ns := collection.Database().Name() + "." + collection.Name()
 		if err = ir.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": keys}).Decode(&v); err == nil {
@@ -188,15 +191,38 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 		list = append(list, o)
 	}
 	icur.Close(ctx)
-	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey <= list[j].EffectiveKey) })
+	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey < list[j].EffectiveKey) })
 	for i, o := range list {
 		if o.Key != "{ _id: 1 }" && o.IsShardKey == false {
-			if i < len(list)-1 && strings.Index(list[i+1].EffectiveKey, o.EffectiveKey) == 0 {
-				list[i].IsDupped = true
-			}
+			list[i].IsDupped = checkIfDupped(o, list)
 		}
 	}
 	return list
+}
+
+// check if an index is a dup of others
+func checkIfDupped(doc IndexStatsDoc, list []IndexStatsDoc) bool {
+	for _, o := range list {
+		// check indexes if not marked as dupped, has the same first field, and more or equal number of fields
+		if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.Key != o.Key && len(o.Fields) >= len(doc.Fields) {
+			nmatched := 0
+			for i, fld := range doc.Fields {
+				if i == 0 {
+					continue
+				}
+				for j, field := range o.Fields {
+					if j > 0 && fld == field {
+						nmatched++
+						break
+					}
+				}
+			}
+			if nmatched == len(doc.Fields)-1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Print prints indexes
