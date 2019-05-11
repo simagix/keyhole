@@ -310,7 +310,11 @@ func (li *LogInfo) Parse() error {
 					}
 				}
 				if s == "" {
-					continue
+					if scan == "COLLSCAN" { // it's a collection scan without $match or $sort
+						filter = "{}"
+					} else {
+						continue
+					}
 				}
 			} else if op == "getMore" || op == "getmore" {
 				nstr := ""
