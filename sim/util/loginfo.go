@@ -77,7 +77,8 @@ func (li *LogInfo) SetVerbose(verbose bool) {
 	li.verbose = verbose
 }
 
-func getDocByField(str string, field string) string {
+// GetDocByField get JSON string by a field
+func GetDocByField(str string, field string) string {
 	i := strings.Index(str, field)
 	if i < 0 {
 		return ""
@@ -271,18 +272,18 @@ func (li *LogInfo) Parse() error {
 				continue
 			} else if op == "find" {
 				nstr := "{ }"
-				s := getDocByField(filter, "filter: ")
+				s := GetDocByField(filter, "filter: ")
 				if s != "" {
 					nstr = s
 				}
-				s = getDocByField(filter, "sort: ")
+				s = GetDocByField(filter, "sort: ")
 				if s != "" {
 					nstr = nstr + ", sort: " + s
 				}
 				filter = nstr
 			} else if op == "count" || op == "distinct" {
 				nstr := ""
-				s := getDocByField(filter, "query: ")
+				s := GetDocByField(filter, "query: ")
 				if s != "" {
 					nstr = s
 				}
@@ -291,9 +292,9 @@ func (li *LogInfo) Parse() error {
 				var s string
 				// if result[1] == "WRITE" {
 				if strings.Index(filter, "query: ") >= 0 {
-					s = getDocByField(filter, "query: ")
+					s = GetDocByField(filter, "query: ")
 				} else {
-					s = getDocByField(filter, "q: ")
+					s = GetDocByField(filter, "q: ")
 				}
 				if s != "" {
 					filter = s
@@ -302,7 +303,7 @@ func (li *LogInfo) Parse() error {
 				nstr := ""
 				s := ""
 				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
-					s = getDocByField(result[4], mstr)
+					s = GetDocByField(result[4], mstr)
 					if s != "" {
 						nstr = s
 						filter = nstr
@@ -318,11 +319,11 @@ func (li *LogInfo) Parse() error {
 				}
 			} else if op == "getMore" || op == "getmore" {
 				nstr := ""
-				s := getDocByField(result[4], "originatingCommand: ")
+				s := GetDocByField(result[4], "originatingCommand: ")
 
 				if s != "" {
 					for _, mstr := range []string{"filter: ", "pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
-						s = getDocByField(result[4], mstr)
+						s = GetDocByField(result[4], mstr)
 						if s != "" {
 							nstr = s
 							filter = nstr
@@ -336,7 +337,7 @@ func (li *LogInfo) Parse() error {
 					continue
 				}
 			}
-			index := getDocByField(str, "planSummary: IXSCAN")
+			index := GetDocByField(str, "planSummary: IXSCAN")
 			if index == "" && strings.Index(str, "planSummary: EOF") >= 0 {
 				index = "EOF"
 			}

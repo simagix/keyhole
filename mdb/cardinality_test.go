@@ -17,9 +17,9 @@ func TestCheckCardinality(t *testing.T) {
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 
-	card := NewCardinality(dbName, "cars")
+	card := NewCardinality(client)
 	// card.SetVerbose(true)
-	if doc, err = card.CheckCardinality(client); err != nil {
+	if doc, err = card.CheckCardinality(dbName, "cars"); err != nil {
 		t.Fatal(err)
 	}
 	t.Log(Stringify(doc, "", "  "))
