@@ -16,14 +16,13 @@ import (
 
 // Cardinality -
 type Cardinality struct {
-	collection string
-	database   string
-	verbose    bool
+	client  *mongo.Client
+	verbose bool
 }
 
 // NewCardinality returns cardinality constructor
-func NewCardinality(database string, collection string) *Cardinality {
-	return &Cardinality{database: database, collection: collection}
+func NewCardinality(client *mongo.Client) *Cardinality {
+	return &Cardinality{client: client}
 }
 
 // SetVerbose -
@@ -32,13 +31,13 @@ func (card *Cardinality) SetVerbose(verbose bool) {
 }
 
 // CheckCardinality -
-func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) {
+func (card *Cardinality) CheckCardinality(database string, collection string) (bson.M, error) {
 	var err error
 	var cur *mongo.Cursor
 	var ctx = context.Background()
 	var doc bson.M
 
-	if card.collection == "" {
+	if collection == "" {
 		return doc, errors.New("collection name is required")
 	}
 
@@ -64,9 +63,9 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
     {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}
 	]`
 
-	collection := client.Database(card.database).Collection(card.collection)
+	c := card.client.Database(database).Collection(collection)
 	var count int64
-	if count, err = collection.CountDocuments(ctx, bson.M{}); err != nil {
+	if count, err = c.CountDocuments(ctx, bson.M{}); err != nil {
 		return nil, err
 	}
 
@@ -84,7 +83,7 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 	}
 	opts := options.Aggregate()
 	opts.SetAllowDiskUse(true)
-	if cur, err = collection.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
+	if cur, err = c.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
 		return nil, err
 	}
 	if cur.Next(ctx) == false {
@@ -105,7 +104,7 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 	}
 	opts = options.Aggregate()
 	opts.SetAllowDiskUse(true)
-	if cur, err = collection.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
+	if cur, err = c.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
 		return nil, err
 	}
 	defer cur.Close(ctx)
@@ -120,4 +119,11 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 		}
 	}
 	return doc, err
+}
+
+// Print prints either JSON or tabular summary
+func (card *Cardinality) Print(document bson.M) {
+	if card.verbose == false {
+		fmt.Println(Stringify(document, "", "   "))
+	}
 }

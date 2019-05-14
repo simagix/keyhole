@@ -15,6 +15,7 @@ import (
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
@@ -214,13 +215,34 @@ func main() {
 		fmt.Println(str)
 		os.Exit(0)
 	} else if *card == true {
-		card := mdb.NewCardinality(connString.Database, *collection)
+		// --card --collection <collection> [--file json_or_log_file] [-v]
+		// --card --collection <collection> prints cardinality in JSON
+		// --card --collection <collection> --file json_or_log_file prints explain results
+		// with -v print tabular summary
+		document := bson.M{"ns": connString.Database + "." + *collection}
+		var cardinality bson.M
+		card := mdb.NewCardinality(client)
 		card.SetVerbose(*verbose)
-		doc, e := card.CheckCardinality(client)
-		if e != nil {
-			panic(e)
+		if cardinality, err = card.CheckCardinality(connString.Database, *collection); err != nil {
+			panic(err)
 		}
-		fmt.Println(mdb.Stringify(doc, "", "   "))
+		document["cardinality"] = cardinality
+
+		if *file != "" {
+			var explain bson.M
+			qa := mdb.NewQueryAnalyzer(client)
+			qa.SetDatabase(connString.Database)
+			qa.SetVerbose(*verbose)
+			var filter map[string]interface{}
+			if filter, err = mdb.GetFilterFromFile(*file); err != nil {
+				panic(err)
+			}
+			if explain, err = qa.Explain(*collection, filter); err != nil {
+				panic(err)
+			}
+			document["explain"] = explain
+		}
+		card.Print(document)
 		os.Exit(0)
 	} else if *changeStreams == true {
 		stream := mdb.NewChangeStream()
