@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/simagix/keyhole/mdb"
@@ -15,7 +16,6 @@ import (
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
@@ -27,11 +27,12 @@ func main() {
 	clientPEMFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
-	card := flag.Bool("card", false, "check collection cardinality")
+	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	conn := flag.Int("conn", 10, "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
+	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
 	file := flag.String("file", "", "template file for seedibg data")
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
@@ -214,35 +215,59 @@ func main() {
 		}
 		fmt.Println(str)
 		os.Exit(0)
-	} else if *card == true {
-		// --card --collection <collection> [--file json_or_log_file] [-v]
-		// --card --collection <collection> prints cardinality in JSON
-		// --card --collection <collection> --file json_or_log_file prints explain results
-		// with -v print tabular summary
-		document := bson.M{"ns": connString.Database + "." + *collection}
-		var cardinality bson.M
+	} else if *cardinality != "" {
+		// --card <collection> [-v]
 		card := mdb.NewCardinality(client)
 		card.SetVerbose(*verbose)
-		if cardinality, err = card.CheckCardinality(connString.Database, *collection); err != nil {
+		summary, cerr := card.GetCardinalityArray(connString.Database, *cardinality)
+		if cerr != nil {
+			panic(cerr)
+		}
+		str, serr := card.GetSummary(summary)
+		if serr != nil {
+			panic(serr)
+		}
+		fmt.Println(str)
+		os.Exit(0)
+	} else if *explain != "" {
+		// --explain json_or_log_file --collection <collection> [-v]
+		var str string
+		filter, ferr := mdb.GetFilterFromFile(*explain)
+		if ferr != nil {
+			panic(ferr)
+		}
+		card := mdb.NewCardinality(client)
+		card.SetVerbose(*verbose)
+		summary, cerr := card.GetCardinalityArray(connString.Database, *collection, mdb.GetKeys(filter))
+		if cerr != nil {
+			panic(cerr)
+		}
+		if str, err = card.GetSummary(summary); err != nil {
 			panic(err)
 		}
-		document["cardinality"] = cardinality
-
-		if *file != "" {
-			var explain bson.M
-			qa := mdb.NewQueryAnalyzer(client)
-			qa.SetDatabase(connString.Database)
-			qa.SetVerbose(*verbose)
-			var filter map[string]interface{}
-			if filter, err = mdb.GetFilterFromFile(*file); err != nil {
-				panic(err)
-			}
-			if explain, err = qa.Explain(*collection, filter); err != nil {
-				panic(err)
-			}
-			document["explain"] = explain
+		fmt.Println(str)
+		qa := mdb.NewQueryAnalyzer(client)
+		qa.SetDatabase(connString.Database)
+		qa.SetFilter(filter)
+		qa.SetVerbose(*verbose)
+		edoc, ferr := qa.Explain(*collection, filter)
+		if ferr != nil {
+			panic(ferr)
 		}
-		card.Print(document)
+		if str, err = qa.GetSummary(edoc); err != nil {
+			panic(err)
+		}
+		fmt.Println(str)
+		document := make(map[string]interface{})
+		document["ns"] = connString.Database + "." + *collection
+		document["cardinality"] = summary
+		document["explain"] = edoc
+		qa.Evaluate(summary.List)
+		ofile := filepath.Base(*explain) + "-explain.json.gz"
+		if err = qa.OutputGzipped(document, ofile); err != nil {
+			panic(err)
+		}
+		fmt.Println("Explain output written to", ofile)
 		os.Exit(0)
 	} else if *changeStreams == true {
 		stream := mdb.NewChangeStream()
