@@ -262,7 +262,11 @@ func main() {
 		document["ns"] = connString.Database + "." + *collection
 		document["cardinality"] = summary
 		document["explain"] = edoc
-		qa.Evaluate(summary.List)
+		if len(summary.List) > 0 {
+			recommendedIndex := card.GetRecommendedIndex(summary.List)
+			document["recommendedIndex"] = recommendedIndex
+			fmt.Println("Recommended index:", mdb.Stringify(recommendedIndex))
+		}
 		ofile := filepath.Base(*explain) + "-explain.json.gz"
 		if err = qa.OutputGzipped(document, ofile); err != nil {
 			panic(err)
