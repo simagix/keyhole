@@ -242,10 +242,6 @@ func main() {
 		if cerr != nil {
 			panic(cerr)
 		}
-		if str, err = card.GetSummary(summary); err != nil {
-			panic(err)
-		}
-		fmt.Println(str)
 		qa := mdb.NewQueryAnalyzer(client)
 		qa.SetDatabase(connString.Database)
 		qa.SetFilter(filter)
@@ -255,6 +251,10 @@ func main() {
 			panic(ferr)
 		}
 		if str, err = qa.GetSummary(edoc); err != nil {
+			panic(err)
+		}
+		fmt.Println(str)
+		if str, err = card.GetSummary(summary); err != nil {
 			panic(err)
 		}
 		fmt.Println(str)
@@ -271,7 +271,7 @@ func main() {
 		if err = qa.OutputGzipped(document, ofile); err != nil {
 			panic(err)
 		}
-		fmt.Println("Explain output written to", ofile)
+		fmt.Println("\nExplain output written to", ofile)
 		os.Exit(0)
 	} else if *changeStreams == true {
 		stream := mdb.NewChangeStream()

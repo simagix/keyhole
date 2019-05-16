@@ -70,7 +70,7 @@ func (qa *QueryAnalyzer) GetSummary(doc bson.M) (string, error) {
 	var err error
 	var buffer bytes.Buffer
 	var shardName string
-	buffer.WriteString("\nExplain:\n")
+	buffer.WriteString("Explain:\n")
 	buffer.WriteString("--------------------------------------------------------------------------------\n")
 
 	// find queryPlanner.winningPlan
