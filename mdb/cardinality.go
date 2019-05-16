@@ -167,7 +167,7 @@ func (card *Cardinality) GetSummary(summary CardinalitySummary) (string, error) 
 	var buffer bytes.Buffer
 
 	p := message.NewPrinter(language.English)
-	buffer.WriteString("\nCardinality (sampled data: " + p.Sprintf("%d", summary.SampledCount) + "):\n")
+	buffer.WriteString("Cardinality (sampled data: " + p.Sprintf("%d", summary.SampledCount) + "):\n")
 	buffer.WriteString("--------------------------------------------------------------------------------\n")
 	for _, val := range summary.List {
 		buffer.WriteString(fmt.Sprintf("|%64s |%11v |\n", val.Field, p.Sprintf("%d", int64(val.Count))))
