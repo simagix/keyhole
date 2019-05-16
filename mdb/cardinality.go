@@ -5,6 +5,7 @@ package mdb
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -173,4 +174,29 @@ func (card *Cardinality) GetSummary(summary CardinalitySummary) (string, error) 
 	}
 	buffer.WriteString("--------------------------------------------------------------------------------\n")
 	return buffer.String(), err
+}
+
+// GetRecommendedIndex returns a recommended index by cardinalities
+func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) IndexMap {
+	if card.verbose {
+		fmt.Println(Stringify(cardList, "", "  "))
+	}
+	var buffer bytes.Buffer
+	buffer.WriteString("{ ")
+	for i, elem := range cardList {
+		if i < 4 || elem.Count > 10 {
+			if i > 0 {
+				buffer.WriteString(", ")
+			}
+			buffer.WriteString(`"`)
+			buffer.WriteString(elem.Field)
+			buffer.WriteString(`": 1`)
+		} else {
+			break
+		}
+	}
+	buffer.WriteString(" }")
+	var o IndexMap
+	json.Unmarshal(buffer.Bytes(), &o)
+	return o
 }

@@ -24,6 +24,7 @@ func TestGetExplainSummaryReplica(t *testing.T) {
 	json.Unmarshal(buffer, &v)
 	data, _ := bson.Marshal(v)
 	bson.Unmarshal(data, &v)
+	qa.SetFilter(v["explain"].(bson.M)["queryPlanner"].(bson.M)["parsedQuery"].(bson.M))
 	str, err := qa.GetSummary(v["explain"].(bson.M))
 	if err != nil {
 		t.Fatal(err)
@@ -44,6 +45,7 @@ func TestGetExplainSummaryShard(t *testing.T) {
 	json.Unmarshal(buffer, &v)
 	data, _ := bson.Marshal(v)
 	bson.Unmarshal(data, &v)
+	qa.SetFilter(v["queryPlanner"].(bson.M)["winningPlan"].(bson.M)["shards"].(bson.A)[0].(bson.M)["parsedQuery"].(bson.M))
 	str, err := qa.GetSummary(v)
 	if err != nil {
 		t.Fatal(err)

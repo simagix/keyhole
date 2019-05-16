@@ -50,6 +50,7 @@ func (qa *QueryAnalyzer) SetVerbose(verbose bool) {
 
 // Explain explains query plans
 func (qa *QueryAnalyzer) Explain(collectionName string, filter map[string]interface{}) (bson.M, error) {
+	qa.filter = filter
 	var err error
 	ctx := context.Background()
 	command := bson.M{"explain": bson.M{"count": collectionName, "query": filter}}
@@ -62,13 +63,6 @@ func (qa *QueryAnalyzer) Explain(collectionName string, filter map[string]interf
 		time.Sleep(5 * time.Millisecond)
 	}
 	return result, err
-}
-
-// Evaluate evaluates all indexes
-func (qa *QueryAnalyzer) Evaluate(cardList []CardinalityCount) {
-	if qa.verbose {
-		fmt.Println(Stringify(cardList, "", "  "))
-	}
 }
 
 // GetSummary get summary of explain executionStats
