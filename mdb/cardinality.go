@@ -3,27 +3,43 @@
 package mdb
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // Cardinality -
 type Cardinality struct {
-	collection string
-	database   string
-	verbose    bool
+	client  *mongo.Client
+	verbose bool
+}
+
+// CardinalitySummary stores Cardinality summary
+type CardinalitySummary struct {
+	SampledCount int64
+	List         []CardinalityCount
+}
+
+// CardinalityCount stores cardinality counts
+type CardinalityCount struct {
+	Field string
+	Count int64
 }
 
 // NewCardinality returns cardinality constructor
-func NewCardinality(database string, collection string) *Cardinality {
-	return &Cardinality{database: database, collection: collection}
+func NewCardinality(client *mongo.Client) *Cardinality {
+	return &Cardinality{client: client}
 }
 
 // SetVerbose -
@@ -31,15 +47,16 @@ func (card *Cardinality) SetVerbose(verbose bool) {
 	card.verbose = verbose
 }
 
-// CheckCardinality -
-func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) {
+// GetCardinalityArray returns cardinality list
+func (card *Cardinality) GetCardinalityArray(database string, collection string, keys ...[]string) (CardinalitySummary, error) {
 	var err error
 	var cur *mongo.Cursor
 	var ctx = context.Background()
 	var doc bson.M
-
-	if card.collection == "" {
-		return doc, errors.New("collection name is required")
+	var fields []string
+	summary := CardinalitySummary{}
+	if collection == "" {
+		return summary, errors.New("collection name is required")
 	}
 
 	keysFmt := `
@@ -58,59 +75,66 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
   ]`
 	countFmt := `
 	"%s": [
-    {"$redact": {"$cond": {"if": { "$and": [{"$ne": [{"$type": "$%s"}, "array"]}, {"$ne": [{"$type": "$%s"}, "object"]}]},
-      "then": "$$DESCEND",
-      "else": "$$PRUNE"}} },
-    {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}
+	  {"$redact": {"$cond": {"if": { "$and": [{"$ne": [{"$type": "$%s"}, "array"]}]},
+	    "then": "$$DESCEND",
+	    "else": "$$PRUNE"}} },
+	  {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}
 	]`
 
-	collection := client.Database(card.database).Collection(card.collection)
+	c := card.client.Database(database).Collection(collection)
 	var count int64
-	if count, err = collection.CountDocuments(ctx, bson.M{}); err != nil {
-		return nil, err
+	if count, err = c.CountDocuments(ctx, bson.M{}); err != nil {
+		return summary, err
 	}
 
-	sampleCount := count
-	if sampleCount > int64(10000) { // random number
-		sampleCount = int64(.0495 * float32(count))
-		for sampleCount >= int64(10000) {
-			sampleCount /= 10
+	summary.SampledCount = count
+	if summary.SampledCount > int64(10000) { // random number
+		summary.SampledCount = int64(.0495 * float32(count))
+		for summary.SampledCount >= int64(10000) {
+			summary.SampledCount /= 10
 		}
 	}
-
-	pipeline := fmt.Sprintf(keysFmt, sampleCount)
-	if card.verbose {
-		fmt.Println(pipeline)
-	}
+	var pipeline string
 	opts := options.Aggregate()
-	opts.SetAllowDiskUse(true)
-	if cur, err = collection.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
-		return nil, err
-	}
-	if cur.Next(ctx) == false {
+	if len(keys) == 0 {
+		pipeline = fmt.Sprintf(keysFmt, summary.SampledCount)
+		if card.verbose {
+			fmt.Println(pipeline)
+		}
+		opts.SetAllowDiskUse(true)
+		if cur, err = c.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
+			return summary, err
+		}
+		if cur.Next(ctx) == false {
+			cur.Close(ctx)
+			return summary, err
+		}
+		cur.Decode(&doc)
 		cur.Close(ctx)
-		return nil, err
+		for _, elem := range doc["keys"].(primitive.A) {
+			fields = append(fields, elem.(string))
+		}
+	} else {
+		fields = keys[0]
 	}
-	cur.Decode(&doc)
-	cur.Close(ctx)
 	groups := []string{}
 	items := []string{}
-	for _, elem := range doc["keys"].(primitive.A) {
-		groups = append(groups, fmt.Sprintf(countFmt, elem.(string), elem.(string), elem.(string), elem.(string)))
-		items = append(items, fmt.Sprintf("\"%s\": {\"$sum\": \"$%s.count\"}", elem.(string), elem.(string)))
+	for _, elem := range fields {
+		groups = append(groups, fmt.Sprintf(countFmt, elem, elem, elem))
+		items = append(items, fmt.Sprintf("\"%s\": {\"$sum\": \"$%s.count\"}", elem, elem))
 	}
-	pipeline = fmt.Sprintf(facetFmt, sampleCount, strings.Join(groups, ","), strings.Join(items, ","))
+	pipeline = fmt.Sprintf(facetFmt, summary.SampledCount, strings.Join(groups, ","), strings.Join(items, ","))
 	if card.verbose {
 		fmt.Println(pipeline)
 	}
 	opts = options.Aggregate()
 	opts.SetAllowDiskUse(true)
-	if cur, err = collection.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
-		return nil, err
+	if cur, err = c.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
+		return summary, err
 	}
 	defer cur.Close(ctx)
 	if cur.Next(ctx) == false {
-		return nil, err
+		return summary, err
 	}
 	doc = bson.M{}
 	cur.Decode(&doc)
@@ -119,5 +143,60 @@ func (card *Cardinality) CheckCardinality(client *mongo.Client) (bson.M, error) 
 			delete(doc, k)
 		}
 	}
-	return doc, err
+	for k, v := range doc {
+		summary.List = append(summary.List, CardinalityCount{Field: k, Count: int64(v.(float64))})
+	}
+
+	sort.Slice(summary.List, func(i, j int) bool {
+		if summary.List[i].Count > summary.List[j].Count {
+			return true
+		} else if summary.List[i].Count == summary.List[j].Count && summary.List[i].Field < summary.List[j].Field {
+			return true
+		}
+		return false
+	})
+	return summary, err
+}
+
+// GetSummary get summary of cardinality
+func (card *Cardinality) GetSummary(summary CardinalitySummary) (string, error) {
+	if card.verbose {
+		fmt.Println(summary)
+	}
+	var err error
+	var buffer bytes.Buffer
+
+	p := message.NewPrinter(language.English)
+	buffer.WriteString("Cardinality (sampled data: " + p.Sprintf("%d", summary.SampledCount) + "):\n")
+	buffer.WriteString("--------------------------------------------------------------------------------\n")
+	for _, val := range summary.List {
+		buffer.WriteString(fmt.Sprintf("|%64s |%11v |\n", val.Field, p.Sprintf("%d", int64(val.Count))))
+	}
+	buffer.WriteString("--------------------------------------------------------------------------------\n")
+	return buffer.String(), err
+}
+
+// GetRecommendedIndex returns a recommended index by cardinalities
+func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) IndexMap {
+	if card.verbose {
+		fmt.Println(Stringify(cardList, "", "  "))
+	}
+	var buffer bytes.Buffer
+	buffer.WriteString("{ ")
+	for i, elem := range cardList {
+		if i < 4 || elem.Count > 10 {
+			if i > 0 {
+				buffer.WriteString(", ")
+			}
+			buffer.WriteString(`"`)
+			buffer.WriteString(elem.Field)
+			buffer.WriteString(`": 1`)
+		} else {
+			break
+		}
+	}
+	buffer.WriteString(" }")
+	var o IndexMap
+	json.Unmarshal(buffer.Bytes(), &o)
+	return o
 }
