@@ -136,7 +136,9 @@ func main() {
 			log.Fatal(err)
 		}
 		fmt.Println(str)
-		log.Println("Encoded output written to", li.OutputFilename)
+		if li.OutputFilename != "" {
+			log.Println("Encoded output written to", li.OutputFilename)
+		}
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)

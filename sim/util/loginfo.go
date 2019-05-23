@@ -139,29 +139,31 @@ func getConfigOptions(reader *bufio.Reader) []string {
 
 // Analyze -
 func (li *LogInfo) Analyze() (string, error) {
-	err := li.Parse()
-	if err != nil {
-		return "", err
-	}
-	summaries := []string{}
-	if li.verbose == true {
-		summaries = append([]string{}, li.mongoInfo)
-	}
-	if len(li.SlowOps) > 0 {
-		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
-		for _, op := range li.SlowOps {
-			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
+	var err error
+
+	if strings.HasSuffix(li.filename, ".enc") == true {
+		var data []byte
+		if data, err = ioutil.ReadFile(li.filename); err != nil {
+			return "", err
 		}
-		summaries = append(summaries, "\n")
+		buffer := bytes.NewBuffer(data)
+		dec := gob.NewDecoder(buffer)
+		if err = dec.Decode(li); err != nil {
+			return "", err
+		}
+		li.OutputFilename = ""
+	} else {
+		if err = li.Parse(); err != nil {
+			return "", err
+		}
+		var data bytes.Buffer
+		enc := gob.NewEncoder(&data)
+		if err = enc.Encode(li); err != nil {
+			log.Println("encode error:", err)
+		}
+		ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
 	}
-	summaries = append(summaries, printLogsSummary(li.OpsPatterns))
-	var data bytes.Buffer
-	enc := gob.NewEncoder(&data)
-	if err = enc.Encode(li); err != nil {
-		log.Println("encode error:", err)
-	}
-	ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
-	return strings.Join(summaries, "\n"), nil
+	return li.printLogsSummary(), nil
 }
 
 // Parse -
@@ -412,12 +414,24 @@ func (li *LogInfo) Parse() error {
 	return nil
 }
 
-func printLogsSummary(arr []OpPerformanceDoc) string {
+// printLogsSummary prints loginfo summary
+func (li *LogInfo) printLogsSummary() string {
+	summaries := []string{}
+	if li.verbose == true {
+		summaries = append([]string{}, li.mongoInfo)
+	}
+	if len(li.SlowOps) > 0 {
+		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
+		for _, op := range li.SlowOps {
+			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
+		}
+		summaries = append(summaries, "\n")
+	}
 	var buffer bytes.Buffer
 	buffer.WriteString("\r+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
-	for _, value := range arr {
+	for _, value := range li.OpsPatterns {
 		str := value.Filter
 		if len(value.Command) > 13 {
 			value.Command = value.Command[:13]
@@ -474,7 +488,8 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 		}
 	}
 	buffer.WriteString("+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
-	return buffer.String()
+	summaries = append(summaries, buffer.String())
+	return strings.Join(summaries, "\n")
 }
 
 // convert $in: [...] to $in: [ ]
