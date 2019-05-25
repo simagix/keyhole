@@ -9,10 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func TestSilent(t *testing.T) {
-	Silent(bson.M{"Hello": "World"})
-}
-
 func TestStringify(t *testing.T) {
 	helloWorld := `{"Hello":"World"}`
 	var v bson.M

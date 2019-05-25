@@ -8,22 +8,50 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// Silent does nothing
-func Silent(data interface{}) {
-}
-
 // Stringify return a formatted string from JSON
 func Stringify(doc interface{}, opts ...string) string {
+	if doc == nil {
+		return ""
+	}
 	if len(opts) == 2 {
 		b, _ := json.MarshalIndent(doc, opts[0], opts[1])
 		return string(b)
 	}
 	b, _ := json.Marshal(doc)
 	return string(b)
+}
+
+// GetDocByField get JSON string by a field
+func GetDocByField(str string, field string) string {
+	i := strings.Index(str, field)
+	if i < 0 {
+		return ""
+	}
+	str = strings.Trim(str[i+len(field):], " ")
+	isFound := false
+	bpos := 0 // begin position
+	epos := 0 // end position
+	for _, r := range str {
+		epos++
+		if isFound == false && r == '{' {
+			isFound = true
+			bpos++
+		} else if isFound == true {
+			if r == '{' {
+				bpos++
+			} else if r == '}' {
+				bpos--
+			}
+		}
+
+		if isFound == true && bpos == 0 {
+			break
+		}
+	}
+	return str[bpos:epos]
 }
 
 // GetFilterFromFile gets filter map
@@ -41,13 +69,14 @@ func GetFilterFromFile(filename string) (bson.M, error) {
 	// can be a log entry
 	re := regexp.MustCompile(`((\S+):)`)
 	str := re.ReplaceAllString(string(buffer), "\"$2\":")
-	str = util.GetDocByField(str, `"filter":`)
-
+	str = GetDocByField(str, `"filter":`)
 	re = regexp.MustCompile(`(new Date\(\S+\))`)
 	str = re.ReplaceAllString(str, "\"$1\"")
+	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)
+	str = re.ReplaceAllString(str, "ObjectId('$1')")
 	var v bson.M
 	json.Unmarshal([]byte(str), &v)
-	d := &util.Walker{}
+	d := &Walker{}
 	doc = d.WalkMap(v)
 	return doc, err
 }
@@ -60,37 +89,17 @@ func GetKeys(filter bson.M) []string {
 			for _, elem := range val.([]interface{}) {
 				for k := range elem.(map[string]interface{}) {
 					if isKeyword(k) == false {
-						arr = append(arr, getFirstField(k))
+						arr = append(arr, k)
 					}
 				}
 			}
-		} else {
-			if isKeyword(key) == false {
-				arr = append(arr, getFirstField(key))
-			}
+		} else if isKeyword(key) == false {
+			arr = append(arr, key)
 		}
 	}
 	return arr
 }
 
 func isKeyword(key string) bool {
-	// keywords := []string{"$exists", "$not", "$eq", "$ne"}
-	// for _, k := range keywords {
-	// 	if k == key {
-	// 		return true
-	// 	}
-	// }
-	if len(key) > 0 && key[0] == '$' {
-		return true
-	}
-	return false
-}
-
-func getFirstField(key string) string {
-	i := strings.Index(key, ".")
-	if i < 0 {
-		return key
-	}
-
-	return key[:i]
+	return len(key) > 0 && key[0] == '$'
 }

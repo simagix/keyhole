@@ -8,15 +8,23 @@ import (
 	"sort"
 )
 
-// IndexMap preserves index orders
-type IndexMap struct {
+// OrderedMap preserves fields order
+type OrderedMap struct {
 	Order []string
-	Map   map[string]int
+	Map   map[string]interface{}
+}
+
+// NewOrderedMap returns an ordered map
+func NewOrderedMap(str string) *OrderedMap {
+	var o OrderedMap
+	json.Unmarshal([]byte(str), &o)
+	return &o
 }
 
 // UnmarshalJSON unmarshals
-func (om *IndexMap) UnmarshalJSON(b []byte) error {
+func (om *OrderedMap) UnmarshalJSON(b []byte) error {
 	json.Unmarshal(b, &om.Map)
+
 	index := make(map[string]int)
 	for key := range om.Map {
 		om.Order = append(om.Order, key)
@@ -29,7 +37,7 @@ func (om *IndexMap) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON marshals
-func (om IndexMap) MarshalJSON() ([]byte, error) {
+func (om OrderedMap) MarshalJSON() ([]byte, error) {
 	var b []byte
 	buf := bytes.NewBuffer(b)
 	buf.WriteRune('{')

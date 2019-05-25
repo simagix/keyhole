@@ -118,7 +118,7 @@ func main() {
 		for _, filename := range filenames {
 			fmt.Println("=> processing", filename)
 			var str string
-			li := util.NewLogInfo(filename)
+			li := mdb.NewLogInfo(filename)
 			li.SetVerbose(*verbose)
 			if str, err = li.Analyze(); err != nil {
 				fmt.Println(err)
@@ -129,7 +129,7 @@ func main() {
 		os.Exit(0)
 	} else if *loginfo != "" {
 		var str string
-		li := util.NewLogInfo(*loginfo)
+		li := mdb.NewLogInfo(*loginfo)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
 		if str, err = li.Analyze(); err != nil {
@@ -225,15 +225,10 @@ func main() {
 		if cerr != nil {
 			panic(cerr)
 		}
-		str, serr := card.GetSummary(summary)
-		if serr != nil {
-			panic(serr)
-		}
-		fmt.Println(str)
+		fmt.Println(card.GetSummary(summary))
 		os.Exit(0)
 	} else if *explain != "" {
 		// --explain json_or_log_file --collection <collection> [-v]
-		var str string
 		filter, ferr := mdb.GetFilterFromFile(*explain)
 		if ferr != nil {
 			panic(ferr)
@@ -246,20 +241,14 @@ func main() {
 		}
 		qa := mdb.NewQueryAnalyzer(client)
 		qa.SetDatabase(connString.Database)
-		qa.SetFilter(filter)
+		// qa.SetFilter(filter)
 		qa.SetVerbose(*verbose)
 		edoc, ferr := qa.Explain(*collection, filter)
 		if ferr != nil {
 			panic(ferr)
 		}
-		if str, err = qa.GetSummary(edoc); err != nil {
-			panic(err)
-		}
-		fmt.Println(str)
-		if str, err = card.GetSummary(summary); err != nil {
-			panic(err)
-		}
-		fmt.Println(str)
+		fmt.Println(qa.GetSummary(edoc))
+		fmt.Println(card.GetSummary(summary))
 		document := make(map[string]interface{})
 		document["ns"] = connString.Database + "." + *collection
 		document["cardinality"] = summary
@@ -270,7 +259,7 @@ func main() {
 			fmt.Println("Recommended index:", mdb.Stringify(recommendedIndex))
 		}
 		ofile := filepath.Base(*explain) + "-explain.json.gz"
-		if err = qa.OutputGzipped(document, ofile); err != nil {
+		if err = util.OutputGzipped([]byte(mdb.Stringify(document)), ofile); err != nil {
 			panic(err)
 		}
 		fmt.Println("\nExplain output written to", ofile)
