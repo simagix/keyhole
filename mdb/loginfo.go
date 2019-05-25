@@ -1,6 +1,6 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package util
+package mdb
 
 import (
 	"bufio"
@@ -16,6 +16,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/simagix/keyhole/sim/util"
 )
 
 // COLLSCAN constance
@@ -75,36 +77,6 @@ func (li *LogInfo) SetSilent(silent bool) {
 // SetVerbose -
 func (li *LogInfo) SetVerbose(verbose bool) {
 	li.verbose = verbose
-}
-
-// GetDocByField get JSON string by a field
-func GetDocByField(str string, field string) string {
-	i := strings.Index(str, field)
-	if i < 0 {
-		return ""
-	}
-	str = strings.Trim(str[i+len(field):], " ")
-	isFound := false
-	bpos := 0 // begin position
-	epos := 0 // end position
-	for _, r := range str {
-		epos++
-		if isFound == false && r == '{' {
-			isFound = true
-			bpos++
-		} else if isFound == true {
-			if r == '{' {
-				bpos++
-			} else if r == '}' {
-				bpos--
-			}
-		}
-
-		if isFound == true && bpos == 0 {
-			break
-		}
-	}
-	return str[bpos:epos]
 }
 
 func getConfigOptions(reader *bufio.Reader) []string {
@@ -179,13 +151,13 @@ func (li *LogInfo) Parse() error {
 	}
 	defer file.Close()
 
-	if reader, err = NewReader(file); err != nil {
+	if reader, err = util.NewReader(file); err != nil {
 		return err
 	}
-	lineCounts, _ := CountLines(reader)
+	lineCounts, _ := util.CountLines(reader)
 
 	file.Seek(0, 0)
-	reader, _ = NewReader(file)
+	reader, _ = util.NewReader(file)
 	var buffer bytes.Buffer
 	if strs := getConfigOptions(reader); len(strs) > 0 {
 		for _, s := range strs {
@@ -196,7 +168,7 @@ func (li *LogInfo) Parse() error {
 
 	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
 	file.Seek(0, 0)
-	if reader, err = NewReader(file); err != nil {
+	if reader, err = util.NewReader(file); err != nil {
 		return err
 	}
 	index := 0

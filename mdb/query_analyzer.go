@@ -4,10 +4,11 @@ package mdb
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"math"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,8 +20,34 @@ import (
 type QueryAnalyzer struct {
 	client   *mongo.Client
 	database string
-	filter   bson.M
 	verbose  bool
+}
+
+type inputStagesLevel struct {
+	inputStages primitive.A
+	level       int
+}
+
+// StageStats stores stats for each stage
+type StageStats struct {
+	Level             int
+	Score             float64      `json:"Score"`
+	Stage             string       `json:"stage"`
+	Filter            *OrderedMap  `json:"filter"`
+	KeyPattern        *OrderedMap  `json:"keyPattern"`
+	Advanced          int32        `json:"advanced"`
+	Works             int32        `json:"works"`
+	ExecTimeMillisEst int32        `json:"executionTimeMillisEstimate"`
+	TotalKeysExamined int32        `json:"totalKeysExamined"`
+	TotalDocsExamined int32        `json:"totalDocsExamined"`
+	InputStages       []StageStats `json:"inputStages"`
+}
+
+// ExplainSummary stores explain summary
+type ExplainSummary struct {
+	ShardName              string       `json:"shardName"`
+	ExecutionStats         StageStats   `json:"executionStats"`
+	AllPlansExecutionStats []StageStats `json:"allPlansExecution"`
 }
 
 // NewQueryAnalyzer returns QueryAnalyzer
@@ -33,123 +60,220 @@ func (qa *QueryAnalyzer) SetDatabase(database string) {
 	qa.database = database
 }
 
-// GetFilter returns filter
-func (qa *QueryAnalyzer) GetFilter() bson.M {
-	return qa.filter
-}
-
-// SetFilter returns filter
-func (qa *QueryAnalyzer) SetFilter(filter bson.M) {
-	qa.filter = filter
-}
-
 // SetVerbose sets verbosity
 func (qa *QueryAnalyzer) SetVerbose(verbose bool) {
 	qa.verbose = verbose
 }
 
 // Explain explains query plans
-func (qa *QueryAnalyzer) Explain(collectionName string, filter map[string]interface{}) (bson.M, error) {
-	qa.filter = filter
+func (qa *QueryAnalyzer) Explain(collectionName string, filter map[string]interface{}) (ExplainSummary, error) {
 	var err error
 	ctx := context.Background()
-	command := bson.M{"explain": bson.M{"count": collectionName, "query": filter}}
-	var result = bson.M{}
+	command := bson.M{"explain": bson.M{"find": collectionName, "filter": filter}}
+	var doc = bson.M{}
 	for i := 0; i < 3; i++ { // a hack to avoid error (CommandNotFound) Explain failed due to unknown command: query
-		err = qa.client.Database(qa.database).RunCommand(ctx, command).Decode(&result)
+		err = qa.client.Database(qa.database).RunCommand(ctx, command).Decode(&doc)
 		if err == nil {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	return result, err
+	if err != nil {
+		return ExplainSummary{}, err
+	}
+	winStage := doc["queryPlanner"].(bson.M)["winningPlan"].(bson.M)["stage"].(string)
+	if winStage == "EOF" {
+		return ExplainSummary{}, errors.New("no data found to be explained")
+	} else if winStage == "COLLSCAN" {
+		return ExplainSummary{}, errors.New("no index selected (COLLSCAN)")
+	}
+
+	return qa.GetExplainDetails(doc), err
 }
 
-// GetSummary get summary of explain executionStats
-func (qa *QueryAnalyzer) GetSummary(doc bson.M) (string, error) {
-	var err error
-	var buffer bytes.Buffer
-	var shardName string
-	buffer.WriteString("Explain:\n")
-	buffer.WriteString("--------------------------------------------------------------------------------\n")
-
-	// find queryPlanner.winningPlan
+// GetExplainDetails returns summary from a doc
+func (qa *QueryAnalyzer) GetExplainDetails(doc bson.M) ExplainSummary {
+	summary := ExplainSummary{}
+	// get shard name if a sharded cluster
 	winningPlan := doc["queryPlanner"].(bson.M)["winningPlan"].(bson.M)
 	if winningPlan["shards"] != nil {
-		shardName = winningPlan["shards"].(primitive.A)[0].(bson.M)["shardName"].(string)
-		winningPlan = winningPlan["shards"].(primitive.A)[0].(bson.M)["winningPlan"].(bson.M)
+		summary.ShardName = winningPlan["shards"].(primitive.A)[0].(bson.M)["shardName"].(string)
 	}
-
-	inputStage := winningPlan["inputStage"].(bson.M)
-	if shardName == "" {
-		buffer.WriteString("Replica Set\n")
-	} else {
-		buffer.WriteString("Shard Name: " + shardName + "\n")
-		inputStage = inputStage["inputStage"].(bson.M)
-	}
-
-	buffer.WriteString(fmt.Sprintf("* filter: %v\n", Stringify(qa.filter)))
-	buffer.WriteString("* Winning Plan\n")
-	if inputStage["keyPattern"] != nil {
-		buffer.WriteString(fmt.Sprintf("  - key pattern: %v\n", Stringify(inputStage["keyPattern"].(bson.M))))
-	}
-	buffer.WriteString(fmt.Sprintf("  - stage: %v\n", inputStage["stage"]))
-
-	// find executionStats.allPlansExecution
+	summary.ExecutionStats = getStageStats(doc["executionStats"].(bson.M))
+	summary.AllPlansExecutionStats = []StageStats{}
 	allPlansExecution := doc["executionStats"].(bson.M)["allPlansExecution"].(primitive.A)
 	if len(allPlansExecution) > 0 && allPlansExecution[0].(bson.M)["allPlans"] != nil {
 		allPlansExecution = allPlansExecution[0].(bson.M)["allPlans"].(primitive.A)
 	}
-
-	if len(allPlansExecution) == 0 {
-		return buffer.String(), err
-	}
-
-	buffer.WriteString("--------------------------------------------------------------------------------\n")
-	buffer.WriteString("* All Plans Execution\n")
 	for _, execution := range allPlansExecution {
-		executionStages := execution.(bson.M)["executionStages"].(bson.M)
-		buffer.WriteString(fmt.Sprintf(" ├─ totalKeysExamined: %v\n", execution.(bson.M)["totalKeysExamined"]))
-		buffer.WriteString(fmt.Sprintf(" └─ totalDocsExamined: %v\n", execution.(bson.M)["totalDocsExamined"]))
-		buffer.WriteString(fmt.Sprintf("   ├─ executionStages.stage: %v\n", executionStages["stage"]))
-		buffer.WriteString(fmt.Sprintf("   ├─ executionStages.executionTimeMillisEstimate: %v\n", executionStages["executionTimeMillisEstimate"]))
-		buffer.WriteString(fmt.Sprintf("   ├─ executionStages.needYield: %v\n", executionStages["needYield"]))
-		buffer.WriteString(fmt.Sprintf("   ├─ executionStages.restoreState: %v\n", executionStages["restoreState"]))
-		buffer.WriteString(fmt.Sprintf("   └─ executionStages.saveState: %v\n", executionStages["saveState"]))
-
-		var inputStages primitive.A
-		if executionStages["inputStage"] != nil {
-			inputStages = append(inputStages, executionStages["inputStage"].(bson.M))
-		} else if executionStages["inputStages"] != nil {
-			inputStages = executionStages["inputStages"].(primitive.A)
-		}
-
-		for _, input := range inputStages {
-			if input.(bson.M)["inputStage"] != nil {
-				input = input.(bson.M)["inputStage"].(bson.M)
-			}
-			inputStage = input.(bson.M)
-			buffer.WriteString(fmt.Sprintf("     ├─ key pattern: %v\n", Stringify(inputStage["keyPattern"].(bson.M))))
-			buffer.WriteString(fmt.Sprintf("     ├─ inputStage.stage: %v\n", inputStage["stage"]))
-			buffer.WriteString(fmt.Sprintf("     ├─ inputStage.executionTimeMillisEstimate: %v\n", inputStage["executionTimeMillisEstimate"]))
-			buffer.WriteString(fmt.Sprintf("     ├─ inputStage.needYield: %v\n", inputStage["needYield"]))
-			buffer.WriteString(fmt.Sprintf("     ├─ inputStage.restoreState: %v\n", inputStage["restoreState"]))
-			buffer.WriteString(fmt.Sprintf("     ├─ inputStage.saveState: %v\n", inputStage["saveState"]))
-			buffer.WriteString(fmt.Sprintf("     └─ inputStage.works: %v\n", inputStage["works"]))
-		}
-
-		buffer.WriteString("\n")
+		summary.AllPlansExecutionStats = append(summary.AllPlansExecutionStats, getStageStats(execution.(bson.M)))
 	}
-
-	buffer.WriteString("--------------------------------------------------------------------------------\n")
-	return buffer.String(), err
+	return summary
 }
 
-// OutputGzipped writes doc to a gzipped file
-func (qa *QueryAnalyzer) OutputGzipped(doc bson.M, filename string) error {
-	var zbuf bytes.Buffer
-	gz := gzip.NewWriter(&zbuf)
-	gz.Write([]byte(Stringify(doc)))
-	gz.Close() // close this before flushing the bytes to the buffer.
-	return ioutil.WriteFile(filename, zbuf.Bytes(), 0644)
+// GetSummary get summary of explain executionStats
+func (qa *QueryAnalyzer) GetSummary(summary ExplainSummary) string {
+	var buffer bytes.Buffer
+	if summary.ShardName == "" {
+		buffer.WriteString("Replica Set\n")
+	} else {
+		buffer.WriteString("Shard Name: " + summary.ShardName + "\n")
+	}
+	buffer.WriteString("\n=> Execution Stats\n")
+	buffer.WriteString("=========================================\n")
+	buffer.WriteString("Winning Plan:\n")
+	buffer.WriteString(getStageStatsSummaryString(summary.ExecutionStats))
+
+	buffer.WriteString("\n=> All Plans Execution\n")
+	buffer.WriteString("=========================================\n")
+	for i, stats := range summary.AllPlansExecutionStats {
+		buffer.WriteString(fmt.Sprintf("Query Plan %d:\n", i+1))
+		buffer.WriteString(getStageStatsSummaryString(stats))
+		buffer.WriteString("\n")
+	}
+	return buffer.String()
+}
+
+// https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/plan_ranker.cpp
+// we can run hint as {"explain": {"find": collectionName, "filter": filter, "sort": sortSpec, "hint": index}}
+func getStageStats(execution bson.M) StageStats {
+	summary := StageStats{TotalKeysExamined: execution["totalKeysExamined"].(int32),
+		TotalDocsExamined: execution["totalDocsExamined"].(int32),
+		InputStages:       []StageStats{}}
+	executionStages := execution["executionStages"].(bson.M)
+	inputStagesLevelArray := []inputStagesLevel{}
+	if executionStages["inputStage"] != nil {
+		inputStagesLevelArray = append(inputStagesLevelArray, getInputStagesLevel(executionStages["inputStage"].(bson.M), 0)...)
+	} else if executionStages["inputStages"] != nil {
+		inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: executionStages["inputStages"].(primitive.A), level: 0})
+	}
+	stages := []string{}
+	for _, elem := range inputStagesLevelArray {
+		stages = append(stages, getAllStages(elem.inputStages)...)
+	}
+	advanced := executionStages["advanced"].(int32)
+	works := executionStages["works"].(int32)
+	summary.Score = getScore(advanced, works, stages)
+	summary.Stage = executionStages["stage"].(string)
+	b, _ := json.Marshal(executionStages["filter"])
+	summary.Filter = NewOrderedMap(string(b))
+	summary.Advanced = advanced
+	summary.Works = works
+	summary.ExecTimeMillisEst = executionStages["executionTimeMillisEstimate"].(int32)
+
+	for _, elem := range inputStagesLevelArray {
+		stage := StageStats{Level: elem.level}
+		for _, input := range elem.inputStages {
+			inputStage := input.(bson.M)
+			stage.Stage = inputStage["stage"].(string)
+			if inputStage["keyPattern"] != nil {
+				b, _ := json.Marshal(inputStage["keyPattern"])
+				stage.KeyPattern = NewOrderedMap(string(b))
+			}
+			if inputStage["filter"] != nil {
+				b, _ := json.Marshal(inputStage["filter"])
+				stage.Filter = NewOrderedMap(string(b))
+			}
+			stage.Advanced = inputStage["advanced"].(int32)
+			stage.Works = inputStage["works"].(int32)
+			stage.ExecTimeMillisEst = inputStage["executionTimeMillisEstimate"].(int32)
+			summary.InputStages = append(summary.InputStages, stage)
+		}
+	}
+	return summary
+}
+
+func getStageStatsSummaryString(stat StageStats) string {
+	var buffer bytes.Buffer
+	buffer.WriteString(fmt.Sprintf("├─score: %v\n", stat.Score))
+	buffer.WriteString(fmt.Sprintf("├─totalKeysExamined: %v\n", stat.TotalKeysExamined))
+	buffer.WriteString(fmt.Sprintf("├─totalDocsExamined: %v\n", stat.TotalDocsExamined))
+	buffer.WriteString(fmt.Sprintf("├─executionStages: %v\n", stat.Stage))
+	if stat.Filter != nil {
+		buffer.WriteString(fmt.Sprintf("├─  filter: %v\n", Stringify(stat.Filter)))
+	}
+	buffer.WriteString(fmt.Sprintf("├─  advanced: %v\n", stat.Advanced))
+	buffer.WriteString(fmt.Sprintf("├─  works: %v\n", stat.Works))
+	buffer.WriteString(fmt.Sprintf("└─  executionTimeMillisEstimate: %v\n", stat.ExecTimeMillisEst))
+	buffer.WriteString(getInputStagesSummaryString(stat.InputStages))
+	return buffer.String()
+}
+
+func getInputStagesSummaryString(stats []StageStats) string {
+	var buffer bytes.Buffer
+	fillter := "  "
+	for _, stat := range stats {
+		sp := "  "
+		for i := 0; i < stat.Level; i++ {
+			sp += fillter
+		}
+		buffer.WriteString(fmt.Sprintf("%s├─inputStage: %v\n", sp, stat.Stage))
+		if stat.KeyPattern != nil {
+			buffer.WriteString(fmt.Sprintf("%s├─  key pattern: %v\n", sp, Stringify(stat.KeyPattern)))
+		}
+		if stat.Filter != nil {
+			buffer.WriteString(fmt.Sprintf("%s├─  filter: %v\n", sp, Stringify(stat.Filter)))
+		}
+		buffer.WriteString(fmt.Sprintf("%s├─  advanced: %v\n", sp, stat.Advanced))
+		buffer.WriteString(fmt.Sprintf("%s├─  works: %v\n", sp, stat.Works))
+		buffer.WriteString(fmt.Sprintf("%s└─  executionTimeMillisEstimate: %v\n", sp, stat.ExecTimeMillisEst))
+	}
+	return buffer.String()
+}
+
+func getInputStagesLevel(inputStage bson.M, level int) []inputStagesLevel {
+	inputStagesLevelArray := []inputStagesLevel{}
+	inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: primitive.A{inputStage}, level: level})
+	if inputStage["inputStages"] != nil {
+		inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: inputStage["inputStages"].(primitive.A), level: (level + 1)})
+	} else if inputStage["inputStage"] != nil {
+		inputStagesLevelArray = append(inputStagesLevelArray, getInputStagesLevel(inputStage["inputStage"].(bson.M), level+1)...)
+	}
+	return inputStagesLevelArray
+}
+
+func getAllStages(inputStages primitive.A) []string {
+	stages := []string{}
+	for _, input := range inputStages {
+		stages = append(stages, input.(bson.M)["stage"].(string))
+	}
+	return stages
+}
+
+// NewIndexScore returns index score
+// scores refer to PlanRanker::scoreTree of plan_ranker.cpp
+// score = baseScore + productivity + tieBreakers
+// tieBreakers = noFetchBonus + noSortBonus + noIxisectBonus;
+// noIxisectBonus: no STAGE_AND_HASH, STAGE_AND_SORTED
+// noSortBonus: no STAGE_SORT
+// by default noFetchBonus, noSortBonus, noIxisectBonus = epsilon
+// epsilon = std::min(1.0 / static_cast<double>(10 * workUnits), 1e-4);
+func getScore(advacned int32, works int32, stages []string) float64 {
+	produtivity := float64(advacned) / float64(works)
+	epsilon := math.Min(1/float64(works), .0001)
+	noFetchBonus := epsilon
+	if hasStage("FETCH", stages) &&
+		(hasStage("PROJECTION_DEFAULT", stages) || hasStage("PROJECTION_COVERED", stages) || hasStage("PROJECTION_SIMPLE", stages)) {
+		noFetchBonus = 0
+	}
+	noSortBonus := epsilon
+	if hasStage("SORT", stages) {
+		noSortBonus = 0
+	}
+	noIxisectBonus := epsilon
+	if hasStage("AND_HASH", stages) || hasStage("AND_SORTED", stages) {
+		noIxisectBonus = 0
+	}
+	tieBreakers := noFetchBonus + noSortBonus + noIxisectBonus
+	score := 1 + produtivity + tieBreakers
+	return score
+}
+
+func hasStage(stage string, stages []string) bool {
+	for _, s := range stages {
+		if s == stage {
+			return true
+		}
+	}
+	return false
 }

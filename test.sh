@@ -76,8 +76,8 @@ go run keyhole.go --schema --collection favorites $DATABASE_URL
 validate ""
 
 # Test Cardinality
-echo ; echo "==> Test printing number of distinct fileds values (--card)"
-go run keyhole.go --card --collection favorites $DATABASE_URL
+echo ; echo "==> Test printing number of distinct fileds values (--cardinality)"
+go run keyhole.go --cardinality favorites $DATABASE_URL
 validate ""
 
 # Test load test

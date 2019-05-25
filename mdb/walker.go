@@ -1,12 +1,14 @@
 // Copyright 2019 Kuei-chun Chen. All rights reserved.
 
-package util
+package mdb
 
 import (
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Walker is an empty JSON document
@@ -66,6 +68,10 @@ func (walker *Walker) convert(x interface{}) interface{} {
 		if strings.HasPrefix(v, "new Date(") {
 			ms, _ := strconv.ParseInt(v[9:len(v)-1], 10, 64)
 			return time.Unix(0, ms*int64(time.Millisecond))
+		} else if strings.HasPrefix(v, "ObjectId(") {
+			// expect ObjectId('<hex>')
+			_id, _ := primitive.ObjectIDFromHex(v[10 : len(v)-2])
+			return _id
 		}
 	}
 	return x

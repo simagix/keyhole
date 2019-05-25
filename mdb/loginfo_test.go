@@ -1,6 +1,6 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package util
+package mdb
 
 import (
 	"os"

@@ -20,8 +20,9 @@ func TestGetCardinalityArray(t *testing.T) {
 	defer client.Disconnect(context.Background())
 
 	card := NewCardinality(client)
+	keys := []string{"color", "style", "attribs.color", "filters.k"}
 	// card.SetVerbose(true)
-	if summary, err = card.GetCardinalityArray(dbName, "cars"); err != nil {
+	if summary, err = card.GetCardinalityArray(dbName, "cars", keys); err != nil {
 		t.Fatal(err)
 	}
 	t.Log(summary.List)
@@ -43,11 +44,7 @@ func TestGetCardinalitySummary(t *testing.T) {
 	var summary CardinalitySummary
 	data, _ = json.Marshal(v["cardinality"])
 	json.Unmarshal(data, &summary)
-	str, err := card.GetSummary(summary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(str)
+	t.Log(card.GetSummary(summary))
 }
 
 func TestGetRecommendedIndex(t *testing.T) {
@@ -66,9 +63,8 @@ func TestGetRecommendedIndex(t *testing.T) {
 	var summary CardinalitySummary
 	data, _ = json.Marshal(v["cardinality"])
 	json.Unmarshal(data, &summary)
-	//TODO
-	card.GetRecommendedIndex(summary.List)
-	// if `{ "ct": 1, "cs": 1 }` != card.GetRecommendedIndex(summary.List) {
-	// 	t.Fatal("Expected", `{ "ct": 1, "cs": 1 }`, "but got", card.GetRecommendedIndex(summary.List))
-	// }
+	str := Stringify(card.GetRecommendedIndex(summary.List))
+	if `{"ct":1,"cs":1}` != str {
+		t.Fatal("Expected", `{ "ct": 1, "cs": 1 }`, "but got", str)
+	}
 }
