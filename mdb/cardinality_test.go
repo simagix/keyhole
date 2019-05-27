@@ -21,6 +21,7 @@ func TestGetCardinalityArray(t *testing.T) {
 	defer client.Disconnect(context.Background())
 
 	card := NewCardinality(client)
+	card.SetVerbose(true)
 	keys := []string{"color", "style", "attribs.color", "filters.k"}
 	// card.SetVerbose(true)
 	if summary, err = card.GetCardinalityArray(dbName, "cars", keys); err != nil {
