@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim"
-	"github.com/simagix/keyhole/sim/util"
 )
 
 // TimeSeriesDoc -
@@ -114,7 +114,7 @@ func setFTDCStats(diag *sim.DiagnosticData, g *FTDCStats) {
 	var replicationLags map[string]TimeSeriesDoc
 	var diskStats map[string]DiskStats
 
-	var wg = util.NewWaitGroup(4) // use 4 threads to read
+	var wg = gox.NewWaitGroup(4) // use 4 threads to read
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

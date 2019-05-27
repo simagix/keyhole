@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/ftdc"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
@@ -172,7 +173,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	if nThreads < 4 {
 		nThreads = 4
 	}
-	var wg = util.NewWaitGroup(nThreads) // use 4 threads to read
+	var wg = gox.NewWaitGroup(nThreads) // use 4 threads to read
 	for threadNum := 0; threadNum < len(filenames); threadNum++ {
 		filename := filenames[threadNum]
 		if strings.Index(filename, "metrics.") < 0 {

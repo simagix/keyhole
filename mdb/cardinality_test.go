@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -63,7 +64,7 @@ func TestGetRecommendedIndex(t *testing.T) {
 	var summary CardinalitySummary
 	data, _ = json.Marshal(v["cardinality"])
 	json.Unmarshal(data, &summary)
-	str := Stringify(card.GetRecommendedIndex(summary.List))
+	str := gox.Stringify(card.GetRecommendedIndex(summary.List))
 	if `{"ct":1,"cs":1}` != str {
 		t.Fatal("Expected", `{ "ct": 1, "cs": 1 }`, "but got", str)
 	}
