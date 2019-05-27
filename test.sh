@@ -23,7 +23,7 @@ mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTig
 validate "failed to start mongod"
 mongo --quiet mongodb://localhost:30097/admin --eval 'rs.initiate()'
 sleep 2
-mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 0})"
+mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 5})"
 validate "failed to set profiling level"
 
 export DATABASE_URI="mongodb://localhost:30097/keyhole?replicaSet=replset&authSource=admin"

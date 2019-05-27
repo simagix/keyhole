@@ -74,14 +74,9 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
       {"$facet": {%s}},
       {"$project": {%s}}
   ]`
-
-	// redact array b/c it can expand lots of data, TODO
 	countFmt := `
 	"%s": [
-	  {"$redact": {"$cond": {"if": { "$and": [{"$ne": [{"$type": "$%s"}, "array"]}]},
-	    "then": "$$DESCEND",
-	    "else": "$$PRUNE"}} },
-	  {"$group": {"_id": "$%s"}}, {"$group": {"_id": 1,"count": {"$sum": 1}}}
+	  {"$group": {"_id": "$%s"}}, {"$unwind": "$_id"}, {"$group": {"_id": 1,"count": {"$sum": 1}}}
 	]`
 
 	c := card.client.Database(database).Collection(collection)
@@ -126,7 +121,7 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 	groups := []string{}
 	items := []string{}
 	for _, elem := range fields {
-		groups = append(groups, fmt.Sprintf(countFmt, strings.Replace(elem, ".", "__", -1), elem, elem))
+		groups = append(groups, fmt.Sprintf(countFmt, strings.Replace(elem, ".", "__", -1), elem))
 		items = append(items, fmt.Sprintf("\"%s\": {\"$sum\": \"$%s.count\"}", strings.Replace(elem, ".", "__", -1), strings.Replace(elem, ".", "__", -1)))
 	}
 	pipeline = fmt.Sprintf(facetFmt, summary.SampledCount, strings.Join(groups, ","), strings.Join(items, ","))
