@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -73,6 +74,8 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
       {"$facet": {%s}},
       {"$project": {%s}}
   ]`
+
+	// redact array b/c it can expand lots of data, TODO
 	countFmt := `
 	"%s": [
 	  {"$redact": {"$cond": {"if": { "$and": [{"$ne": [{"$type": "$%s"}, "array"]}]},
@@ -96,13 +99,16 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 	}
 	var pipeline string
 	opts := options.Aggregate()
-	if len(keys) == 0 {
+	if len(keys) == 0 || len(keys[0]) == 0 {
 		pipeline = fmt.Sprintf(keysFmt, summary.SampledCount)
 		if card.verbose {
-			fmt.Println(pipeline)
+			fmt.Println("keysFmt", pipeline)
 		}
 		opts.SetAllowDiskUse(true)
 		if cur, err = c.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
+			if card.verbose {
+				fmt.Println("keysFmt", err)
+			}
 			return summary, err
 		}
 		if cur.Next(ctx) == false {
@@ -120,16 +126,19 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 	groups := []string{}
 	items := []string{}
 	for _, elem := range fields {
-		groups = append(groups, fmt.Sprintf(countFmt, elem, elem, elem))
-		items = append(items, fmt.Sprintf("\"%s\": {\"$sum\": \"$%s.count\"}", elem, elem))
+		groups = append(groups, fmt.Sprintf(countFmt, strings.Replace(elem, ".", "__", -1), elem, elem))
+		items = append(items, fmt.Sprintf("\"%s\": {\"$sum\": \"$%s.count\"}", strings.Replace(elem, ".", "__", -1), strings.Replace(elem, ".", "__", -1)))
 	}
 	pipeline = fmt.Sprintf(facetFmt, summary.SampledCount, strings.Join(groups, ","), strings.Join(items, ","))
 	if card.verbose {
-		fmt.Println(pipeline)
+		fmt.Println("facetFmt", pipeline)
 	}
 	opts = options.Aggregate()
 	opts.SetAllowDiskUse(true)
 	if cur, err = c.Aggregate(ctx, MongoPipeline(pipeline), opts); err != nil {
+		if card.verbose {
+			fmt.Println("facetFmt", err)
+		}
 		return summary, err
 	}
 	defer cur.Close(ctx)
@@ -144,7 +153,7 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 		}
 	}
 	for k, v := range doc {
-		summary.List = append(summary.List, CardinalityCount{Field: k, Count: int64(v.(float64))})
+		summary.List = append(summary.List, CardinalityCount{Field: strings.Replace(k, "__", ".", -1), Count: int64(v.(float64))})
 	}
 
 	sort.Slice(summary.List, func(i, j int) bool {
@@ -159,27 +168,26 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 }
 
 // GetSummary get summary of cardinality
-func (card *Cardinality) GetSummary(summary CardinalitySummary) (string, error) {
+func (card *Cardinality) GetSummary(summary CardinalitySummary) string {
 	if card.verbose {
-		fmt.Println(summary)
+		fmt.Println("GetSummary", summary)
 	}
-	var err error
 	var buffer bytes.Buffer
 
 	p := message.NewPrinter(language.English)
-	buffer.WriteString("Cardinality (sampled data: " + p.Sprintf("%d", summary.SampledCount) + "):\n")
+	buffer.WriteString("=> Cardinality (sampled data: " + p.Sprintf("%d", summary.SampledCount) + "):\n")
 	buffer.WriteString("--------------------------------------------------------------------------------\n")
 	for _, val := range summary.List {
 		buffer.WriteString(fmt.Sprintf("|%64s |%11v |\n", val.Field, p.Sprintf("%d", int64(val.Count))))
 	}
 	buffer.WriteString("--------------------------------------------------------------------------------\n")
-	return buffer.String(), err
+	return buffer.String()
 }
 
 // GetRecommendedIndex returns a recommended index by cardinalities
-func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) IndexMap {
+func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) gox.OrderedMap {
 	if card.verbose {
-		fmt.Println(Stringify(cardList, "", "  "))
+		fmt.Println("GetRecommendedIndex", gox.Stringify(cardList, "", "  "))
 	}
 	var buffer bytes.Buffer
 	buffer.WriteString("{ ")
@@ -196,7 +204,7 @@ func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) IndexM
 		}
 	}
 	buffer.WriteString(" }")
-	var o IndexMap
-	json.Unmarshal(buffer.Bytes(), &o)
-	return o
+	var om gox.OrderedMap
+	json.Unmarshal(buffer.Bytes(), &om)
+	return om
 }

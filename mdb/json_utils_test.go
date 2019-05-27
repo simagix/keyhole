@@ -6,22 +6,19 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 )
-
-func TestSilent(t *testing.T) {
-	Silent(bson.M{"Hello": "World"})
-}
 
 func TestStringify(t *testing.T) {
 	helloWorld := `{"Hello":"World"}`
 	var v bson.M
 	b := []byte(helloWorld)
 	json.Unmarshal(b, &v)
-	str := Stringify(v)
+	str := gox.Stringify(v)
 	if str != helloWorld {
 		t.Fatal(str, helloWorld)
 	}
-	str = Stringify(v, "", "  ")
+	str = gox.Stringify(v, "", "  ")
 	t.Log(str)
 }

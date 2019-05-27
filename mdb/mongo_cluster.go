@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -174,7 +175,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 func (mc *MongoCluster) WriteGzippedJSON(filename string) error {
 	var zbuf bytes.Buffer
 	gz := gzip.NewWriter(&zbuf)
-	gz.Write([]byte(Stringify(mc.cluster)))
+	gz.Write([]byte(gox.Stringify(mc.cluster)))
 	gz.Close() // close this before flushing the bytes to the buffer.
 	return ioutil.WriteFile(filename, zbuf.Bytes(), 0644)
 }
