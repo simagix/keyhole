@@ -245,7 +245,7 @@ func main() {
 		}
 		var explainSummary mdb.ExplainSummary
 		if explainSummary, err = qa.Explain(); err != nil {
-			panic(err)
+			fmt.Println(err.Error())
 		}
 		fmt.Println(qa.GetSummary(explainSummary))
 		fmt.Println(card.GetSummary(summary))
