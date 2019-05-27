@@ -25,6 +25,7 @@ import (
 type QueryAnalyzer struct {
 	client     *mongo.Client
 	database   string
+	document   bson.D
 	collection string
 	filter     map[string]interface{}
 	sort       map[string]interface{}
@@ -32,7 +33,7 @@ type QueryAnalyzer struct {
 }
 
 type inputStagesLevel struct {
-	inputStages primitive.A
+	inputStages []bson.D
 	level       int
 }
 
@@ -87,23 +88,21 @@ func (qa *QueryAnalyzer) GetFilter() map[string]interface{} {
 func (qa *QueryAnalyzer) Explain() (ExplainSummary, error) {
 	var err error
 	ctx := context.Background()
-	fmt.Println(qa)
 	command := bson.M{"explain": bson.M{"find": qa.collection, "filter": qa.filter}}
 	if qa.sort != nil {
 		command["explain"].(bson.M)["sort"] = qa.sort
 	}
-	var doc = bson.M{}
-	for i := 0; i < 3; i++ { // a hack to avoid error (CommandNotFound) Explain failed due to unknown command: query
-		err = qa.client.Database(qa.database).RunCommand(ctx, command).Decode(&doc)
-		if err == nil {
+	for i := 0; i < 10; i++ { // a hack to avoid error (CommandNotFound) Explain failed due to unknown command: query
+		if err = qa.client.Database(qa.database).RunCommand(ctx, command).Decode(&qa.document); err == nil {
 			break
 		}
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 	if err != nil {
 		return ExplainSummary{}, err
 	}
-	winStage := doc["queryPlanner"].(bson.M)["winningPlan"].(bson.M)["stage"].(string)
+	doc := qa.document.Map()
+	winStage := doc["queryPlanner"].(bson.D).Map()["winningPlan"].(bson.D).Map()["stage"].(string)
 	if winStage == "EOF" {
 		return ExplainSummary{}, errors.New("no data found to be explained")
 	} else if winStage == "COLLSCAN" {
@@ -117,18 +116,18 @@ func (qa *QueryAnalyzer) Explain() (ExplainSummary, error) {
 func (qa *QueryAnalyzer) GetExplainDetails(doc bson.M) ExplainSummary {
 	summary := ExplainSummary{}
 	// get shard name if a sharded cluster
-	winningPlan := doc["queryPlanner"].(bson.M)["winningPlan"].(bson.M)
+	winningPlan := doc["queryPlanner"].(bson.D).Map()["winningPlan"].(bson.D).Map()
 	if winningPlan["shards"] != nil {
 		summary.ShardName = winningPlan["shards"].(primitive.A)[0].(bson.M)["shardName"].(string)
 	}
-	summary.ExecutionStats = getStageStats(doc["executionStats"].(bson.M))
+	summary.ExecutionStats = getStageStats(doc["executionStats"].(bson.D))
 	summary.AllPlansExecutionStats = []StageStats{}
-	allPlansExecution := doc["executionStats"].(bson.M)["allPlansExecution"].(primitive.A)
-	if len(allPlansExecution) > 0 && allPlansExecution[0].(bson.M)["allPlans"] != nil {
-		allPlansExecution = allPlansExecution[0].(bson.M)["allPlans"].(primitive.A)
+	allPlansExecution := doc["executionStats"].(bson.D).Map()["allPlansExecution"].(primitive.A)
+	if len(allPlansExecution) > 0 && allPlansExecution[0].(bson.D).Map()["allPlans"] != nil {
+		allPlansExecution = allPlansExecution[0].(bson.D).Map()["allPlans"].(primitive.A)
 	}
 	for _, execution := range allPlansExecution {
-		summary.AllPlansExecutionStats = append(summary.AllPlansExecutionStats, getStageStats(execution.(bson.M)))
+		summary.AllPlansExecutionStats = append(summary.AllPlansExecutionStats, getStageStats(execution.(bson.D)))
 	}
 	return summary
 }
@@ -192,18 +191,32 @@ func (qa *QueryAnalyzer) ReadQueryShapeFromFile(filename string) error {
 	return err
 }
 
+func (qa *QueryAnalyzer) getDocument(depth []string) interface{} {
+	doc := qa.document
+	for _, key := range depth {
+		for _, value := range doc {
+			if key == value.Key {
+				doc = value.Value.(bson.D)
+			}
+		}
+	}
+	fmt.Println(gox.Stringify(doc))
+	return doc
+}
+
 // https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/plan_ranker.cpp
 // we can run hint as {"explain": {"find": collectionName, "filter": filter, "sort": sortSpec, "hint": index}}
-func getStageStats(execution bson.M) StageStats {
+func getStageStats(document bson.D) StageStats {
+	execution := document.Map()
 	summary := StageStats{TotalKeysExamined: execution["totalKeysExamined"].(int32),
 		TotalDocsExamined: execution["totalDocsExamined"].(int32),
 		InputStages:       []StageStats{}}
-	executionStages := execution["executionStages"].(bson.M)
+	executionStages := execution["executionStages"].(bson.D).Map()
 	inputStagesLevelArray := []inputStagesLevel{}
 	if executionStages["inputStage"] != nil {
-		inputStagesLevelArray = append(inputStagesLevelArray, getInputStagesLevel(executionStages["inputStage"].(bson.M), 0)...)
+		inputStagesLevelArray = append(inputStagesLevelArray, getInputStagesLevel(executionStages["inputStage"].(bson.D), 0)...)
 	} else if executionStages["inputStages"] != nil {
-		inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: executionStages["inputStages"].(primitive.A), level: 0})
+		inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: executionStages["inputStages"].([]bson.D), level: 0})
 	}
 	stages := []string{}
 	for _, elem := range inputStagesLevelArray {
@@ -213,8 +226,13 @@ func getStageStats(execution bson.M) StageStats {
 	works := executionStages["works"].(int32)
 	summary.Score = getScore(advanced, works, stages)
 	summary.Stage = executionStages["stage"].(string)
-	b, _ := json.Marshal(executionStages["filter"])
-	summary.Filter = gox.NewOrderedMap(string(b))
+	if executionStages["filter"] != nil {
+		var v bson.M
+		b, _ := bson.Marshal(executionStages["filter"].(bson.D))
+		bson.Unmarshal(b, &v)
+		b, _ = json.Marshal(v)
+		summary.Filter = gox.NewOrderedMap(string(b))
+	}
 	summary.Advanced = advanced
 	summary.Works = works
 	summary.ExecTimeMillisEst = executionStages["executionTimeMillisEstimate"].(int32)
@@ -222,14 +240,24 @@ func getStageStats(execution bson.M) StageStats {
 	for _, elem := range inputStagesLevelArray {
 		stage := StageStats{Level: elem.level}
 		for _, input := range elem.inputStages {
-			inputStage := input.(bson.M)
+			inputStage := input.Map()
 			stage.Stage = inputStage["stage"].(string)
 			if inputStage["keyPattern"] != nil {
-				b, _ := json.Marshal(inputStage["keyPattern"])
-				stage.KeyPattern = gox.NewOrderedMap(string(b))
+				str := "{"
+				for i, v := range inputStage["keyPattern"].(bson.D) {
+					if i > 0 {
+						str += ","
+					}
+					str += fmt.Sprintf(`"%v":%v`, v.Key, v.Value)
+				}
+				str += "}"
+				stage.KeyPattern = gox.NewOrderedMap(str)
 			}
 			if inputStage["filter"] != nil {
-				b, _ := json.Marshal(inputStage["filter"])
+				var v bson.M
+				b, _ := bson.Marshal(inputStage["filter"].(bson.D))
+				bson.Unmarshal(b, &v)
+				b, _ = json.Marshal(v)
 				stage.Filter = gox.NewOrderedMap(string(b))
 			}
 			stage.Advanced = inputStage["advanced"].(int32)
@@ -279,21 +307,21 @@ func getInputStagesSummaryString(stats []StageStats) string {
 	return buffer.String()
 }
 
-func getInputStagesLevel(inputStage bson.M, level int) []inputStagesLevel {
+func getInputStagesLevel(inputStage bson.D, level int) []inputStagesLevel {
 	inputStagesLevelArray := []inputStagesLevel{}
-	inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: primitive.A{inputStage}, level: level})
-	if inputStage["inputStages"] != nil {
-		inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: inputStage["inputStages"].(primitive.A), level: (level + 1)})
-	} else if inputStage["inputStage"] != nil {
-		inputStagesLevelArray = append(inputStagesLevelArray, getInputStagesLevel(inputStage["inputStage"].(bson.M), level+1)...)
+	inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: []bson.D{inputStage}, level: level})
+	if inputStage.Map()["inputStages"] != nil {
+		inputStagesLevelArray = append(inputStagesLevelArray, inputStagesLevel{inputStages: inputStage.Map()["inputStages"].([]bson.D), level: (level + 1)})
+	} else if inputStage.Map()["inputStage"] != nil {
+		inputStagesLevelArray = append(inputStagesLevelArray, getInputStagesLevel(inputStage.Map()["inputStage"].(bson.D), level+1)...)
 	}
 	return inputStagesLevelArray
 }
 
-func getAllStages(inputStages primitive.A) []string {
+func getAllStages(inputStages []bson.D) []string {
 	stages := []string{}
 	for _, input := range inputStages {
-		stages = append(stages, input.(bson.M)["stage"].(string))
+		stages = append(stages, input.Map()["stage"].(string))
 	}
 	return stages
 }
