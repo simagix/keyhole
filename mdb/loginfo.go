@@ -1,6 +1,6 @@
 // Copyright 2018 Kuei-chun Chen. All rights reserved.
 
-package util
+package mdb
 
 import (
 	"bufio"
@@ -16,6 +16,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/simagix/gox"
+	"github.com/simagix/keyhole/sim/util"
 )
 
 // COLLSCAN constance
@@ -77,36 +80,6 @@ func (li *LogInfo) SetVerbose(verbose bool) {
 	li.verbose = verbose
 }
 
-// GetDocByField get JSON string by a field
-func GetDocByField(str string, field string) string {
-	i := strings.Index(str, field)
-	if i < 0 {
-		return ""
-	}
-	str = strings.Trim(str[i+len(field):], " ")
-	isFound := false
-	bpos := 0 // begin position
-	epos := 0 // end position
-	for _, r := range str {
-		epos++
-		if isFound == false && r == '{' {
-			isFound = true
-			bpos++
-		} else if isFound == true {
-			if r == '{' {
-				bpos++
-			} else if r == '}' {
-				bpos--
-			}
-		}
-
-		if isFound == true && bpos == 0 {
-			break
-		}
-	}
-	return str[bpos:epos]
-}
-
 func getConfigOptions(reader *bufio.Reader) []string {
 	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
 	var err error
@@ -139,29 +112,31 @@ func getConfigOptions(reader *bufio.Reader) []string {
 
 // Analyze -
 func (li *LogInfo) Analyze() (string, error) {
-	err := li.Parse()
-	if err != nil {
-		return "", err
-	}
-	summaries := []string{}
-	if li.verbose == true {
-		summaries = append([]string{}, li.mongoInfo)
-	}
-	if len(li.SlowOps) > 0 {
-		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
-		for _, op := range li.SlowOps {
-			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
+	var err error
+
+	if strings.HasSuffix(li.filename, ".enc") == true {
+		var data []byte
+		if data, err = ioutil.ReadFile(li.filename); err != nil {
+			return "", err
 		}
-		summaries = append(summaries, "\n")
+		buffer := bytes.NewBuffer(data)
+		dec := gob.NewDecoder(buffer)
+		if err = dec.Decode(li); err != nil {
+			return "", err
+		}
+		li.OutputFilename = ""
+	} else {
+		if err = li.Parse(); err != nil {
+			return "", err
+		}
+		var data bytes.Buffer
+		enc := gob.NewEncoder(&data)
+		if err = enc.Encode(li); err != nil {
+			log.Println("encode error:", err)
+		}
+		ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
 	}
-	summaries = append(summaries, printLogsSummary(li.OpsPatterns))
-	var data bytes.Buffer
-	enc := gob.NewEncoder(&data)
-	if err = enc.Encode(li); err != nil {
-		log.Println("encode error:", err)
-	}
-	ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
-	return strings.Join(summaries, "\n"), nil
+	return li.printLogsSummary(), nil
 }
 
 // Parse -
@@ -177,13 +152,13 @@ func (li *LogInfo) Parse() error {
 	}
 	defer file.Close()
 
-	if reader, err = NewReader(file); err != nil {
+	if reader, err = util.NewReader(file); err != nil {
 		return err
 	}
-	lineCounts, _ := CountLines(reader)
+	lineCounts, _ := util.CountLines(reader)
 
 	file.Seek(0, 0)
-	reader, _ = NewReader(file)
+	reader, _ = util.NewReader(file)
 	var buffer bytes.Buffer
 	if strs := getConfigOptions(reader); len(strs) > 0 {
 		for _, s := range strs {
@@ -194,7 +169,7 @@ func (li *LogInfo) Parse() error {
 
 	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
 	file.Seek(0, 0)
-	if reader, err = NewReader(file); err != nil {
+	if reader, err = util.NewReader(file); err != nil {
 		return err
 	}
 	index := 0
@@ -272,18 +247,18 @@ func (li *LogInfo) Parse() error {
 				continue
 			} else if op == "find" {
 				nstr := "{ }"
-				s := GetDocByField(filter, "filter: ")
+				s := getDocByField(filter, "filter: ")
 				if s != "" {
 					nstr = s
 				}
-				s = GetDocByField(filter, "sort: ")
+				s = getDocByField(filter, "sort: ")
 				if s != "" {
 					nstr = nstr + ", sort: " + s
 				}
 				filter = nstr
 			} else if op == "count" || op == "distinct" {
 				nstr := ""
-				s := GetDocByField(filter, "query: ")
+				s := getDocByField(filter, "query: ")
 				if s != "" {
 					nstr = s
 				}
@@ -292,9 +267,9 @@ func (li *LogInfo) Parse() error {
 				var s string
 				// if result[1] == "WRITE" {
 				if strings.Index(filter, "query: ") >= 0 {
-					s = GetDocByField(filter, "query: ")
+					s = getDocByField(filter, "query: ")
 				} else {
-					s = GetDocByField(filter, "q: ")
+					s = getDocByField(filter, "q: ")
 				}
 				if s != "" {
 					filter = s
@@ -303,7 +278,7 @@ func (li *LogInfo) Parse() error {
 				nstr := ""
 				s := ""
 				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
-					s = GetDocByField(result[4], mstr)
+					s = getDocByField(result[4], mstr)
 					if s != "" {
 						nstr = s
 						filter = nstr
@@ -319,11 +294,11 @@ func (li *LogInfo) Parse() error {
 				}
 			} else if op == "getMore" || op == "getmore" {
 				nstr := ""
-				s := GetDocByField(result[4], "originatingCommand: ")
+				s := getDocByField(result[4], "originatingCommand: ")
 
 				if s != "" {
 					for _, mstr := range []string{"filter: ", "pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
-						s = GetDocByField(result[4], mstr)
+						s = getDocByField(result[4], mstr)
 						if s != "" {
 							nstr = s
 							filter = nstr
@@ -337,7 +312,7 @@ func (li *LogInfo) Parse() error {
 					continue
 				}
 			}
-			index := GetDocByField(str, "planSummary: IXSCAN")
+			index := getDocByField(str, "planSummary: IXSCAN")
 			if index == "" && strings.Index(str, "planSummary: EOF") >= 0 {
 				index = "EOF"
 			}
@@ -412,12 +387,24 @@ func (li *LogInfo) Parse() error {
 	return nil
 }
 
-func printLogsSummary(arr []OpPerformanceDoc) string {
+// printLogsSummary prints loginfo summary
+func (li *LogInfo) printLogsSummary() string {
+	summaries := []string{}
+	if li.verbose == true {
+		summaries = append([]string{}, li.mongoInfo)
+	}
+	if len(li.SlowOps) > 0 {
+		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
+		for _, op := range li.SlowOps {
+			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
+		}
+		summaries = append(summaries, "\n")
+	}
 	var buffer bytes.Buffer
 	buffer.WriteString("\r+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
-	for _, value := range arr {
+	for _, value := range li.OpsPatterns {
 		str := value.Filter
 		if len(value.Command) > 13 {
 			value.Command = value.Command[:13]
@@ -474,7 +461,8 @@ func printLogsSummary(arr []OpPerformanceDoc) string {
 		}
 	}
 	buffer.WriteString("+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
-	return buffer.String()
+	summaries = append(summaries, buffer.String())
+	return strings.Join(summaries, "\n")
 }
 
 // convert $in: [...] to $in: [ ]
@@ -531,4 +519,9 @@ func MilliToTimeString(milli float64) string {
 		avgstr = fmt.Sprintf("%3.1fs", milli)
 	}
 	return avgstr
+}
+
+func getDocByField(str string, key string) string {
+	ml := gox.NewMongoLog(str)
+	return ml.Get(key)
 }

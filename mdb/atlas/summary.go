@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/simagix/keyhole/mdb"
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/sim/util"
 )
 
@@ -96,7 +96,7 @@ func (su *Summary) getRolesByName() ([]interface{}, error) {
 	}
 	json.Unmarshal(b, &doc)
 	if su.verbose == true {
-		fmt.Println(mdb.Stringify(doc, "", "  "))
+		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	roles = doc["roles"].([]interface{})
 	return roles, err
@@ -122,7 +122,7 @@ func (su *Summary) getClusters(groupID string) ([]interface{}, error) {
 	}
 	json.Unmarshal(b, &doc)
 	if su.verbose == true {
-		fmt.Println(mdb.Stringify(doc, "", "  "))
+		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	results = doc["results"].([]interface{})
 	return results, err
@@ -148,7 +148,7 @@ func (su *Summary) getProcesses(groupID string) ([]interface{}, error) {
 	}
 	json.Unmarshal(b, &doc)
 	if su.verbose == true {
-		fmt.Println(mdb.Stringify(doc, "", "  "))
+		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	results = doc["results"].([]interface{})
 	return results, err

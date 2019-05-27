@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -366,7 +367,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 		c.Drop(ctx)
 	}
 
-	var wg = util.NewWaitGroup(runtime.NumCPU())
+	var wg = gox.NewWaitGroup(runtime.NumCPU())
 	for threadNum := 0; threadNum < f.total; threadNum += bsize {
 		wg.Add(1)
 		num := bsize

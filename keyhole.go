@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/mdb/atlas"
 	"github.com/simagix/keyhole/sim"
@@ -118,7 +119,7 @@ func main() {
 		for _, filename := range filenames {
 			fmt.Println("=> processing", filename)
 			var str string
-			li := util.NewLogInfo(filename)
+			li := mdb.NewLogInfo(filename)
 			li.SetVerbose(*verbose)
 			if str, err = li.Analyze(); err != nil {
 				fmt.Println(err)
@@ -129,14 +130,16 @@ func main() {
 		os.Exit(0)
 	} else if *loginfo != "" {
 		var str string
-		li := util.NewLogInfo(*loginfo)
+		li := mdb.NewLogInfo(*loginfo)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
 		if str, err = li.Analyze(); err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println(str)
-		log.Println("Encoded output written to", li.OutputFilename)
+		if li.OutputFilename != "" {
+			log.Println("Encoded output written to", li.OutputFilename)
+		}
 		os.Exit(0)
 	} else if *ver {
 		fmt.Println("keyhole ver.", version)
@@ -181,7 +184,7 @@ func main() {
 			}
 			fmt.Println("JSON is written to", connString.Hosts[0]+".json.gz")
 		} else {
-			fmt.Println(mdb.Stringify(doc, "", "  "))
+			fmt.Println(gox.Stringify(doc, "", "  "))
 		}
 		os.Exit(0)
 	} else if *seed == true {
@@ -223,52 +226,40 @@ func main() {
 		if cerr != nil {
 			panic(cerr)
 		}
-		str, serr := card.GetSummary(summary)
-		if serr != nil {
-			panic(serr)
-		}
-		fmt.Println(str)
+		fmt.Println(card.GetSummary(summary))
 		os.Exit(0)
 	} else if *explain != "" {
 		// --explain json_or_log_file --collection <collection> [-v]
-		var str string
-		filter, ferr := mdb.GetFilterFromFile(*explain)
-		if ferr != nil {
-			panic(ferr)
+		qa := mdb.NewQueryAnalyzer(client)
+		qa.SetDatabase(connString.Database)
+		qa.SetCollection(*collection)
+		qa.SetVerbose(*verbose)
+		if err = qa.ReadQueryShapeFromFile(*explain); err != nil {
+			panic(err)
 		}
 		card := mdb.NewCardinality(client)
 		card.SetVerbose(*verbose)
-		summary, cerr := card.GetCardinalityArray(connString.Database, *collection, mdb.GetKeys(filter))
-		if cerr != nil {
-			panic(cerr)
-		}
-		qa := mdb.NewQueryAnalyzer(client)
-		qa.SetDatabase(connString.Database)
-		qa.SetFilter(filter)
-		qa.SetVerbose(*verbose)
-		edoc, ferr := qa.Explain(*collection, filter)
-		if ferr != nil {
-			panic(ferr)
-		}
-		if str, err = qa.GetSummary(edoc); err != nil {
+		var summary mdb.CardinalitySummary
+		if summary, err = card.GetCardinalityArray(connString.Database, *collection, mdb.GetKeys(qa.GetFilter())); err != nil {
 			panic(err)
 		}
-		fmt.Println(str)
-		if str, err = card.GetSummary(summary); err != nil {
+		var explainSummary mdb.ExplainSummary
+		if explainSummary, err = qa.Explain(); err != nil {
 			panic(err)
 		}
-		fmt.Println(str)
+		fmt.Println(qa.GetSummary(explainSummary))
+		fmt.Println(card.GetSummary(summary))
 		document := make(map[string]interface{})
 		document["ns"] = connString.Database + "." + *collection
-		document["cardinality"] = summary
-		document["explain"] = edoc
+		document["cardinality"] = explainSummary
+		document["explain"] = explain
 		if len(summary.List) > 0 {
 			recommendedIndex := card.GetRecommendedIndex(summary.List)
 			document["recommendedIndex"] = recommendedIndex
-			fmt.Println("Recommended index:", mdb.Stringify(recommendedIndex))
+			fmt.Println("Recommended index:", gox.Stringify(recommendedIndex))
 		}
 		ofile := filepath.Base(*explain) + "-explain.json.gz"
-		if err = qa.OutputGzipped(document, ofile); err != nil {
+		if err = util.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
 			panic(err)
 		}
 		fmt.Println("\nExplain output written to", ofile)

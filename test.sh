@@ -23,10 +23,10 @@ mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTig
 validate "failed to start mongod"
 mongo --quiet mongodb://localhost:30097/admin --eval 'rs.initiate()'
 sleep 2
-mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 10})"
+mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 0})"
 validate "failed to set profiling level"
 
-export DATABASE_URL="mongodb://localhost:30097/keyhole?replicaSet=replset&authSource=admin"
+export DATABASE_URI="mongodb://localhost:30097/keyhole?replicaSet=replset&authSource=admin"
 
 # Test version
 echo ; echo "==> Test version (--version)"
@@ -35,31 +35,34 @@ validate ""
 
 # Test Info
 echo ; echo "==> Test printing cluster info (--info <uri>)"
-go run keyhole.go --info $DATABASE_URL
+go run keyhole.go --info $DATABASE_URI
 if [ $? != 0 ]; then
     exit
 fi
 
 # Test seed
 echo ; echo "==> Test seeding default docs (--seed <uri>)"
-go run keyhole.go --seed $DATABASE_URL
+go run keyhole.go --seed $DATABASE_URI
 validate ""
 
 echo ; echo "==> Test seeding default docs after dropping collection (--seed --drop <uri>)"
-go run keyhole.go --seed --drop $DATABASE_URL
+go run keyhole.go --seed --drop $DATABASE_URI
 validate ""
 
+mongo $DATABASE_URI --eval 'db.cars.createIndex({color: 1})'
+mongo $DATABASE_URI --eval 'db.cars.createIndex({color: 1, style: 1})'
+
 echo ; echo "==> Test seeding docs from a template (--file <file> --collection <collection> <uri>)"
-go run keyhole.go --seed --file examples/template.json --collection template $DATABASE_URL
+go run keyhole.go --seed --file examples/template.json --collection template $DATABASE_URI
 validate ""
 
 echo ; echo "==> Test seeding docs from a template after dropping collection (--file <file> --collection <collection> --drop <uri>)"
-go run keyhole.go --seed --file examples/template.json --collection template --drop $DATABASE_URL
+go run keyhole.go --seed --file examples/template.json --collection template --drop $DATABASE_URI
 validate ""
 
 # Test Index
 echo ; echo "==> Test printing cluster indexes (--index <uri>)"
-go run keyhole.go --index $DATABASE_URL
+go run keyhole.go --index $DATABASE_URI
 validate ""
 
 # Test Schema
@@ -72,22 +75,27 @@ go run keyhole.go --schema --file examples/template.json
 validate ""
 
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
-go run keyhole.go --schema --collection favorites $DATABASE_URL
+go run keyhole.go --schema --collection favorites $DATABASE_URI
 validate ""
 
 # Test Cardinality
-echo ; echo "==> Test printing number of distinct fileds values (--card)"
-go run keyhole.go --card --collection favorites $DATABASE_URL
+echo ; echo "==> Test printing number of distinct fileds values (--cardinality)"
+go run keyhole.go --cardinality favorites $DATABASE_URI
+validate ""
+
+# Test Cardinality
+echo ; echo "==> Test printing number of distinct fileds values (--explain)"
+go run keyhole.go --explain mdb/testdata/cars.log --collection cars $DATABASE_URI
 validate ""
 
 # Test load test
 echo ; echo "==> Test load from a template (--file <file> <uri>)"
 go run keyhole.go --file examples/template.json --duration 2 \
-    --tps 300 --conn 10 --simonly $DATABASE_URL
+    --tps 300 --conn 10 --simonly $DATABASE_URI
 validate ""
 
 go run keyhole.go --file examples/template.json --duration 3 \
-    --tps 300 --conn 10 --tx examples/transactions.json $DATABASE_URL
+    --tps 300 --conn 10 --tx examples/transactions.json $DATABASE_URI
 validate ""
 
 # Test loginfo
