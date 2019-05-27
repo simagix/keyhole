@@ -8,9 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,9 +23,12 @@ import (
 
 // QueryAnalyzer stores query analyzer info
 type QueryAnalyzer struct {
-	client   *mongo.Client
-	database string
-	verbose  bool
+	client     *mongo.Client
+	database   string
+	collection string
+	filter     map[string]interface{}
+	sort       map[string]interface{}
+	verbose    bool
 }
 
 type inputStagesLevel struct {
@@ -31,16 +39,16 @@ type inputStagesLevel struct {
 // StageStats stores stats for each stage
 type StageStats struct {
 	Level             int
-	Score             float64      `json:"Score"`
-	Stage             string       `json:"stage"`
-	Filter            *OrderedMap  `json:"filter"`
-	KeyPattern        *OrderedMap  `json:"keyPattern"`
-	Advanced          int32        `json:"advanced"`
-	Works             int32        `json:"works"`
-	ExecTimeMillisEst int32        `json:"executionTimeMillisEstimate"`
-	TotalKeysExamined int32        `json:"totalKeysExamined"`
-	TotalDocsExamined int32        `json:"totalDocsExamined"`
-	InputStages       []StageStats `json:"inputStages"`
+	Score             float64         `json:"Score"`
+	Stage             string          `json:"stage"`
+	Filter            *gox.OrderedMap `json:"filter"`
+	KeyPattern        *gox.OrderedMap `json:"keyPattern"`
+	Advanced          int32           `json:"advanced"`
+	Works             int32           `json:"works"`
+	ExecTimeMillisEst int32           `json:"executionTimeMillisEstimate"`
+	TotalKeysExamined int32           `json:"totalKeysExamined"`
+	TotalDocsExamined int32           `json:"totalDocsExamined"`
+	InputStages       []StageStats    `json:"inputStages"`
 }
 
 // ExplainSummary stores explain summary
@@ -60,16 +68,30 @@ func (qa *QueryAnalyzer) SetDatabase(database string) {
 	qa.database = database
 }
 
+// SetCollection sets collection name
+func (qa *QueryAnalyzer) SetCollection(collection string) {
+	qa.collection = collection
+}
+
 // SetVerbose sets verbosity
 func (qa *QueryAnalyzer) SetVerbose(verbose bool) {
 	qa.verbose = verbose
 }
 
+// GetFilter sets verbosity
+func (qa *QueryAnalyzer) GetFilter() map[string]interface{} {
+	return qa.filter
+}
+
 // Explain explains query plans
-func (qa *QueryAnalyzer) Explain(collectionName string, filter map[string]interface{}) (ExplainSummary, error) {
+func (qa *QueryAnalyzer) Explain() (ExplainSummary, error) {
 	var err error
 	ctx := context.Background()
-	command := bson.M{"explain": bson.M{"find": collectionName, "filter": filter}}
+	fmt.Println(qa)
+	command := bson.M{"explain": bson.M{"find": qa.collection, "filter": qa.filter}}
+	if qa.sort != nil {
+		command["explain"].(bson.M)["sort"] = qa.sort
+	}
 	var doc = bson.M{}
 	for i := 0; i < 3; i++ { // a hack to avoid error (CommandNotFound) Explain failed due to unknown command: query
 		err = qa.client.Database(qa.database).RunCommand(ctx, command).Decode(&doc)
@@ -134,6 +156,42 @@ func (qa *QueryAnalyzer) GetSummary(summary ExplainSummary) string {
 	return buffer.String()
 }
 
+// ReadQueryShapeFromFile gets filter map
+func (qa *QueryAnalyzer) ReadQueryShapeFromFile(filename string) error {
+	var err error
+	var doc bson.M
+	var buffer []byte
+	if buffer, err = ioutil.ReadFile(filename); err != nil {
+		return err
+	}
+	if err = json.Unmarshal(buffer, &doc); err == nil {
+		if doc["filter"] != nil {
+			qa.filter = doc["filter"].(map[string]interface{})
+		}
+		if doc["sort"] != nil {
+			qa.sort = doc["sort"].(map[string]interface{})
+		}
+		return err
+	}
+	err = nil
+	// can be a log entry
+	re := regexp.MustCompile(`((\S+):)`)
+	str := re.ReplaceAllString(string(buffer), "\"$2\":")
+	ml := gox.NewMongoLog(str)
+	filter := ml.Get(`"filter":`)
+	re = regexp.MustCompile(`(new Date\(\S+\))`)
+	filter = re.ReplaceAllString(filter, "\"$1\"")
+	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)
+	filter = re.ReplaceAllString(filter, "ObjectId('$1')")
+	var f bson.M
+	json.Unmarshal([]byte(filter), &f)
+	d := gox.NewMapWalker(convert)
+	qa.filter = d.Walk(f)
+	sort := ml.Get(`"sort":`)
+	json.Unmarshal([]byte(sort), &(qa.sort))
+	return err
+}
+
 // https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/plan_ranker.cpp
 // we can run hint as {"explain": {"find": collectionName, "filter": filter, "sort": sortSpec, "hint": index}}
 func getStageStats(execution bson.M) StageStats {
@@ -156,7 +214,7 @@ func getStageStats(execution bson.M) StageStats {
 	summary.Score = getScore(advanced, works, stages)
 	summary.Stage = executionStages["stage"].(string)
 	b, _ := json.Marshal(executionStages["filter"])
-	summary.Filter = NewOrderedMap(string(b))
+	summary.Filter = gox.NewOrderedMap(string(b))
 	summary.Advanced = advanced
 	summary.Works = works
 	summary.ExecTimeMillisEst = executionStages["executionTimeMillisEstimate"].(int32)
@@ -168,11 +226,11 @@ func getStageStats(execution bson.M) StageStats {
 			stage.Stage = inputStage["stage"].(string)
 			if inputStage["keyPattern"] != nil {
 				b, _ := json.Marshal(inputStage["keyPattern"])
-				stage.KeyPattern = NewOrderedMap(string(b))
+				stage.KeyPattern = gox.NewOrderedMap(string(b))
 			}
 			if inputStage["filter"] != nil {
 				b, _ := json.Marshal(inputStage["filter"])
-				stage.Filter = NewOrderedMap(string(b))
+				stage.Filter = gox.NewOrderedMap(string(b))
 			}
 			stage.Advanced = inputStage["advanced"].(int32)
 			stage.Works = inputStage["works"].(int32)
@@ -190,7 +248,7 @@ func getStageStatsSummaryString(stat StageStats) string {
 	buffer.WriteString(fmt.Sprintf("├─totalDocsExamined: %v\n", stat.TotalDocsExamined))
 	buffer.WriteString(fmt.Sprintf("├─executionStages: %v\n", stat.Stage))
 	if stat.Filter != nil {
-		buffer.WriteString(fmt.Sprintf("├─  filter: %v\n", Stringify(stat.Filter)))
+		buffer.WriteString(fmt.Sprintf("├─  filter: %v\n", gox.Stringify(stat.Filter)))
 	}
 	buffer.WriteString(fmt.Sprintf("├─  advanced: %v\n", stat.Advanced))
 	buffer.WriteString(fmt.Sprintf("├─  works: %v\n", stat.Works))
@@ -209,10 +267,10 @@ func getInputStagesSummaryString(stats []StageStats) string {
 		}
 		buffer.WriteString(fmt.Sprintf("%s├─inputStage: %v\n", sp, stat.Stage))
 		if stat.KeyPattern != nil {
-			buffer.WriteString(fmt.Sprintf("%s├─  key pattern: %v\n", sp, Stringify(stat.KeyPattern)))
+			buffer.WriteString(fmt.Sprintf("%s├─  key pattern: %v\n", sp, gox.Stringify(stat.KeyPattern)))
 		}
 		if stat.Filter != nil {
-			buffer.WriteString(fmt.Sprintf("%s├─  filter: %v\n", sp, Stringify(stat.Filter)))
+			buffer.WriteString(fmt.Sprintf("%s├─  filter: %v\n", sp, gox.Stringify(stat.Filter)))
 		}
 		buffer.WriteString(fmt.Sprintf("%s├─  advanced: %v\n", sp, stat.Advanced))
 		buffer.WriteString(fmt.Sprintf("%s├─  works: %v\n", sp, stat.Works))
@@ -276,4 +334,18 @@ func hasStage(stage string, stages []string) bool {
 		}
 	}
 	return false
+}
+
+func convert(x interface{}) interface{} {
+	if v, ok := x.(string); ok {
+		if strings.HasPrefix(v, "new Date(") {
+			ms, _ := strconv.ParseInt(v[9:len(v)-1], 10, 64)
+			return time.Unix(0, ms*int64(time.Millisecond))
+		} else if strings.HasPrefix(v, "ObjectId(") {
+			// expect ObjectId('<hex>')
+			_id, _ := primitive.ObjectIDFromHex(v[10 : len(v)-2])
+			return _id
+		}
+	}
+	return x
 }

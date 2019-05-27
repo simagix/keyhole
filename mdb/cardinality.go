@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -184,9 +185,9 @@ func (card *Cardinality) GetSummary(summary CardinalitySummary) string {
 }
 
 // GetRecommendedIndex returns a recommended index by cardinalities
-func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) OrderedMap {
+func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) gox.OrderedMap {
 	if card.verbose {
-		fmt.Println("GetRecommendedIndex", Stringify(cardList, "", "  "))
+		fmt.Println("GetRecommendedIndex", gox.Stringify(cardList, "", "  "))
 	}
 	var buffer bytes.Buffer
 	buffer.WriteString("{ ")
@@ -203,7 +204,7 @@ func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) Ordere
 		}
 	}
 	buffer.WriteString(" }")
-	var om OrderedMap
+	var om gox.OrderedMap
 	json.Unmarshal(buffer.Bytes(), &om)
 	return om
 }

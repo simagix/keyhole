@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -33,5 +34,5 @@ func TestGetClusterInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(Stringify(cluster, "", "  "))
+	t.Log(gox.Stringify(cluster, "", "  "))
 }

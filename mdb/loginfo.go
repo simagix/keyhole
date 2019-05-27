@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/sim/util"
 )
 
@@ -246,18 +247,18 @@ func (li *LogInfo) Parse() error {
 				continue
 			} else if op == "find" {
 				nstr := "{ }"
-				s := GetDocByField(filter, "filter: ")
+				s := getDocByField(filter, "filter: ")
 				if s != "" {
 					nstr = s
 				}
-				s = GetDocByField(filter, "sort: ")
+				s = getDocByField(filter, "sort: ")
 				if s != "" {
 					nstr = nstr + ", sort: " + s
 				}
 				filter = nstr
 			} else if op == "count" || op == "distinct" {
 				nstr := ""
-				s := GetDocByField(filter, "query: ")
+				s := getDocByField(filter, "query: ")
 				if s != "" {
 					nstr = s
 				}
@@ -266,9 +267,9 @@ func (li *LogInfo) Parse() error {
 				var s string
 				// if result[1] == "WRITE" {
 				if strings.Index(filter, "query: ") >= 0 {
-					s = GetDocByField(filter, "query: ")
+					s = getDocByField(filter, "query: ")
 				} else {
-					s = GetDocByField(filter, "q: ")
+					s = getDocByField(filter, "q: ")
 				}
 				if s != "" {
 					filter = s
@@ -277,7 +278,7 @@ func (li *LogInfo) Parse() error {
 				nstr := ""
 				s := ""
 				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
-					s = GetDocByField(result[4], mstr)
+					s = getDocByField(result[4], mstr)
 					if s != "" {
 						nstr = s
 						filter = nstr
@@ -293,11 +294,11 @@ func (li *LogInfo) Parse() error {
 				}
 			} else if op == "getMore" || op == "getmore" {
 				nstr := ""
-				s := GetDocByField(result[4], "originatingCommand: ")
+				s := getDocByField(result[4], "originatingCommand: ")
 
 				if s != "" {
 					for _, mstr := range []string{"filter: ", "pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
-						s = GetDocByField(result[4], mstr)
+						s = getDocByField(result[4], mstr)
 						if s != "" {
 							nstr = s
 							filter = nstr
@@ -311,7 +312,7 @@ func (li *LogInfo) Parse() error {
 					continue
 				}
 			}
-			index := GetDocByField(str, "planSummary: IXSCAN")
+			index := getDocByField(str, "planSummary: IXSCAN")
 			if index == "" && strings.Index(str, "planSummary: EOF") >= 0 {
 				index = "EOF"
 			}
@@ -518,4 +519,9 @@ func MilliToTimeString(milli float64) string {
 		avgstr = fmt.Sprintf("%3.1fs", milli)
 	}
 	return avgstr
+}
+
+func getDocByField(str string, key string) string {
+	ml := gox.NewMongoLog(str)
+	return ml.Get(key)
 }
