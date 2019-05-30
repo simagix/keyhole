@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -158,9 +159,10 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	} else {
 		buffer.WriteString("Cluster: Sharded, evaluated from shard " + summary.ShardName + "\n")
 	}
-	b, _ := bson.Marshal(qe.ExplainDoc.Filter)
+	b, _ := bson.Marshal(qe.ExplainDoc)
 	var qshape bson.M
 	bson.Unmarshal(b, &qshape)
+	delete(qshape, "find")
 	buffer.WriteString("Query Shape: " + gox.Stringify(qshape) + "\n")
 	buffer.WriteString("\n=> Execution Stats\n")
 	buffer.WriteString("=========================================\n")
@@ -170,6 +172,9 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	if len(summary.AllPlansExecutionStats) > 0 {
 		buffer.WriteString("\n=> All Plans Execution\n")
 		buffer.WriteString("=========================================\n")
+		sort.Slice(summary.AllPlansExecutionStats, func(i, j int) bool {
+			return summary.AllPlansExecutionStats[i].Score > summary.AllPlansExecutionStats[j].Score
+		})
 		for i, stats := range summary.AllPlansExecutionStats {
 			buffer.WriteString(fmt.Sprintf("Query Plan %d:\n", i+1))
 			buffer.WriteString(getStageStatsSummaryString(stats, 0))
