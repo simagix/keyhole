@@ -3,8 +3,8 @@
 package mdb
 
 import (
-	"bytes"
 	"encoding/json"
+	"strings"
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,21 +14,15 @@ import (
 // GetIndexSuggestion returns a recommended index by cardinalities
 // index follows a principle of equality, sort, rnage
 func GetIndexSuggestion(explain ExplainCommand, cardList []CardinalityCount) gox.OrderedMap {
-	equalityKeys := getKeys(explain.Filter, false)
-	rangeKeys := getKeys(explain.Filter, true)
-	sortKeys := getKeys(explain.Sort, false)
-	var buffer bytes.Buffer
-	buffer.WriteString("{ ")
+	equalityKeys := GetKeys(explain.Filter, false)
+	rangeKeys := GetKeys(explain.Filter, true)
+	sortKeys := GetKeys(explain.Sort)
+	buffer := []string{}
 	cnt := 0
 	for _, elem := range cardList {
 		if cnt < 4 {
 			if contains(equalityKeys, elem.Field) {
-				if cnt > 0 {
-					buffer.WriteString(", ")
-				}
-				buffer.WriteString(`"`)
-				buffer.WriteString(elem.Field)
-				buffer.WriteString(`": 1`)
+				buffer = append(buffer, `"`+elem.Field+`": 1`)
 				cnt++
 			}
 		} else {
@@ -36,45 +30,37 @@ func GetIndexSuggestion(explain ExplainCommand, cardList []CardinalityCount) gox
 		}
 	}
 
-	for i, elem := range cardList {
-		if i < 1 {
+	limit := len(buffer) + 1
+	for _, elem := range cardList {
+		if cnt < limit {
 			if contains(sortKeys, elem.Field) {
-				if cnt > 0 {
-					buffer.WriteString(", ")
-				}
-				buffer.WriteString(`"`)
-				buffer.WriteString(elem.Field)
-				buffer.WriteString(`": 1`)
-				break
+				buffer = append(buffer, `"`+elem.Field+`": 1`)
+				cnt++
 			}
 		} else {
 			break
 		}
 	}
 
-	for i, elem := range cardList {
-		if i < 2 {
+	limit = len(buffer) + 2
+	for _, elem := range cardList {
+		if cnt < limit {
 			if contains(rangeKeys, elem.Field) {
-				if cnt > 0 {
-					buffer.WriteString(", ")
-				}
-				buffer.WriteString(`"`)
-				buffer.WriteString(elem.Field)
-				buffer.WriteString(`": 1`)
-				break
+				buffer = append(buffer, `"`+elem.Field+`": 1`)
+				cnt++
 			}
 		} else {
 			break
 		}
 	}
 
-	buffer.WriteString(" }")
 	var om gox.OrderedMap
-	json.Unmarshal(buffer.Bytes(), &om)
+	json.Unmarshal([]byte("{ "+strings.Join(buffer, ",")+" }"), &om)
 	return om
 }
 
-func getKeys(document bson.D, _range bool) []string {
+// GetKeys gets all fields of a odc as an array
+func GetKeys(document bson.D, isrange ...bool) []string {
 	filter := document.Map()
 	var arr []string
 	for key, val := range filter {
@@ -82,25 +68,40 @@ func getKeys(document bson.D, _range bool) []string {
 			for _, elem := range val.(primitive.A) {
 				for k, v := range elem.(bson.D).Map() {
 					if len(k) > 0 && k[0] != '$' {
-						if isRange(v) == _range {
-							arr = append(arr, k)
+						if len(isrange) == 0 || isrange[0] == isRange(v) {
+							arr = append(arr, getKey(k, v)...)
 						}
 					}
 				}
 			}
 		} else if len(key) > 0 && key[0] != '$' {
-			if isRange(val) == _range {
-				arr = append(arr, key)
+			if len(isrange) == 0 || isrange[0] == isRange(val) {
+				arr = append(arr, getKey(key, val)...)
 			}
 		}
 	}
 	return arr
 }
 
-func isRange(value interface{}) bool {
+func getKey(key string, value interface{}) []string {
+	strs := []string{}
 	m, ok := value.(bson.D)
 	if ok {
-		for k := range m.Map() {
+		if m.Map()["$elemMatch"] != nil {
+			for k := range m.Map()["$elemMatch"].(bson.D).Map() {
+				strs = append(strs, key+"."+k)
+			}
+			return strs
+		}
+	}
+	strs = append(strs, key)
+	return strs
+}
+
+func isRange(value interface{}) bool {
+	keyMap, ok := value.(bson.D)
+	if ok {
+		for k := range keyMap.Map() {
 			if k == "$gte" {
 				return true
 			}
