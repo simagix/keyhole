@@ -230,7 +230,7 @@ func main() {
 		os.Exit(0)
 	} else if *explain != "" {
 		// --explain json_or_log_file --collection <collection> [-v]
-		qa := mdb.NewQueryAnalyzer(client)
+		qa := mdb.NewQueryExplainer(client)
 		qa.SetDatabase(connString.Database)
 		qa.SetCollection(*collection)
 		qa.SetVerbose(*verbose)
@@ -240,7 +240,9 @@ func main() {
 		card := mdb.NewCardinality(client)
 		card.SetVerbose(*verbose)
 		var summary mdb.CardinalitySummary
-		if summary, err = card.GetCardinalityArray(connString.Database, *collection, mdb.GetKeys(qa.GetFilter())); err != nil {
+		keys := mdb.GetKeys(qa.ExplainDoc.Filter)
+		keys = append(keys, mdb.GetKeys(qa.ExplainDoc.Sort)...)
+		if summary, err = card.GetCardinalityArray(connString.Database, *collection, keys); err != nil {
 			panic(err)
 		}
 		var explainSummary mdb.ExplainSummary
@@ -251,12 +253,12 @@ func main() {
 		fmt.Println(card.GetSummary(summary))
 		document := make(map[string]interface{})
 		document["ns"] = connString.Database + "." + *collection
-		document["cardinality"] = explainSummary
-		document["explain"] = explain
+		document["cardinality"] = summary
+		document["explain"] = explainSummary
 		if len(summary.List) > 0 {
-			recommendedIndex := card.GetRecommendedIndex(summary.List)
+			recommendedIndex := mdb.GetIndexSuggestion(qa.ExplainDoc, summary.List)
 			document["recommendedIndex"] = recommendedIndex
-			fmt.Println("Recommended index:", gox.Stringify(recommendedIndex))
+			fmt.Println("Index Suggestion:", gox.Stringify(recommendedIndex))
 		}
 		ofile := filepath.Base(*explain) + "-explain.json.gz"
 		if err = util.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
