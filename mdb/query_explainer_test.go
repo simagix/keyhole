@@ -15,7 +15,7 @@ func TestGetExplainSummaryReplica(t *testing.T) {
 	filename := "testdata/commerceticket-replica-explain.json"
 	client := getMongoClient()
 	defer client.Disconnect(context.Background())
-	qa := NewQueryAnalyzer(client)
+	qa := NewQueryExplainer(client)
 	buffer, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestGetExplainSummaryShard(t *testing.T) {
 	filename := "testdata/commerceticket-shard-explain.json"
 	client := getMongoClient()
 	defer client.Disconnect(context.Background())
-	qa := NewQueryAnalyzer(client)
+	qa := NewQueryExplainer(client)
 	buffer, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
