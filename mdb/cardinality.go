@@ -5,13 +5,11 @@ package mdb
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -148,7 +146,8 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 		}
 	}
 	for k, v := range doc {
-		summary.List = append(summary.List, CardinalityCount{Field: strings.Replace(k, "__", ".", -1), Count: int64(v.(float64))})
+		summary.List = append(summary.List,
+			CardinalityCount{Field: strings.Replace(k, "__", ".", -1), Count: int64(v.(float64))})
 	}
 
 	sort.Slice(summary.List, func(i, j int) bool {
@@ -171,35 +170,38 @@ func (card *Cardinality) GetSummary(summary CardinalitySummary) string {
 
 	p := message.NewPrinter(language.English)
 	buffer.WriteString("=> Cardinality (sampled data: " + p.Sprintf("%d", summary.SampledCount) + "):\n")
-	buffer.WriteString("--------------------------------------------------------------------------------\n")
+	buffer.WriteString("=========================================\n")
 	for _, val := range summary.List {
-		buffer.WriteString(fmt.Sprintf("|%64s |%11v |\n", val.Field, p.Sprintf("%d", int64(val.Count))))
+		buffer.WriteString(fmt.Sprintf("%7v: %s\n", p.Sprintf("%d", val.Count), val.Field))
 	}
-	buffer.WriteString("--------------------------------------------------------------------------------\n")
 	return buffer.String()
 }
 
-// GetRecommendedIndex returns a recommended index by cardinalities
-func (card *Cardinality) GetRecommendedIndex(cardList []CardinalityCount) gox.OrderedMap {
-	if card.verbose {
-		fmt.Println("GetRecommendedIndex", gox.Stringify(cardList, "", "  "))
-	}
-	var buffer bytes.Buffer
-	buffer.WriteString("{ ")
-	for i, elem := range cardList {
-		if i < 4 || elem.Count > 10 {
-			if i > 0 {
-				buffer.WriteString(", ")
+// GetKeys gets all fields of a odc as an array
+func GetKeys(document bson.D) []string {
+	filter := document.Map()
+	var arr []string
+	for key, val := range filter {
+		if key == "$or" || key == "$and" {
+			for _, elem := range val.(primitive.A) {
+				for k := range elem.(bson.D).Map() {
+					if len(k) > 0 && k[0] != '$' {
+						arr = append(arr, k)
+					}
+				}
 			}
-			buffer.WriteString(`"`)
-			buffer.WriteString(elem.Field)
-			buffer.WriteString(`": 1`)
-		} else {
-			break
+		} else if len(key) > 0 && key[0] != '$' {
+			arr = append(arr, key)
 		}
 	}
-	buffer.WriteString(" }")
-	var om gox.OrderedMap
-	json.Unmarshal(buffer.Bytes(), &om)
-	return om
+	return arr
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

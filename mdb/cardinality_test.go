@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -47,26 +46,4 @@ func TestGetCardinalitySummary(t *testing.T) {
 	data, _ = json.Marshal(v["cardinality"])
 	json.Unmarshal(data, &summary)
 	t.Log(card.GetSummary(summary))
-}
-
-func TestGetRecommendedIndex(t *testing.T) {
-	filename := "testdata/commerceticket-replica-explain.json"
-	client := getMongoClient()
-	defer client.Disconnect(context.Background())
-	card := NewCardinality(client)
-	buffer, err := ioutil.ReadFile(filename)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var v bson.M
-	json.Unmarshal(buffer, &v)
-	data, _ := bson.Marshal(v)
-	bson.Unmarshal(data, &v)
-	var summary CardinalitySummary
-	data, _ = json.Marshal(v["cardinality"])
-	json.Unmarshal(data, &summary)
-	str := gox.Stringify(card.GetRecommendedIndex(summary.List))
-	if `{"ct":1,"cs":1}` != str {
-		t.Fatal("Expected", `{ "ct": 1, "cs": 1 }`, "but got", str)
-	}
 }
