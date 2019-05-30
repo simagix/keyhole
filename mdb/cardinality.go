@@ -177,26 +177,6 @@ func (card *Cardinality) GetSummary(summary CardinalitySummary) string {
 	return buffer.String()
 }
 
-// GetKeys gets all fields of a odc as an array
-func GetKeys(document bson.D) []string {
-	filter := document.Map()
-	var arr []string
-	for key, val := range filter {
-		if key == "$or" || key == "$and" {
-			for _, elem := range val.(primitive.A) {
-				for k := range elem.(bson.D).Map() {
-					if len(k) > 0 && k[0] != '$' {
-						arr = append(arr, k)
-					}
-				}
-			}
-		} else if len(key) > 0 && key[0] != '$' {
-			arr = append(arr, key)
-		}
-	}
-	return arr
-}
-
 func contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
