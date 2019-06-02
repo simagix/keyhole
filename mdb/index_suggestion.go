@@ -18,49 +18,32 @@ func GetIndexSuggestion(explain ExplainCommand, cardList []CardinalityCount) gox
 	rangeKeys := GetKeys(explain.Filter, true)
 	sortKeys := GetKeys(explain.Sort)
 	buffer := []string{}
-	cnt := 0
-	for _, elem := range cardList {
-		if cnt < 4 {
-			if contains(equalityKeys, elem.Field) {
-				buffer = append(buffer, `"`+elem.Field+`": 1`)
-				cnt++
-			}
-		} else {
-			break
-		}
-	}
-
-	limit := len(buffer) + 1
-	for _, elem := range cardList {
-		if cnt < limit {
-			if contains(sortKeys, elem.Field) {
-				buffer = append(buffer, `"`+elem.Field+`": 1`)
-				cnt++
-			}
-		} else {
-			break
-		}
-	}
-
-	limit = len(buffer) + 2
-	for _, elem := range cardList {
-		if cnt < limit {
-			if contains(rangeKeys, elem.Field) {
-				buffer = append(buffer, `"`+elem.Field+`": 1`)
-				cnt++
-			}
-		} else {
-			break
-		}
-	}
-
+	// the limit number is random.  Need research to support these numbers
+	buffer = append(buffer, getIndexesString(cardList, equalityKeys, 4)...)
+	buffer = append(buffer, getIndexesString(cardList, sortKeys, 1)...)
+	buffer = append(buffer, getIndexesString(cardList, rangeKeys, 2)...)
 	var om gox.OrderedMap
 	json.Unmarshal([]byte("{ "+strings.Join(buffer, ",")+" }"), &om)
 	return om
 }
 
+func getIndexesString(cardList []CardinalityCount, keys []string, max int) []string {
+	buffer := []string{}
+	cnt := 0
+	for _, elem := range cardList {
+		if contains(keys, elem.Field) {
+			buffer = append(buffer, `"`+elem.Field+`": 1`)
+			cnt++
+		}
+		if cnt >= max {
+			return buffer
+		}
+	}
+	return buffer
+}
+
 // GetKeys gets all fields of a odc as an array
-func GetKeys(document bson.D, isrange ...bool) []string {
+func GetKeys(document bson.D, _range ...bool) []string {
 	filter := document.Map()
 	var arr []string
 	for key, val := range filter {
@@ -68,14 +51,14 @@ func GetKeys(document bson.D, isrange ...bool) []string {
 			for _, elem := range val.(primitive.A) {
 				for k, v := range elem.(bson.D).Map() {
 					if len(k) > 0 && k[0] != '$' {
-						if len(isrange) == 0 || isrange[0] == isRange(v) {
+						if len(_range) == 0 || _range[0] == isRange(v) {
 							arr = append(arr, getKey(k, v)...)
 						}
 					}
 				}
 			}
 		} else if len(key) > 0 && key[0] != '$' {
-			if len(isrange) == 0 || isrange[0] == isRange(val) {
+			if len(_range) == 0 || _range[0] == isRange(val) {
 				arr = append(arr, getKey(key, val)...)
 			}
 		}
@@ -102,7 +85,7 @@ func isRange(value interface{}) bool {
 	keyMap, ok := value.(bson.D)
 	if ok {
 		for k := range keyMap.Map() {
-			if k == "$gte" {
+			if k == "$gte" || k == "$gt" || k == "$lte" || k == "$lt" {
 				return true
 			}
 		}
