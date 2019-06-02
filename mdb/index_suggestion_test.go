@@ -35,7 +35,7 @@ func TestGetIndexSuggestionFromFilter(t *testing.T) {
 }
 
 func TestGetIndexSuggestion(t *testing.T) {
-	filename := "testdata/cars-explain.json"
+	filename := "testdata/TestGetIndexSuggestion.json"
 	buffer, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -49,11 +49,31 @@ func TestGetIndexSuggestion(t *testing.T) {
 	str := `{"filter": {"brand": "BMW", "year": {"$gt": 2017}}, "sort": {"color": 1}}`
 	bson.UnmarshalExtJSON([]byte(str), true, &explain)
 	index := GetIndexSuggestion(explain, summary.List)
-	expected := `{"year":1,"brand":1,"color":1}`
+	expected := `{"brand":1,"color":1,"year":1}`
 	if gox.Stringify(index) != expected {
 		t.Fatal("Expected", expected, "but got", gox.Stringify(index))
 	}
-	// t.Log("filter:", gox.Stringify(explain.Filter.Map()))
-	// t.Log("sort:", gox.Stringify(explain.Sort.Map()))
+	t.Log("index:", gox.Stringify(index))
+}
+
+func TestGetIndexSuggestionElemMatch(t *testing.T) {
+	filename := "testdata/TestGetIndexSuggestionElemMatch.json"
+	buffer, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v bson.M
+	bson.UnmarshalExtJSON(buffer, true, &v)
+	var summary CardinalitySummary
+	data, _ := json.Marshal(v["cardinality"])
+	json.Unmarshal(data, &summary)
+	var explain ExplainCommand
+	str := `{"filter": { "$and": [{ "filters": { "$elemMatch": { "k": "color", "v": "Red" } } }, { "filters": { "$elemMatch": { "k": "year", "v": { "$gt": 2017 } } } }] } }`
+	bson.UnmarshalExtJSON([]byte(str), true, &explain)
+	index := GetIndexSuggestion(explain, summary.List)
+	expected := `{"filters.v":1,"filters.k":1}`
+	if gox.Stringify(index) != expected {
+		t.Fatal("Expected", expected, "but got", gox.Stringify(index))
+	}
 	t.Log("index:", gox.Stringify(index))
 }
