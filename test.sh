@@ -4,7 +4,7 @@
 shutdownServer() {
     echo "Shutdown mongod"
     mongo --quiet --port 30097 --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
-    rm -rf data/db data/mongod.log.*.gz
+    rm -rf data/db data/mongod.log.*
     exit
 }
 
@@ -85,25 +85,32 @@ validate ""
 
 # Test Cardinality
 echo ; echo "==> Test printing number of distinct fileds values (--explain)"
-go run keyhole.go --explain mdb/testdata/cars.log --collection cars $DATABASE_URI
+go run keyhole.go --explain mdb/testdata/cars.log $DATABASE_URI
 validate ""
 
-# Test load test
-echo ; echo "==> Test load from a template (--file <file> <uri>)"
-go run keyhole.go --file examples/template.json --duration 2 \
-    --tps 300 --conn 10 --simonly $DATABASE_URI
+# Test Cardinality
+echo ; echo "==> Test printing number of distinct fileds values (--explain)"
+go run keyhole.go --explain mdb/testdata/cars.json $DATABASE_URI
 validate ""
 
-go run keyhole.go --file examples/template.json --duration 3 \
-    --tps 300 --conn 10 --tx examples/transactions.json $DATABASE_URI
-validate ""
+if [ "$1" != "" ]; then
+    # Test load test
+    echo ; echo "==> Test load from a template (--file <file> <uri>)"
+    go run keyhole.go --file examples/template.json --duration 2 \
+        --tps 300 --conn 10 --simonly $DATABASE_URI
+    validate ""
 
-# Test loginfo
-echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
-go run keyhole.go --loginfo data/mongod.log
-rm -f *-mongod.log.gz
+    go run keyhole.go --file examples/template.json --duration 3 \
+        --tps 300 --conn 10 --tx examples/transactions.json $DATABASE_URI
+    validate ""
+
+    # Test loginfo
+    echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
+    go run keyhole.go --loginfo data/mongod.log
+    rm -f *-mongod.log.gz
+fi
 
 # Test loginfo Atlas
-echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
-go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole/2019-03-20"
+#echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
+#go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole/2019-03-20"
 shutdownServer
