@@ -17,6 +17,7 @@ import (
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/keyhole/web"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
@@ -62,33 +63,16 @@ func main() {
 
 	var err error
 	if *diag != "" {
-		var str string
-		var filenames = []string{*diag}
-		if len(flag.Args()) > 0 {
-			filenames = append(filenames, flag.Args()...)
-		}
-
-		if *webserver == false {
-			metrics := sim.NewDiagnosticData(*span)
-			if str, err = metrics.PrintDiagnosticData(filenames); err != nil {
-				panic(err)
-			}
-			fmt.Println(str)
+		filenames := append([]string{*diag}, flag.Args()...)
+		if *webserver == true {
+			grafanaServer(filenames)
 		} else {
-			grafana := web.NewGrafana()
-			metrics := sim.NewDiagnosticData(300)
-			if err = metrics.DecodeDiagnosticData(filenames); err != nil { // get summary
-				panic(err)
+			metrics := sim.NewDiagnosticData(*span)
+			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
+				log.Fatal(e)
+			} else {
+				fmt.Println(str)
 			}
-			grafana.SetFTDCSummaryStats(metrics)
-
-			log.Println("get more granular data points, data point every second.")
-			go func(g *web.Grafana, metrics *sim.DiagnosticData, filenames []string) {
-				metrics = sim.NewDiagnosticData(1)
-				metrics.DecodeDiagnosticData(filenames)
-				grafana.SetFTDCDetailStats(metrics)
-			}(grafana, metrics, filenames)
-			web.HTTPServer(5408, metrics, grafana)
 		}
 		os.Exit(0)
 	} else if *info == true && strings.Index(*uri, "atlas://") == 0 {
@@ -110,11 +94,11 @@ func main() {
 		lg := atlas.ParseAtlasURI(*loginfo)
 		lg.SetVerbose(*verbose)
 		if lg.Error() != "" {
-			panic(lg.Error())
+			log.Fatal(lg.Error())
 		}
 		var filenames []string
 		if filenames, err = lg.DownloadLogs("."); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		for _, filename := range filenames {
 			fmt.Println("=> processing", filename)
@@ -142,7 +126,7 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *ver {
-		fmt.Println("keyhole ver.", version)
+		fmt.Println("keyhole", version)
 		os.Exit(0)
 	} else if *schema && *uri == "" {
 		if *file == "" {
@@ -159,31 +143,25 @@ func main() {
 	}
 
 	if *uri, err = mdb.Parse(*uri); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	client, err := mdb.NewMongoClient(*uri, *caFile, *clientPEMFile)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	connString, err := connstring.Parse(*uri)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
-		doc, e := mc.GetClusterInfo()
-		if e != nil {
-			panic(e)
-		}
-		if *verbose == true {
-			if err = mc.WriteGzippedJSON(connString.Hosts[0] + ".json.gz"); err != nil {
-				panic(err)
-			}
-			fmt.Println("JSON is written to", connString.Hosts[0]+".json.gz")
-		} else {
+		mc.SetOutputFilename(connString.Hosts[0] + ".json.gz")
+		if doc, e := mc.GetClusterInfo(); e != nil {
+			log.Fatal(e)
+		} else if *verbose == false {
 			fmt.Println(gox.Stringify(doc, "", "  "))
 		}
 		os.Exit(0)
@@ -195,7 +173,7 @@ func main() {
 		f.SetIsDrop(*drop)
 		f.SetTotal(*total)
 		if err = f.SeedData(client); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		os.Exit(0)
 	} else if *index == true {
@@ -207,64 +185,28 @@ func main() {
 		ir.SetVerbose(*verbose)
 		m, e := ir.GetIndexes()
 		if e != nil {
-			panic(e)
+			log.Fatal(e)
 		}
 		ir.Print(m)
 		os.Exit(0)
 	} else if *schema == true {
 		var str string
 		if str, err = sim.GetSchemaFromCollection(client, connString.Database, *collection); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		fmt.Println(str)
 		os.Exit(0)
-	} else if *cardinality != "" {
-		// --card <collection> [-v]
+	} else if *cardinality != "" { // --card <collection> [-v]
 		card := mdb.NewCardinality(client)
 		card.SetVerbose(*verbose)
-		summary, cerr := card.GetCardinalityArray(connString.Database, *cardinality)
-		if cerr != nil {
-			panic(cerr)
+		if summary, e := card.GetCardinalityArray(connString.Database, *cardinality); e != nil {
+			log.Fatal(e)
+		} else {
+			fmt.Println(card.GetSummary(summary))
 		}
-		fmt.Println(card.GetSummary(summary))
 		os.Exit(0)
-	} else if *explain != "" {
-		// --explain json_or_log_file --collection <collection> [-v]
-		qa := mdb.NewQueryExplainer(client)
-		qa.SetDatabase(connString.Database)
-		qa.SetCollection(*collection)
-		qa.SetVerbose(*verbose)
-		if err = qa.ReadQueryShapeFromFile(*explain); err != nil {
-			panic(err)
-		}
-		card := mdb.NewCardinality(client)
-		card.SetVerbose(*verbose)
-		var summary mdb.CardinalitySummary
-		keys := mdb.GetKeys(qa.ExplainDoc.Filter)
-		keys = append(keys, mdb.GetKeys(qa.ExplainDoc.Sort)...)
-		if summary, err = card.GetCardinalityArray(connString.Database, *collection, keys); err != nil {
-			panic(err)
-		}
-		var explainSummary mdb.ExplainSummary
-		if explainSummary, err = qa.Explain(); err != nil {
-			fmt.Println(err.Error())
-		}
-		fmt.Println(qa.GetSummary(explainSummary))
-		fmt.Println(card.GetSummary(summary))
-		document := make(map[string]interface{})
-		document["ns"] = connString.Database + "." + *collection
-		document["cardinality"] = summary
-		document["explain"] = explainSummary
-		if len(summary.List) > 0 {
-			recommendedIndex := mdb.GetIndexSuggestion(qa.ExplainDoc, summary.List)
-			document["recommendedIndex"] = recommendedIndex
-			fmt.Println("Index Suggestion:", gox.Stringify(recommendedIndex))
-		}
-		ofile := filepath.Base(*explain) + "-explain.json.gz"
-		if err = util.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
-			panic(err)
-		}
-		fmt.Println("\nExplain output written to", ofile)
+	} else if *explain != "" { // --explain json_or_log_file  [-v]
+		explainWrapper(client, *explain, *verbose)
 		os.Exit(0)
 	} else if *changeStreams == true {
 		stream := mdb.NewChangeStream()
@@ -278,7 +220,7 @@ func main() {
 	client.Disconnect(context.Background())
 	var runner *sim.Runner
 	if runner, err = sim.NewRunner(*uri, *caFile, *clientPEMFile); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	runner.SetTPS(*tps)
 	runner.SetTemplateFilename(*file)
@@ -291,6 +233,61 @@ func main() {
 	runner.SetTransactionTemplateFilename(*tx)
 	runner.SetSimOnlyMode(*simonly)
 	if err = runner.Start(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+}
+
+func grafanaServer(filenames []string) {
+	grafana := web.NewGrafana()
+	metrics := sim.NewDiagnosticData(300)
+	if err := metrics.DecodeDiagnosticData(filenames); err != nil { // get summary
+		log.Fatal(err)
+	}
+	grafana.SetFTDCSummaryStats(metrics)
+
+	log.Println("get more granular data points, data point every second.")
+	go func(g *web.Grafana, metrics *sim.DiagnosticData, filenames []string) {
+		metrics = sim.NewDiagnosticData(1)
+		metrics.DecodeDiagnosticData(filenames)
+		grafana.SetFTDCDetailStats(metrics)
+	}(grafana, metrics, filenames)
+	web.HTTPServer(5408, metrics, grafana)
+}
+
+func explainWrapper(client *mongo.Client, filename string, verbose bool) {
+	var err error
+	qe := mdb.NewQueryExplainer(client)
+	qe.SetVerbose(verbose)
+	if err = qe.ReadQueryShapeFromFile(filename); err != nil {
+		log.Fatal(err)
+	}
+	card := mdb.NewCardinality(client)
+	card.SetVerbose(verbose)
+	var summary mdb.CardinalitySummary
+	keys := mdb.GetKeys(qe.ExplainCmd.Filter)
+	keys = append(keys, mdb.GetKeys(qe.ExplainCmd.Sort)...)
+	pos := strings.Index(qe.NameSpace, ".")
+	if summary, err = card.GetCardinalityArray(qe.NameSpace[:pos], qe.NameSpace[pos+1:], keys); err != nil {
+		log.Fatal(err)
+	}
+	var explainSummary mdb.ExplainSummary
+	if explainSummary, err = qe.Explain(); err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println(qe.GetSummary(explainSummary))
+	fmt.Println(card.GetSummary(summary))
+	document := make(map[string]interface{})
+	document["ns"] = qe.NameSpace
+	document["cardinality"] = summary
+	document["explain"] = explainSummary
+	if len(summary.List) > 0 {
+		recommendedIndex := mdb.GetIndexSuggestion(qe.ExplainCmd, summary.List)
+		document["recommendedIndex"] = recommendedIndex
+		fmt.Println("Index Suggestion:", gox.Stringify(recommendedIndex))
+	}
+	ofile := filepath.Base(filename) + "-explain.json.gz"
+	if err = util.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("\nExplain output written to", ofile)
 }
