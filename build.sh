@@ -12,7 +12,8 @@ fi
 
 $DEP ensure
 export version="$(git symbolic-ref --short HEAD)-$(date "+%Y%m%d.%s")"
-export version="1.1.2-$(date "+%Y%m%d")"
+export ver="v1.1.4"
+export version="${ver}-$(date "+%Y%m%d")"
 mkdir -p build
 env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
 env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-osx-x64 keyhole.go
@@ -21,5 +22,5 @@ env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o bu
 #env GOOS=darwin GOARCH=amd64 go build -tags delta -o ~/bin/keyhole keyhole.go
 
 if [ "$1" == "docker" ]; then
-    docker build -t simagix/keyhole .
+    docker build -t simagix/keyhole:${ver} -t simagix/keyhole:latest .
 fi
