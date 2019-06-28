@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strconv"
 	"strings"
 
@@ -20,9 +19,10 @@ import (
 
 // MongoCluster holds mongo cluster info
 type MongoCluster struct {
-	client  *mongo.Client
-	cluster bson.M
-	verbose bool
+	client   *mongo.Client
+	cluster  bson.M
+	verbose  bool
+	filename string
 }
 
 // NewMongoCluster server info struct
@@ -33,6 +33,11 @@ func NewMongoCluster(client *mongo.Client) *MongoCluster {
 // SetVerbose -
 func (mc *MongoCluster) SetVerbose(verbose bool) {
 	mc.verbose = verbose
+}
+
+// SetOutputFilename sets output file name
+func (mc *MongoCluster) SetOutputFilename(filename string) {
+	mc.filename = filename
 }
 
 // GetClusterInfo -
@@ -64,54 +69,47 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["version"] = info.Version
 	// hostInfo
 	var hostInfo bson.M
-	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err != nil {
-		return mc.cluster, err
+	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err == nil {
+		config["hostInfo"] = trimMap(hostInfo)
 	}
-	config["hostInfo"] = trimMap(hostInfo)
 
 	// getCmdLineOpts
 	var getCmdLineOpts bson.M
-	if getCmdLineOpts, err = RunAdminCommand(mc.client, "getCmdLineOpts"); err != nil {
-		return mc.cluster, err
+	if getCmdLineOpts, err = RunAdminCommand(mc.client, "getCmdLineOpts"); err == nil {
+		config["getCmdLineOpts"] = trimMap(getCmdLineOpts)
 	}
-	config["getCmdLineOpts"] = trimMap(getCmdLineOpts)
 
 	// buildInfo
 	var buildInfo bson.M
-	if buildInfo, err = RunAdminCommand(mc.client, "buildInfo"); err != nil {
-		return mc.cluster, err
+	if buildInfo, err = RunAdminCommand(mc.client, "buildInfo"); err == nil {
+		config["buildInfo"] = trimMap(buildInfo)
 	}
-	config["buildInfo"] = trimMap(buildInfo)
 
 	// ServerStatus
 	var serverStatus bson.M
-	if serverStatus, err = RunAdminCommand(mc.client, "serverStatus"); err != nil {
-		return mc.cluster, err
+	if serverStatus, err = RunAdminCommand(mc.client, "serverStatus"); err == nil {
+		config["serverStatus"] = trimMap(serverStatus)
 	}
-	config["serverStatus"] = trimMap(serverStatus)
 
 	// replSetGetStatus
 	if info.Cluster == "replica" {
 		var replSetGetStatus bson.M
-		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err != nil {
-			return mc.cluster, err
+		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
+			config["replSetGetStatus"] = trimMap(replSetGetStatus)
 		}
-		config["replSetGetStatus"] = trimMap(replSetGetStatus)
 	}
 
 	// usersInfo
 	var usersInfo bson.M
-	if usersInfo, err = RunAdminCommand(mc.client, "usersInfo"); err != nil {
-		log.Println(err)
+	if usersInfo, err = RunAdminCommand(mc.client, "usersInfo"); err == nil {
+		config["usersInfo"] = trimMap(usersInfo)
 	}
-	config["usersInfo"] = trimMap(usersInfo)
 
 	// rolesInfo
 	var rolesInfo bson.M
-	if rolesInfo, err = RunAdminCommand(mc.client, "rolesInfo"); err != nil {
-		log.Println(err)
+	if rolesInfo, err = RunAdminCommand(mc.client, "rolesInfo"); err == nil {
+		config["rolesInfo"] = trimMap(rolesInfo)
 	}
-	config["rolesInfo"] = trimMap(rolesInfo)
 
 	// collections firstDoc (findOne), indexes, and stats
 	dbNames, _ := ListDatabaseNames(mc.client)
@@ -168,6 +166,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
 	mc.cluster["databases"] = databases
+
+	if mc.verbose == true {
+		if err = mc.WriteGzippedJSON(mc.filename); err != nil {
+			return mc.cluster, err
+		}
+		fmt.Println("JSON is written to", mc.filename)
+	}
 	return mc.cluster, err
 }
 

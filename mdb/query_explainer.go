@@ -24,11 +24,10 @@ import (
 
 // QueryExplainer stores query analyzer info
 type QueryExplainer struct {
+	ExplainCmd ExplainCommand `bson:"explain"`
+	NameSpace  string
 	client     *mongo.Client
-	database   string
 	document   bson.D
-	collection string
-	ExplainDoc ExplainCommand `bson:"explain"`
 	isSharded  bool
 	shardUsed  int
 	verbose    bool
@@ -71,18 +70,7 @@ type ExplainSummary struct {
 
 // NewQueryExplainer returns QueryExplainer
 func NewQueryExplainer(client *mongo.Client) *QueryExplainer {
-	return &QueryExplainer{client: client, ExplainDoc: ExplainCommand{}}
-}
-
-// SetDatabase sets database
-func (qe *QueryExplainer) SetDatabase(database string) {
-	qe.database = database
-}
-
-// SetCollection sets collection name
-func (qe *QueryExplainer) SetCollection(collection string) {
-	qe.collection = collection
-	qe.ExplainDoc.Collection = collection
+	return &QueryExplainer{client: client, ExplainCmd: ExplainCommand{}}
 }
 
 // SetVerbose sets verbosity
@@ -92,7 +80,7 @@ func (qe *QueryExplainer) SetVerbose(verbose bool) {
 
 // GetFilter sets verbosity
 func (qe *QueryExplainer) GetFilter() bson.D {
-	return qe.ExplainDoc.Filter
+	return qe.ExplainCmd.Filter
 }
 
 // Explain explains query plans
@@ -101,7 +89,8 @@ func (qe *QueryExplainer) Explain() (ExplainSummary, error) {
 	var command bson.D
 	b, _ := bson.Marshal(qe)
 	bson.Unmarshal(b, &command)
-	if err = qe.client.Database(qe.database).RunCommand(context.Background(), command).Decode(&qe.document); err != nil {
+	db := strings.Split(qe.NameSpace, ".")[0]
+	if err = qe.client.Database(db).RunCommand(context.Background(), command).Decode(&qe.document); err != nil {
 		return ExplainSummary{}, err
 	}
 	doc := qe.document.Map()
@@ -159,7 +148,7 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	} else {
 		buffer.WriteString("Cluster: Sharded, evaluated from shard " + summary.ShardName + "\n")
 	}
-	b, _ := bson.Marshal(qe.ExplainDoc)
+	b, _ := bson.Marshal(qe.ExplainCmd)
 	var qshape bson.M
 	bson.Unmarshal(b, &qshape)
 	delete(qshape, "find")
@@ -194,11 +183,17 @@ func (qe *QueryExplainer) ReadQueryShapeFromFile(filename string) error {
 	}
 	if err = bson.UnmarshalExtJSON(buffer, true, &doc); err == nil {
 		if doc.Map()["filter"] != nil {
-			qe.ExplainDoc.Filter = doc.Map()["filter"].(bson.D)
+			qe.ExplainCmd.Filter = doc.Map()["filter"].(bson.D)
 		}
 		if doc.Map()["sort"] != nil {
-			qe.ExplainDoc.Sort = doc.Map()["sort"].(bson.D)
+			qe.ExplainCmd.Sort = doc.Map()["sort"].(bson.D)
 		}
+		if doc.Map()["hint"] != nil {
+			qe.ExplainCmd.Hint = doc.Map()["hint"].(bson.D)
+		}
+		qe.NameSpace = doc.Map()["ns"].(string)
+		pos := strings.Index(qe.NameSpace, ".")
+		qe.ExplainCmd.Collection = qe.NameSpace[pos+1:]
 		return err
 	}
 	err = nil
@@ -216,9 +211,14 @@ func (qe *QueryExplainer) ReadQueryShapeFromFile(filename string) error {
 	d := gox.NewMapWalker(convert)
 	docMap := d.Walk(f)
 	b, _ := bson.Marshal(docMap)
-	bson.Unmarshal(b, &qe.ExplainDoc.Filter)
+	bson.Unmarshal(b, &qe.ExplainCmd.Filter)
 	sort := ml.Get(`"sort":`)
-	bson.UnmarshalExtJSON([]byte(sort), true, &(qe.ExplainDoc.Sort))
+	bson.UnmarshalExtJSON([]byte(sort), true, &(qe.ExplainCmd.Sort))
+	xs := string(buffer)
+	i := strings.Index(xs, "] ")
+	qe.NameSpace = strings.Split(xs[i+2:], " ")[1]
+	pos := strings.Index(qe.NameSpace, ".")
+	qe.ExplainCmd.Collection = qe.NameSpace[pos+1:]
 	return err
 }
 
