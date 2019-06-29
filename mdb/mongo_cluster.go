@@ -71,24 +71,32 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var hostInfo bson.M
 	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err == nil {
 		config["hostInfo"] = trimMap(hostInfo)
+	} else {
+		config["hostInfo"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
 	// getCmdLineOpts
 	var getCmdLineOpts bson.M
 	if getCmdLineOpts, err = RunAdminCommand(mc.client, "getCmdLineOpts"); err == nil {
 		config["getCmdLineOpts"] = trimMap(getCmdLineOpts)
+	} else {
+		config["getCmdLineOpts"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
 	// buildInfo
 	var buildInfo bson.M
 	if buildInfo, err = RunAdminCommand(mc.client, "buildInfo"); err == nil {
 		config["buildInfo"] = trimMap(buildInfo)
+	} else {
+		config["buildInfo"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
 	// ServerStatus
 	var serverStatus bson.M
 	if serverStatus, err = RunAdminCommand(mc.client, "serverStatus"); err == nil {
 		config["serverStatus"] = trimMap(serverStatus)
+	} else {
+		config["serverStatus"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
 	// replSetGetStatus
@@ -96,6 +104,8 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		var replSetGetStatus bson.M
 		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
 			config["replSetGetStatus"] = trimMap(replSetGetStatus)
+		} else {
+			config["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
 		}
 	}
 
@@ -103,12 +113,16 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var usersInfo bson.M
 	if usersInfo, err = RunAdminCommand(mc.client, "usersInfo"); err == nil {
 		config["usersInfo"] = trimMap(usersInfo)
+	} else {
+		config["usersInfo"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
 	// rolesInfo
 	var rolesInfo bson.M
 	if rolesInfo, err = RunAdminCommand(mc.client, "rolesInfo"); err == nil {
 		config["rolesInfo"] = trimMap(rolesInfo)
+	} else {
+		config["rolesInfo"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
 	// collections firstDoc (findOne), indexes, and stats
