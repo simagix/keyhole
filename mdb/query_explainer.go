@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -66,6 +67,12 @@ type ExplainSummary struct {
 	ShardName              string       `json:"shardName"`
 	ExecutionStats         StageStats   `json:"executionStats"`
 	AllPlansExecutionStats []StageStats `json:"allPlansExecution"`
+}
+
+// IndexScore keeps index score
+type IndexScore struct {
+	Index gox.OrderedMap `json:"index"`
+	Score float64        `json:"score"`
 }
 
 // NewQueryExplainer returns QueryExplainer
@@ -173,52 +180,14 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	return buffer.String()
 }
 
-// ReadQueryShapeFromFile gets filter map
+// ReadQueryShapeFromFile parses filter map
 func (qe *QueryExplainer) ReadQueryShapeFromFile(filename string) error {
 	var err error
-	var doc bson.D
 	var buffer []byte
 	if buffer, err = ioutil.ReadFile(filename); err != nil {
 		return err
 	}
-	if err = bson.UnmarshalExtJSON(buffer, true, &doc); err == nil {
-		if doc.Map()["filter"] != nil {
-			qe.ExplainCmd.Filter = doc.Map()["filter"].(bson.D)
-		}
-		if doc.Map()["sort"] != nil {
-			qe.ExplainCmd.Sort = doc.Map()["sort"].(bson.D)
-		}
-		if doc.Map()["hint"] != nil {
-			qe.ExplainCmd.Hint = doc.Map()["hint"].(bson.D)
-		}
-		qe.NameSpace = doc.Map()["ns"].(string)
-		pos := strings.Index(qe.NameSpace, ".")
-		qe.ExplainCmd.Collection = qe.NameSpace[pos+1:]
-		return err
-	}
-	err = nil
-	// can be a log entry
-	re := regexp.MustCompile(`((\S+):)`)
-	str := re.ReplaceAllString(string(buffer), "\"$2\":")
-	ml := gox.NewMongoLog(str)
-	filter := ml.Get(`"filter":`)
-	re = regexp.MustCompile(`(new Date\(\S+\))`)
-	filter = re.ReplaceAllString(filter, "\"$1\"")
-	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)
-	filter = re.ReplaceAllString(filter, "ObjectId('$1')")
-	var f bson.M
-	json.Unmarshal([]byte(filter), &f)
-	d := gox.NewMapWalker(convert)
-	docMap := d.Walk(f)
-	b, _ := bson.Marshal(docMap)
-	bson.Unmarshal(b, &qe.ExplainCmd.Filter)
-	sort := ml.Get(`"sort":`)
-	bson.UnmarshalExtJSON([]byte(sort), true, &(qe.ExplainCmd.Sort))
-	xs := string(buffer)
-	i := strings.Index(xs, "] ")
-	qe.NameSpace = strings.Split(xs[i+2:], " ")[1]
-	pos := strings.Index(qe.NameSpace, ".")
-	qe.ExplainCmd.Collection = qe.NameSpace[pos+1:]
+	qe.ExplainCmd, qe.NameSpace, err = ReadQueryShape(buffer)
 	return err
 }
 
@@ -309,6 +278,145 @@ func (qe *QueryExplainer) getStageStats(document bson.D) StageStats {
 		}
 	}
 	return summary
+}
+
+// GetIndexesScores returns a list of indexes scores
+func (qe *QueryExplainer) GetIndexesScores(keys []string) []IndexScore {
+	var err error
+	var indexes []string
+	ctx := context.Background()
+	pos := strings.Index(qe.NameSpace, ".")
+	db := qe.NameSpace[:pos]
+	coll := qe.NameSpace[pos+1:]
+	collection := qe.client.Database(db).Collection(coll)
+	indexView := collection.Indexes()
+	cur, _ := indexView.List(ctx)
+	defer cur.Close(ctx)
+
+	for cur.Next(ctx) {
+		var idx = bson.D{}
+		if err = cur.Decode(&idx); err != nil {
+			continue
+		}
+
+		var keys bson.D
+		for _, v := range idx {
+			if v.Key == "key" {
+				keys = v.Value.(bson.D)
+				break
+			}
+		}
+		var strbuf bytes.Buffer
+		fields := []string{}
+		for n, value := range keys {
+			fields = append(fields, value.Key)
+			if n == 0 {
+				strbuf.WriteString("{")
+			}
+
+			vt := reflect.TypeOf(value.Value)
+			switch vt.Kind() {
+			case reflect.String:
+				strbuf.WriteString(fmt.Sprintf(`"%v":"%v"`, value.Key, value.Value))
+			default:
+				strbuf.WriteString(fmt.Sprintf(`"%v":%v`, value.Key, value.Value))
+			}
+			if n == len(keys)-1 {
+				strbuf.WriteString("}")
+			} else {
+				strbuf.WriteString(",")
+			}
+		}
+		indexes = append(indexes, strbuf.String())
+	}
+	scores := []IndexScore{}
+	keyMap := make(map[string]string)
+	for i := 0; i < len(keys); i++ {
+		keyMap[keys[i]] = "v"
+	}
+	// Execute explain on all indexes
+	for _, index := range indexes {
+		bson.UnmarshalExtJSON([]byte(index), true, &qe.ExplainCmd.Hint)
+		b, _ := bson.Marshal(qe)
+		var cmd bson.D
+		bson.Unmarshal(b, &cmd)
+		filter := cmd.Map()["explain"].(bson.D).Map()["hint"].(bson.D)
+		if len(filter) == 0 || keyMap[filter[0].Key] == "" {
+			continue
+		}
+		var document = bson.D{}
+		if err = collection.Database().RunCommand(ctx, cmd).Decode(&document); err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+		summary := qe.GetExplainDetails(document.Map())
+		stages := []string{}
+		for _, elem := range summary.ExecutionStats.InputStages {
+			stages = append(stages, elem.Stage)
+		}
+
+		score := getScore(summary.ExecutionStats.Advanced, summary.ExecutionStats.Works, stages)
+		om := gox.NewOrderedMap(index)
+		scores = append(scores, IndexScore{Index: *om, Score: score})
+	}
+
+	// sorted by score DESC
+	sort.Slice(scores, func(i, j int) bool {
+		if scores[i].Score > scores[j].Score {
+			return true
+		} else if scores[i].Score == scores[j].Score {
+			return gox.Stringify(scores[i].Index) < gox.Stringify(scores[j].Index)
+		}
+		return false
+	})
+	return scores
+}
+
+// ReadQueryShape parses filter map
+func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
+	var err error
+	var doc bson.D
+	var ns string
+	explainCmd := ExplainCommand{}
+	if err = bson.UnmarshalExtJSON(buffer, true, &doc); err == nil {
+		if doc.Map()["filter"] != nil {
+			explainCmd.Filter = doc.Map()["filter"].(bson.D)
+		}
+		if doc.Map()["sort"] != nil {
+			explainCmd.Sort = doc.Map()["sort"].(bson.D)
+		}
+		if doc.Map()["hint"] != nil {
+			explainCmd.Hint = doc.Map()["hint"].(bson.D)
+		}
+		ns = doc.Map()["ns"].(string)
+		pos := strings.Index(ns, ".")
+		explainCmd.Collection = ns[pos+1:]
+		return explainCmd, ns, err
+	}
+	err = nil
+	// can be a log entry
+	re := regexp.MustCompile(`((\S+):)`)
+	str := re.ReplaceAllString(string(buffer), "\"$2\":")
+	ml := gox.NewMongoLog(str)
+	filter := ml.Get(`"filter":`)
+	re = regexp.MustCompile(`(new Date\(\S+\))`)
+	filter = re.ReplaceAllString(filter, "\"$1\"")
+	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)
+	filter = re.ReplaceAllString(filter, "ObjectId('$1')")
+	var f bson.M
+	json.Unmarshal([]byte(filter), &f)
+	d := gox.NewMapWalker(convert)
+	docMap := d.Walk(f)
+	b, _ := bson.Marshal(docMap)
+	bson.Unmarshal(b, &explainCmd.Filter)
+	sort := ml.Get(`"sort":`)
+	bson.UnmarshalExtJSON([]byte(sort), true, &(explainCmd.Sort))
+	xs := string(buffer)
+	i := strings.Index(xs, "] ")
+	ns = strings.Split(xs[i+2:], " ")[1]
+	pos := strings.Index(ns, ".")
+	explainCmd.Collection = ns[pos+1:]
+	return explainCmd, ns, err
 }
 
 func getStageStatsSummaryString(stat StageStats, level int) string {
