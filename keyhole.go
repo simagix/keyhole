@@ -244,7 +244,6 @@ func grafanaServer(filenames []string) {
 		log.Fatal(err)
 	}
 	grafana.SetFTDCSummaryStats(metrics)
-
 	log.Println("get more granular data points, data point every second.")
 	go func(g *web.Grafana, metrics *sim.DiagnosticData, filenames []string) {
 		metrics = sim.NewDiagnosticData(1)
@@ -267,7 +266,9 @@ func explainWrapper(client *mongo.Client, filename string, verbose bool) {
 	keys := mdb.GetKeys(qe.ExplainCmd.Filter)
 	keys = append(keys, mdb.GetKeys(qe.ExplainCmd.Sort)...)
 	pos := strings.Index(qe.NameSpace, ".")
-	if summary, err = card.GetCardinalityArray(qe.NameSpace[:pos], qe.NameSpace[pos+1:], keys); err != nil {
+	db := qe.NameSpace[:pos]
+	collection := qe.NameSpace[pos+1:]
+	if summary, err = card.GetCardinalityArray(db, collection, keys); err != nil {
 		log.Fatal(err)
 	}
 	var explainSummary mdb.ExplainSummary
@@ -275,11 +276,16 @@ func explainWrapper(client *mongo.Client, filename string, verbose bool) {
 		fmt.Println(err.Error())
 	}
 	fmt.Println(qe.GetSummary(explainSummary))
-	fmt.Println(card.GetSummary(summary))
+	fmt.Println("=> All Applicable Indexes Scores")
+	fmt.Println("=========================================")
+	scores := qe.GetIndexesScores(keys)
+	fmt.Println(gox.Stringify(scores, "", "  "))
+	fmt.Println(card.GetSummary(summary) + "\n")
 	document := make(map[string]interface{})
 	document["ns"] = qe.NameSpace
 	document["cardinality"] = summary
 	document["explain"] = explainSummary
+	document["scores"] = scores
 	if len(summary.List) > 0 {
 		recommendedIndex := mdb.GetIndexSuggestion(qe.ExplainCmd, summary.List)
 		document["recommendedIndex"] = recommendedIndex
