@@ -1,5 +1,6 @@
 # Keyhole - MongoDB Performance Analytic
 
+- 06/29/2019: add *--explain* feature and use go.mongodb.org/mongo-driver v1.0.3
 - 03/13/2019: version 1.0.0 released
 - 02/24/2019: Replaced with go.mongodb.org/mongo-driver (v1.0.0-rc1)
 - 12/24/2018: Replaced globalsign/mgo with github.com/mongodb/mongo-go-driver (beta)
@@ -22,6 +23,7 @@ Several features are available, and they are
 - [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/List-All-Indexes-with-Usages)
 - [**Seed data**](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for demo and educational purposes as a trainer.
 - [Display average ops time](https://github.com/simagix/keyhole/wiki/Mongo-Logs-Analytics) and query patterns by parsing logs.
+- [Display indexes scores](https://github.com/simagix/keyhole/wiki/Indexes-Scores-and-Explain) of a query shape
 
 ## Use Cases
 Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
@@ -40,6 +42,11 @@ cd keyhole
 ### Usage
 ```
 $ keyhole --help
+```
+
+### Unit Tests
+```
+$ ./test.sh load
 ```
 
 ### Atlas TLS/SSL Mode

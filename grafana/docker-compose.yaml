@@ -1,5 +1,5 @@
 # Copyright 2019 Kuei-chun Chen. All rights reserved.
-version: "2"
+version: "3"
 
 services:
   grafana:
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   keyhole:
-    image: simagix/keyhole
+    image: simagix/keyhole:v1.1.4
     hostname: keyhole
     volumes:
       - ./diagnostic.data:/diagnostic.data
