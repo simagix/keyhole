@@ -35,32 +35,26 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 	var err error
 	var result bson.M
 	var serverInfo = ServerInfo{}
-	var stat = ServerStatusDoc{}
 	if result, err = RunAdminCommand(client, "serverStatus"); err != nil {
 		return serverInfo, err
 	}
 	b, _ := bson.Marshal(result)
-	bson.Unmarshal(b, &stat)
-	serverInfo.Host = stat.Host
-	serverInfo.Process = stat.Process
-	serverInfo.Version = stat.Version
-	serverInfo.Sharding = bson.M{}
-	if stat.Sharding != nil {
-		serverInfo.Sharding = stat.Sharding
+	bson.Unmarshal(b, &serverInfo)
+
+	if serverInfo.Sharding == nil {
+		serverInfo.Sharding = bson.M{}
 	}
-	serverInfo.Repl = bson.M{}
-	if stat.Repl != nil {
-		serverInfo.Repl = stat.Repl
+	if serverInfo.Repl == nil {
+		serverInfo.Repl = bson.M{}
 	}
 
-	if stat.Process == "mongos" {
+	if serverInfo.Process == "mongos" {
 		serverInfo.Cluster = SHARDED
-	} else if stat.Repl != nil {
+	} else if serverInfo.Repl != nil {
 		serverInfo.Cluster = REPLICA
 	} else {
 		serverInfo.Cluster = STANDALONE
 	}
-
 	var names []string
 	if names, err = ListDatabaseNames(client); err != nil {
 		return serverInfo, err

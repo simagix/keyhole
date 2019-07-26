@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var UnitTestURL = "mongodb://localhost/?authSource=admin"
+var UnitTestURL = "mongodb://localhost/"
 
 func getMongoClient() *mongo.Client {
 	var err error
