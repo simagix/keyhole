@@ -12,7 +12,7 @@ fi
 
 $DEP ensure
 export version="$(git symbolic-ref --short HEAD)-$(date "+%Y%m%d.%s")"
-export ver="v1.1.4"
+export ver="v1.2.0"
 export version="${ver}-$(date "+%Y%m%d")"
 mkdir -p build
 env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
