@@ -16,7 +16,7 @@ import (
 	"github.com/simagix/keyhole/mdb/atlas"
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
-	"github.com/simagix/keyhole/web"
+	anly "github.com/simagix/mongo-ftdc/analytics"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
@@ -65,9 +65,9 @@ func main() {
 	if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
 		if *webserver == true {
-			grafanaServer(filenames)
+			anly.SingleJSONServer(filenames)
 		} else {
-			metrics := sim.NewDiagnosticData(*span)
+			metrics := anly.NewDiagnosticData(*span)
 			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
 				log.Fatal(e)
 			} else {
@@ -235,22 +235,6 @@ func main() {
 	if err = runner.Start(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func grafanaServer(filenames []string) {
-	grafana := web.NewGrafana()
-	metrics := sim.NewDiagnosticData(300)
-	if err := metrics.DecodeDiagnosticData(filenames); err != nil { // get summary
-		log.Fatal(err)
-	}
-	grafana.SetFTDCSummaryStats(metrics)
-	log.Println("get more granular data points, data point every second.")
-	go func(g *web.Grafana, metrics *sim.DiagnosticData, filenames []string) {
-		metrics = sim.NewDiagnosticData(1)
-		metrics.DecodeDiagnosticData(filenames)
-		grafana.SetFTDCDetailStats(metrics)
-	}(grafana, metrics, filenames)
-	web.HTTPServer(5408, metrics, grafana)
 }
 
 func explainWrapper(client *mongo.Client, filename string, verbose bool) {

@@ -15,24 +15,27 @@ import (
 	"time"
 
 	"github.com/simagix/keyhole/mdb"
+	anly "github.com/simagix/mongo-ftdc/analytics"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
+type serverStatusDoc anly.ServerStatusDoc
+type replSetStatusDoc anly.ReplSetStatusDoc
+
 var keyholeStatsDataFile = os.TempDir() + "/keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
-var loc, _ = time.LoadLocation("Local")
 var mb = 1024.0 * 1024
-var serverStatusDocs = map[string][]mdb.ServerStatusDoc{}
-var replSetStatusDocs = map[string][]mdb.ReplSetStatusDoc{}
+var serverStatusDocs = map[string][]serverStatusDoc{}
+var replSetStatusDocs = map[string][]replSetStatusDoc{}
 
 // CollectServerStatus collects db.serverStatus() every minute
 func (rn *Runner) CollectServerStatus(uri string, channel chan string) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
-	var pstat = mdb.ServerStatusDoc{}
-	var stat = mdb.ServerStatusDoc{}
+	var pstat = serverStatusDoc{}
+	var stat = serverStatusDoc{}
 	var iop int
 	var piop int
 	var wSeconds = 10
@@ -120,7 +123,7 @@ func (rn *Runner) ReplSetGetStatus(uri string, channel chan string) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
-	var replSetStatus = mdb.ReplSetStatusDoc{}
+	var replSetStatus = replSetStatusDoc{}
 	var doc bson.M
 	connStr, _ := connstring.Parse(uri)
 	mapKey := connStr.ReplicaSet
@@ -215,7 +218,7 @@ func (rn *Runner) PrintServerStatus(uri string, span int) (string, error) {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
-	var stat mdb.ServerStatusDoc
+	var stat serverStatusDoc
 	var filename string
 	var str string
 	if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
@@ -229,8 +232,8 @@ func (rn *Runner) PrintServerStatus(uri string, span int) (string, error) {
 	if filename, err = rn.saveServerStatusDocsToFile(uri); err != nil {
 		return filename, err
 	}
-	d := NewDiagnosticData(span)
 	var filenames = []string{filename}
+	d := anly.NewDiagnosticData(span)
 	if str, err = d.PrintDiagnosticData(filenames); err != nil {
 		return filename, err
 	}

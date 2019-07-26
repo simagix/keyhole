@@ -26,7 +26,7 @@ sleep 2
 mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 5})"
 validate "failed to set profiling level"
 
-export DATABASE_URI="mongodb://localhost:30097/keyhole?replicaSet=replset&authSource=admin"
+export DATABASE_URI="mongodb://localhost:30097/keyhole?replicaSet=replset"
 
 # Test version
 echo ; echo "==> Test version (--version)"
