@@ -263,7 +263,7 @@ func (li *LogInfo) Parse() error {
 					nstr = s
 				}
 				filter = nstr
-			} else if op == "delete" || op == "update" || op == "remove" {
+			} else if op == "delete" || op == "update" || op == "remove" || op == "findAndModify" {
 				var s string
 				// if result[1] == "WRITE" {
 				if strings.Index(filter, "query: ") >= 0 {
@@ -494,7 +494,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore"}
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {
