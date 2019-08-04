@@ -10,17 +10,13 @@ if [ "$DEP" == "" ]; then
     exit
 fi
 
-$DEP ensure
+$DEP ensure -update
 export version="$(git symbolic-ref --short HEAD)-$(date "+%Y%m%d.%s")"
-export ver="v1.2.0"
-export version="${ver}-$(date "+%Y%m%d")"
+export ver="1.2.0"
+export version="v${ver}-$(date "+%Y%m%d")"
 mkdir -p build
 env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
 env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-osx-x64 keyhole.go
 env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-win-x64.exe keyhole.go
 
-#env GOOS=darwin GOARCH=amd64 go build -tags delta -o ~/bin/keyhole keyhole.go
-
-if [ "$1" == "docker" ]; then
-    docker build -t simagix/keyhole:${ver} -t simagix/keyhole:latest .
-fi
+docker build -t simagix/keyhole:latest -t simagix/keyhole:${ver} .
