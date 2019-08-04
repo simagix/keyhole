@@ -351,15 +351,16 @@ func (li *LogInfo) Parse() error {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if milli >= 10000 { // >= 10 seconds too slow, top 10
+			if len(li.SlowOps) < 10 || milli > li.SlowOps[9].Milli {
 				li.SlowOps = append(li.SlowOps, SlowOps{Milli: milli, Log: str})
+				sort.Slice(li.SlowOps, func(i, j int) bool {
+					return li.SlowOps[i].Milli > li.SlowOps[j].Milli
+				})
 				if len(li.SlowOps) > 10 {
-					sort.Slice(li.SlowOps, func(i, j int) bool {
-						return li.SlowOps[i].Milli > li.SlowOps[j].Milli
-					})
 					li.SlowOps = li.SlowOps[:10]
 				}
 			}
+
 			if ok {
 				max := opsMap[key].MaxMilli
 				if milli > max {
