@@ -263,7 +263,7 @@ func (li *LogInfo) Parse() error {
 					nstr = s
 				}
 				filter = nstr
-			} else if op == "delete" || op == "update" || op == "remove" {
+			} else if op == "delete" || op == "update" || op == "remove" || op == "findAndModify" {
 				var s string
 				// if result[1] == "WRITE" {
 				if strings.Index(filter, "query: ") >= 0 {
@@ -351,15 +351,16 @@ func (li *LogInfo) Parse() error {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if milli >= 10000 { // >= 10 seconds too slow, top 10
+			if len(li.SlowOps) < 10 || milli > li.SlowOps[9].Milli {
 				li.SlowOps = append(li.SlowOps, SlowOps{Milli: milli, Log: str})
+				sort.Slice(li.SlowOps, func(i, j int) bool {
+					return li.SlowOps[i].Milli > li.SlowOps[j].Milli
+				})
 				if len(li.SlowOps) > 10 {
-					sort.Slice(li.SlowOps, func(i, j int) bool {
-						return li.SlowOps[i].Milli > li.SlowOps[j].Milli
-					})
 					li.SlowOps = li.SlowOps[:10]
 				}
 			}
+
 			if ok {
 				max := opsMap[key].MaxMilli
 				if milli > max {
@@ -494,7 +495,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore"}
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {
