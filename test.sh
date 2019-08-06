@@ -110,7 +110,14 @@ if [ "$1" != "" ]; then
     rm -f *-mongod.log.gz
 fi
 
+# Test info Atlas
+echo ; echo "==> Test printing clusters summary (--info <atlas_uri>)"
+go run keyhole.go --info "atlas://${ATLAS_AUTH}"
+
 # Test loginfo Atlas
-#echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
-#go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole/2019-03-20"
+echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
+go run keyhole.go --seed ${ATLAS_URL}
+go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
+rm -f mongodb.log.*
+
 shutdownServer
