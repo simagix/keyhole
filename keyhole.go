@@ -13,9 +13,9 @@ import (
 
 	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
-	"github.com/simagix/keyhole/mdb/atlas"
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
+	"github.com/simagix/mongo-atlas/atlas"
 	anly "github.com/simagix/mongo-ftdc/analytics"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
@@ -76,28 +76,25 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *info == true && strings.Index(*uri, "atlas://") == 0 {
+		var api *atlas.API
+		if api, err = atlas.ParseURI(*uri); err != nil {
+			log.Fatal(err)
+		}
+		api.SetVerbose(*verbose)
 		var str string
-		idx := strings.Index(*uri, "@")
-		if idx > 0 {
-			*uri = (*uri)[:idx]
+		if str, err = api.GetClustersSummary(); err != nil {
+			log.Fatal(err)
 		}
-		*uri = (*uri)[8:]
-		su := atlas.NewSummary(*uri)
-		su.SetVerbose(*verbose)
-		if str, err = su.GetSummary(); err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(str)
-		}
+		fmt.Println(str)
 		os.Exit(0)
 	} else if strings.Index(*loginfo, "atlas://") == 0 {
-		lg := atlas.ParseAtlasURI(*loginfo)
-		lg.SetVerbose(*verbose)
-		if lg.Error() != "" {
-			log.Fatal(lg.Error())
+		var atl *atlas.Log
+		if atl, err = atlas.ParseLogURI(*loginfo); err != nil {
+			log.Fatal(err)
 		}
+		atl.SetVerbose(*verbose)
 		var filenames []string
-		if filenames, err = lg.DownloadLogs("."); err != nil {
+		if filenames, err = atl.Download(); err != nil {
 			log.Fatal(err)
 		}
 		for _, filename := range filenames {
@@ -106,10 +103,10 @@ func main() {
 			li := mdb.NewLogInfo(filename)
 			li.SetVerbose(*verbose)
 			if str, err = li.Analyze(); err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(str)
+				log.Println(err)
+				continue
 			}
+			fmt.Println(str)
 		}
 		os.Exit(0)
 	} else if *loginfo != "" {
