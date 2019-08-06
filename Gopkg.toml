@@ -8,6 +8,10 @@
   name = "github.com/simagix/gox"
 
 [[constraint]]
+  version = "v0.1.0"
+  name = "github.com/simagix/mongo-atlas"
+
+[[constraint]]
   version = "v0.2.0"
   name = "github.com/simagix/mongo-ftdc"
 

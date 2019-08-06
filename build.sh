@@ -10,7 +10,12 @@ if [ "$DEP" == "" ]; then
     exit
 fi
 
-$DEP ensure -update
+if [ -d vendor ]; then
+    UPDATE="-update"
+fi
+
+$DEP ensure $UPDATE
+
 export version="$(git symbolic-ref --short HEAD)-$(date "+%Y%m%d.%s")"
 export ver="1.2.0"
 export version="v${ver}-$(date "+%Y%m%d")"
@@ -20,3 +25,4 @@ env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o bui
 env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-win-x64.exe keyhole.go
 
 docker build -t simagix/keyhole:latest -t simagix/keyhole:${ver} .
+docker rmi -f $(docker images -f "dangling=true" -q)
