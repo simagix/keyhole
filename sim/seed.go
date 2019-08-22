@@ -384,12 +384,11 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 			for n := 0; n < num; n++ {
 				ndoc := make(map[string]interface{})
 				util.RandomizeDocument(&ndoc, doc, false)
-				delete(ndoc, "_id")
 				contentArray = append(contentArray, ndoc)
 			}
-			if _, err = c.InsertMany(ctx, contentArray); err != nil {
-				panic(err)
-			}
+			opts := options.InsertMany()
+			opts.SetOrdered(false) // ignore duplication errors
+			c.InsertMany(ctx, contentArray, opts)
 		}(threadNum, num)
 	}
 	wg.Wait()
