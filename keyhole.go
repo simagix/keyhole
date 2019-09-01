@@ -273,7 +273,7 @@ func explainWrapper(client *mongo.Client, filename string, verbose bool) {
 		fmt.Println("Index Suggestion:", gox.Stringify(recommendedIndex))
 	}
 	ofile := filepath.Base(filename) + "-explain.json.gz"
-	if err = util.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
+	if err = gox.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("\nExplain output written to", ofile)
