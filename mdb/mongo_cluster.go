@@ -3,11 +3,8 @@
 package mdb
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -37,7 +34,7 @@ func (mc *MongoCluster) SetVerbose(verbose bool) {
 
 // SetOutputFilename sets output file name
 func (mc *MongoCluster) SetOutputFilename(filename string) {
-	mc.filename = filename
+	mc.filename = strings.Replace(filename, ":", "_", -1)
 }
 
 // GetClusterInfo -
@@ -180,23 +177,10 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
 	mc.cluster["databases"] = databases
-
-	if mc.verbose == true {
-		if err = mc.WriteGzippedJSON(mc.filename); err != nil {
-			return mc.cluster, err
-		}
+	if err = gox.OutputGzipped([]byte(gox.Stringify(mc.cluster)), mc.filename); err == nil {
 		fmt.Println("JSON is written to", mc.filename)
 	}
 	return mc.cluster, err
-}
-
-// WriteGzippedJSON outputs cluster into to a JSON file
-func (mc *MongoCluster) WriteGzippedJSON(filename string) error {
-	var zbuf bytes.Buffer
-	gz := gzip.NewWriter(&zbuf)
-	gz.Write([]byte(gox.Stringify(mc.cluster)))
-	gz.Close() // close this before flushing the bytes to the buffer.
-	return ioutil.WriteFile(filename, zbuf.Bytes(), 0644)
 }
 
 func trimMap(doc bson.M) bson.M {

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 )
 
@@ -53,13 +52,4 @@ func CountLines(reader *bufio.Reader) (int, error) {
 			return lineCounts, err
 		}
 	}
-}
-
-// OutputGzipped writes doc to a gzipped file
-func OutputGzipped(b []byte, filename string) error {
-	var zbuf bytes.Buffer
-	gz := gzip.NewWriter(&zbuf)
-	gz.Write(b)
-	gz.Close() // close this before flushing the bytes to the buffer.
-	return ioutil.WriteFile(filename, zbuf.Bytes(), 0644)
 }
