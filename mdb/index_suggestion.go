@@ -19,7 +19,11 @@ func GetIndexSuggestion(explain ExplainCommand, cardList []CardinalityCount) gox
 	sortKeys := GetKeys(explain.Sort)
 	buffer := []string{}
 	// the limit number is random.  Need research to support these numbers
-	buffer = append(buffer, getIndexesString(cardList, equalityKeys, 4)...)
+	if contains(equalityKeys, "_id") {
+		buffer = append(buffer, `"_id": 1`)
+	} else {
+		buffer = append(buffer, getIndexesString(cardList, equalityKeys, 4)...)
+	}
 	buffer = append(buffer, getIndexesString(cardList, sortKeys, 1)...)
 	buffer = append(buffer, getIndexesString(cardList, rangeKeys, 2)...)
 	var om gox.OrderedMap
