@@ -34,13 +34,18 @@ func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
 	var str string
 	re := regexp.MustCompile(`ObjectId\(\S+\)`)
 	str = re.ReplaceAllString(string(buf), "\"$$oId\"")
+	re = regexp.MustCompile(`NumberDecimal\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	str = re.ReplaceAllString(str, "{\"$$numberDecimal\": $1}")
+	re = regexp.MustCompile(`NumberLong\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	str = re.ReplaceAllString(str, "{\"$$numberLong\": $1}")
+	re = regexp.MustCompile(`NumberInt\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	str = re.ReplaceAllString(str, "{\"$$numberInt\": $1}")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
 	str = re.ReplaceAllString(str, "\"$$date\"")
 	re = regexp.MustCompile(`Number\S+\((\d+)\)`)
 	str = re.ReplaceAllString(str, "$1")
 	re = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
 	str = re.ReplaceAllString(str, "\"$$email\"")
-
 	var f interface{}
 	if err = json.Unmarshal([]byte(str), &f); err != nil {
 		return nil, err
