@@ -130,7 +130,8 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *explain != "" && *uri == "" { //--explain file.json.gz (w/o uri)
-		if err = mdb.PrintExplainResults(*explain); err != nil {
+		exp := mdb.NewExplain()
+		if err = exp.PrintExplainResults(*explain); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
@@ -205,7 +206,9 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *explain != "" { // --explain json_or_log_file  [-v]
-		if err = mdb.QueryExplainerWrapper(client, *explain, *verbose); err != nil {
+		exp := mdb.NewExplain()
+		exp.SetVerbose(*verbose)
+		if err = exp.ExecuteAllPlans(client, *explain); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)

@@ -3,7 +3,7 @@
 package mdb
 
 import (
-	"compress/gzip"
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,16 +17,31 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// QueryExplainerWrapper calls queryPlanner and cardinality
-func QueryExplainerWrapper(client *mongo.Client, filename string, verbose bool) error {
+// Explain stores explain object info
+type Explain struct {
+	verbose bool
+}
+
+// NewExplain returns Explain struct
+func NewExplain() *Explain {
+	return &Explain{}
+}
+
+// SetVerbose sets verbosity
+func (e *Explain) SetVerbose(verbose bool) {
+	e.verbose = verbose
+}
+
+// ExecuteAllPlans calls queryPlanner and cardinality
+func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 	var err error
 	qe := NewQueryExplainer(client)
-	qe.SetVerbose(verbose)
+	qe.SetVerbose(e.verbose)
 	if err = qe.ReadQueryShapeFromFile(filename); err != nil {
 		return err
 	}
 	card := NewCardinality(client)
-	card.SetVerbose(verbose)
+	card.SetVerbose(e.verbose)
 	var summary CardinalitySummary
 	keys := GetKeys(qe.ExplainCmd.Filter)
 	keys = append(keys, GetKeys(qe.ExplainCmd.Sort)...)
@@ -70,22 +85,19 @@ func QueryExplainerWrapper(client *mongo.Client, filename string, verbose bool) 
 }
 
 // PrintExplainResults prints explain results
-func PrintExplainResults(filename string) error {
+func (e *Explain) PrintExplainResults(filename string) error {
 	var err error
 	var data []byte
-	if strings.HasSuffix(filename, ".json.gz") {
-		var file *os.File
-		var gz *gzip.Reader
-		if file, err = os.Open(filename); err != nil {
-			return err
-		}
-		if gz, err = gzip.NewReader(file); err != nil {
-			return err
-		}
-		if data, err = ioutil.ReadAll(gz); err != nil {
-			return err
-		}
-	} else if data, err = ioutil.ReadFile(filename); err != nil {
+	var file *os.File
+	var reader *bufio.Reader
+
+	if file, err = os.Open(filename); err != nil {
+		return err
+	}
+	if reader, err = gox.NewReader(file); err != nil {
+		return err
+	}
+	if data, err = ioutil.ReadAll(reader); err != nil {
 		return err
 	}
 	doc := bson.M{}
