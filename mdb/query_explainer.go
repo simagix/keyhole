@@ -399,6 +399,12 @@ func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
 	str := re.ReplaceAllString(string(buffer), "\"$2\":")
 	ml := gox.NewMongoLog(str)
 	filter := ml.Get(`"filter":`)
+	if filter == "" {
+		filter = ml.Get(`"$match":`)
+	}
+	if filter == "" {
+		filter = ml.Get(`"query":`)
+	}
 	re = regexp.MustCompile(`(new Date\(\S+\))`)
 	filter = re.ReplaceAllString(filter, "\"$1\"")
 	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)
@@ -410,6 +416,9 @@ func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
 	b, _ := bson.Marshal(docMap)
 	bson.Unmarshal(b, &explainCmd.Filter)
 	sort := ml.Get(`"sort":`)
+	if sort == "" {
+		sort = ml.Get(`"$sort":`)
+	}
 	bson.UnmarshalExtJSON([]byte(sort), true, &(explainCmd.Sort))
 	xs := string(buffer)
 	i := strings.Index(xs, "] ")

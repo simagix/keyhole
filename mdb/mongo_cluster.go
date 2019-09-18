@@ -5,6 +5,7 @@ package mdb
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -135,13 +136,23 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		defer cur.Close(ctx)
 		var collections = []bson.M{}
 		ir := NewIndexesReader(mc.client)
+		collectionNames := []string{}
 
 		for cur.Next(ctx) {
 			var elem = bson.M{}
 			if err = cur.Decode(&elem); err != nil {
 				continue
 			}
-			collectionName := fmt.Sprintf("%v", elem["name"])
+			coll := fmt.Sprintf("%v", elem["name"])
+			collType := fmt.Sprintf("%v", elem["type"])
+			if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
+				continue
+			}
+			collectionNames = append(collectionNames, coll)
+		}
+
+		sort.Strings(collectionNames)
+		for _, collectionName := range collectionNames {
 			ns := dbName + "." + collectionName
 			collection := mc.client.Database(dbName).Collection(collectionName)
 

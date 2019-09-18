@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/simagix/gox"
@@ -17,7 +16,6 @@ import (
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/mongo-atlas/atlas"
 	anly "github.com/simagix/mongo-ftdc/analytics"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 )
 
@@ -60,7 +58,6 @@ func main() {
 	}
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
-
 	var err error
 	if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
@@ -130,6 +127,11 @@ func main() {
 			fmt.Println(util.GetDemoSchema())
 		} else {
 			fmt.Println(util.GetDemoFromFile(*file))
+		}
+		os.Exit(0)
+	} else if *explain != "" && *uri == "" { //--explain file.json.gz (w/o uri)
+		if err = mdb.PrintExplainResults(*explain); err != nil {
+			log.Fatal(err)
 		}
 		os.Exit(0)
 	} else if len(*uri) == 0 {
@@ -203,7 +205,9 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *explain != "" { // --explain json_or_log_file  [-v]
-		explainWrapper(client, *explain, *verbose)
+		if err = mdb.QueryExplainerWrapper(client, *explain, *verbose); err != nil {
+			log.Fatal(err)
+		}
 		os.Exit(0)
 	} else if *changeStreams == true {
 		stream := mdb.NewChangeStream()
@@ -232,49 +236,4 @@ func main() {
 	if err = runner.Start(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func explainWrapper(client *mongo.Client, filename string, verbose bool) {
-	var err error
-	qe := mdb.NewQueryExplainer(client)
-	qe.SetVerbose(verbose)
-	if err = qe.ReadQueryShapeFromFile(filename); err != nil {
-		log.Fatal(err)
-	}
-	card := mdb.NewCardinality(client)
-	card.SetVerbose(verbose)
-	var summary mdb.CardinalitySummary
-	keys := mdb.GetKeys(qe.ExplainCmd.Filter)
-	keys = append(keys, mdb.GetKeys(qe.ExplainCmd.Sort)...)
-	pos := strings.Index(qe.NameSpace, ".")
-	db := qe.NameSpace[:pos]
-	collection := qe.NameSpace[pos+1:]
-	if summary, err = card.GetCardinalityArray(db, collection, keys); err != nil {
-		log.Fatal(err)
-	}
-	var explainSummary mdb.ExplainSummary
-	if explainSummary, err = qe.Explain(); err != nil {
-		fmt.Println(err.Error())
-	}
-	fmt.Println(qe.GetSummary(explainSummary))
-	fmt.Println("=> All Applicable Indexes Scores")
-	fmt.Println("=========================================")
-	scores := qe.GetIndexesScores(keys)
-	fmt.Println(gox.Stringify(scores, "", "  "))
-	fmt.Println(card.GetSummary(summary) + "\n")
-	document := make(map[string]interface{})
-	document["ns"] = qe.NameSpace
-	document["cardinality"] = summary
-	document["explain"] = explainSummary
-	document["scores"] = scores
-	if len(summary.List) > 0 {
-		recommendedIndex := mdb.GetIndexSuggestion(qe.ExplainCmd, summary.List)
-		document["recommendedIndex"] = recommendedIndex
-		fmt.Println("Index Suggestion:", gox.Stringify(recommendedIndex))
-	}
-	ofile := filepath.Base(filename) + "-explain.json.gz"
-	if err = gox.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("\nExplain output written to", ofile)
 }
