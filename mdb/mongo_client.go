@@ -87,7 +87,7 @@ func Parse(uri string) (string, error) {
 
 	if connString.Database == "" {
 		connString.Database = KEYHOLEDB
-		pos := strings.Index(uri, "?")
+		pos := strings.LastIndex(uri, "?")
 		if pos > 0 { // found ?query_string
 			uri = (uri)[:pos] + connString.Database + (uri)[pos:]
 		} else {
