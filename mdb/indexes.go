@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -123,7 +122,7 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 	var scur *mongo.Cursor
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
-		log.Fatal(err)
+		// fmt.Println(err)
 		return list
 	}
 	var indexStats = []bson.M{}
