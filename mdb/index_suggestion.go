@@ -24,6 +24,9 @@ func GetIndexSuggestion(explain ExplainCommand, cardList []CardinalityCount) gox
 	} else {
 		buffer = append(buffer, getIndexesString(cardList, equalityKeys, 4)...)
 	}
+	if explain.Group != "" {
+		buffer = append(buffer, `"`+explain.Group+`": 1`)
+	}
 	buffer = append(buffer, getIndexesString(cardList, sortKeys, 1)...)
 	buffer = append(buffer, getIndexesString(cardList, rangeKeys, 2)...)
 	var om gox.OrderedMap
