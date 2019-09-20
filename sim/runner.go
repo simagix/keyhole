@@ -16,7 +16,7 @@ import (
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/x/network/connstring"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 // SimDBName - db name for simulation
