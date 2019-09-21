@@ -394,10 +394,11 @@ func (li *LogInfo) printLogsSummary() string {
 	if li.verbose == true {
 		summaries = append([]string{}, li.mongoInfo)
 	}
-	if len(li.SlowOps) > 0 {
+	if len(li.SlowOps) > 0 && li.verbose == true {
 		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
 		for _, op := range li.SlowOps {
-			summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
+			// summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
+			summaries = append(summaries, fmt.Sprintf("%s (%s) %dms", op.Log, MilliToTimeString(float64(op.Milli)), op.Milli))
 		}
 		summaries = append(summaries, "\n")
 	}
