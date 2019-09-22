@@ -6,11 +6,9 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -104,9 +102,9 @@ func Parse(uri string) (string, error) {
 
 // ReadPasswordFromStdin reads password from stdin
 func ReadPasswordFromStdin() (string, error) {
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-		return "", errors.New("Missing password")
-	}
+	// if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+	// 	return "", errors.New("Missing password")
+	// }
 	var buffer []byte
 	var err error
 	fmt.Print("Enter Password: ")
