@@ -16,7 +16,7 @@ import (
 	"github.com/simagix/keyhole/sim/util"
 	"github.com/simagix/mongo-atlas/atlas"
 	anly "github.com/simagix/mongo-ftdc/analytics"
-	"go.mongodb.org/mongo-driver/x/network/connstring"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 var version = "self-built"

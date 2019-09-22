@@ -18,7 +18,7 @@ import (
 	anly "github.com/simagix/mongo-ftdc/analytics"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/x/network/connstring"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 type serverStatusDoc anly.ServerStatusDoc
