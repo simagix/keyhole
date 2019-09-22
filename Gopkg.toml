@@ -15,8 +15,14 @@
   version = "v0.4.0"
   name = "github.com/simagix/mongo-ftdc"
 
+[[override]]
+  branch = "release-branch.go1.13"
+  #branch = "master"
+  name = "golang.org/x/sys"
+
 [[constraint]]
-  branch = "master"
+  branch = "release-branch.go1.13"
+  #branch = "master"
   name = "golang.org/x/crypto"
 
 [prune]
