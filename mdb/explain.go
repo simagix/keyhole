@@ -35,52 +35,74 @@ func (e *Explain) SetVerbose(verbose bool) {
 // ExecuteAllPlans calls queryPlanner and cardinality
 func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 	var err error
+	var file *os.File
+	var reader *bufio.Reader
+
+	if file, err = os.Open(filename); err != nil {
+		return err
+	}
+	if reader, err = gox.NewReader(file); err != nil {
+		return err
+	}
 	qe := NewQueryExplainer(client)
 	qe.SetVerbose(e.verbose)
-	if err = qe.ReadQueryShapeFromFile(filename); err != nil {
-		return err
-	}
 	card := NewCardinality(client)
 	card.SetVerbose(e.verbose)
-	var summary CardinalitySummary
-	keys := GetKeys(qe.ExplainCmd.Filter)
-	keys = append(keys, GetKeys(qe.ExplainCmd.Sort)...)
-	pos := strings.Index(qe.NameSpace, ".")
-	db := qe.NameSpace[:pos]
-	collection := qe.NameSpace[pos+1:]
-	if summary, err = card.GetCardinalityArray(db, collection, keys); err != nil {
-		return err
+	stdout := ""
+	counter := 0
+	for {
+		buffer, _, rerr := reader.ReadLine()
+		if rerr != nil {
+			break
+		} else if strings.HasSuffix(string(buffer), "ms") == false {
+			continue
+		}
+		if err = qe.ReadQueryShape(buffer); err != nil {
+			continue
+		}
+		var summary CardinalitySummary
+		keys := GetKeys(qe.ExplainCmd.Filter)
+		keys = append(keys, GetKeys(qe.ExplainCmd.Sort)...)
+		pos := strings.Index(qe.NameSpace, ".")
+		db := qe.NameSpace[:pos]
+		collection := qe.NameSpace[pos+1:]
+		if summary, err = card.GetCardinalityArray(db, collection, keys); err != nil {
+			return err
+		}
+		var explainSummary ExplainSummary
+		if explainSummary, err = qe.Explain(); err != nil {
+			fmt.Println(err.Error())
+		}
+		strs := []string{}
+		strs = append(strs, qe.GetSummary(explainSummary))
+		strs = append(strs, "=> All Applicable Indexes Scores")
+		strs = append(strs, "=========================================")
+		scores := qe.GetIndexesScores(keys)
+		strs = append(strs, gox.Stringify(scores, "", "  "))
+		strs = append(strs, card.GetSummary(summary)+"\n")
+		document := make(map[string]interface{})
+		document["ns"] = qe.NameSpace
+		document["cardinality"] = summary
+		document["explain"] = explainSummary
+		document["scores"] = scores
+		if len(summary.List) > 0 {
+			recommendedIndex := GetIndexSuggestion(qe.ExplainCmd, summary.List)
+			document["recommendedIndex"] = recommendedIndex
+			strs = append(strs, "Index Suggestion:", gox.Stringify(recommendedIndex))
+		}
+		strs = append(strs, "")
+		stdout = strings.Join(strs, "\n")
+		document["stdout"] = stdout
+		counter++
+		if counter == 1 {
+			fmt.Println(stdout)
+		}
+		ofile := fmt.Sprintf("%v-explain-%03d.json.gz", filepath.Base(filename), counter)
+		if err = gox.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
+			return err
+		}
+		fmt.Println("* Explain JSON written to", ofile)
 	}
-	var explainSummary ExplainSummary
-	if explainSummary, err = qe.Explain(); err != nil {
-		fmt.Println(err.Error())
-	}
-	strs := []string{}
-	strs = append(strs, qe.GetSummary(explainSummary))
-	strs = append(strs, "=> All Applicable Indexes Scores")
-	strs = append(strs, "=========================================")
-	scores := qe.GetIndexesScores(keys)
-	strs = append(strs, gox.Stringify(scores, "", "  "))
-	strs = append(strs, card.GetSummary(summary)+"\n")
-	document := make(map[string]interface{})
-	document["ns"] = qe.NameSpace
-	document["cardinality"] = summary
-	document["explain"] = explainSummary
-	document["scores"] = scores
-	if len(summary.List) > 0 {
-		recommendedIndex := GetIndexSuggestion(qe.ExplainCmd, summary.List)
-		document["recommendedIndex"] = recommendedIndex
-		strs = append(strs, "Index Suggestion:", gox.Stringify(recommendedIndex))
-	}
-	strs = append(strs, "")
-	stdout := strings.Join(strs, "\n")
-	document["stdout"] = stdout
-	fmt.Println(stdout)
-	ofile := filepath.Base(filename) + "-explain.json.gz"
-	if err = gox.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
-		return err
-	}
-	fmt.Println("Explain JSON and output written to", ofile)
 	return err
 }
 

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"reflect"
 	"regexp"
@@ -40,6 +39,7 @@ type ExplainCommand struct {
 	Filter     bson.D `bson:"filter"`
 	Sort       bson.D `bson:"sort,omitempty"`
 	Hint       bson.D `bson:"hint,omitempty"`
+	Group      string `bson:"group,omitempty"`
 }
 
 type inputStagesLevel struct {
@@ -94,7 +94,11 @@ func (qe *QueryExplainer) GetFilter() bson.D {
 func (qe *QueryExplainer) Explain() (ExplainSummary, error) {
 	var err error
 	var command bson.D
+	o := QueryExplainer{}
 	b, _ := bson.Marshal(qe)
+	bson.Unmarshal(b, &o)
+	o.ExplainCmd.Group = "" // remove group from index evaluation
+	b, _ = bson.Marshal(o)
 	bson.Unmarshal(b, &command)
 	db := strings.Split(qe.NameSpace, ".")[0]
 	if err = qe.client.Database(db).RunCommand(context.Background(), command).Decode(&qe.document); err != nil {
@@ -150,6 +154,7 @@ func (qe *QueryExplainer) GetExplainDetails(doc bson.M) ExplainSummary {
 // GetSummary get summary of explain executionStats
 func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	var buffer bytes.Buffer
+	buffer.WriteString("\n")
 	if summary.ShardName == "" {
 		buffer.WriteString("Cluster: Replica Set\n")
 	} else {
@@ -159,7 +164,7 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	var qshape bson.M
 	bson.Unmarshal(b, &qshape)
 	delete(qshape, "find")
-	buffer.WriteString("Query Shape: " + gox.Stringify(qshape) + "\n")
+	buffer.WriteString("Query Shape:\n" + gox.Stringify(qshape, "", "  ") + "\n")
 	buffer.WriteString("\n=> Execution Stats\n")
 	buffer.WriteString("=========================================\n")
 	buffer.WriteString("Winning Plan:\n")
@@ -178,17 +183,6 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 		}
 	}
 	return buffer.String()
-}
-
-// ReadQueryShapeFromFile parses filter map
-func (qe *QueryExplainer) ReadQueryShapeFromFile(filename string) error {
-	var err error
-	var buffer []byte
-	if buffer, err = ioutil.ReadFile(filename); err != nil {
-		return err
-	}
-	qe.ExplainCmd, qe.NameSpace, err = ReadQueryShape(buffer)
-	return err
 }
 
 func (qe *QueryExplainer) getDocument(depth []string) interface{} {
@@ -337,7 +331,11 @@ func (qe *QueryExplainer) GetIndexesScores(keys []string) []IndexScore {
 	// Execute explain on all indexes
 	for _, index := range indexes {
 		bson.UnmarshalExtJSON([]byte(index), true, &qe.ExplainCmd.Hint)
+		o := QueryExplainer{}
 		b, _ := bson.Marshal(qe)
+		bson.Unmarshal(b, &o)
+		o.ExplainCmd.Group = "" // remove group from index evaluation
+		b, _ = bson.Marshal(o)
 		var cmd bson.D
 		bson.Unmarshal(b, &cmd)
 		filter := cmd.Map()["explain"].(bson.D).Map()["hint"].(bson.D)
@@ -373,7 +371,7 @@ func (qe *QueryExplainer) GetIndexesScores(keys []string) []IndexScore {
 }
 
 // ReadQueryShape parses filter map
-func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
+func (qe *QueryExplainer) ReadQueryShape(buffer []byte) error {
 	var err error
 	var doc bson.D
 	var ns string
@@ -391,7 +389,7 @@ func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
 		ns = doc.Map()["ns"].(string)
 		pos := strings.Index(ns, ".")
 		explainCmd.Collection = ns[pos+1:]
-		return explainCmd, ns, err
+		return err
 	}
 	err = nil
 	// can be a log entry
@@ -399,11 +397,22 @@ func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
 	str := re.ReplaceAllString(string(buffer), "\"$2\":")
 	ml := gox.NewMongoLog(str)
 	filter := ml.Get(`"filter":`)
+	group := ""
 	if filter == "" {
 		filter = ml.Get(`"$match":`)
+		if filter != "" {
+			group = ml.Get(`"$group":`)
+		}
 	}
 	if filter == "" {
 		filter = ml.Get(`"query":`)
+	}
+	if group != "" {
+		d := bson.M{}
+		bson.UnmarshalExtJSON([]byte(group), true, &d)
+		if d["_id"] != "" {
+			explainCmd.Group = d["_id"].(string)[1:]
+		}
 	}
 	re = regexp.MustCompile(`(new Date\(\S+\))`)
 	filter = re.ReplaceAllString(filter, "\"$1\"")
@@ -425,7 +434,9 @@ func ReadQueryShape(buffer []byte) (ExplainCommand, string, error) {
 	ns = strings.Split(xs[i+2:], " ")[1]
 	pos := strings.Index(ns, ".")
 	explainCmd.Collection = ns[pos+1:]
-	return explainCmd, ns, err
+	qe.ExplainCmd = explainCmd
+	qe.NameSpace = ns
+	return err
 }
 
 func getStageStatsSummaryString(stat StageStats, level int) string {

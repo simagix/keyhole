@@ -6,18 +6,16 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/network/connstring"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -104,9 +102,9 @@ func Parse(uri string) (string, error) {
 
 // ReadPasswordFromStdin reads password from stdin
 func ReadPasswordFromStdin() (string, error) {
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-		return "", errors.New("Missing password")
-	}
+	// if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+	// 	return "", errors.New("Missing password")
+	// }
 	var buffer []byte
 	var err error
 	fmt.Print("Enter Password: ")
