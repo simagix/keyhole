@@ -275,13 +275,23 @@ func (li *LogInfo) Parse() error {
 					filter = s
 				}
 			} else if op == "aggregate" || (op == "getmore" && strings.Index(filter, "pipeline:") > 0) {
-				nstr := ""
 				s := ""
 				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
 					s = getDocByField(result[4], mstr)
 					if s != "" {
-						nstr = s
-						filter = nstr
+						filter = s
+						x := strings.Index(result[4], "$group: ")
+						y := strings.Index(result[4], "$sort: ")
+						if x > 0 && (x < y || y < 0) {
+							grp := getDocByField(result[4], "$group: ")
+							if grp != "" {
+								filter += ", group: " + grp
+							}
+						}
+						srt := getDocByField(result[4], "$sort: ")
+						if srt != "" {
+							filter += ", sort: " + strings.ReplaceAll(srt, "1.0", "1")
+						}
 						break
 					}
 				}
@@ -293,15 +303,13 @@ func (li *LogInfo) Parse() error {
 					}
 				}
 			} else if op == "getMore" || op == "getmore" {
-				nstr := ""
 				s := getDocByField(result[4], "originatingCommand: ")
-
 				if s != "" {
+					s = getDocByField(s, "filter: ")
 					for _, mstr := range []string{"filter: ", "pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
 						s = getDocByField(result[4], mstr)
 						if s != "" {
-							nstr = s
-							filter = nstr
+							filter = s
 							break
 						}
 					}
@@ -338,7 +346,6 @@ func (li *LogInfo) Parse() error {
 				}
 				filter = filter[:(isRegex+10)] + "/.../.../" + filter[(isRegex+cnt):]
 			}
-
 			re = regexp.MustCompile(`(: "[^"]*"|: -?\d+(\.\d+)?|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ":1")
 			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
@@ -348,6 +355,7 @@ func (li *LogInfo) Parse() error {
 			re = regexp.MustCompile(`(: \/.*\/(.?) })`)
 			filter = re.ReplaceAllString(filter, ": /regex/$2}")
 			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
+			filter = reorderFilterFields(filter)
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
@@ -403,13 +411,13 @@ func (li *LogInfo) printLogsSummary() string {
 		summaries = append(summaries, "\n")
 	}
 	var buffer bytes.Buffer
-	buffer.WriteString("\r+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
-	buffer.WriteString(fmt.Sprintf("| Command |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
-	buffer.WriteString("|---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
+	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
+	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
+	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
 	for _, value := range li.OpsPatterns {
 		str := value.Filter
-		if len(value.Command) > 13 {
-			value.Command = value.Command[:13]
+		if len(value.Command) > 10 {
+			value.Command = value.Command[:10]
 		}
 		if len(value.Namespace) > 33 {
 			length := len(value.Namespace)
@@ -424,10 +432,10 @@ func (li *LogInfo) printLogsSummary() string {
 		avg := float64(value.TotalMilli) / float64(value.Count)
 		avgstr := MilliToTimeString(avg)
 		if value.Scan == COLLSCAN {
-			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-10s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		} else {
-			output = fmt.Sprintf("|%-9s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-62s|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-10s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-62s|\n", value.Command, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		}
 		buffer.WriteString(output)
@@ -448,21 +456,20 @@ func (li *LogInfo) printLogsSummary() string {
 					}
 				}
 				if value.Scan == COLLSCAN {
-					output = fmt.Sprintf("|%73s   \x1b[31;1m%-62s\x1b[0m|\n", " ", pstr)
+					output = fmt.Sprintf("|%74s   \x1b[31;1m%-62s\x1b[0m|\n", " ", pstr)
 					buffer.WriteString(output)
 				} else {
-					output = fmt.Sprintf("|%73s   %-62s|\n", " ", pstr)
+					output = fmt.Sprintf("|%74s   %-62s|\n", " ", pstr)
 					buffer.WriteString(output)
 				}
-				buffer.WriteString(output)
 			}
 		}
 		if value.Index != "" {
-			output = fmt.Sprintf("|...index: \x1b[32;1m%-128s\x1b[0m|\n", value.Index)
+			output = fmt.Sprintf("|...index:  \x1b[32;1m%-128s\x1b[0m|\n", value.Index)
 			buffer.WriteString(output)
 		}
 	}
-	buffer.WriteString("+---------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
+	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
 	return strings.Join(summaries, "\n")
 }
@@ -526,4 +533,59 @@ func MilliToTimeString(milli float64) string {
 func getDocByField(str string, key string) string {
 	ml := gox.NewMongoLog(str)
 	return ml.Get(key)
+}
+
+func reorderFilterFields(str string) string {
+	filter := str
+	sorting := ""
+	i := strings.Index(str, ", group:")
+	if i > 0 {
+		filter = str[:i]
+		sorting = str[i:]
+	} else if i = strings.Index(str, ", sort:"); i > 0 {
+		filter = str[:i]
+		sorting = str[i:]
+	}
+	filter = filter[1 : len(filter)-1]
+	filter = strings.ReplaceAll(filter, ":", ": ")
+	fields := strings.Fields(filter)
+	mlog := gox.NewMongoLog(str)
+	m := map[string]string{}
+	for _, field := range fields {
+		if strings.HasSuffix(field, ":") == false {
+			continue
+		}
+		field = field[:len(field)-1]
+		if field[0] == ' ' {
+			field = field[1:]
+		}
+		if field[0] == '{' {
+			field = field[1:]
+		}
+		if field[0] == '$' {
+			continue
+		}
+		if v := mlog.Get(field + ":"); v != "" {
+			if strings.Index(field, " ") >= 0 {
+				continue
+			}
+			m[field] = v[2:]
+		}
+	}
+
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+	filter = "{"
+	for i, k := range keys {
+		if i > 0 {
+			filter += ", "
+		}
+		filter += k + ": " + strings.TrimSpace(m[k])
+	}
+	filter += "}"
+	return filter + sorting
 }
