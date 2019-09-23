@@ -188,6 +188,7 @@ func (li *LogInfo) Parse() error {
 		}
 		index++
 		scan := ""
+		aggStages := ""
 		if err != nil {
 			break
 		} else if matched.MatchString(str) == true {
@@ -283,14 +284,11 @@ func (li *LogInfo) Parse() error {
 						x := strings.Index(result[4], "$group: ")
 						y := strings.Index(result[4], "$sort: ")
 						if x > 0 && (x < y || y < 0) {
-							grp := getDocByField(result[4], "$group: ")
-							if grp != "" {
-								filter += ", group: " + grp
-							}
+							aggStages = ", group: " + strings.ReplaceAll(getDocByField(result[4], "$group: "), "1.0", "1")
 						}
 						srt := getDocByField(result[4], "$sort: ")
 						if srt != "" {
-							filter += ", sort: " + strings.ReplaceAll(srt, "1.0", "1")
+							aggStages += ", sort: " + strings.ReplaceAll(srt, "1.0", "1")
 						}
 						break
 					}
@@ -356,6 +354,7 @@ func (li *LogInfo) Parse() error {
 			filter = re.ReplaceAllString(filter, ": /regex/$2}")
 			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 			filter = reorderFilterFields(filter)
+			filter += aggStages
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
@@ -536,20 +535,10 @@ func getDocByField(str string, key string) string {
 }
 
 func reorderFilterFields(str string) string {
-	filter := str
-	sorting := ""
-	i := strings.Index(str, ", group:")
-	if i > 0 {
-		filter = str[:i]
-		sorting = str[i:]
-	} else if i = strings.Index(str, ", sort:"); i > 0 {
-		filter = str[:i]
-		sorting = str[i:]
-	}
-	filter = filter[1 : len(filter)-1]
+	filter := str[1 : len(str)-1]
 	filter = strings.ReplaceAll(filter, ":", ": ")
 	fields := strings.Fields(filter)
-	mlog := gox.NewMongoLog(str)
+	mlog := gox.NewMongoLog(filter)
 	m := map[string]string{}
 	for _, field := range fields {
 		if strings.HasSuffix(field, ":") == false {
@@ -569,7 +558,7 @@ func reorderFilterFields(str string) string {
 			if strings.Index(field, " ") >= 0 {
 				continue
 			}
-			m[field] = v[2:]
+			m[field] = v
 		}
 	}
 
@@ -587,5 +576,5 @@ func reorderFilterFields(str string) string {
 		filter += k + ": " + strings.TrimSpace(m[k])
 	}
 	filter += "}"
-	return filter + sorting
+	return filter
 }
