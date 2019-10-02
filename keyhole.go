@@ -34,6 +34,7 @@ func main() {
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
 	file := flag.String("file", "", "template file for seedibg data")
+	ftdc := flag.String("ftdc", "", "process FTDC and output processed data")
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
@@ -59,9 +60,19 @@ func main() {
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 	var err error
-	if *diag != "" {
-		filenames := append([]string{*diag}, flag.Args()...)
+	if *ftdc != "" {
+		filenames := append([]string{*ftdc}, flag.Args()...)
 		if *webserver == true {
+			anly.SingleJSONServer(filenames)
+		} else {
+			met := anly.NewMetrics(filenames)
+			met.SetOutputOnly(true)
+			met.Read()
+			os.Exit(0)
+		}
+	} else if *diag != "" {
+		filenames := append([]string{*diag}, flag.Args()...)
+		if *webserver == true { // backward compatible
 			anly.SingleJSONServer(filenames)
 		} else {
 			metrics := anly.NewDiagnosticData(*span)
