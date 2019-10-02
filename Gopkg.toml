@@ -12,7 +12,8 @@
   name = "github.com/simagix/mongo-atlas"
 
 [[constraint]]
-  version = "v0.4.0"
+  version = "v0.5.0"
+  #branch = "dev"
   name = "github.com/simagix/mongo-ftdc"
 
 [[override]]
