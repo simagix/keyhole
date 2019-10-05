@@ -169,7 +169,7 @@ func main() {
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
-		mc.SetOutputFilename(connString.Hosts[0] + ".json.gz")
+		mc.SetHost(connString.Hosts[0])
 		if doc, e := mc.GetClusterInfo(); e != nil {
 			log.Fatal(e)
 		} else if *verbose == false {
