@@ -5,6 +5,8 @@ package mdb
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +23,7 @@ type MongoCluster struct {
 	cluster  bson.M
 	verbose  bool
 	filename string
+	logfile  string
 }
 
 // NewMongoCluster server info struct
@@ -33,23 +36,42 @@ func (mc *MongoCluster) SetVerbose(verbose bool) {
 	mc.verbose = verbose
 }
 
-// SetOutputFilename sets output file name
-func (mc *MongoCluster) SetOutputFilename(filename string) {
+// SetFilename sets output file name
+func (mc *MongoCluster) SetFilename(filename string) {
 	mc.filename = strings.Replace(filename, ":", "_", -1)
+}
+
+// SetHost sets hostname from connection string
+func (mc *MongoCluster) SetHost(host string) {
+	hostname := strings.Replace(host, ":", "_", -1)
+	mc.filename = hostname + ".json.gz"
+	mc.logfile = hostname + ".keyhole.log"
 }
 
 // GetClusterInfo -
 func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
+	if mc.logfile != "" {
+		gox.NewFileReader(mc.logfile)
+		f, err := os.OpenFile(mc.logfile, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+	}
+	log.Println("GetClusterInfo(), logs are written to", mc.logfile)
 	var cur *mongo.Cursor
 	var ctx = context.Background()
 	var config = bson.M{}
 
 	mc.cluster = bson.M{"config": config}
 	var info ServerInfo
+	log.Println("GetServerInfo()")
 	if info, err = GetServerInfo(mc.client); err != nil {
 		return nil, err
 	}
+	log.Println("server info:\n", gox.Stringify(info, "", "  "))
 	var val bson.M
 	b, _ := bson.Marshal(info)
 	bson.Unmarshal(b, &val)
@@ -71,7 +93,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		config["hostInfo"] = trimMap(hostInfo)
 	} else {
 		config["hostInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from hostInfo")
 	}
+	log.Println("hostInfo:\n", gox.Stringify(config["hostInfo"], "", "  "))
 
 	// getCmdLineOpts
 	var getCmdLineOpts bson.M
@@ -79,7 +103,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		config["getCmdLineOpts"] = trimMap(getCmdLineOpts)
 	} else {
 		config["getCmdLineOpts"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from getCmdLineOpts")
 	}
+	log.Println("getCmdLineOpts:\n", gox.Stringify(config["getCmdLineOpts"], "", "  "))
 
 	// buildInfo
 	var buildInfo bson.M
@@ -87,7 +113,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		config["buildInfo"] = trimMap(buildInfo)
 	} else {
 		config["buildInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from buildInfo")
 	}
+	log.Println("buildInfo:\n", gox.Stringify(config["buildInfo"], "", "  "))
 
 	// ServerStatus
 	var serverStatus bson.M
@@ -95,7 +123,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		config["serverStatus"] = trimMap(serverStatus)
 	} else {
 		config["serverStatus"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from serverStatus")
 	}
+	log.Println("serverStatus:\n", gox.Stringify(config["serverStatus"], "", "  "))
 
 	// replSetGetStatus
 	if info.Cluster == "replica" {
@@ -104,8 +134,10 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			config["replSetGetStatus"] = trimMap(replSetGetStatus)
 		} else {
 			config["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
+			log.Println("ERROR", err, "from replSetGetStatus")
 		}
 	}
+	log.Println("replSetGetStatus:\n", gox.Stringify(config["replSetGetStatus"], "", "  "))
 
 	// usersInfo
 	var usersInfo bson.M
@@ -113,7 +145,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		config["usersInfo"] = trimMap(usersInfo)
 	} else {
 		config["usersInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from usersInfo")
 	}
+	log.Println("usersInfo:\n", gox.Stringify(config["usersInfo"], "", "  "))
 
 	// rolesInfo
 	var rolesInfo bson.M
@@ -121,16 +155,24 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		config["rolesInfo"] = trimMap(rolesInfo)
 	} else {
 		config["rolesInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from rolesInfo")
 	}
+	log.Println("rolesInfo:\n", gox.Stringify(config["rolesInfo"], "", "  "))
 
 	// collections firstDoc (findOne), indexes, and stats
-	dbNames, _ := ListDatabaseNames(mc.client)
+	dbNames, err := ListDatabaseNames(mc.client)
+	if err != nil {
+		fmt.Println("ERROR", err, "from ListDatabaseNames")
+		return nil, err
+	}
 	var databases = []bson.M{}
 	for _, dbName := range dbNames {
 		if dbName == "admin" || dbName == "config" || dbName == "local" {
+			log.Println("skip", dbName)
 			continue
 		}
 		if cur, err = mc.client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
+			log.Println("ERROR", err, "from ListCollections", dbName)
 			return mc.cluster, err
 		}
 		defer cur.Close(ctx)
@@ -141,11 +183,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		for cur.Next(ctx) {
 			var elem = bson.M{}
 			if err = cur.Decode(&elem); err != nil {
+				log.Println("ERROR", err, "from cur.Decode")
 				continue
 			}
 			coll := fmt.Sprintf("%v", elem["name"])
 			collType := fmt.Sprintf("%v", elem["type"])
 			if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
+				log.Println("ERROR from strings.Index, (collection, type):", coll, collType)
 				continue
 			}
 			collectionNames = append(collectionNames, coll)
@@ -154,11 +198,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		sort.Strings(collectionNames)
 		for _, collectionName := range collectionNames {
 			ns := dbName + "." + collectionName
+			log.Println("ns:", ns)
 			collection := mc.client.Database(dbName).Collection(collectionName)
 
 			// firstDoc, FindOne
 			var firstDoc bson.M
 			if err = collection.FindOne(ctx, bson.D{{}}).Decode(&firstDoc); err != nil {
+				log.Println("ERROR", err, "from", ns)
 				err = nil
 				continue
 			}
@@ -180,14 +226,21 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 					delete(m, "wiredTiger")
 				}
 			}
+			log.Println(gox.Stringify(stats, "", "  "))
 			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
 				"indexes": indexes, "stats": trimMap(stats)})
+			log.Println("collections processed", len(collections))
 		}
 		var stats bson.M
-		stats, _ = RunCommandOnDB(mc.client, "dbStats", dbName)
+		if stats, err = RunCommandOnDB(mc.client, "dbStats", dbName); err != nil {
+			fmt.Println("ERROR", err, "from RunCommandOnDB dbStats", dbName)
+			continue
+		}
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
 	mc.cluster["databases"] = databases
+	log.Println("cluster info")
+	log.Println(gox.Stringify(gox.Stringify(mc.cluster)))
 	if err = gox.OutputGzipped([]byte(gox.Stringify(mc.cluster)), mc.filename); err == nil {
 		fmt.Println("JSON is written to", mc.filename)
 	}
