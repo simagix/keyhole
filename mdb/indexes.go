@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -63,20 +64,34 @@ func (ir *IndexesReader) SetDBName(dbName string) {
 // GetIndexes list all indexes of collections of databases
 func (ir *IndexesReader) GetIndexes() (bson.M, error) {
 	var err error
+	var dbNames []string
 	indexesMap := bson.M{}
 	if ir.dbName != "" {
 		indexesMap[ir.dbName], err = ir.GetIndexesFromDB(ir.dbName)
 		return indexesMap, err
 	}
 
-	dbNames, _ := ListDatabaseNames(ir.client)
+	if dbNames, err = ListDatabaseNames(ir.client); err != nil {
+		return indexesMap, err
+	}
+	cnt := 0
 	for _, name := range dbNames {
 		if name == "admin" || name == "config" || name == "local" {
+			if ir.verbose == true {
+				log.Println("Skip", name)
+			}
 			continue
+		}
+		cnt++
+		if ir.verbose == true {
+			log.Println("checking", name)
 		}
 		if indexesMap[name], err = ir.GetIndexesFromDB(name); err != nil {
 			return indexesMap, err
 		}
+	}
+	if cnt == 0 && ir.verbose == true {
+		log.Println("No database is available")
 	}
 	return indexesMap, err
 }
