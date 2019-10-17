@@ -71,7 +71,7 @@ func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
 	var err error
 	var client *mongo.Client
 	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
-		panic(err)
+		return err
 	}
 	c := client.Database(SimDBName).Collection(CollectionName)
 	btime := time.Now()
@@ -91,7 +91,7 @@ func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
 }
 
 // Simulate simulates CRUD for load tests
-func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int) {
+func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int) error {
 	var err error
 	var client *mongo.Client
 	var ctx = context.Background()
@@ -99,7 +99,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 	var totalTPS int
 
 	if client, err = mdb.NewMongoClient(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-		panic(err)
+		return err
 	}
 	defer client.Disconnect(ctx)
 	c := client.Database(SimDBName).Collection(CollectionName)
@@ -190,4 +190,5 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 	} //for run := 0; run < duration; run++
 
 	c.Drop(ctx)
+	return nil
 }
