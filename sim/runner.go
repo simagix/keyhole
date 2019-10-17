@@ -189,12 +189,16 @@ func (rn *Runner) Start() error {
 			go func(thread int) {
 				if rn.simOnly == false {
 					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-						panic(err)
+						log.Println("Thread", thread, "existing with", err)
+						return
 					}
 					time.Sleep(10 * time.Millisecond)
 				}
 
-				rn.Simulate(simTime, tdoc.Transactions, thread)
+				if err = rn.Simulate(simTime, tdoc.Transactions, thread); err != nil {
+					log.Println("Thread", thread, "existing with", err)
+					return
+				}
 			}(i)
 		}
 	}
@@ -250,6 +254,7 @@ func (rn *Runner) collectAllStatus(uriList []string) {
 
 	for _, uri := range uriList {
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+			log.Println(err)
 			continue
 		}
 		if rn.monitor == false {

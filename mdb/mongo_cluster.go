@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,6 +209,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 				err = nil
 				continue
 			}
+			firstDoc = convertDecimal128ToFloa64(firstDoc)
 
 			// indexes
 			indexes := ir.GetIndexesFromCollection(collection)
@@ -245,6 +247,20 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		fmt.Println("JSON is written to", mc.filename)
 	}
 	return mc.cluster, err
+}
+
+func convertDecimal128ToFloa64(firstDoc bson.M) bson.M {
+	for k, v := range firstDoc {
+		t := reflect.TypeOf(v).String()
+		if t == "primitive.Decimal128" {
+			firstDoc[k], _ = strconv.ParseFloat(v.(primitive.Decimal128).String(), 64)
+		} else if t == "primitive.M" {
+			firstDoc[k] = convertDecimal128ToFloa64(v.(bson.M))
+		} else {
+			// fmt.Println(t)
+		}
+	}
+	return firstDoc
 }
 
 func trimMap(doc bson.M) bson.M {
