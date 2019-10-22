@@ -251,6 +251,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 
 func convertDecimal128ToFloa64(firstDoc bson.M) bson.M {
 	for k, v := range firstDoc {
+		if reflect.TypeOf(v) == nil {
+			continue
+		}
 		t := reflect.TypeOf(v).String()
 		if t == "primitive.Decimal128" {
 			firstDoc[k], _ = strconv.ParseFloat(v.(primitive.Decimal128).String(), 64)
