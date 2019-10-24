@@ -319,13 +319,21 @@ func (li *LogInfo) Parse() error {
 				}
 			}
 			index := getDocByField(str, "planSummary: IXSCAN")
-			if index == "" && strings.Index(str, "planSummary: EOF") >= 0 {
+			if index != "" {
+				index = ""
+				tmp := str
+				i := strings.Index(tmp, " IXSCAN")
+				for i >= 0 {
+					index += getDocByField(tmp, " IXSCAN") + ",\n"
+					tmp = tmp[i+7:]
+					i = strings.Index(tmp, " IXSCAN")
+				}
+				index = index[:len(index)-2]
+			} else if strings.Index(str, "planSummary: EOF") >= 0 {
 				index = "EOF"
-			}
-			if index == "" && strings.Index(str, "planSummary: IDHACK") >= 0 {
+			} else if strings.Index(str, "planSummary: IDHACK") >= 0 {
 				index = "IDHACK"
-			}
-			if scan == "" && strings.Index(str, "planSummary: COUNT_SCAN") >= 0 {
+			} else if strings.Index(str, "planSummary: COUNT_SCAN") >= 0 {
 				index = "COUNT_SCAN"
 			}
 			filter = removeInElements(filter, "$in: [ ")
@@ -344,14 +352,15 @@ func (li *LogInfo) Parse() error {
 				}
 				filter = filter[:(isRegex+10)] + "/.../.../" + filter[(isRegex+cnt):]
 			}
+
 			re = regexp.MustCompile(`(: "[^"]*"|: -?\d+(\.\d+)?|: new Date\(\d+?\)|: true|: false)`)
 			filter = re.ReplaceAllString(filter, ":1")
 			re = regexp.MustCompile(`, shardVersion: \[.*\]`)
 			filter = re.ReplaceAllString(filter, "")
 			re = regexp.MustCompile(`( ObjectId\('\S+'\))|(UUID\("\S+"\))|( Timestamp\(\d+, \d+\))|(BinData\(\d+, \S+\))`)
 			filter = re.ReplaceAllString(filter, "1")
-			re = regexp.MustCompile(`(: \/.*\/(.?) })`)
-			filter = re.ReplaceAllString(filter, ": /regex/$2}")
+			re = regexp.MustCompile(`(: \/(\^)?\S+\/(\S+)? })`)
+			filter = re.ReplaceAllString(filter, ": /${2}regex/$3}")
 			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 			filter = reorderFilterFields(filter)
 			filter += aggStages
@@ -449,9 +458,12 @@ func (li *LogInfo) printLogsSummary() string {
 				} else {
 					str = strings.Trim(remaining[i:epos], " ")
 					idx := strings.LastIndex(str, " ")
-					if idx > 0 {
+					if idx >= 0 {
 						pstr = str[:idx]
 						i -= (60 - idx)
+					} else {
+						pstr = str
+						i -= (60 - len(str))
 					}
 				}
 				if value.Scan == COLLSCAN {
@@ -535,6 +547,9 @@ func getDocByField(str string, key string) string {
 }
 
 func reorderFilterFields(str string) string {
+	if strings.Index(str, "$and:") > 0 { // not able to parse it yet
+		return str
+	}
 	filter := str[1 : len(str)-1]
 	filter = strings.ReplaceAll(filter, ":", ": ")
 	fields := strings.Fields(filter)
@@ -551,7 +566,7 @@ func reorderFilterFields(str string) string {
 		if field[0] == '{' {
 			field = field[1:]
 		}
-		if field[0] == '$' {
+		if field[0] == '$' || field[0] == '/' {
 			continue
 		}
 		if v := mlog.Get(field + ":"); v != "" {
