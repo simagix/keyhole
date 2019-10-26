@@ -418,6 +418,8 @@ func (qe *QueryExplainer) ReadQueryShape(buffer []byte) error {
 	filter = re.ReplaceAllString(filter, "\"$1\"")
 	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)
 	filter = re.ReplaceAllString(filter, "ObjectId('$1')")
+	re = regexp.MustCompile(`\/(\S+)\/(\S+)?`)
+	filter = re.ReplaceAllString(filter, "{ \"$$regex\": \"$1\", \"$$options\": \"$2\" }")
 	var f bson.M
 	json.Unmarshal([]byte(filter), &f)
 	d := gox.NewMapWalker(convert)
