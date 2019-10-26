@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -35,13 +34,9 @@ func (e *Explain) SetVerbose(verbose bool) {
 // ExecuteAllPlans calls queryPlanner and cardinality
 func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 	var err error
-	var file *os.File
 	var reader *bufio.Reader
 
-	if file, err = os.Open(filename); err != nil {
-		return err
-	}
-	if reader, err = gox.NewReader(file); err != nil {
+	if reader, err = gox.NewFileReader(filename); err != nil {
 		return err
 	}
 	qe := NewQueryExplainer(client)
@@ -110,13 +105,9 @@ func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 func (e *Explain) PrintExplainResults(filename string) error {
 	var err error
 	var data []byte
-	var file *os.File
 	var reader *bufio.Reader
 
-	if file, err = os.Open(filename); err != nil {
-		return err
-	}
-	if reader, err = gox.NewReader(file); err != nil {
+	if reader, err = gox.NewFileReader(filename); err != nil {
 		return err
 	}
 	if data, err = ioutil.ReadAll(reader); err != nil {
