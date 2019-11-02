@@ -4,6 +4,7 @@ package util
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -43,6 +44,16 @@ func TestGetMagicString(t *testing.T) {
 	email := getMagicString("ken.chen@simagix.com", false)
 	if isEmailAddress(email) == false {
 		t.Fatal(email)
+	}
+
+	sn := getMagicString("Az0-1234-5678-9", true)
+	if sn[0] > 90 || sn[1] > 122 || sn[2] > 57 || sn[3:4] != "-" {
+		t.Fatal(sn)
+	}
+
+	uri := getMagicString("https://localhost:8080", true)
+	if strings.HasPrefix(uri, "https://") == false {
+		t.Fatal(uri)
 	}
 }
 

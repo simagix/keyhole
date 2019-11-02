@@ -29,7 +29,8 @@ type MongoCluster struct {
 
 // NewMongoCluster server info struct
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
-	return &MongoCluster{client: client}
+	hostname, _ := os.Hostname()
+	return &MongoCluster{client: client, filename: hostname + ".json.gz", logfile: hostname + ".keyhole.log"}
 }
 
 // SetVerbose -
@@ -52,15 +53,12 @@ func (mc *MongoCluster) SetHost(host string) {
 // GetClusterInfo -
 func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
-	if mc.logfile != "" {
-		gox.NewFileReader(mc.logfile)
-		f, err := os.OpenFile(mc.logfile, os.O_RDWR|os.O_CREATE, 0644)
-		if err != nil {
-			log.Fatalf("error opening file: %v", err)
-		}
-		defer f.Close()
-		log.SetOutput(f)
+	f, err := os.OpenFile(mc.logfile, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
 	}
+	defer f.Close()
+	log.SetOutput(f)
 	log.Println("GetClusterInfo(), logs are written to", mc.logfile)
 	var cur *mongo.Cursor
 	var ctx = context.Background()
@@ -167,7 +165,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		return nil, err
 	}
 	var databases = []bson.M{}
-	for _, dbName := range dbNames {
+	total := len(dbNames)
+	for i, dbName := range dbNames {
+		fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*i)/total)
 		if dbName == "admin" || dbName == "config" || dbName == "local" {
 			log.Println("skip", dbName)
 			continue
@@ -240,6 +240,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		}
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
+	fmt.Fprintf(os.Stderr, "\r     \r")
 	mc.cluster["databases"] = databases
 	log.Println("cluster info")
 	log.Println(gox.Stringify(gox.Stringify(mc.cluster)))
