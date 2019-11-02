@@ -254,7 +254,7 @@ func (li *LogInfo) Parse() error {
 				}
 				s = getDocByField(filter, "sort: ")
 				if s != "" {
-					nstr = nstr + ", sort: " + s
+					aggStages = ", sort: " + s
 				}
 				filter = nstr
 			} else if op == "count" || op == "distinct" {

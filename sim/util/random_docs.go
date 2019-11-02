@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -147,46 +148,53 @@ const metaOID = "$oId"
 // Returns randomized string.  if meta is true, it intends to avoid future regex
 // actions by replacing the values with $email, $ip, and $date.
 func getMagicString(str string, meta bool) string {
-	if len(str) <= 3 {
-		return "ATL"[:len(str)]
-	}
 	if meta == true {
 		if str == metaEmail || isEmailAddress(str) {
 			return metaEmail
 		} else if str == metaIP || isIP(str) {
 			return metaIP
-		} else if str == metaSSN || isSSN(str) {
-			return metaSSN
-		} else if str == metaTEL || isPhoneNumber(str) {
-			return metaTEL
+			// } else if str == metaSSN || isSSN(str) {
+			// 	return metaSSN
+			// } else if str == metaTEL || isPhoneNumber(str) {
+			// 	return metaTEL
 		} else if str == metaDate || isDateString(str) {
 			return metaDate
 		} else if str == metaOID || (len(str) == 24 && isHexString(str)) {
 			return metaOID
 		}
-		// hash string
-		r := []rune(str)
-		for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+2, j-2 {
-			r[i], r[j] = r[j], r[i]
-		}
-		return string(r)
-	}
-
-	if str == metaEmail || isEmailAddress(str) {
-		return GetEmailAddress()
 	} else if str == metaIP || isIP(str) {
 		return getIP()
-	} else if str == metaSSN || isSSN(str) {
-		return getSSN()
-	} else if str == metaTEL || isPhoneNumber(str) {
-		return getPhoneNumber()
+	} else if str == metaEmail || isEmailAddress(str) {
+		return GetEmailAddress()
+		// } else if str == metaSSN || isSSN(str) {
+		// 	return getSSN()
+		// } else if str == metaTEL || isPhoneNumber(str) {
+		// 	return getPhoneNumber()
 		// } else if isHexString(str) {
 		// 	return getHexString(len(str))
+	} else if strings.HasPrefix(str, "$") { // could be a variable
+		return str
 	}
-
-	// rotate string
-	p := rand.Intn(len(str))
-	return str[p:] + str[:p]
+	hdr := ""
+	if n := strings.Index(str, "://"); n > 0 {
+		hdr = str[:n+3]
+	}
+	b := make([]byte, len(str))
+	for i, c := range str {
+		x := rand.Int()
+		if i < len(hdr) {
+			b[i] = byte(c)
+		} else if c >= 48 && c <= 57 { // digits
+			b[i] = byte(x%10 + 48)
+		} else if c >= 65 && c <= 90 { // A-Z
+			b[i] = byte(x%26 + 65)
+		} else if c >= 97 && c <= 122 { // a-z
+			b[i] = byte(x%26 + 97)
+		} else {
+			b[i] = byte(c)
+		}
+	}
+	return string(b)
 }
 
 func isEmailAddress(str string) bool {
