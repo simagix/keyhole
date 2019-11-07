@@ -560,6 +560,9 @@ func reorderFilterFields(str string) string {
 			continue
 		}
 		field = field[:len(field)-1]
+		if len(field) < 1 {
+			continue
+		}
 		if field[0] == ' ' {
 			field = field[1:]
 		}
