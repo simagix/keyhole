@@ -187,7 +187,7 @@ func (rn *Runner) Start() error {
 		}
 		for i := 0; i < rn.conns; i++ {
 			go func(thread int) {
-				if rn.simOnly == false {
+				if rn.simOnly == false && rn.duration > 0 {
 					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 						log.Println("Thread", thread, "existing with", err)
 						return
@@ -338,5 +338,6 @@ func (rn *Runner) Cleanup() error {
 	if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
 		log.Println(err)
 	}
+	time.Sleep(1 * time.Second)
 	return err
 }
