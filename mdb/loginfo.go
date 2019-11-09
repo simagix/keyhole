@@ -254,7 +254,7 @@ func (li *LogInfo) Parse() error {
 				}
 				s = getDocByField(filter, "sort: ")
 				if s != "" {
-					nstr = nstr + ", sort: " + s
+					aggStages = ", sort: " + s
 				}
 				filter = nstr
 			} else if op == "count" || op == "distinct" {
@@ -560,6 +560,9 @@ func reorderFilterFields(str string) string {
 			continue
 		}
 		field = field[:len(field)-1]
+		if len(field) < 1 {
+			continue
+		}
 		if field[0] == ' ' {
 			field = field[1:]
 		}

@@ -38,10 +38,13 @@ func (rn *Runner) CollectServerStatus(uri string, channel chan string) {
 	var stat = serverStatusDoc{}
 	var iop int
 	var piop int
-	var wSeconds = 10
 	var r, w, c float64
+	span := 10 // defailt collects every 10 Seconds
+	if rn.peek == true {
+		span = 2
+	}
 	if rn.verbose {
-		rstr := fmt.Sprintf("CollectServerStatus collects every %d seconds(s)\n", wSeconds)
+		rstr := fmt.Sprintf("CollectServerStatus collects every %d seconds(s)\n", span)
 		channel <- rstr
 	}
 
@@ -113,7 +116,7 @@ func (rn *Runner) CollectServerStatus(uri string, channel chan string) {
 			}
 			piop = iop
 		}
-		time.Sleep(time.Duration(wSeconds) * time.Second)
+		time.Sleep(time.Duration(span) * time.Second)
 		client.Disconnect(ctx)
 	}
 }
@@ -125,6 +128,10 @@ func (rn *Runner) ReplSetGetStatus(uri string, channel chan string) {
 	var ctx = context.Background()
 	var replSetStatus = replSetStatusDoc{}
 	var doc bson.M
+	span := 60 // defailt collects every 60 Seconds
+	if rn.peek == true {
+		span = 2
+	}
 	connStr, _ := connstring.Parse(uri)
 	mapKey := connStr.ReplicaSet
 	if mapKey == "" {
@@ -141,36 +148,35 @@ func (rn *Runner) ReplSetGetStatus(uri string, channel chan string) {
 
 	for {
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-			panic(err)
+			channel <- err.Error()
+			break
 		}
+		doc, err = mdb.RunAdminCommand(client, "replSetGetStatus")
 		if err == nil {
-			doc, err = mdb.RunAdminCommand(client, "replSetGetStatus")
-			if err == nil {
-				buf, _ := bson.Marshal(doc)
-				bson.Unmarshal(buf, &replSetStatus)
-				replSetStatusDocs[uri] = append(replSetStatusDocs[uri], replSetStatus)
+			buf, _ := bson.Marshal(doc)
+			bson.Unmarshal(buf, &replSetStatus)
+			replSetStatusDocs[uri] = append(replSetStatusDocs[uri], replSetStatus)
 
-				if rn.monitor == false {
-					sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
-					var ts int64
-					for _, mb := range replSetStatus.Members {
-						if mb.State == 1 {
-							ts = mdb.GetOptime(mb.Optime)
-							break
-						}
+			if rn.monitor == false {
+				sort.Slice(replSetStatus.Members, func(i, j int) bool { return replSetStatus.Members[i].Name < replSetStatus.Members[j].Name })
+				var ts int64
+				for _, mb := range replSetStatus.Members {
+					if mb.State == 1 {
+						ts = anly.GetOptime(mb.Optime)
+						break
 					}
-
-					str := fmt.Sprintf("[%s] replication lags: ", mapKey)
-					for _, mb := range replSetStatus.Members {
-						if mb.State == 2 {
-							str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-mdb.GetOptime(mb.Optime)))
-						}
-					}
-					channel <- str
 				}
+
+				str := fmt.Sprintf("[%s] replication lags: ", mapKey)
+				for _, mb := range replSetStatus.Members {
+					if mb.State == 2 {
+						str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-anly.GetOptime(mb.Optime)))
+					}
+				}
+				channel <- str
 			}
 		}
-		time.Sleep(time.Duration(60) * time.Second)
+		time.Sleep(time.Duration(span) * time.Second)
 		client.Disconnect(ctx)
 	}
 }
