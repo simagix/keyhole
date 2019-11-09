@@ -135,11 +135,11 @@ func (rn *Runner) Start() error {
 	if uriList, err = mdb.GetShardsURIList(rn.client, rn.uri); err != nil {
 		return err
 	}
-	ctx := context.Background()
-	log.Println("Duration in minute(s):", rn.duration)
 	rn.terminationHandler(uriList)
 
 	if rn.peek == false && rn.monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
+		ctx := context.Background()
+		log.Println("Duration in minute(s):", rn.duration)
 		if rn.drop {
 			rn.Cleanup()
 		}
@@ -187,7 +187,7 @@ func (rn *Runner) Start() error {
 		}
 		for i := 0; i < rn.conns; i++ {
 			go func(thread int) {
-				if rn.simOnly == false {
+				if rn.simOnly == false && rn.duration > 0 {
 					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 						log.Println("Thread", thread, "existing with", err)
 						return
@@ -202,7 +202,6 @@ func (rn *Runner) Start() error {
 			}(i)
 		}
 	}
-
 	rn.collectAllStatus(uriList)
 	return err
 }
@@ -338,5 +337,6 @@ func (rn *Runner) Cleanup() error {
 	if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
 		log.Println(err)
 	}
+	time.Sleep(1 * time.Second)
 	return err
 }
