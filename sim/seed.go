@@ -92,14 +92,11 @@ func (f *Feeder) SetTotal(total int) {
 // SeedData seeds all demo data
 func (f *Feeder) SeedData(client *mongo.Client) error {
 	if f.file == "" {
-		f.SeedAllDemoData(client)
-		return nil
-	} else {
-		if f.collection == "" {
-			return errors.New("usage: keyhole --uri connection_uri --seed [--file filename --collection collection_name]")
-		}
-		return f.seedFromTemplate(client)
+		return f.SeedAllDemoData(client)
+	} else if f.collection == "" {
+		return errors.New("usage: keyhole --uri connection_uri --seed [--file filename --collection collection_name]")
 	}
+	return f.seedFromTemplate(client)
 }
 
 // SeedAllDemoData - seed data for demo
@@ -117,21 +114,36 @@ func (f *Feeder) SeedData(client *mongo.Client) error {
 //   "batteryPct": float,
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
-func (f *Feeder) SeedAllDemoData(client *mongo.Client) {
-	f.SeedFavorites(client)
-	f.seedRobots(client)
-	f.seedNumbers(client)
-	f.SeedCars(client)
+func (f *Feeder) SeedAllDemoData(client *mongo.Client) error {
+	var err error
+	if err = f.SeedFavorites(client); err != nil {
+		return err
+	}
+	if err = f.seedRobots(client); err != nil {
+		return err
+	}
+	if err = f.seedNumbers(client); err != nil {
+		return err
+	}
+	if err = f.SeedCars(client); err != nil {
+		return err
+	}
+	return err
 }
 
 // SeedFavorites seeds demo data of collection favorites
-func (f *Feeder) SeedFavorites(client *mongo.Client) {
+func (f *Feeder) SeedFavorites(client *mongo.Client) error {
+	var err error
 	var ctx = context.Background()
 	c := client.Database(f.database).Collection("lookups")
 	favoritesCollection := client.Database(f.database).Collection("favorites")
 	if f.isDrop {
-		c.Drop(ctx)
-		favoritesCollection.Drop(ctx)
+		if err = c.Drop(ctx); err != nil {
+			return err
+		}
+		if err = favoritesCollection.Drop(ctx); err != nil {
+			return err
+		}
 	}
 
 	for i := 0; i < 10; i++ {
@@ -143,9 +155,10 @@ func (f *Feeder) SeedFavorites(client *mongo.Client) {
 	}
 	favoritesCount := f.seedCollection(favoritesCollection, 2)
 	fmt.Printf("Seeded favorites: %d\n", favoritesCount)
+	return err
 }
 
-func (f *Feeder) seedRobots(client *mongo.Client) {
+func (f *Feeder) seedRobots(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	modelsCollection := client.Database(f.database).Collection("models")
@@ -177,9 +190,10 @@ func (f *Feeder) seedRobots(client *mongo.Client) {
 	modelsCount, _ := modelsCollection.CountDocuments(ctx, bson.M{})
 	robotsCount, _ := robotsCollection.CountDocuments(ctx, bson.M{})
 	fmt.Printf("Seeded models: %d, robots: %d\n", modelsCount, robotsCount)
+	return err
 }
 
-func (f *Feeder) seedNumbers(client *mongo.Client) {
+func (f *Feeder) seedNumbers(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	numbersCollection := client.Database(f.database).Collection("numbers")
@@ -215,10 +229,12 @@ func (f *Feeder) seedNumbers(client *mongo.Client) {
 
 	numbersCount, _ := numbersCollection.CountDocuments(ctx, bson.M{})
 	fmt.Printf("Seeded numbers: %d\n", numbersCount)
+	return err
 }
 
 // SeedCars seeds cars collection
-func (f *Feeder) SeedCars(client *mongo.Client) {
+func (f *Feeder) SeedCars(client *mongo.Client) error {
+	var err error
 	var ctx = context.Background()
 	carsCollection := client.Database(f.database).Collection("cars")
 	dealersCollection := client.Database(f.database).Collection("dealers")
@@ -274,6 +290,7 @@ func (f *Feeder) SeedCars(client *mongo.Client) {
 	dealersCount, _ := dealersCollection.CountDocuments(ctx, bson.M{})
 	carsCount := f.seedCollection(carsCollection, 1)
 	fmt.Printf("Seeded cars: %d, dealers: %d\n", carsCount, dealersCount)
+	return err
 }
 
 var dealers = []string{"Atlanta Auto", "Buckhead Auto", "Johns Creek Auto"}
