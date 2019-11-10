@@ -38,7 +38,6 @@ func main() {
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
-	monitor := flag.Bool("monitor", false, "collects server status every 10 seconds")
 	peek := flag.Bool("peek", false, "only collect stats")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	schema := flag.Bool("schema", false, "print schema")
@@ -240,8 +239,7 @@ func main() {
 	runner.SetTPS(*tps)
 	runner.SetTemplateFilename(*file)
 	runner.SetVerbose(*verbose)
-	runner.SetPeekMode(*peek)
-	runner.SetMonitorMode(*monitor)
+	runner.SetPeekingMode(*peek)
 	runner.SetSimulationDuration(*duration)
 	runner.SetDropFirstMode(*drop)
 	runner.SetNumberConnections(*conn)
@@ -250,4 +248,5 @@ func main() {
 	if err = runner.Start(); err != nil {
 		log.Fatal(err)
 	}
+	runner.CollectAllStatus()
 }

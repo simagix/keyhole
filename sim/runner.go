@@ -28,6 +28,7 @@ var CollectionName = "examples"
 // Runner -
 type Runner struct {
 	uri           string
+	uriList       []string
 	sslCAFile     string
 	sslPEMKeyFile string
 	connString    connstring.ConnString
@@ -36,13 +37,13 @@ type Runner struct {
 	filename      string
 	verbose       bool
 	peek          bool
-	monitor       bool
 	duration      int
 	cleanup       bool
 	drop          bool
 	conns         int
 	txFilename    string
 	simOnly       bool
+	channel       chan string
 }
 
 var ssi mdb.ServerInfo
@@ -73,7 +74,7 @@ func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string) (*Runner, err
 		return &runner, err
 	}
 	runner = Runner{uri: uri, sslCAFile: sslCAFile, sslPEMKeyFile: sslPEMKeyFile,
-		cleanup: true, connString: connString, client: client}
+		cleanup: true, connString: connString, client: client, channel: make(chan string)}
 	runner.initSimDocs()
 	return &runner, err
 }
@@ -93,14 +94,15 @@ func (rn *Runner) SetVerbose(verbose bool) {
 	rn.verbose = verbose
 }
 
-// SetPeekMode -
-func (rn *Runner) SetPeekMode(mode bool) {
+// SetPeekingMode -
+func (rn *Runner) SetPeekingMode(mode bool) {
 	rn.peek = mode
-}
-
-// SetMonitorMode -
-func (rn *Runner) SetMonitorMode(mode bool) {
-	rn.monitor = mode
+	if rn.peek == true {
+		go func() {
+			time.Sleep(time.Minute)
+			rn.terminate()
+		}()
+	}
 }
 
 // SetSimulationDuration -
@@ -131,102 +133,94 @@ func (rn *Runner) SetSimOnlyMode(mode bool) {
 // Start process requests
 func (rn *Runner) Start() error {
 	var err error
-	var uriList []string
-	if uriList, err = mdb.GetShardsURIList(rn.client, rn.uri); err != nil {
+	ctx := context.Background()
+	if rn.peek == true {
+		return nil
+	}
+	log.Println("Duration in minute(s):", rn.duration)
+	if rn.drop {
+		rn.Cleanup()
+	}
+
+	var ssi mdb.ServerInfo
+	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
 		return err
 	}
-	ctx := context.Background()
-	log.Println("Duration in minute(s):", rn.duration)
-	rn.terminationHandler(uriList)
 
-	if rn.peek == false && rn.monitor == false { // keep --peek in case we need to hook to secondaries during load tests.
-		if rn.drop {
-			rn.Cleanup()
-		}
+	if ssi.Cluster == mdb.SHARDED {
+		collname := SimDBName + "." + CollectionName
+		log.Println("Sharding collection:", collname)
+		result := bson.M{}
 
-		var ssi mdb.ServerInfo
-		if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
+		if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "enableSharding", Value: SimDBName}}).Decode(&result); err != nil {
 			return err
 		}
 
-		if ssi.Cluster == mdb.SHARDED {
-			collname := SimDBName + "." + CollectionName
-			log.Println("Sharding collection:", collname)
-			result := bson.M{}
-
-			if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "enableSharding", Value: SimDBName}}).Decode(&result); err != nil {
-				return err
-			}
-
-			indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
-			idx := mongo.IndexModel{
-				Keys: bson.D{{Key: "_id", Value: "hashed"}},
-			}
-			if _, err = indexView.CreateOne(ctx, idx); err != nil {
-				return err
-			}
-
-			if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}).Decode(&result); err != nil {
-				return err
-			}
+		indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
+		idx := mongo.IndexModel{
+			Keys: bson.D{{Key: "_id", Value: "hashed"}},
+		}
+		if _, err = indexView.CreateOne(ctx, idx); err != nil {
+			return err
 		}
 
-		// Simulation mode
-		// 1st minute - build up data and memory
-		// 2nd and 3rd minutes - normal TPS ops
-		// remaining minutes - burst with no delay
-		// last minute - normal TPS ops until exit
-		log.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins)\n",
-			rn.tps, rn.conns, rn.tps*rn.conns, rn.duration)
-
-		tdoc := GetTransactions(rn.txFilename)
-		rn.CreateIndexes(tdoc.Indexes)
-		simTime := rn.duration
-		if rn.simOnly == false {
-			simTime--
-		}
-		for i := 0; i < rn.conns; i++ {
-			go func(thread int) {
-				if rn.simOnly == false && rn.duration > 0 {
-					if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
-						log.Println("Thread", thread, "existing with", err)
-						return
-					}
-					time.Sleep(10 * time.Millisecond)
-				}
-
-				if err = rn.Simulate(simTime, tdoc.Transactions, thread); err != nil {
-					log.Println("Thread", thread, "existing with", err)
-					return
-				}
-			}(i)
+		if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}).Decode(&result); err != nil {
+			return err
 		}
 	}
 
-	rn.collectAllStatus(uriList)
+	// Simulation mode
+	// 1st minute - build up data and memory
+	// 2nd and 3rd minutes - normal TPS ops
+	// remaining minutes - burst with no delay
+	// last minute - normal TPS ops until exit
+	log.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins)\n",
+		rn.tps, rn.conns, rn.tps*rn.conns, rn.duration)
+
+	tdoc := GetTransactions(rn.txFilename)
+	rn.createIndexes(tdoc.Indexes)
+	simTime := rn.duration
+	if rn.simOnly == false {
+		simTime--
+	}
+	for i := 0; i < rn.conns; i++ {
+		go func(thread int) {
+			if rn.simOnly == false && rn.duration > 0 {
+				if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+					log.Println("Thread", thread, "existing with", err)
+					return
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			if err = rn.Simulate(simTime, tdoc.Transactions, thread); err != nil {
+				log.Println("Thread", thread, "existing with", err)
+				return
+			}
+		}(i)
+	}
 	return err
 }
 
-func (rn *Runner) terminationHandler(uriList []string) {
+func (rn *Runner) addTerminationHandler() {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	timer := time.NewTimer(time.Duration(rn.duration) * time.Minute)
 
-	go func(uriList []string) {
+	go func() {
 		for {
 			select {
 			case <-quit:
-				rn.terminate(uriList)
+				rn.terminate()
 			case <-timer.C:
-				if rn.monitor == false {
-					rn.terminate(uriList)
-				}
+				rn.terminate()
 			}
 		}
-	}(uriList)
+	}()
 }
 
-func (rn *Runner) terminate(uriList []string) {
+func (rn *Runner) terminate() {
+	var client *mongo.Client
 	var filenames []string
 	var filename string
 	var err error
@@ -234,8 +228,14 @@ func (rn *Runner) terminate(uriList []string) {
 	if rn.cleanup {
 		rn.Cleanup()
 	}
-	for _, uri := range uriList {
-		if filename, err = rn.PrintServerStatus(uri, 60); err != nil {
+	for _, uri := range rn.uriList {
+		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+			log.Println(err)
+			continue
+		}
+		stats := NewServerStats(uri, rn.channel)
+		stats.SetVerbose(rn.verbose)
+		if filename, err = stats.printServerStatus(client, 60); err != nil {
 			log.Println(err)
 			continue
 		}
@@ -247,37 +247,41 @@ func (rn *Runner) terminate(uriList []string) {
 	os.Exit(0)
 }
 
-func (rn *Runner) collectAllStatus(uriList []string) {
-	var channel = make(chan string)
+// CollectAllStatus collects all server stats
+func (rn *Runner) CollectAllStatus() error {
 	var err error
 	var client *mongo.Client
-
-	for _, uri := range uriList {
+	if rn.uriList, err = mdb.GetShardsURIList(rn.client, rn.uri); err != nil {
+		return err
+	}
+	rn.addTerminationHandler()
+	for _, uri := range rn.uriList {
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			log.Println(err)
 			continue
 		}
-		if rn.monitor == false {
-			if rn.peek == true { // peek mode watch a defined db
-				go rn.CollectDBStats(client, channel, rn.connString.Database, uri)
-			} else if rn.simOnly == false { // load test mode watches _KEYHOLE_88000
-				go rn.CollectDBStats(client, channel, SimDBName, uri)
-			}
+		stats := NewServerStats(uri, rn.channel)
+		stats.SetVerbose(rn.verbose)
+		stats.SetPeekingMode(rn.peek)
+		if rn.peek { // peek mode watch a defined db
+			go stats.getDBStats(client, rn.connString.Database)
+		} else { // load test mode watches _KEYHOLE_88000
+			go stats.getDBStats(client, SimDBName)
 		}
-		go rn.ReplSetGetStatus(uri, channel)
-		go rn.CollectServerStatus(uri, channel)
+		go stats.getReplSetGetStatus(client)
+		go stats.getServerStatus(client)
+		go stats.getMongoConfig(client)
 	}
-
 	// infinite loop waits for goroutine to send messages back
 	for {
-		msg := <-channel
+		msg := <-rn.channel
 		log.Print(msg)
-		time.Sleep(time.Second * 1)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
 // CreateIndexes creates indexes
-func (rn *Runner) CreateIndexes(docs []bson.M) error {
+func (rn *Runner) createIndexes(docs []bson.M) error {
 	var err error
 	var ctx = context.Background()
 	c := rn.client.Database(SimDBName).Collection(CollectionName)
@@ -329,14 +333,16 @@ func (rn *Runner) CreateIndexes(docs []bson.M) error {
 // Cleanup drops the temp database
 func (rn *Runner) Cleanup() error {
 	var err error
-	ctx := context.Background()
-	log.Println("dropping collection", SimDBName, CollectionName)
-	if err = rn.client.Database(SimDBName).Collection(CollectionName).Drop(ctx); err != nil {
-		log.Println(err)
-	}
-	log.Println("dropping database", SimDBName)
-	if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
-		log.Println(err)
+	if rn.peek == false {
+		ctx := context.Background()
+		log.Println("dropping collection", SimDBName, CollectionName)
+		if err = rn.client.Database(SimDBName).Collection(CollectionName).Drop(ctx); err != nil {
+			log.Println(err)
+		}
+		log.Println("dropping database", SimDBName)
+		if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
+			log.Println(err)
+		}
 	}
 	time.Sleep(1 * time.Second)
 	return err
