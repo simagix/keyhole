@@ -86,6 +86,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["sharding"] = info.Sharding
 	mc.cluster["storage"] = info.StorageSize
 	mc.cluster["version"] = info.Version
+
 	// hostInfo
 	var hostInfo bson.M
 	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err == nil {
@@ -128,6 +129,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 
 	// replSetGetStatus
 	if info.Cluster == "replica" {
+		config["oplog"] = info.Repl["oplog"]
 		var replSetGetStatus bson.M
 		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
 			config["replSetGetStatus"] = trimMap(replSetGetStatus)
