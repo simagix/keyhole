@@ -52,6 +52,7 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 		serverInfo.Cluster = SHARDED
 	} else if serverInfo.Repl != nil {
 		serverInfo.Cluster = REPLICA
+		serverInfo.Repl["oplog"] = GetOplogStats(client)
 	} else {
 		serverInfo.Cluster = STANDALONE
 	}
