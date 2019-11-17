@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/simagix/gox"
+	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -25,6 +26,7 @@ type MongoCluster struct {
 	verbose  bool
 	filename string
 	logfile  string
+	doodle   bool
 }
 
 // NewMongoCluster server info struct
@@ -48,6 +50,11 @@ func (mc *MongoCluster) SetHost(host string) {
 	hostname := strings.Replace(host, ":", "_", -1)
 	mc.filename = hostname + ".json.gz"
 	mc.logfile = hostname + ".keyhole.log"
+}
+
+// SetDoodleMode sets doodle
+func (mc *MongoCluster) SetDoodleMode(doodle bool) {
+	mc.doodle = doodle
 }
 
 // GetClusterInfo -
@@ -86,6 +93,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["sharding"] = info.Sharding
 	mc.cluster["storage"] = info.StorageSize
 	mc.cluster["version"] = info.Version
+
 	// hostInfo
 	var hostInfo bson.M
 	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err == nil {
@@ -128,6 +136,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 
 	// replSetGetStatus
 	if info.Cluster == "replica" {
+		config["oplog"] = info.Repl["oplog"]
 		var replSetGetStatus bson.M
 		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
 			config["replSetGetStatus"] = trimMap(replSetGetStatus)
@@ -210,6 +219,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 				continue
 			}
 			firstDoc = convertDecimal128ToFloa64(firstDoc)
+			if mc.doodle == true {
+				if cdoc, err := util.GetRandomizedDoc([]byte(gox.Stringify(firstDoc)), false); err == nil {
+					firstDoc = cdoc
+				} else {
+					log.Println(err)
+				}
+			}
 
 			// indexes
 			indexes := ir.GetIndexesFromCollection(collection)

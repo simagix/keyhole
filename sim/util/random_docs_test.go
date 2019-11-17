@@ -11,6 +11,24 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+func TestGetRandomizedDoc(t *testing.T) {
+	var err error
+	var doc bson.M
+	buf := []byte(`{"_id":"5d5eb4860560b066bd58127b","active":false,"array1":[6871,753,290],"array2":["leittl","ceut","glir"],"array3":[{"city1":"keo YwrN","city2":"altAatn","city3":"mMiia"},{"city1":"Cohacig","city2":"allaDs","city3":"uoHnots"}],"email":"Logan.R.Arthur@gmail.com","hex":"4132cbda","hostIP":"ATL","lastUpdated":"2019-10-16T21:04:30-04:00","longString":"etuingcvulYe. uoa  an rss rnh oials  aieTshmsnid enftyea ","number":619,"objectId":"5d5eb4860560b066bd58127a","phoneNumber":"(439) 555-8590","shortString":"atnaltA","ssn":"229-58-5408","subdocs":{"attribute1":{"email":"Ava.O.Smith@simagix.com"}}}`)
+
+	if doc, err = GetRandomizedDoc(buf, false); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(doc)
+
+	buf = []byte(`{"_id": Number(123), "xyz": NumberDecimal("456")}`)
+
+	if doc, err = GetRandomizedDoc(buf, false); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(doc)
+}
+
 func TestGetDocByTemplate(t *testing.T) {
 	var err error
 	var doc bson.M

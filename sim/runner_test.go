@@ -63,7 +63,7 @@ type Runner struct {
 func TestCreateIndexes(t *testing.T) {
 	var docs = []bson.M{bson.M{"email": 1, "hostIp": 1}}
 	runner, _ := NewRunner(UnitTestURL, "", "")
-	if err := runner.CreateIndexes(docs); err != nil {
+	if err := runner.createIndexes(docs); err != nil {
 		t.Fatal(err)
 	}
 }

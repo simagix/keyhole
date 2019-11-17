@@ -43,7 +43,7 @@ func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
 	str = re.ReplaceAllString(str, "{\"$$numberInt\": $1}")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
 	str = re.ReplaceAllString(str, "\"$$date\"")
-	re = regexp.MustCompile(`Number\S+\((\d+)\)`)
+	re = regexp.MustCompile(`Number\("?(\d+)"?\)`)
 	str = re.ReplaceAllString(str, "$1")
 	re = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
 	str = re.ReplaceAllString(str, "\"$$email\"")

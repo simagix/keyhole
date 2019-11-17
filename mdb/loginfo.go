@@ -362,7 +362,7 @@ func (li *LogInfo) Parse() error {
 			re = regexp.MustCompile(`(: \/(\^)?\S+\/(\S+)? })`)
 			filter = re.ReplaceAllString(filter, ": /${2}regex/$3}")
 			filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
-			filter = reorderFilterFields(filter)
+			// filter = reorderFilterFields(filter)
 			filter += aggStages
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]

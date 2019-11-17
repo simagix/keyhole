@@ -5,6 +5,8 @@ package mdb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -52,6 +54,7 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 		serverInfo.Cluster = SHARDED
 	} else if serverInfo.Repl != nil {
 		serverInfo.Cluster = REPLICA
+		serverInfo.Repl["oplog"] = GetOplogStats(client)
 	} else {
 		serverInfo.Cluster = STANDALONE
 	}
@@ -63,8 +66,9 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 	dbStats := DBStats{}
 	var dataSize, indexSize int
 	list := []bson.M{}
-
-	for _, name := range names {
+	total := len(names)
+	for i, name := range names {
+		fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*i)/total)
 		result, _ = RunCommandOnDB(client, "dbStats", name)
 		b, _ := json.Marshal(result)
 		json.Unmarshal(b, &dbStats)
@@ -72,7 +76,7 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 		indexSize += dbStats.IndexSize
 		list = append(list, bson.M{"db": name, "objects": dbStats.Objects, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
 	}
-
+	fmt.Fprintf(os.Stderr, "\r     \r")
 	serverInfo.StorageSize = bson.M{"totalDataSize (MB)": dataSize / 1024 / 1024, "totalIndexSize (MB)": indexSize / 1024 / 1024, "statsDetails": list}
 	return serverInfo, nil
 }
