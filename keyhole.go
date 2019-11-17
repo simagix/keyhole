@@ -30,6 +30,7 @@ func main() {
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	conn := flag.Int("conn", 10, "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
+	doodle := flag.Bool("doodle", false, "print random values of sample docs")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
@@ -38,7 +39,6 @@ func main() {
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
 	loginfo := flag.String("loginfo", "", "log performance analytic")
-	monitor := flag.Bool("monitor", false, "collects server status every 10 seconds")
 	peek := flag.Bool("peek", false, "only collect stats")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	schema := flag.Bool("schema", false, "print schema")
@@ -170,6 +170,7 @@ func main() {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
 		mc.SetHost(connString.Hosts[0])
+		mc.SetDoodleMode(*doodle)
 		if doc, e := mc.GetClusterInfo(); e != nil {
 			log.Fatal(e)
 		} else if *verbose == false {
@@ -240,8 +241,7 @@ func main() {
 	runner.SetTPS(*tps)
 	runner.SetTemplateFilename(*file)
 	runner.SetVerbose(*verbose)
-	runner.SetPeekMode(*peek)
-	runner.SetMonitorMode(*monitor)
+	runner.SetPeekingMode(*peek)
 	runner.SetSimulationDuration(*duration)
 	runner.SetDropFirstMode(*drop)
 	runner.SetNumberConnections(*conn)
@@ -250,4 +250,5 @@ func main() {
 	if err = runner.Start(); err != nil {
 		log.Fatal(err)
 	}
+	runner.CollectAllStatus()
 }
