@@ -30,6 +30,7 @@ func main() {
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	conn := flag.Int("conn", 10, "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
+	doodle := flag.Bool("doodle", false, "print random values of sample docs")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
@@ -169,6 +170,7 @@ func main() {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
 		mc.SetHost(connString.Hosts[0])
+		mc.SetDoodleMode(*doodle)
 		if doc, e := mc.GetClusterInfo(); e != nil {
 			log.Fatal(e)
 		} else if *verbose == false {
