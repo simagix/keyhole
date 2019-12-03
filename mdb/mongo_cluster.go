@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"reflect"
 	"sort"
@@ -246,7 +247,8 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 				}
 			}
 			log.Println(gox.Stringify(stats, "", "  "))
-			if len(gox.Stringify(firstDoc)) == 0 {
+			if gox.Stringify(firstDoc) == "" {
+				log.Println(firstDoc)
 				firstDoc = bson.M{}
 			}
 			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
@@ -265,6 +267,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var data []byte
 	if data, err = json.Marshal(mc.cluster); err != nil {
 		log.Println(err)
+		return mc.cluster, err
 	}
 	clusterJSON := string(data)
 	log.Println("cluster info", len(clusterJSON))
@@ -289,8 +292,10 @@ func convertDecimal128ToFloa64(firstDoc bson.M) bson.M {
 			firstDoc[k] = primitive.Binary{}
 			// } else if t == "string" && len(fmt.Sprintf("%v", v)) > 32 {
 			// 	firstDoc[k] = fmt.Sprintf("string:%v", len(fmt.Sprintf("%v", v)))
+		} else if t == "float64" && math.IsNaN(v.(float64)) {
+			firstDoc[k] = float64(0)
 		} else {
-			// fmt.Println(t)
+			// fmt.Println(v, t)
 		}
 	}
 	return firstDoc
