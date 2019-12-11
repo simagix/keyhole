@@ -257,13 +257,23 @@ func (li *LogInfo) Parse() error {
 					aggStages = ", sort: " + s
 				}
 				filter = nstr
-			} else if op == "count" || op == "distinct" {
+			} else if op == "count" {
 				nstr := ""
 				s := getDocByField(filter, "query: ")
 				if s != "" {
 					nstr = s
 				}
 				filter = nstr
+			} else if op == "distinct" {
+				nstr := ""
+				s := getDocByField(filter, "key: ")
+				if s != "" {
+					nstr = s
+				}
+				if strings.HasSuffix(nstr, " }") {
+					nstr = nstr[:len(nstr)-2]
+				}
+				filter = "{" + nstr + ": 1}"
 			} else if op == "delete" || op == "update" || op == "remove" || op == "findAndModify" {
 				var s string
 				// if result[1] == "WRITE" {
@@ -335,6 +345,8 @@ func (li *LogInfo) Parse() error {
 				index = "IDHACK"
 			} else if strings.Index(str, "planSummary: COUNT_SCAN") >= 0 {
 				index = "COUNT_SCAN"
+			} else if strings.Index(str, "planSummary: DISTINCT_SCAN") >= 0 {
+				index = "DISTINCT_SCAN"
 			}
 			filter = removeInElements(filter, "$in: [ ")
 			filter = removeInElements(filter, "$nin: [ ")
@@ -514,7 +526,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify"}
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify", "distinct"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {

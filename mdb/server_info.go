@@ -46,9 +46,6 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 	if serverInfo.Sharding == nil {
 		serverInfo.Sharding = bson.M{}
 	}
-	if serverInfo.Repl == nil {
-		serverInfo.Repl = bson.M{}
-	}
 
 	if serverInfo.Process == "mongos" {
 		serverInfo.Cluster = SHARDED
@@ -57,6 +54,7 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 		serverInfo.Repl["oplog"] = GetOplogStats(client)
 	} else {
 		serverInfo.Cluster = STANDALONE
+		serverInfo.Repl = bson.M{}
 	}
 	var names []string
 	if names, err = ListDatabaseNames(client); err != nil {
