@@ -41,6 +41,7 @@ func main() {
 	loginfo := flag.String("loginfo", "", "log performance analytic")
 	peek := flag.Bool("peek", false, "only collect stats")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
+	regex := flag.String("regex", "", "regex pattern for loginfo")
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
@@ -120,6 +121,7 @@ func main() {
 	} else if *loginfo != "" {
 		var str string
 		li := mdb.NewLogInfo(*loginfo)
+		li.SetRegexPattern(*regex)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
 		if str, err = li.Analyze(); err != nil {
