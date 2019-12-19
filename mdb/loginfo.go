@@ -32,6 +32,7 @@ type LogInfo struct {
 	collscan       bool
 	filename       string
 	mongoInfo      string
+	regex          string
 	silent         bool
 	verbose        bool
 }
@@ -57,9 +58,13 @@ type SlowOps struct {
 // NewLogInfo -
 func NewLogInfo(filename string) *LogInfo {
 	li := LogInfo{filename: filename, collscan: false, silent: false, verbose: false}
+	li.regex = `^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	li.OutputFilename = filepath.Base(filename)
 	if strings.HasSuffix(li.OutputFilename, ".gz") {
 		li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
+	}
+	if strings.HasSuffix(li.OutputFilename, ".log") == false {
+		li.OutputFilename += ".log"
 	}
 	li.OutputFilename += ".enc"
 	return &li
@@ -78,6 +83,13 @@ func (li *LogInfo) SetSilent(silent bool) {
 // SetVerbose -
 func (li *LogInfo) SetVerbose(verbose bool) {
 	li.verbose = verbose
+}
+
+// SetRegexPattern sets regex patthen
+func (li *LogInfo) SetRegexPattern(regex string) {
+	if regex != "" {
+		li.regex = regex
+	}
 }
 
 func getConfigOptions(reader *bufio.Reader) []string {
@@ -167,7 +179,7 @@ func (li *LogInfo) Parse() error {
 	}
 	li.mongoInfo = buffer.String()
 
-	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
+	matched := regexp.MustCompile(li.regex)
 	file.Seek(0, 0)
 	if reader, err = util.NewReader(file); err != nil {
 		return err
