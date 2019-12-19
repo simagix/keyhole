@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"reflect"
 	"regexp"
@@ -277,14 +278,19 @@ func (qe *QueryExplainer) getStageStats(document bson.D) StageStats {
 // GetIndexesScores returns a list of indexes scores
 func (qe *QueryExplainer) GetIndexesScores(keys []string) []IndexScore {
 	var err error
+	var cur *mongo.Cursor
 	var indexes []string
+	scores := []IndexScore{}
 	ctx := context.Background()
 	pos := strings.Index(qe.NameSpace, ".")
 	db := qe.NameSpace[:pos]
 	coll := qe.NameSpace[pos+1:]
 	collection := qe.client.Database(db).Collection(coll)
 	indexView := collection.Indexes()
-	cur, _ := indexView.List(ctx)
+	if cur, err = indexView.List(ctx); err != nil {
+		log.Println(err)
+		return scores
+	}
 	defer cur.Close(ctx)
 
 	for cur.Next(ctx) {
@@ -323,7 +329,6 @@ func (qe *QueryExplainer) GetIndexesScores(keys []string) []IndexScore {
 		}
 		indexes = append(indexes, strbuf.String())
 	}
-	scores := []IndexScore{}
 	keyMap := make(map[string]string)
 	for i := 0; i < len(keys); i++ {
 		keyMap[keys[i]] = "v"

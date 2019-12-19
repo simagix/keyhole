@@ -32,6 +32,7 @@ type LogInfo struct {
 	collscan       bool
 	filename       string
 	mongoInfo      string
+	regex          string
 	silent         bool
 	verbose        bool
 }
@@ -57,9 +58,13 @@ type SlowOps struct {
 // NewLogInfo -
 func NewLogInfo(filename string) *LogInfo {
 	li := LogInfo{filename: filename, collscan: false, silent: false, verbose: false}
+	li.regex = `^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	li.OutputFilename = filepath.Base(filename)
 	if strings.HasSuffix(li.OutputFilename, ".gz") {
 		li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
+	}
+	if strings.HasSuffix(li.OutputFilename, ".log") == false {
+		li.OutputFilename += ".log"
 	}
 	li.OutputFilename += ".enc"
 	return &li
@@ -78,6 +83,13 @@ func (li *LogInfo) SetSilent(silent bool) {
 // SetVerbose -
 func (li *LogInfo) SetVerbose(verbose bool) {
 	li.verbose = verbose
+}
+
+// SetRegexPattern sets regex patthen
+func (li *LogInfo) SetRegexPattern(regex string) {
+	if regex != "" {
+		li.regex = regex
+	}
 }
 
 func getConfigOptions(reader *bufio.Reader) []string {
@@ -167,7 +179,7 @@ func (li *LogInfo) Parse() error {
 	}
 	li.mongoInfo = buffer.String()
 
-	matched := regexp.MustCompile(`^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$`) // SERVER-37743
+	matched := regexp.MustCompile(li.regex)
 	file.Seek(0, 0)
 	if reader, err = util.NewReader(file); err != nil {
 		return err
@@ -257,13 +269,23 @@ func (li *LogInfo) Parse() error {
 					aggStages = ", sort: " + s
 				}
 				filter = nstr
-			} else if op == "count" || op == "distinct" {
+			} else if op == "count" {
 				nstr := ""
 				s := getDocByField(filter, "query: ")
 				if s != "" {
 					nstr = s
 				}
 				filter = nstr
+			} else if op == "distinct" {
+				nstr := ""
+				s := getDocByField(filter, "key: ")
+				if s != "" {
+					nstr = s
+				}
+				if strings.HasSuffix(nstr, " }") {
+					nstr = nstr[:len(nstr)-2]
+				}
+				filter = "{" + nstr + ": 1}"
 			} else if op == "delete" || op == "update" || op == "remove" || op == "findAndModify" {
 				var s string
 				// if result[1] == "WRITE" {
@@ -335,6 +357,8 @@ func (li *LogInfo) Parse() error {
 				index = "IDHACK"
 			} else if strings.Index(str, "planSummary: COUNT_SCAN") >= 0 {
 				index = "COUNT_SCAN"
+			} else if strings.Index(str, "planSummary: DISTINCT_SCAN") >= 0 {
+				index = "DISTINCT_SCAN"
 			}
 			filter = removeInElements(filter, "$in: [ ")
 			filter = removeInElements(filter, "$nin: [ ")
@@ -514,7 +538,7 @@ func removeInElements(str string, instr string) string {
 	return str
 }
 
-var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify"}
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify", "distinct"}
 
 func hasFilter(op string) bool {
 	for _, f := range filters {
