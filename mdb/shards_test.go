@@ -9,21 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func TestGetShards(t *testing.T) {
+func TestGetShardListWithURI(t *testing.T) {
 	var client *mongo.Client
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	if _, err := GetShards(client, UnitTestURL); err != nil {
-		t.Log(err)
-		return
-	}
-}
-
-func TestGetShardsURIList(t *testing.T) {
-	var client *mongo.Client
-	client = getMongoClient()
-	defer client.Disconnect(context.Background())
-	if _, err := GetShardsURIList(client, UnitTestURL); err != nil {
+	if _, err := GetShardListWithURI(client, UnitTestURL); err != nil {
 		t.Log(err)
 		return
 	}

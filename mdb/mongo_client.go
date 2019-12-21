@@ -65,6 +65,7 @@ func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
 	if err = client.Connect(ctx); err != nil {
 		panic(err)
 	}
+	err = client.Ping(ctx, nil)
 	return client, err
 }
 
@@ -80,7 +81,7 @@ func Parse(uri string) (string, error) {
 			return uri, err
 		}
 		index := strings.Index(uri, "@")
-		uri = (uri)[:index] + ":" + connString.Password + (uri)[index:]
+		uri = (uri)[:index] + ":" + strings.Replace(string(connString.Password), "%", "%25", -1) + (uri)[index:]
 	}
 
 	if connString.Database == "" {
