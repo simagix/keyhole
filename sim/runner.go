@@ -250,12 +250,19 @@ func (rn *Runner) terminate() {
 // CollectAllStatus collects all server stats
 func (rn *Runner) CollectAllStatus() error {
 	var err error
-	var client *mongo.Client
-	if rn.uriList, err = mdb.GetShardsURIList(rn.client, rn.uri); err != nil {
+	var ssi mdb.ServerInfo
+	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
 		return err
+	}
+	rn.uriList = []string{rn.uri}
+	if ssi.Cluster == mdb.SHARDED {
+		if rn.uriList, err = mdb.GetShardListWithURI(rn.client, rn.uri); err != nil {
+			return err
+		}
 	}
 	rn.addTerminationHandler()
 	for _, uri := range rn.uriList {
+		var client *mongo.Client
 		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
 			log.Println(err)
 			continue

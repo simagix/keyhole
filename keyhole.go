@@ -171,9 +171,10 @@ func main() {
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
-		mc.SetHost(connString.Hosts[0])
+		mc.SetConnString(connString)
 		mc.SetDoodleMode(*doodle)
 		if doc, e := mc.GetClusterInfo(); e != nil {
+			fmt.Println(e)
 			log.Fatal(e)
 		} else if *verbose == false {
 			fmt.Println(gox.Stringify(doc, "", "  "))

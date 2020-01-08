@@ -19,16 +19,18 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 // MongoCluster holds mongo cluster info
 type MongoCluster struct {
-	client   *mongo.Client
-	cluster  bson.M
-	verbose  bool
-	filename string
-	logfile  string
-	doodle   bool
+	client     *mongo.Client
+	cluster    bson.M
+	connString connstring.ConnString
+	doodle     bool
+	filename   string
+	logfile    string
+	verbose    bool
 }
 
 // NewMongoCluster server info struct
@@ -47,9 +49,10 @@ func (mc *MongoCluster) SetFilename(filename string) {
 	mc.filename = strings.Replace(filename, ":", "_", -1)
 }
 
-// SetHost sets hostname from connection string
-func (mc *MongoCluster) SetHost(host string) {
-	hostname := strings.Replace(host, ":", "_", -1)
+// SetConnString set connString object
+func (mc *MongoCluster) SetConnString(connString connstring.ConnString) {
+	mc.connString = connString
+	hostname := strings.Replace(connString.Hosts[0], ":", "_", -1)
 	mc.filename = hostname + ".json.gz"
 	mc.logfile = hostname + ".keyhole.log"
 }
@@ -92,7 +95,43 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["cluster"] = info.Cluster
 	mc.cluster["host"] = info.Host
 	mc.cluster["process"] = info.Process
-	mc.cluster["sharding"] = info.Sharding
+	cs := mc.connString
+	if info.Cluster == SHARDED {
+		mc.cluster["sharding"] = info.Sharding
+		var shardList []string
+		if shardList, err = GetShardListWithURI(mc.client, mc.connString.String()); err == nil {
+			var shards []bson.M
+			for _, shardURI := range shardList {
+				var client *mongo.Client
+				if client, err = NewMongoClient(shardURI, cs.SSLCaFile, cs.SSLClientCertificateKeyFile); err != nil {
+					log.Println(err)
+					continue
+				}
+				var sinfo ServerInfo
+				if sinfo, err = GetServerInfo(client, true); err == nil {
+					cluster := bson.M{}
+					cluster["cluster"] = sinfo.Cluster
+					cluster["host"] = sinfo.Host
+					cluster["process"] = sinfo.Process
+					if hostInfo, err := RunAdminCommand(mc.client, "hostInfo"); err == nil {
+						cluster["hostInfo"] = trimMap(hostInfo)
+					}
+					if buildInfo, err := RunAdminCommand(mc.client, "buildInfo"); err == nil {
+						cluster["buildInfo"] = trimMap(buildInfo)
+					}
+					if sinfo.Cluster == "replica" {
+						cluster["oplog"] = sinfo.Repl["oplog"]
+						var replSetGetStatus bson.M
+						if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
+							cluster["replSetGetStatus"] = trimMap(replSetGetStatus)
+						}
+					}
+					shards = append(shards, cluster)
+				}
+			}
+			mc.cluster["shards"] = shards
+		}
+	}
 	mc.cluster["storage"] = info.StorageSize
 	mc.cluster["version"] = info.Version
 

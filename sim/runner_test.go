@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -27,19 +26,6 @@ func getMongoClient() *mongo.Client {
 	}
 
 	return client
-}
-
-func TestGetShardsURIList(t *testing.T) {
-	var err error
-	var client *mongo.Client
-	client = getMongoClient()
-	defer client.Disconnect(context.Background())
-	uriList, err := mdb.GetShardsURIList(client, UnitTestURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Log(uriList)
 }
 
 /*
