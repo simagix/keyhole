@@ -23,17 +23,18 @@ const STANDALONE = "standalone"
 
 // ServerInfo constains server info from db.serverStatus()
 type ServerInfo struct {
-	Cluster     string `json:"cluster" bson:"cluster"`
-	Host        string `json:"host" bson:"host"`
-	Process     string `json:"process" bson:"process"`
-	Version     string `json:"version" bson:"version"`
-	Sharding    bson.M `json:"sharding" bson:"sharding"`
-	Repl        bson.M `json:"repl" bson:"repl"`
+	Cluster     string     `json:"cluster" bson:"cluster"`
+	Host        string     `json:"host" bson:"host"`
+	Process     string     `json:"process" bson:"process"`
+	Version     string     `json:"version" bson:"version"`
+	Sharding    bson.M     `json:"sharding" bson:"sharding"`
+	Shards      []ShardDoc `json:"shards" bson:"shards"`
+	Repl        bson.M     `json:"repl" bson:"repl"`
 	StorageSize bson.M
 }
 
 // GetServerInfo returns ServerInfo from db.serverStatus()
-func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
+func GetServerInfo(client *mongo.Client, skipStorageStats ...bool) (ServerInfo, error) {
 	var err error
 	var result bson.M
 	var serverInfo = ServerInfo{}
@@ -49,12 +50,22 @@ func GetServerInfo(client *mongo.Client) (ServerInfo, error) {
 
 	if serverInfo.Process == "mongos" {
 		serverInfo.Cluster = SHARDED
+		var shards []ShardDoc
+		if shards, err = GetShards(client); err != nil {
+			serverInfo.Shards = []ShardDoc{}
+		} else {
+			serverInfo.Shards = shards
+		}
 	} else if serverInfo.Repl != nil {
 		serverInfo.Cluster = REPLICA
 		serverInfo.Repl["oplog"] = GetOplogStats(client)
 	} else {
 		serverInfo.Cluster = STANDALONE
 		serverInfo.Repl = bson.M{}
+	}
+
+	if len(skipStorageStats) > 0 {
+		return serverInfo, err
 	}
 	var names []string
 	if names, err = ListDatabaseNames(client); err != nil {
