@@ -80,8 +80,10 @@ func Parse(uri string) (string, error) {
 		if connString.Password, err = ReadPasswordFromStdin(); err != nil {
 			return uri, err
 		}
-		index := strings.Index(uri, "@")
-		uri = (uri)[:index] + ":" + strings.Replace(string(connString.Password), "%", "%25", -1) + (uri)[index:]
+		index := strings.LastIndex(uri, "@")
+		pwd := strings.Replace(string(connString.Password), "%", "%25", -1)
+		pwd = strings.Replace(pwd, "@", "%40", -1)
+		uri = (uri)[:index] + ":" + pwd + (uri)[index:]
 	}
 
 	if connString.Database == "" {

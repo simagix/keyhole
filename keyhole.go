@@ -174,6 +174,7 @@ func main() {
 		mc.SetConnString(connString)
 		mc.SetDoodleMode(*doodle)
 		if doc, e := mc.GetClusterInfo(); e != nil {
+			fmt.Println(e)
 			log.Fatal(e)
 		} else if *verbose == false {
 			fmt.Println(gox.Stringify(doc, "", "  "))
