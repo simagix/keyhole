@@ -52,9 +52,6 @@ func (mc *MongoCluster) SetFilename(filename string) {
 // SetConnString set connString object
 func (mc *MongoCluster) SetConnString(connString connstring.ConnString) {
 	mc.connString = connString
-	hostname := strings.Replace(connString.Hosts[0], ":", "_", -1)
-	mc.filename = hostname + ".json.gz"
-	mc.logfile = hostname + ".keyhole.log"
 }
 
 // SetDoodleMode sets doodle
@@ -94,8 +91,8 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	delete(info.StorageSize, "statsDetails")
 	mc.cluster["cluster"] = info.Cluster
 	mc.cluster["host"] = info.Host
+	mc.SetFilename(info.Host + ".json.gz")
 	mc.cluster["process"] = info.Process
-	cs := mc.connString
 	if info.Cluster == SHARDED {
 		mc.cluster["sharding"] = info.Sharding
 		var shardList []string
@@ -103,7 +100,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			var shards []bson.M
 			for _, shardURI := range shardList {
 				var client *mongo.Client
-				if client, err = NewMongoClient(shardURI, cs.SSLCaFile, cs.SSLClientCertificateKeyFile); err != nil {
+				if client, err = NewMongoClient(shardURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
 					log.Println(err)
 					continue
 				}
