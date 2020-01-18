@@ -235,7 +235,7 @@ func (li *LogInfo) Parse() error {
 			re := regexp.MustCompile(`^(\w+) ({.*})$`)
 			op := result[2]
 			ns := result[3]
-			if ns == "local.oplog.rs" || strings.HasSuffix(ns, ".$cmd") == true {
+			if strings.HasPrefix(ns, "local.") || strings.HasPrefix(ns, "admin.") || strings.HasPrefix(ns, "config.") || strings.HasSuffix(ns, ".$cmd") == true {
 				continue
 			}
 			filter := result[4][:epos]
@@ -299,7 +299,7 @@ func (li *LogInfo) Parse() error {
 				}
 			} else if op == "aggregate" || (op == "getmore" && strings.Index(filter, "pipeline:") > 0) {
 				s := ""
-				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: "} {
+				for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: ", "$facet: "} {
 					s = getDocByField(result[4], mstr)
 					if s != "" {
 						filter = s
@@ -311,6 +311,9 @@ func (li *LogInfo) Parse() error {
 						srt := getDocByField(result[4], "$sort: ")
 						if srt != "" {
 							aggStages += ", sort: " + strings.ReplaceAll(srt, "1.0", "1")
+						}
+						if mstr == "$facet: " {
+							filter = "{ $facet: " + s + " }"
 						}
 						break
 					}

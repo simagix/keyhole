@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -81,9 +82,7 @@ func Parse(uri string) (string, error) {
 			return uri, err
 		}
 		index := strings.LastIndex(uri, "@")
-		pwd := strings.Replace(string(connString.Password), "%", "%25", -1)
-		pwd = strings.Replace(pwd, "@", "%40", -1)
-		uri = (uri)[:index] + ":" + pwd + (uri)[index:]
+		uri = (uri)[:index] + ":" + template.URLQueryEscaper(connString.Password) + (uri)[index:]
 	}
 
 	if connString.Database == "" {
