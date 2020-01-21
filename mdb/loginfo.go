@@ -92,17 +92,12 @@ func (li *LogInfo) SetRegexPattern(regex string) {
 	}
 }
 
-func getConfigOptions(reader *bufio.Reader) []string {
+func getConfigOptions(buffers []string) []string {
 	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
-	var err error
-	var buf []byte
 	var strs []string
 
-	for {
-		buf, _, err = reader.ReadLine() // 0x0A separator = newline
-		if err != nil {
-			break
-		} else if matched.MatchString(string(buf)) == true {
+	for _, buf := range buffers {
+		if matched.MatchString(buf) == true {
 			result := matched.FindStringSubmatch(string(buf))
 			if result[1] == "db" {
 				s := "db " + result[3]
@@ -168,25 +163,15 @@ func (li *LogInfo) Parse() error {
 		return err
 	}
 	lineCounts, _ := util.CountLines(reader)
-
-	file.Seek(0, 0)
-	reader, _ = util.NewReader(file)
-	var buffer bytes.Buffer
-	if strs := getConfigOptions(reader); len(strs) > 0 {
-		for _, s := range strs {
-			buffer.WriteString(s + "\n")
-		}
-	}
-	li.mongoInfo = buffer.String()
-
-	matched := regexp.MustCompile(li.regex)
 	file.Seek(0, 0)
 	if reader, err = util.NewReader(file); err != nil {
 		return err
 	}
+	var configList []string
+	matched := regexp.MustCompile(li.regex)
 	index := 0
 	for {
-		if index%25 == 1 && li.silent == false {
+		if li.silent == false && index%50 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		}
 		var buf []byte
@@ -415,9 +400,14 @@ func (li *LogInfo) Parse() error {
 			} else {
 				opsMap[key] = OpPerformanceDoc{Command: op, Namespace: ns, Filter: filter, TotalMilli: milli, MaxMilli: milli, Count: 1, Scan: scan, Index: index}
 			}
+		} else if li.verbose == true && strings.Index(str, " I CONTROL  [") > 0 {
+			configList = append(configList, str)
+			continue
 		}
 	}
-
+	if li.verbose == true {
+		li.mongoInfo = strings.Join(getConfigOptions(configList), "\n")
+	}
 	li.OpsPatterns = make([]OpPerformanceDoc, 0, len(opsMap))
 	for _, value := range opsMap {
 		li.OpsPatterns = append(li.OpsPatterns, value)
