@@ -84,7 +84,7 @@ func main() {
 			}
 		}
 		os.Exit(0)
-	} else if *info == true && strings.Index(*uri, "atlas://") == 0 {
+	} else if *info && strings.HasPrefix(*uri, "atlas://") {
 		var api *atlas.API
 		if api, err = atlas.ParseURI(*uri); err != nil {
 			log.Fatal(err)
@@ -96,14 +96,14 @@ func main() {
 		}
 		fmt.Println(str)
 		os.Exit(0)
-	} else if strings.Index(*loginfo, "atlas://") == 0 {
-		var atl *atlas.Log
-		if atl, err = atlas.ParseLogURI(*loginfo); err != nil {
+	} else if strings.HasPrefix(*loginfo, "atlas://") {
+		var api *atlas.API
+		if api, err = atlas.ParseURI(*loginfo); err != nil {
 			log.Fatal(err)
 		}
-		atl.SetVerbose(*verbose)
+		api.SetVerbose(*verbose)
 		var filenames []string
-		if filenames, err = atl.Download(); err != nil {
+		if filenames, err = api.DownloadLogs(); err != nil {
 			log.Fatal(err)
 		}
 		for _, filename := range filenames {
