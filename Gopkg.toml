@@ -8,7 +8,7 @@
   name = "github.com/simagix/gox"
 
 [[constraint]]
-  version = "v0.1.0"
+  version = "v0.5.0"
   name = "github.com/simagix/mongo-atlas"
 
 [[constraint]]
@@ -22,8 +22,8 @@
   name = "golang.org/x/sys"
 
 [[constraint]]
-  branch = "release-branch.go1.13"
-  #branch = "master"
+  #branch = "release-branch.go1.13"
+  branch = "master"
   name = "golang.org/x/crypto"
 
 [prune]
