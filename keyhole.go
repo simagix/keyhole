@@ -35,13 +35,16 @@ func main() {
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
 	file := flag.String("file", "", "template file for seedibg data")
-	ftdc := flag.String("ftdc", "", "process FTDC and output processed data")
+	ftdc := flag.Bool("ftdc", false, "download from atlas://user:key@group/cluster")
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
-	loginfo := flag.String("loginfo", "", "log performance analytic")
+	loginfo := flag.Bool("loginfo", false, "log performance analytic from file or Atlas")
 	peek := flag.Bool("peek", false, "only collect stats")
+	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	regex := flag.String("regex", "", "regex pattern for loginfo")
+	request := flag.String("request", "", "Atlas API command")
+	resume := flag.Bool("resume", false, "resume an Atlas cluster atlas://user:key@group/cluster")
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
@@ -61,16 +64,35 @@ func main() {
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 	var err error
-	if *ftdc != "" {
-		filenames := append([]string{*ftdc}, flag.Args()...)
-		if *webserver == true {
-			anly.SingleJSONServer(filenames)
-		} else {
-			met := anly.NewMetrics(filenames)
-			met.SetOutputOnly(true)
-			met.Read()
-			os.Exit(0)
+	if strings.HasPrefix(*uri, "atlas://") {
+		var api *atlas.API
+		if api, err = atlas.ParseURI(*uri); err != nil {
+			log.Fatal(err)
 		}
+		api.SetArgs(flag.Args())
+		api.SetFTDC(*ftdc)
+		api.SetInfo(*info)
+		api.SetLoginfo(*loginfo)
+		api.SetPause(*pause)
+		api.SetResume(*resume)
+		api.SetRequest(*request)
+		api.SetVerbose(*verbose)
+		fmt.Println(api.Execute())
+
+		if *loginfo {
+			for _, filename := range api.GetLogNames() {
+				fmt.Println("=> processing", filename)
+				var str string
+				li := mdb.NewLogInfo(filename)
+				li.SetVerbose(*verbose)
+				if str, err = li.Analyze(); err != nil {
+					log.Println(err)
+					continue
+				}
+				fmt.Println(str)
+			}
+		}
+		os.Exit(0)
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
 		if *webserver == true { // backward compatible
@@ -84,52 +106,23 @@ func main() {
 			}
 		}
 		os.Exit(0)
-	} else if *info && strings.HasPrefix(*uri, "atlas://") {
-		var api *atlas.API
-		if api, err = atlas.ParseURI(*uri); err != nil {
-			log.Fatal(err)
+	} else if *loginfo {
+		if len(flag.Args()) < 1 {
+			log.Fatal("Usage: keyhole --loginfo filename")
 		}
-		api.SetVerbose(*verbose)
-		var str string
-		if str, err = api.GetClustersSummary(); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(str)
-		os.Exit(0)
-	} else if strings.HasPrefix(*loginfo, "atlas://") {
-		var api *atlas.API
-		if api, err = atlas.ParseURI(*loginfo); err != nil {
-			log.Fatal(err)
-		}
-		api.SetVerbose(*verbose)
-		var filenames []string
-		if filenames, err = api.DownloadLogs(); err != nil {
-			log.Fatal(err)
-		}
-		for _, filename := range filenames {
-			fmt.Println("=> processing", filename)
+		for _, filename := range flag.Args() {
 			var str string
 			li := mdb.NewLogInfo(filename)
+			li.SetRegexPattern(*regex)
+			li.SetCollscan(*collscan)
 			li.SetVerbose(*verbose)
 			if str, err = li.Analyze(); err != nil {
-				log.Println(err)
-				continue
+				log.Fatal(err)
 			}
 			fmt.Println(str)
-		}
-		os.Exit(0)
-	} else if *loginfo != "" {
-		var str string
-		li := mdb.NewLogInfo(*loginfo)
-		li.SetRegexPattern(*regex)
-		li.SetCollscan(*collscan)
-		li.SetVerbose(*verbose)
-		if str, err = li.Analyze(); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(str)
-		if li.OutputFilename != "" {
-			log.Println("Encoded output written to", li.OutputFilename)
+			if li.OutputFilename != "" {
+				log.Println("Encoded output written to", li.OutputFilename)
+			}
 		}
 		os.Exit(0)
 	} else if *ver {
