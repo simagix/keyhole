@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/simagix/gox"
@@ -28,7 +29,7 @@ func main() {
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
-	conn := flag.Int("conn", 10, "nuumber of connections")
+	conn := flag.Int("conn", runtime.NumCPU(), "nuumber of connections")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
 	doodle := flag.Bool("doodle", false, "print random values of sample docs")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -49,7 +50,7 @@ func main() {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	span := flag.Int("span", -1, "granunarity for summary")
-	tps := flag.Int("tps", 300, "number of trasaction per second per connection")
+	tps := flag.Int("tps", 20, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
 	uri := flag.String("uri", "", "MongoDB URI") // orverides connection uri from args
@@ -64,6 +65,9 @@ func main() {
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 	var err error
+	if *conn < 1 {
+		*conn = runtime.NumCPU()
+	}
 	if strings.HasPrefix(*uri, "atlas://") {
 		var api *atlas.API
 		if api, err = atlas.ParseURI(*uri); err != nil {
@@ -176,6 +180,7 @@ func main() {
 	} else if *seed == true {
 		f := sim.NewFeeder()
 		f.SetCollection(*collection)
+		f.SetConnections(*conn)
 		f.SetDatabase(connString.Database)
 		f.SetFile(*file)
 		f.SetIsDrop(*drop)

@@ -10,7 +10,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 // Feeder seeds feeder
 type Feeder struct {
 	collection   string
+	conns        int
 	database     string
 	file         string
 	isDrop       bool
@@ -62,6 +62,11 @@ func NewFeeder() *Feeder {
 // SetCollection set collection
 func (f *Feeder) SetCollection(collection string) {
 	f.collection = collection
+}
+
+// SetConnections set conns
+func (f *Feeder) SetConnections(conns int) {
+	f.conns = conns
 }
 
 // SetDatabase set database
@@ -327,35 +332,41 @@ func getVehicle() bson.M {
 }
 
 func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
-	var err error
+	fmt.Println("number of connections:", f.conns)
 	var ctx = context.Background()
-	var bsize = 1000
+	var bsize = getBatchSize(f.total, f.conns)
 	var remaining = f.total
 
-	for i := 0; i < f.total; {
+	var wg = gox.NewWaitGroup(f.conns)
+	for threadNum := 0; threadNum < f.total; threadNum += bsize {
+		wg.Add(1)
 		num := bsize
 		if remaining < bsize {
 			num = remaining
 		}
-		var contentArray []interface{}
-		for n := 0; n < num; n++ {
-			if fnum == 1 {
-				contentArray = append(contentArray, getVehicle())
-			} else if fnum == 2 {
-				contentArray = append(contentArray, util.GetDemoDoc())
+		remaining -= num
+		go func(num int) {
+			defer wg.Done()
+			var contentArray []interface{}
+			for n := 0; n < num; n++ {
+				if fnum == 1 {
+					contentArray = append(contentArray, getVehicle())
+				} else if fnum == 2 {
+					contentArray = append(contentArray, util.GetDemoDoc())
+				}
 			}
-			i++
-			remaining--
-		}
-		if _, err = c.InsertMany(ctx, contentArray); err != nil {
-			panic(err)
-		}
-		if f.showProgress {
-			fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*i)/float64(f.total))
-		}
+			opts := options.InsertMany()
+			opts.SetOrdered(false) // ignore duplication errors
+			c.InsertMany(ctx, contentArray, opts)
+			if f.showProgress {
+				fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*(f.total-remaining))/float64(f.total))
+			}
+		}(num)
 	}
+	wg.Wait()
+
 	if f.showProgress {
-		fmt.Fprintf(os.Stderr, "\r100%%\r     \r")
+		fmt.Fprintf(os.Stderr, "\r        \r")
 	}
 	cnt, _ := c.CountDocuments(ctx, bson.M{})
 	return int(cnt)
@@ -365,7 +376,7 @@ func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
 func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
-	var bsize = 100
+	var bsize = getBatchSize(f.total, f.conns)
 	var remaining = f.total
 	var sdoc bson.M
 	if sdoc, err = util.GetDocByTemplate(f.file, true); err != nil {
@@ -378,13 +389,13 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	if collName == "" {
 		collName = "examples"
 	}
-	log.Println("Seed data to collection", collName)
+	log.Println("Seed data to collection", collName, "using", f.conns, "connections")
 	c := client.Database(f.database).Collection(collName)
 	if f.isDrop {
 		c.Drop(ctx)
 	}
 
-	var wg = gox.NewWaitGroup(runtime.NumCPU())
+	var wg = gox.NewWaitGroup(f.conns)
 	for threadNum := 0; threadNum < f.total; threadNum += bsize {
 		wg.Add(1)
 		num := bsize
@@ -392,10 +403,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 			num = remaining
 		}
 		remaining -= num
-		if f.showProgress {
-			fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*(f.total-remaining))/float64(f.total))
-		}
-		go func(threadNum int, num int) {
+		go func(num int) {
 			defer wg.Done()
 			var contentArray []interface{}
 			for n := 0; n < num; n++ {
@@ -406,12 +414,15 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 			opts := options.InsertMany()
 			opts.SetOrdered(false) // ignore duplication errors
 			c.InsertMany(ctx, contentArray, opts)
-		}(threadNum, num)
+			if f.showProgress {
+				fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*(f.total-remaining))/float64(f.total))
+			}
+		}(num)
 	}
 	wg.Wait()
 
 	if f.showProgress {
-		fmt.Fprintf(os.Stderr, "\r100%%   \n")
+		fmt.Fprintf(os.Stderr, "\r        \r")
 	}
 	cnt, _ := c.CountDocuments(ctx, bson.M{})
 	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, f.total, cnt)
@@ -427,4 +438,14 @@ func getEmployee(id int, supervisor int) bson.M {
 		doc["manager"] = int32(supervisor)
 	}
 	return doc
+}
+
+func getBatchSize(total int, conns int) int {
+	size := total / conns
+	if total <= 1000 { // for the fun of seeing percentage
+		return 100
+	} else if size >= 1000 {
+		return 1000
+	}
+	return size
 }

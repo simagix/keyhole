@@ -11,6 +11,7 @@ import (
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -43,13 +44,18 @@ func GetTransactions(filename string) TransactionDoc {
 	return doc
 }
 
-func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Transaction) int {
+func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Transaction) (bson.M, error) {
+	var err error
 	var ctx = context.Background()
 	var op = make(map[string]interface{})
+	var execTime = bson.M{}
 
 	for _, tx := range transactions {
-		if tx.C == "insert" {
-			c.InsertOne(ctx, doc)
+		t := time.Now()
+		if tx.C == "insertOne" {
+			if _, err = c.InsertOne(ctx, doc); err != nil {
+				return execTime, err
+			}
 		} else {
 			bytes, _ := json.Marshal(tx.Filter)
 			cmd := make(map[string]interface{})
@@ -58,23 +64,35 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Trans
 			util.RandomizeDocument(&filter, cmd, false)
 
 			if tx.C == "find" {
-				c.Find(ctx, filter)
+				if _, err = c.Find(ctx, filter); err != nil {
+					return execTime, err
+				}
 			} else if tx.C == "findOne" {
-				c.FindOne(ctx, filter)
-			} else if tx.C == "update" {
+				if r := c.FindOne(ctx, filter); r.Err() != nil {
+					return execTime, err
+				}
+			} else if tx.C == "updateOne" {
 				bytes, _ = json.Marshal(tx.Op)
 				json.Unmarshal(bytes, &op)
 				util.RandomizeDocument(&filter, op, false)
-				c.UpdateMany(ctx, filter, op)
-			} else if tx.C == "updateAll" || tx.C == "updateMany" {
+				if _, err = c.UpdateOne(ctx, filter, op); err != nil {
+					return execTime, err
+				}
+			} else if tx.C == "updateMany" {
 				bytes, _ = json.Marshal(tx.Op)
 				json.Unmarshal(bytes, &op)
 				util.RandomizeDocument(&filter, op, false)
-				c.UpdateMany(ctx, filter, op)
-			} else if tx.C == "remove" || tx.C == "deleteOne" {
-				c.DeleteOne(ctx, filter)
-			} else if tx.C == "removeAll" || tx.C == "deleteMany" {
-				c.DeleteMany(ctx, filter)
+				if _, err = c.UpdateMany(ctx, filter, op); err != nil {
+					return execTime, err
+				}
+			} else if tx.C == "deleteOne" {
+				if _, err = c.DeleteOne(ctx, filter); err != nil {
+					return execTime, err
+				}
+			} else if tx.C == "deleteMany" {
+				if _, err = c.DeleteMany(ctx, filter); err != nil {
+					return execTime, err
+				}
 			} else if tx.C == "aggregate" {
 				// example
 				// pipeline := mongo.Pipeline{
@@ -82,42 +100,35 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, transactions []Trans
 				// 	{{"$match", bson.D{{"totalPop", bson.D{{"$gte", 10 * 1000 * 1000}}}}}},
 				// }
 				b, _ := json.Marshal(tx.Pipe)
-				c.Aggregate(ctx, mdb.MongoPipeline(string(b)))
+				if _, err = c.Aggregate(ctx, mdb.MongoPipeline(string(b))); err != nil {
+					return execTime, err
+				}
 			}
+			execTime[tx.C] = time.Now().Sub(t)
 		}
 	}
 
-	return len(transactions)
+	execTime["total"] = len(transactions)
+	return execTime, err
 }
 
 func execTx(c *mongo.Collection, doc bson.M) (bson.M, error) {
 	var err error
-	var results *mongo.InsertManyResult
-	var docs []interface{}
 	var tm []time.Time
 	var execTime = bson.M{}
 	ctx := context.Background()
 	ts := time.Now()
 	change := bson.M{"$set": bson.M{"timestamp": ts}}
-
-	for i := 0; i < 3; i++ {
-		d := util.CloneDoc(doc)
-		d["ts"] = ts
-		delete(d, "_id")
-		docs = append(docs, d)
-	}
+	o := primitive.NewObjectID()
+	doc["_id"] = o
+	doc["ts"] = ts
 	tm = append(tm, time.Now())
-	if results, err = c.InsertMany(ctx, docs); err != nil {
+	if _, err = c.InsertOne(ctx, doc); err != nil {
 		return execTime, err
 	}
-	filters := bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: results.InsertedIDs}}}}
-	filter := bson.D{{Key: "_id", Value: results.InsertedIDs[0]}}
+	filter := bson.D{{Key: "_id", Value: o}}
 	tm = append(tm, time.Now())
 	if c.FindOne(ctx, filter).Err() != nil {
-		return execTime, err
-	}
-	tm = append(tm, time.Now())
-	if _, err = c.Find(ctx, filters); err != nil {
 		return execTime, err
 	}
 	tm = append(tm, time.Now())
@@ -125,21 +136,14 @@ func execTx(c *mongo.Collection, doc bson.M) (bson.M, error) {
 		return execTime, err
 	}
 	tm = append(tm, time.Now())
-	if _, err = c.UpdateMany(ctx, filters, change); err != nil {
-		return execTime, err
-	}
-	tm = append(tm, time.Now())
 	if _, err = c.DeleteOne(ctx, filter); err != nil {
 		return execTime, err
 	}
 	tm = append(tm, time.Now())
-	if _, err = c.DeleteMany(ctx, filters); err != nil {
-		return execTime, err
-	}
-	tm = append(tm, time.Now())
-	keys := []string{"InsertMany", "FindOne", "Find", "UpdateOne", "UpdateMany", "DeleteOne", "DeleteMany"}
+	keys := []string{"InsertOne", "FindOne", "UpdateOne", "DeleteOne"}
 	for i := 1; i < len(tm); i++ {
 		execTime[keys[i-1]] = tm[i].Sub(tm[i-1])
 	}
+	execTime["total"] = len(keys)
 	return execTime, err
 }
