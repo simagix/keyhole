@@ -174,9 +174,7 @@ func (rn *Runner) Start() error {
 	// 2nd and 3rd minutes - normal TPS ops
 	// remaining minutes - burst with no delay
 	// last minute - normal TPS ops until exit
-	log.Printf("Total TPS: %d (tps) * %d (conns) = %d, duration: %d (mins)\n",
-		rn.tps, rn.conns, rn.tps*rn.conns, rn.duration)
-
+	log.Printf("Total TPS: %d (%d tps/conn * %d conns), duration: %d (mins)\n", rn.tps*rn.conns, rn.tps, rn.conns, rn.duration)
 	tdoc := GetTransactions(rn.txFilename)
 	rn.createIndexes(tdoc.Indexes)
 	simTime := rn.duration
