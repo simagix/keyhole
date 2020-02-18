@@ -25,7 +25,7 @@ func TestExecTXByTemplateAndTX(t *testing.T) {
 	defer client.Disconnect(context.Background())
 	c := client.Database(SimDBName).Collection(CollectionName)
 	tx := GetTransactions(filename)
-	_, err := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions)
+	_, err := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions[0])
 	if err != nil {
 		t.Fatal(err)
 	}
