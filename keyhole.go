@@ -101,8 +101,6 @@ func main() {
 		filenames := append([]string{*diag}, flag.Args()...)
 		if *webserver == true { // backward compatible
 			anly.SingleJSONServer(filenames)
-		} else if len(filenames) == 1 && strings.Index(filenames[0], "keyhole_perf.") >= 0 {
-			fmt.Println(sim.PrintPerformanceStats(filenames[0]))
 		} else {
 			metrics := anly.NewDiagnosticData(*span)
 			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
