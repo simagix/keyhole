@@ -402,23 +402,23 @@ func (qe *QueryExplainer) ReadQueryShape(buffer []byte) error {
 	str := re.ReplaceAllString(string(buffer), "\"$2\":")
 	ml := gox.NewMongoLog(str)
 	filter := ml.Get(`"filter":`)
-	group := ""
+	// group := ""
 	if filter == "" {
 		filter = ml.Get(`"$match":`)
-		if filter != "" {
-			group = ml.Get(`"$group":`)
-		}
+		// if filter != "" {
+		// 	group = ml.Get(`"$group":`)
+		// }
 	}
 	if filter == "" {
 		filter = ml.Get(`"query":`)
 	}
-	if group != "" {
-		d := bson.M{}
-		bson.UnmarshalExtJSON([]byte(group), true, &d)
-		if d["_id"] != "" {
-			explainCmd.Group = d["_id"].(string)[1:]
-		}
-	}
+	// if group != "" {
+	// 	d := bson.M{}
+	// 	bson.UnmarshalExtJSON([]byte(group), true, &d)
+	// 	if d["_id"] != "" {
+	// 		explainCmd.Group = d["_id"].(string)[1:]
+	// 	}
+	// }
 	re = regexp.MustCompile(`(new Date\(\S+\))`)
 	filter = re.ReplaceAllString(filter, "\"$1\"")
 	re = regexp.MustCompile(`ObjectId\(['"](\S+)['"]\)`)

@@ -3,16 +3,20 @@
 package sim
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -44,6 +48,9 @@ type Runner struct {
 	txFilename    string
 	simOnly       bool
 	channel       chan string
+
+	metrics map[string][]bson.M
+	mutex   sync.RWMutex
 }
 
 var ssi mdb.ServerInfo
@@ -74,8 +81,8 @@ func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string) (*Runner, err
 		return &runner, err
 	}
 	runner = Runner{uri: uri, sslCAFile: sslCAFile, sslPEMKeyFile: sslPEMKeyFile,
-		cleanup: true, connString: connString, client: client, channel: make(chan string)}
-	runner.initSimDocs()
+		cleanup: true, connString: connString, client: client, channel: make(chan string),
+		metrics: map[string][]bson.M{}, mutex: sync.RWMutex{}}
 	return &runner, err
 }
 
@@ -142,6 +149,7 @@ func (rn *Runner) Start() error {
 		rn.Cleanup()
 	}
 
+	rn.initSimDocs()
 	var ssi mdb.ServerInfo
 	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
 		return err
@@ -348,6 +356,15 @@ func (rn *Runner) Cleanup() error {
 		if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
 			log.Println(err)
 		}
+		filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
+		var data bytes.Buffer
+		gob.Register(time.Duration(0))
+		enc := gob.NewEncoder(&data)
+		if err = enc.Encode(rn.metrics); err != nil {
+			log.Println("encode error:", err)
+		}
+		gox.OutputGzipped(data.Bytes(), filename)
+		log.Println("optime written to", filename)
 	}
 	time.Sleep(1 * time.Second)
 	return err

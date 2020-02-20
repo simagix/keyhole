@@ -24,7 +24,9 @@ type serverInfoDoc anly.ServerInfoDoc
 type serverStatusDoc anly.ServerStatusDoc
 type replSetStatusDoc anly.ReplSetStatusDoc
 
-var keyholeStatsDataFile = "./keyhole_stats." + strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
+var fileTimestamp = strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
+var keyholeStatsDataFile = "./keyhole_stats." + fileTimestamp
+
 var mb = 1024.0 * 1024
 var serverInfoDocs = map[string]serverInfoDoc{}
 var serverStatusDocs = map[string][]serverStatusDoc{}
@@ -201,7 +203,7 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 	prevTime := time.Now()
 	now := prevTime
 	st.channel <- "[" + st.mkey + "] getDBStats begins\n"
-	for i := 0; i < 10; i++ { // no need to get after first 1.5 minutes
+	for i := 0; i < 30; i++ { // no need to get after 5 minutes
 		if err == nil {
 			stat, _ := mdb.RunCommandOnDB(client, "dbStats", dbName)
 			buf, _ := json.Marshal(stat)

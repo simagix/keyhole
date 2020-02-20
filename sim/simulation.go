@@ -5,17 +5,23 @@ package sim
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"sort"
 	"strconv"
 	"time"
 
+	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+const setupStage = "setup"
+const thrashingStage = "thrashing"
+const teardownStage = "teardown"
 
 var simDocs []bson.M
 
@@ -25,10 +31,6 @@ var simDocs []bson.M
 func (rn *Runner) initSimDocs() {
 	var err error
 	var sdoc bson.M
-
-	if rn.verbose {
-		log.Println("initSimDocs")
-	}
 	rand.Seed(time.Now().Unix())
 	total := 512
 	if rn.filename == "" {
@@ -43,7 +45,7 @@ func (rn *Runner) initSimDocs() {
 	}
 	bytes, _ := json.Marshal(sdoc)
 	if rn.verbose {
-		log.Println(string(bytes))
+		log.Println("initSimDocs\n", gox.Stringify(sdoc, "", "  "))
 	}
 	doc := make(map[string]interface{})
 	json.Unmarshal(bytes, &doc)
@@ -103,64 +105,63 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 	}
 	defer client.Disconnect(ctx)
 	c := client.Database(SimDBName).Collection(CollectionName)
+	// metrics := map[string][]bson.M{}
+	minutes := 1
 
 	for run := 0; run < duration; run++ {
 		// be a minute transactions
-		stage := "setup"
+		stage := setupStage
 		if run == (duration - 1) {
-			stage = "teardown"
+			stage = teardownStage
 			totalTPS = rn.tps
 		} else if run > 0 && run < (duration-1) {
-			stage = "thrashing"
+			stage = thrashingStage
 			totalTPS = rn.tps
 		} else {
 			totalTPS = rn.tps / 2
 		}
 		if thread == 0 {
-			log.Println(stage, "TPS:", totalTPS)
+			log.Println(stage, "TPS/connection:", totalTPS)
 		}
 		batchCount := 0
 		totalCount := 0
 		beginTime := time.Now()
 		counter := 0
-		results := []bson.M{}
+		connID := fmt.Sprintf("c%v-%v", minutes, thread)
+		minutes++
 		for time.Now().Sub(beginTime) < time.Minute {
 			innerTime := time.Now()
 			txCount := 0
 			for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS {
 				doc := simDocs[batchCount%len(simDocs)]
 				batchCount++
-				if stage == "setup" {
-					t := time.Now()
-					if _, err = c.InsertOne(ctx, util.CloneDoc(doc)); err != nil {
-						break
-					}
-					if thread == 0 {
-						results = append(results, bson.M{"InsertOne": time.Now().Sub(t)})
-					}
-					txCount++
-				} else if stage == "thrashing" {
+				if stage == setupStage || stage == thrashingStage {
 					var res bson.M
 					if len(transactions) > 0 {
-						if res, err = execTXByTemplateAndTX(c, util.CloneDoc(doc), transactions); err != nil {
-							break
+						for _, tx := range transactions {
+							if res, err = execTXByTemplateAndTX(c, util.CloneDoc(doc), tx); err != nil {
+								break
+							}
+							txCount += res["total"].(int)
+							delete(res, "total")
+							rn.mutex.Lock()
+							rn.metrics[connID] = append(rn.metrics[connID], res)
+							rn.mutex.Unlock()
 						}
-						txCount += res["total"].(int)
 					} else {
 						if res, err = execTx(c, util.CloneDoc(doc)); err != nil {
 							break
 						}
 						txCount += res["total"].(int)
-					}
-
-					if thread == 0 {
 						delete(res, "total")
-						results = append(results, res)
+						rn.mutex.Lock()
+						rn.metrics[connID] = append(rn.metrics[connID], res)
+						rn.mutex.Unlock()
 					}
-				} else if stage == "teardown" {
+				} else if stage == teardownStage {
 					c.DeleteMany(ctx, bson.M{"_search": strconv.FormatInt(rand.Int63(), 16)})
 				}
-				time.Sleep(time.Millisecond)
+				time.Sleep(10 * time.Microsecond)
 			} // for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS
 			totalCount += txCount
 			counter++
@@ -170,19 +171,17 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 			}
 		} // for time.Now().Sub(beginTime) < time.Minute
 
-		if thread == 0 && len(results) > 0 {
-			length := 0
+		if len(rn.metrics[connID]) > 0 {
 			durations := map[string][]time.Duration{}
-			for _, res := range results {
+			for _, res := range rn.metrics[connID] {
 				for k, v := range res {
-					length++
 					durations[k] = append(durations[k], v.(time.Duration))
 				}
 			}
-			log.Println("Executions Time (including network latency) from thread 0: ", length, "samples:")
+			stats := fmt.Sprintf("Connection %d executions Time (including network latency):", thread)
 			tm := time.Now()
 			client.Ping(ctx, nil)
-			log.Printf("\t[%12s] %v\n", "Ping", time.Now().Sub(tm))
+			stats += fmt.Sprintf("\n\t[%12s] %v", "Ping", time.Now().Sub(tm))
 			keys := make([]string, 0, len(durations))
 			for k := range durations {
 				keys = append(keys, k)
@@ -197,20 +196,18 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 				for _, t := range v {
 					sum += t
 				}
-				length = len(v)
+				length := len(v)
 				p95 := int64(float64(length) * .95)
 				p99 := int64(float64(length) * .99)
-				log.Printf("\t[%12s] (min,avg,p95,p99,max) = (%v,%v,%v,%v,%v)\n",
-					k, v[0], sum/time.Duration(length), v[p95], v[p99], v[length-1])
+				stats += fmt.Sprintf("\n\t[%12s] (samples, min, avg, p95, p99, max) = (%v, %v, %v, %v, %v, %v)",
+					k, length, v[0], sum/time.Duration(length), v[p95], v[p99], v[length-1])
+			}
+			if thread == 0 || rn.verbose {
+				rn.channel <- stats
 			}
 		}
-
-		if rn.verbose {
-			log.Println("=>", time.Now().Sub(beginTime), time.Now().Sub(beginTime) > time.Minute,
-				totalCount, totalCount/counter < totalTPS, counter)
-		}
 		tenPctOff := float64(totalTPS) * .95
-		if rn.verbose && totalCount/counter < int(tenPctOff) {
+		if rn.verbose && totalCount/counter < int(tenPctOff) && stage != teardownStage {
 			log.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
 		}
 
@@ -218,14 +215,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 		if seconds > 0 {
 			time.Sleep(time.Duration(seconds) * time.Second)
 		}
-		if rn.verbose {
-			log.Println("=>", time.Now().Sub(beginTime))
-		}
 	} //for run := 0; run < duration; run++
-
 	c.Drop(ctx)
 	return nil
-}
-
-func printAverageTimeDuration(results []bson.M) {
 }
