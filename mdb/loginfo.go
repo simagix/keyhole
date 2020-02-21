@@ -238,7 +238,9 @@ func (li *LogInfo) Parse() error {
 				filter = res[2]
 			}
 
-			if hasFilter(op) == false {
+			if op == "insert" {
+				filter = "{ }"
+			} else if hasFilter(op) == false {
 				continue
 			}
 			if op == "delete" && strings.Index(filter, "writeConcern:") >= 0 {
@@ -379,7 +381,7 @@ func (li *LogInfo) Parse() error {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if len(li.SlowOps) < 10 || milli > li.SlowOps[9].Milli {
+			if op != "insert" && (len(li.SlowOps) < 10 || milli > li.SlowOps[9].Milli) {
 				li.SlowOps = append(li.SlowOps, SlowOps{Milli: milli, Log: str})
 				sort.Slice(li.SlowOps, func(i, j int) bool {
 					return li.SlowOps[i].Milli > li.SlowOps[j].Milli
