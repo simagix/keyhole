@@ -27,17 +27,14 @@ func GetOplogStats(client *mongo.Client) bson.M {
 	oplog := bson.M{}
 	db := client.Database("local")
 	c := db.Collection("oplog.rs")
-	if oplog["count"], err = c.CountDocuments(ctx, bson.D{{}}); err != nil {
-		return oplog
-	}
 	var stats bson.M
 	db.RunCommand(ctx, bson.D{{Key: "collStats", Value: "oplog.rs"}}).Decode(&stats)
 	oplog["maxSize"] = stats["maxSize"]
 	oplog["size"] = stats["size"]
+	oplog["count"] = stats["count"]
 
 	opts := options.Find()
 	opts.SetProjection(bson.D{{Key: "ts", Value: 1}})
-	opts.SetSort(bson.D{{Key: "$natural", Value: 1}})
 	opts.SetLimit(1)
 	if cur, err = c.Find(ctx, bson.D{{}}, opts); err != nil {
 		return oplog
