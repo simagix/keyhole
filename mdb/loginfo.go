@@ -349,6 +349,8 @@ func (li *LogInfo) Parse() error {
 				index = "COUNT_SCAN"
 			} else if strings.Index(str, "planSummary: DISTINCT_SCAN") >= 0 {
 				index = "DISTINCT_SCAN"
+			} else if strings.Index(string(buf), "exception: shard version not ok") > 0 {
+				continue
 			}
 			filter = removeInElements(filter, "$in: [ ")
 			filter = removeInElements(filter, "$nin: [ ")
