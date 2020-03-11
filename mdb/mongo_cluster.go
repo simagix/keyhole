@@ -95,6 +95,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["process"] = info.Process
 	if info.Cluster == SHARDED {
 		mc.cluster["sharding"] = info.Sharding
+		if mc.cluster["shardIDs"], err = GetShards(mc.client); err != nil {
+			log.Println("ERROR", err, "from buildInfo")
+		}
 		var shardList []string
 		if shardList, err = GetShardListWithURI(mc.client, mc.connString.String()); err == nil {
 			var shards []bson.M
@@ -110,18 +113,21 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 					cluster["cluster"] = sinfo.Cluster
 					cluster["host"] = sinfo.Host
 					cluster["process"] = sinfo.Process
-					if hostInfo, err := RunAdminCommand(mc.client, "hostInfo"); err == nil {
+					if hostInfo, err := RunAdminCommand(client, "hostInfo"); err == nil {
 						cluster["hostInfo"] = trimMap(hostInfo)
 					}
-					if buildInfo, err := RunAdminCommand(mc.client, "buildInfo"); err == nil {
+					if buildInfo, err := RunAdminCommand(client, "buildInfo"); err == nil {
 						cluster["buildInfo"] = trimMap(buildInfo)
 					}
 					if sinfo.Cluster == "replica" {
 						cluster["oplog"] = sinfo.Repl["oplog"]
 						var replSetGetStatus bson.M
-						if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
+						if replSetGetStatus, err = RunAdminCommand(client, "replSetGetStatus"); err == nil {
 							cluster["replSetGetStatus"] = trimMap(replSetGetStatus)
 						}
+					}
+					if serverStatus, err := RunAdminCommand(client, "serverStatus"); err == nil {
+						cluster["serverStatus"] = trimMap(serverStatus)
 					}
 					shards = append(shards, cluster)
 				}
@@ -271,15 +277,15 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			// stats
 			var stats bson.M
 			mc.client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-			delete(stats, "indexDetails")
-			delete(stats, "wiredTiger")
+			// delete(stats, "indexDetails")
+			// delete(stats, "wiredTiger")
 			if stats["shards"] != nil {
 				for k := range stats["shards"].(primitive.M) {
 					m := (stats["shards"].(primitive.M)[k]).(primitive.M)
 					delete(m, "$clusterTime")
 					delete(m, "$gleStats")
-					delete(m, "indexDetails")
-					delete(m, "wiredTiger")
+					// delete(m, "indexDetails")
+					// delete(m, "wiredTiger")
 				}
 			}
 			log.Println(gox.Stringify(stats, "", "  "))

@@ -1,5 +1,5 @@
 [[constraint]]
-  version = "v1.2.0"
+  version = "v1.2.1"
   #branch = "master"
   name = "go.mongodb.org/mongo-driver"
 
