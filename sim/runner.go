@@ -105,10 +105,10 @@ func (rn *Runner) SetVerbose(verbose bool) {
 func (rn *Runner) SetPeekingMode(mode bool) {
 	rn.peek = mode
 	if rn.peek == true {
-		go func() {
-			time.Sleep(time.Minute)
+		go func(x int) {
+			time.Sleep(time.Duration(x) * time.Minute)
 			rn.terminate()
-		}()
+		}(rn.duration)
 	}
 }
 

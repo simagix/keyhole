@@ -16,9 +16,9 @@ func TestRemoveInElements(t *testing.T) {
 }
 
 func TestLogInfo(t *testing.T) {
-	loginfo := NewLogInfo("testdata/mongod.log")
+	loginfo := NewLogInfo()
 	loginfo.SetSilent(true)
-	if _, err := loginfo.Analyze(); err != nil {
+	if _, err := loginfo.Analyze("testdata/mongod.log"); err != nil {
 		t.Fatal(err)
 	}
 	os.Remove(loginfo.OutputFilename)
