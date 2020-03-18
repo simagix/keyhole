@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/simagix/gox"
-	"github.com/simagix/keyhole/sim/util"
 )
 
 // COLLSCAN constance
@@ -56,17 +55,9 @@ type SlowOps struct {
 }
 
 // NewLogInfo -
-func NewLogInfo(filename string) *LogInfo {
-	li := LogInfo{filename: filename, collscan: false, silent: false, verbose: false}
+func NewLogInfo() *LogInfo {
+	li := LogInfo{collscan: false, silent: false, verbose: false}
 	li.regex = `^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
-	li.OutputFilename = filepath.Base(filename)
-	if strings.HasSuffix(li.OutputFilename, ".gz") {
-		li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
-	}
-	if strings.HasSuffix(li.OutputFilename, ".log") == false {
-		li.OutputFilename += ".log"
-	}
-	li.OutputFilename += ".enc"
 	return &li
 }
 
@@ -117,13 +108,15 @@ func getConfigOptions(buffers []string) []string {
 	return strs
 }
 
+const topN = 25
+
 // Analyze -
-func (li *LogInfo) Analyze() (string, error) {
+func (li *LogInfo) Analyze(filename string) (string, error) {
 	var err error
 
-	if strings.HasSuffix(li.filename, ".enc") == true {
+	if strings.HasSuffix(filename, ".enc") == true {
 		var data []byte
-		if data, err = ioutil.ReadFile(li.filename); err != nil {
+		if data, err = ioutil.ReadFile(filename); err != nil {
 			return "", err
 		}
 		buffer := bytes.NewBuffer(data)
@@ -131,9 +124,31 @@ func (li *LogInfo) Analyze() (string, error) {
 		if err = dec.Decode(li); err != nil {
 			return "", err
 		}
-		li.OutputFilename = ""
 	} else {
-		if err = li.Parse(); err != nil {
+		var file *os.File
+		var reader *bufio.Reader
+		li.filename = filename
+		li.OutputFilename = filepath.Base(filename)
+		if strings.HasSuffix(li.OutputFilename, ".gz") {
+			li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
+		}
+		if strings.HasSuffix(li.OutputFilename, ".log") == false {
+			li.OutputFilename += ".log"
+		}
+		li.OutputFilename += ".enc"
+		if file, err = os.Open(filename); err != nil {
+			return "", err
+		}
+		defer file.Close()
+		if reader, err = gox.NewReader(file); err != nil {
+			return "", err
+		}
+		lineCounts, _ := gox.CountLines(reader)
+		file.Seek(0, 0)
+		if reader, err = gox.NewReader(file); err != nil {
+			return "", err
+		}
+		if err = li.Parse(reader, lineCounts); err != nil {
 			return "", err
 		}
 		var data bytes.Buffer
@@ -147,31 +162,20 @@ func (li *LogInfo) Analyze() (string, error) {
 }
 
 // Parse -
-func (li *LogInfo) Parse() error {
+func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	var err error
-	var reader *bufio.Reader
-	var file *os.File
 	var opsMap map[string]OpPerformanceDoc
+	lineCounts := 0
+	if len(counts) > 0 {
+		lineCounts = counts[0]
+	}
 
 	opsMap = make(map[string]OpPerformanceDoc)
-	if file, err = os.Open(li.filename); err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if reader, err = util.NewReader(file); err != nil {
-		return err
-	}
-	lineCounts, _ := util.CountLines(reader)
-	file.Seek(0, 0)
-	if reader, err = util.NewReader(file); err != nil {
-		return err
-	}
 	var configList []string
 	matched := regexp.MustCompile(li.regex)
 	index := 0
 	for {
-		if li.silent == false && index%50 == 0 {
+		if lineCounts > 0 && li.silent == false && index%50 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
 		}
 		var buf []byte
@@ -383,13 +387,13 @@ func (li *LogInfo) Parse() error {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if op != "insert" && (len(li.SlowOps) < 10 || milli > li.SlowOps[9].Milli) {
+			if op != "insert" && (len(li.SlowOps) < topN || milli > li.SlowOps[topN-1].Milli) {
 				li.SlowOps = append(li.SlowOps, SlowOps{Milli: milli, Log: str})
 				sort.Slice(li.SlowOps, func(i, j int) bool {
 					return li.SlowOps[i].Milli > li.SlowOps[j].Milli
 				})
-				if len(li.SlowOps) > 10 {
-					li.SlowOps = li.SlowOps[:10]
+				if len(li.SlowOps) > topN {
+					li.SlowOps = li.SlowOps[:topN]
 				}
 			}
 
@@ -455,7 +459,9 @@ func (li *LogInfo) printLogsSummary() string {
 		if len(str) > 60 {
 			str = value.Filter[:60]
 			idx := strings.LastIndex(str, " ")
-			str = value.Filter[:idx]
+			if idx > 0 {
+				str = value.Filter[:idx]
+			}
 		}
 		output := ""
 		avg := float64(value.TotalMilli) / float64(value.Count)

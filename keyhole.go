@@ -87,9 +87,9 @@ func main() {
 			for _, filename := range api.GetLogNames() {
 				fmt.Println("=> processing", filename)
 				var str string
-				li := mdb.NewLogInfo(filename)
+				li := mdb.NewLogInfo()
 				li.SetVerbose(*verbose)
-				if str, err = li.Analyze(); err != nil {
+				if str, err = li.Analyze(filename); err != nil {
 					log.Println(err)
 					continue
 				}
@@ -114,13 +114,13 @@ func main() {
 		if len(flag.Args()) < 1 {
 			log.Fatal("Usage: keyhole --loginfo filename")
 		}
+		li := mdb.NewLogInfo()
+		li.SetRegexPattern(*regex)
+		li.SetCollscan(*collscan)
+		li.SetVerbose(*verbose)
 		for _, filename := range flag.Args() {
 			var str string
-			li := mdb.NewLogInfo(filename)
-			li.SetRegexPattern(*regex)
-			li.SetCollscan(*collscan)
-			li.SetVerbose(*verbose)
-			if str, err = li.Analyze(); err != nil {
+			if str, err = li.Analyze(filename); err != nil {
 				log.Fatal(err)
 			}
 			fmt.Println(str)
