@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/simagix/gox"
-	"github.com/simagix/keyhole/sim/util"
 )
 
 // COLLSCAN constance
@@ -109,6 +108,8 @@ func getConfigOptions(buffers []string) []string {
 	return strs
 }
 
+const topN = 25
+
 // Analyze -
 func (li *LogInfo) Analyze(filename string) (string, error) {
 	var err error
@@ -139,12 +140,12 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 			return "", err
 		}
 		defer file.Close()
-		if reader, err = util.NewReader(file); err != nil {
+		if reader, err = gox.NewReader(file); err != nil {
 			return "", err
 		}
 		lineCounts, _ := gox.CountLines(reader)
 		file.Seek(0, 0)
-		if reader, err = util.NewReader(file); err != nil {
+		if reader, err = gox.NewReader(file); err != nil {
 			return "", err
 		}
 		if err = li.Parse(reader, lineCounts); err != nil {
@@ -386,13 +387,13 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			key := op + "." + filter + "." + scan
 			_, ok := opsMap[key]
 			milli, _ := strconv.Atoi(ms)
-			if op != "insert" && (len(li.SlowOps) < 10 || milli > li.SlowOps[9].Milli) {
+			if op != "insert" && (len(li.SlowOps) < topN || milli > li.SlowOps[topN-1].Milli) {
 				li.SlowOps = append(li.SlowOps, SlowOps{Milli: milli, Log: str})
 				sort.Slice(li.SlowOps, func(i, j int) bool {
 					return li.SlowOps[i].Milli > li.SlowOps[j].Milli
 				})
-				if len(li.SlowOps) > 10 {
-					li.SlowOps = li.SlowOps[:10]
+				if len(li.SlowOps) > topN {
+					li.SlowOps = li.SlowOps[:topN]
 				}
 			}
 
@@ -458,7 +459,9 @@ func (li *LogInfo) printLogsSummary() string {
 		if len(str) > 60 {
 			str = value.Filter[:60]
 			idx := strings.LastIndex(str, " ")
-			str = value.Filter[:idx]
+			if idx > 0 {
+				str = value.Filter[:idx]
+			}
 		}
 		output := ""
 		avg := float64(value.TotalMilli) / float64(value.Count)

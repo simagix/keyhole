@@ -45,7 +45,7 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 
 func TestParse(t *testing.T) {
 	uri := "mongodb://localhost/keyhole?replicaSet=replset"
-	str, err := Parse(uri)
+	str, err := parse(uri)
 	if err != nil || str != uri {
 		t.Fatal(err)
 	}

@@ -4,18 +4,14 @@ package mdb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/simagix/gox"
-	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -91,7 +87,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	delete(info.StorageSize, "statsDetails")
 	mc.cluster["cluster"] = info.Cluster
 	mc.cluster["host"] = info.Host
-	mc.SetFilename(info.Host + ".json.gz")
+	mc.SetFilename(info.Host + ".bson.gz")
 	mc.cluster["process"] = info.Process
 	if info.Cluster == SHARDED {
 		mc.cluster["sharding"] = info.Sharding
@@ -118,6 +114,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 					}
 					if buildInfo, err := RunAdminCommand(client, "buildInfo"); err == nil {
 						cluster["buildInfo"] = trimMap(buildInfo)
+					}
+					if getCmdLineOpts, err := RunAdminCommand(client, "getCmdLineOpts"); err == nil {
+						cluster["getCmdLineOpts"] = trimMap(getCmdLineOpts)
 					}
 					if sinfo.Cluster == "replica" {
 						cluster["oplog"] = sinfo.Repl["oplog"]
@@ -262,37 +261,20 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 				err = nil
 				continue
 			}
-			firstDoc = convertDecimal128ToFloa64(firstDoc)
-			if mc.doodle == true {
-				if cdoc, err := util.GetRandomizedDoc([]byte(gox.Stringify(firstDoc)), false); err == nil {
-					firstDoc = cdoc
-				} else {
-					log.Println(err)
-				}
-			}
-
-			// indexes
+			firstDoc = emptyBinData(firstDoc)
 			indexes := ir.GetIndexesFromCollection(collection)
 
 			// stats
 			var stats bson.M
 			mc.client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-			// delete(stats, "indexDetails")
-			// delete(stats, "wiredTiger")
 			if stats["shards"] != nil {
 				for k := range stats["shards"].(primitive.M) {
 					m := (stats["shards"].(primitive.M)[k]).(primitive.M)
 					delete(m, "$clusterTime")
 					delete(m, "$gleStats")
-					// delete(m, "indexDetails")
-					// delete(m, "wiredTiger")
 				}
 			}
 			log.Println(gox.Stringify(stats, "", "  "))
-			if gox.Stringify(firstDoc) == "" {
-				log.Println(firstDoc)
-				firstDoc = bson.M{}
-			}
 			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
 				"indexes": indexes, "stats": trimMap(stats)})
 			log.Println("collections processed", len(collections))
@@ -306,36 +288,24 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	}
 	fmt.Fprintf(os.Stderr, "\r     \r")
 	mc.cluster["databases"] = databases
+	log.SetOutput(os.Stdin)
 	var data []byte
-	if data, err = json.Marshal(mc.cluster); err != nil {
-		log.Println(err)
-		return mc.cluster, err
-	}
-	clusterJSON := string(data)
-	log.Println("cluster info", len(clusterJSON))
-	log.Println(clusterJSON)
-	if err = gox.OutputGzipped([]byte(clusterJSON), mc.filename); err == nil {
-		fmt.Println("JSON is written to", mc.filename)
+	if data, err = bson.Marshal(mc.cluster); err == nil {
+		if err = gox.OutputGzipped(data, mc.filename); err == nil {
+			fmt.Println("BSON is written to", mc.filename)
+		}
 	}
 	return mc.cluster, err
 }
 
-func convertDecimal128ToFloa64(firstDoc bson.M) bson.M {
+func emptyBinData(firstDoc bson.M) bson.M {
 	for k, v := range firstDoc {
 		if reflect.TypeOf(v) == nil {
 			continue
 		}
 		t := reflect.TypeOf(v).String()
-		if t == "primitive.Decimal128" {
-			firstDoc[k], _ = strconv.ParseFloat(v.(primitive.Decimal128).String(), 64)
-		} else if t == "primitive.M" {
-			firstDoc[k] = convertDecimal128ToFloa64(v.(bson.M))
-		} else if t == "primitive.Binary" {
+		if t == "primitive.Binary" {
 			firstDoc[k] = primitive.Binary{}
-			// } else if t == "string" && len(fmt.Sprintf("%v", v)) > 32 {
-			// 	firstDoc[k] = fmt.Sprintf("string:%v", len(fmt.Sprintf("%v", v)))
-		} else if t == "float64" && math.IsNaN(v.(float64)) {
-			firstDoc[k] = float64(0)
 		} else {
 			// fmt.Println(v, t)
 		}
@@ -348,31 +318,6 @@ func trimMap(doc bson.M) bson.M {
 	delete(doc, "operationTime")
 	delete(doc, "ok")
 	return doc
-}
-
-// GetStorageSize returns storage size in [TGMK] B
-func GetStorageSize(num interface{}) string {
-	f := fmt.Sprintf("%v", num)
-	x, err := strconv.ParseFloat(f, 64)
-	if err != nil {
-		return f
-	}
-
-	if x >= (1024 * 1024 * 1024 * 1024) {
-		s := fmt.Sprintf("%v", x/(1024*1024*1024*1024))
-		return round(s) + " TB"
-	} else if x >= (1024 * 1024 * 1024) {
-		s := fmt.Sprintf("%v", x/(1024*1024*1024))
-		return round(s) + " GB"
-	} else if x >= (1024 * 1024) {
-		s := fmt.Sprintf("%v", x/(1024*1024))
-		return round(s) + " MB"
-	} else if x >= 1024 {
-		s := fmt.Sprintf("%v", x/1024)
-		return round(s) + " KB"
-	}
-	s := fmt.Sprintf("%v", x)
-	return round(s) + " B"
 }
 
 func round(s string) string {
