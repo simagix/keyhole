@@ -29,6 +29,8 @@ type MongoCluster struct {
 	verbose    bool
 }
 
+const replica = "replica"
+
 // NewMongoCluster server info struct
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	hostname, _ := os.Hostname()
@@ -62,9 +64,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
+	log.Println("traces are written to", mc.logfile)
 	defer f.Close()
 	log.SetOutput(f)
-	log.Println("GetClusterInfo(), logs are written to", mc.logfile)
 	var cur *mongo.Cursor
 	var ctx = context.Background()
 	var config = bson.M{}
@@ -109,24 +111,12 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 					cluster["cluster"] = sinfo.Cluster
 					cluster["host"] = sinfo.Host
 					cluster["process"] = sinfo.Process
-					if hostInfo, err := RunAdminCommand(client, "hostInfo"); err == nil {
-						cluster["hostInfo"] = trimMap(hostInfo)
-					}
-					if buildInfo, err := RunAdminCommand(client, "buildInfo"); err == nil {
-						cluster["buildInfo"] = trimMap(buildInfo)
-					}
-					if getCmdLineOpts, err := RunAdminCommand(client, "getCmdLineOpts"); err == nil {
-						cluster["getCmdLineOpts"] = trimMap(getCmdLineOpts)
-					}
-					if sinfo.Cluster == "replica" {
+					if sinfo.Cluster == replica {
 						cluster["oplog"] = sinfo.Repl["oplog"]
-						var replSetGetStatus bson.M
-						if replSetGetStatus, err = RunAdminCommand(client, "replSetGetStatus"); err == nil {
-							cluster["replSetGetStatus"] = trimMap(replSetGetStatus)
-						}
 					}
-					if serverStatus, err := RunAdminCommand(client, "serverStatus"); err == nil {
-						cluster["serverStatus"] = trimMap(serverStatus)
+					if err = collectServerInfo(client, &cluster, sinfo.Cluster); err != nil {
+						log.Println("ERROR", err, "from collectServerInfo")
+						continue
 					}
 					shards = append(shards, cluster)
 				}
@@ -136,79 +126,12 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	}
 	mc.cluster["storage"] = info.StorageSize
 	mc.cluster["version"] = info.Version
-
-	// hostInfo
-	var hostInfo bson.M
-	if hostInfo, err = RunAdminCommand(mc.client, "hostInfo"); err == nil {
-		config["hostInfo"] = trimMap(hostInfo)
-	} else {
-		config["hostInfo"] = bson.M{"ok": 0, "error": err.Error()}
-		log.Println("ERROR", err, "from hostInfo")
-	}
-	log.Println("hostInfo:\n", gox.Stringify(config["hostInfo"], "", "  "))
-
-	// getCmdLineOpts
-	var getCmdLineOpts bson.M
-	if getCmdLineOpts, err = RunAdminCommand(mc.client, "getCmdLineOpts"); err == nil {
-		config["getCmdLineOpts"] = trimMap(getCmdLineOpts)
-	} else {
-		config["getCmdLineOpts"] = bson.M{"ok": 0, "error": err.Error()}
-		log.Println("ERROR", err, "from getCmdLineOpts")
-	}
-	log.Println("getCmdLineOpts:\n", gox.Stringify(config["getCmdLineOpts"], "", "  "))
-
-	// buildInfo
-	var buildInfo bson.M
-	if buildInfo, err = RunAdminCommand(mc.client, "buildInfo"); err == nil {
-		config["buildInfo"] = trimMap(buildInfo)
-	} else {
-		config["buildInfo"] = bson.M{"ok": 0, "error": err.Error()}
-		log.Println("ERROR", err, "from buildInfo")
-	}
-	log.Println("buildInfo:\n", gox.Stringify(config["buildInfo"], "", "  "))
-
-	// ServerStatus
-	var serverStatus bson.M
-	if serverStatus, err = RunAdminCommand(mc.client, "serverStatus"); err == nil {
-		config["serverStatus"] = trimMap(serverStatus)
-	} else {
-		config["serverStatus"] = bson.M{"ok": 0, "error": err.Error()}
-		log.Println("ERROR", err, "from serverStatus")
-	}
-	log.Println("serverStatus:\n", gox.Stringify(config["serverStatus"], "", "  "))
-
-	// replSetGetStatus
-	if info.Cluster == "replica" {
+	if info.Cluster == replica {
 		config["oplog"] = info.Repl["oplog"]
-		var replSetGetStatus bson.M
-		if replSetGetStatus, err = RunAdminCommand(mc.client, "replSetGetStatus"); err == nil {
-			config["replSetGetStatus"] = trimMap(replSetGetStatus)
-		} else {
-			config["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
-			log.Println("ERROR", err, "from replSetGetStatus")
-		}
 	}
-	log.Println("replSetGetStatus:\n", gox.Stringify(config["replSetGetStatus"], "", "  "))
-
-	// usersInfo
-	var usersInfo bson.M
-	if usersInfo, err = RunAdminCommand(mc.client, "usersInfo"); err == nil {
-		config["usersInfo"] = trimMap(usersInfo)
-	} else {
-		config["usersInfo"] = bson.M{"ok": 0, "error": err.Error()}
-		log.Println("ERROR", err, "from usersInfo")
+	if err = collectServerInfo(mc.client, &config, info.Cluster); err != nil {
+		log.Println("ERROR", err, "from collectServerInfo")
 	}
-	log.Println("usersInfo:\n", gox.Stringify(config["usersInfo"], "", "  "))
-
-	// rolesInfo
-	var rolesInfo bson.M
-	if rolesInfo, err = RunAdminCommand(mc.client, "rolesInfo"); err == nil {
-		config["rolesInfo"] = trimMap(rolesInfo)
-	} else {
-		config["rolesInfo"] = bson.M{"ok": 0, "error": err.Error()}
-		log.Println("ERROR", err, "from rolesInfo")
-	}
-	log.Println("rolesInfo:\n", gox.Stringify(config["rolesInfo"], "", "  "))
 
 	// collections firstDoc (findOne), indexes, and stats
 	dbNames, err := ListDatabaseNames(mc.client)
@@ -258,7 +181,6 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			var firstDoc bson.M
 			if err = collection.FindOne(ctx, bson.D{{}}).Decode(&firstDoc); err != nil {
 				log.Println("ERROR", err, "from", ns)
-				err = nil
 				continue
 			}
 			firstDoc = emptyBinData(firstDoc)
@@ -298,6 +220,78 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	return mc.cluster, err
 }
 
+func collectServerInfo(client *mongo.Client, cluster *bson.M, clusterType string) error {
+	var err error // hostInfo
+	var hostInfo bson.M
+	if *cluster == nil {
+		cluster = &bson.M{}
+	}
+	if hostInfo, err = RunAdminCommand(client, "hostInfo"); err == nil {
+		(*cluster)["hostInfo"] = trimMap(hostInfo)
+	} else {
+		(*cluster)["hostInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from hostInfo")
+	}
+	log.Println("hostInfo:\n", gox.Stringify((*cluster)["hostInfo"], "", "  "))
+	// getCmdLineOpts
+	var getCmdLineOpts bson.M
+	if getCmdLineOpts, err = RunAdminCommand(client, "getCmdLineOpts"); err == nil {
+		(*cluster)["getCmdLineOpts"] = trimMap(getCmdLineOpts)
+	} else {
+		(*cluster)["getCmdLineOpts"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from getCmdLineOpts")
+	}
+	log.Println("getCmdLineOpts:\n", gox.Stringify((*cluster)["getCmdLineOpts"], "", "  "))
+	// buildInfo
+	var buildInfo bson.M
+	if buildInfo, err = RunAdminCommand(client, "buildInfo"); err == nil {
+		(*cluster)["buildInfo"] = trimMap(buildInfo)
+	} else {
+		(*cluster)["buildInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from buildInfo")
+	}
+	log.Println("buildInfo:\n", gox.Stringify((*cluster)["buildInfo"], "", "  "))
+	// ServerStatus
+	var serverStatus bson.M
+	if serverStatus, err = RunAdminCommand(client, "serverStatus"); err == nil {
+		(*cluster)["serverStatus"] = trimMap(serverStatus)
+	} else {
+		(*cluster)["serverStatus"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from serverStatus")
+	}
+	log.Println("serverStatus:\n", gox.Stringify((*cluster)["serverStatus"], "", "  "))
+	// replSetGetStatus
+	if clusterType == replica {
+		var replSetGetStatus bson.M
+		if replSetGetStatus, err = RunAdminCommand(client, "replSetGetStatus"); err == nil {
+			(*cluster)["replSetGetStatus"] = trimMap(replSetGetStatus)
+		} else {
+			(*cluster)["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
+			log.Println("ERROR", err, "from replSetGetStatus")
+		}
+	}
+	log.Println("replSetGetStatus:\n", gox.Stringify((*cluster)["replSetGetStatus"], "", "  "))
+	// usersInfo
+	var usersInfo bson.M
+	if usersInfo, err = RunAdminCommand(client, "usersInfo"); err == nil {
+		(*cluster)["usersInfo"] = trimMap(usersInfo)
+	} else {
+		(*cluster)["usersInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from usersInfo")
+	}
+	log.Println("usersInfo:\n", gox.Stringify((*cluster)["usersInfo"], "", "  "))
+	// rolesInfo
+	var rolesInfo bson.M
+	if rolesInfo, err = RunAdminCommand(client, "rolesInfo"); err == nil {
+		(*cluster)["rolesInfo"] = trimMap(rolesInfo)
+	} else {
+		(*cluster)["rolesInfo"] = bson.M{"ok": 0, "error": err.Error()}
+		log.Println("ERROR", err, "from rolesInfo")
+	}
+	log.Println("rolesInfo:\n", gox.Stringify((*cluster)["rolesInfo"], "", "  "))
+	return err
+}
+
 func emptyBinData(firstDoc bson.M) bson.M {
 	for k, v := range firstDoc {
 		if reflect.TypeOf(v) == nil {
@@ -316,6 +310,7 @@ func emptyBinData(firstDoc bson.M) bson.M {
 func trimMap(doc bson.M) bson.M {
 	delete(doc, "$clusterTime")
 	delete(doc, "operationTime")
+	delete(doc, "$gleStats")
 	delete(doc, "ok")
 	return doc
 }
