@@ -250,9 +250,14 @@ func main() {
 		stream.Watch(client, util.Echo)
 		os.Exit(0)
 	}
-
-	client.Disconnect(context.Background())
-	if *yes == false {
+	if *peek == true {
+		mc := mdb.NewMongoCluster(client)
+		mc.SetVerbose(true)
+		mc.SetConnString(connString)
+		if _, e := mc.GetClusterInfo(); e != nil {
+			log.Fatal(e)
+		}
+	} else if *yes == false {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Begin a load test [Y/n]: ")
 		text, _ := reader.ReadString('\n')
@@ -261,6 +266,7 @@ func main() {
 			os.Exit(0)
 		}
 	}
+	client.Disconnect(context.Background())
 	var runner *sim.Runner
 	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
 		log.Fatal(err)

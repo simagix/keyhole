@@ -24,7 +24,7 @@ import (
 const KEYHOLEDB = "_KEYHOLE_"
 
 // NewMongoClient new mongo client
-func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
+func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
 	var connString connstring.ConnString
@@ -35,33 +35,36 @@ func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
 	if connString, err = connstring.Parse(uri); err != nil {
 		return client, err
 	}
-	opt := options.Client().ApplyURI(uri)
-	if connString.Username == "" {
-		opt.Auth = nil
+	opts := options.Client().ApplyURI(uri)
+	if connString.ReplicaSet == "" {
+		opts.SetDirect(true)
 	}
-	if len(opts) > 0 && opts[0] != "" {
+	if connString.Username == "" {
+		opts.Auth = nil
+	}
+	if len(files) > 0 && files[0] != "" {
 		connString.SSL = true
 		roots := x509.NewCertPool()
 		var caBytes []byte
-		if caBytes, err = ioutil.ReadFile(opts[0]); err != nil {
+		if caBytes, err = ioutil.ReadFile(files[0]); err != nil {
 			return nil, err
 		}
 		if ok := roots.AppendCertsFromPEM(caBytes); !ok {
 			return client, errors.New("failed to parse root certificate")
 		}
 		var certs tls.Certificate
-		if len(opts) >= 2 && opts[1] != "" {
+		if len(files) >= 2 && files[1] != "" {
 			var clientBytes []byte
-			if clientBytes, err = ioutil.ReadFile(opts[1]); err != nil {
+			if clientBytes, err = ioutil.ReadFile(files[1]); err != nil {
 				return nil, err
 			}
 			if certs, err = tls.X509KeyPair(clientBytes, clientBytes); err != nil {
 				return nil, err
 			}
 		}
-		opt.SetTLSConfig(&tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}})
+		opts.SetTLSConfig(&tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}})
 	}
-	if client, err = mongo.NewClient(opt); err != nil {
+	if client, err = mongo.NewClient(opts); err != nil {
 		return client, err
 	}
 
