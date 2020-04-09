@@ -89,6 +89,7 @@ function GetIndexesFromCollection(dbname, name) {
   for (var n = 0; n < docs.length; n++) {
     var doc = docs[n];
     var index = { "totalOps": 0 };
+
     index["name"] = doc["name"];
     index["key"] = JSON.stringify(doc["key"]).replace(/"/g, "");
     var str = JSON.stringify(doc["key"]).replace(":-1", ":1").replace(/"/g, "");
