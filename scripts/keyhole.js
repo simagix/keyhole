@@ -1,7 +1,7 @@
 // Copyright 2020 Kuei-chun Chen. All rights reserved.
 
 var cluster = GetClustersSummary()
-var data = JSON.stringify(cluster, "", "  ");
+var data = JSON.stringify(cluster);
 print(data)
 
 function GetClustersSummary() {
