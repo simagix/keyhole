@@ -227,7 +227,9 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			}
 		}
 		if stat.op == "" {
-			fmt.Println(str)
+			if li.verbose {
+				fmt.Println(str)
+			}
 			continue
 		} else if stat.op == dollarCmd {
 			continue
@@ -280,7 +282,6 @@ func (li *LogInfo) printLogsSummary() string {
 	if len(li.SlowOps) > 0 && li.verbose == true {
 		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
 		for _, op := range li.SlowOps {
-			// summaries = append(summaries, MilliToTimeString(float64(op.Milli))+" => "+op.Log)
 			summaries = append(summaries, fmt.Sprintf("%s (%s) %dms", op.Log, gox.MilliToTimeString(float64(op.Milli)), op.Milli))
 		}
 		summaries = append(summaries, "\n")

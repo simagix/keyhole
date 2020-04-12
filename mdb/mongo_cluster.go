@@ -34,7 +34,7 @@ const replica = "replica"
 // NewMongoCluster server info struct
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	hostname, _ := os.Hostname()
-	return &MongoCluster{client: client, filename: hostname + ".json.gz", logfile: hostname + ".keyhole.log"}
+	return &MongoCluster{client: client, filename: hostname + ".bson.gz", logfile: "__keyhole.log"}
 }
 
 // SetVerbose -
@@ -64,7 +64,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
-	log.Println("traces are written to", mc.logfile)
+	fmt.Println("traces are written to", mc.logfile)
 	defer f.Close()
 	log.SetOutput(f)
 	var cur *mongo.Cursor
@@ -212,11 +212,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["databases"] = databases
 	log.SetOutput(os.Stdin)
 	var data []byte
-	if data, err = bson.Marshal(mc.cluster); err == nil {
-		if err = gox.OutputGzipped(data, mc.filename); err == nil {
-			fmt.Println("BSON is written to", mc.filename)
-		}
+	if data, err = bson.Marshal(mc.cluster); err != nil {
+		return mc.cluster, err
+	} else if err = gox.OutputGzipped(data, mc.filename); err != nil {
+		return mc.cluster, err
 	}
+	// os.Remove(mc.logfile)
+	fmt.Println("BSON is written to", mc.filename)
 	return mc.cluster, err
 }
 
