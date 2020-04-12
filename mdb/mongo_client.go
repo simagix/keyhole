@@ -6,10 +6,10 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"log"
 	"strings"
 	"syscall"
 	"time"
@@ -24,40 +24,47 @@ import (
 const KEYHOLEDB = "_KEYHOLE_"
 
 // NewMongoClient new mongo client
-func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
+func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
 	var connString connstring.ConnString
 
+	if uri, err = parse(uri); err != nil {
+		return client, err
+	}
 	if connString, err = connstring.Parse(uri); err != nil {
 		return client, err
 	}
-	opt := options.Client().ApplyURI(uri)
+	opts := options.Client().ApplyURI(uri)
+	if connString.ReplicaSet == "" {
+		opts.SetDirect(true)
+	}
 	if connString.Username == "" {
-		opt.Auth = nil
+		opts.Auth = nil
 	}
-	if len(opts) >= 2 && opts[0] != "" && opts[1] != "" {
-		var caBytes []byte
-		var clientBytes []byte
-		if caBytes, err = ioutil.ReadFile(opts[0]); err != nil {
-			return nil, err
-		}
-		if clientBytes, err = ioutil.ReadFile(opts[1]); err != nil {
-			return nil, err
-		}
-
+	if len(files) > 0 && files[0] != "" {
+		connString.SSL = true
 		roots := x509.NewCertPool()
+		var caBytes []byte
+		if caBytes, err = ioutil.ReadFile(files[0]); err != nil {
+			return nil, err
+		}
 		if ok := roots.AppendCertsFromPEM(caBytes); !ok {
-			panic("failed to parse root certificate")
+			return client, errors.New("failed to parse root certificate")
 		}
-		certs, e := tls.X509KeyPair(clientBytes, clientBytes)
-		if e != nil {
-			log.Fatalf("invalid key pair: %v", e)
+		var certs tls.Certificate
+		if len(files) >= 2 && files[1] != "" {
+			var clientBytes []byte
+			if clientBytes, err = ioutil.ReadFile(files[1]); err != nil {
+				return nil, err
+			}
+			if certs, err = tls.X509KeyPair(clientBytes, clientBytes); err != nil {
+				return nil, err
+			}
 		}
-		cfg := &tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}}
-		opt.SetTLSConfig(cfg)
+		opts.SetTLSConfig(&tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}})
 	}
-	if client, err = mongo.NewClient(opt); err != nil {
+	if client, err = mongo.NewClient(opts); err != nil {
 		return client, err
 	}
 
@@ -70,15 +77,15 @@ func NewMongoClient(uri string, opts ...string) (*mongo.Client, error) {
 	return client, err
 }
 
-// Parse checks if password is included
-func Parse(uri string) (string, error) {
+// parse checks if password is included
+func parse(uri string) (string, error) {
 	var err error
 	var connString connstring.ConnString
 	if connString, err = connstring.Parse(uri); err != nil {
 		return uri, err
 	}
 	if connString.Username != "" && connString.Password == "" {
-		if connString.Password, err = ReadPasswordFromStdin(); err != nil {
+		if connString.Password, err = readPasswordFromStdin(); err != nil {
 			return uri, err
 		}
 		index := strings.LastIndex(uri, "@")
@@ -102,11 +109,8 @@ func Parse(uri string) (string, error) {
 	return uri, err
 }
 
-// ReadPasswordFromStdin reads password from stdin
-func ReadPasswordFromStdin() (string, error) {
-	// if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-	// 	return "", errors.New("Missing password")
-	// }
+// readPasswordFromStdin reads password from stdin
+func readPasswordFromStdin() (string, error) {
 	var buffer []byte
 	var err error
 	fmt.Print("Enter Password: ")

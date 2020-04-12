@@ -1,5 +1,5 @@
 [[constraint]]
-  version = "v1.2.1"
+  version = "v1.3.1"
   #branch = "master"
   name = "go.mongodb.org/mongo-driver"
 
@@ -8,7 +8,7 @@
   name = "github.com/simagix/gox"
 
 [[constraint]]
-  version = "v0.5.3"
+  version = "v0.5.4"
   #branch = "master"
   name = "github.com/simagix/mongo-atlas"
 
