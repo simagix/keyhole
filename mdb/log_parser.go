@@ -7,12 +7,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/simagix/gox"
 )
 
-// ParseText - parses text message before v4.4
-func (li *LogInfo) parseText(str string) (logStats, error) {
+// ParseLog - parses text message before v4.4
+func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	var err error
-	var stat logStats
+	var stat LogStats
 	matched := regexp.MustCompile(li.regex)
 
 	scan := ""
@@ -49,9 +51,12 @@ func (li *LogInfo) parseText(str string) (logStats, error) {
 		re := regexp.MustCompile(`^(\w+) ({.*})$`)
 		op := result[2]
 		ns := result[3]
-		if strings.HasPrefix(ns, "local.") || strings.HasPrefix(ns, "admin.") ||
-			strings.HasPrefix(ns, "config.") || strings.HasSuffix(ns, ".$cmd") == true {
-			return stat, err
+		if strings.HasPrefix(ns, "admin.") || strings.HasPrefix(ns, "config.") || strings.HasPrefix(ns, "local.") {
+			stat.op = dollarCmd
+			return stat, errors.New("system database")
+		} else if strings.HasSuffix(ns, ".$cmd") {
+			stat.op = dollarCmd
+			return stat, errors.New("system command")
 		}
 		filter := result[4][:epos]
 		ms := result[5]
@@ -208,11 +213,55 @@ func (li *LogInfo) parseText(str string) (logStats, error) {
 		re = regexp.MustCompile(`(: \/(\^)?\S+\/(\S+)? })`)
 		filter = re.ReplaceAllString(filter, ": /${2}regex/$3}")
 		filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
-		// filter = reorderFilterFields(filter)
 		filter += aggStages
 		milli, _ := strconv.Atoi(ms)
-		stat = logStats{filter: filter, index: index, milli: milli, ns: ns, op: op, scan: scan}
+		stat = LogStats{filter: filter, index: index, milli: milli, ns: ns, op: op, scan: scan}
 		return stat, nil
 	}
 	return stat, errors.New("unrecognized log")
+}
+
+func getDocByField(str string, key string) string {
+	ml := gox.NewMongoLog(str)
+	return ml.Get(key)
+}
+
+var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify", "distinct"}
+
+func hasFilter(op string) bool {
+	for _, f := range filters {
+		if f == op {
+			return true
+		}
+	}
+	return false
+}
+
+// convert $in: [...] to $in: [ ]
+func removeInElements(str string, instr string) string {
+	idx := strings.Index(str, instr)
+	if idx < 0 {
+		return str
+	}
+
+	idx += len(instr) - 1
+	cnt, epos := -1, -1
+	for _, r := range str {
+		if cnt < idx {
+			cnt++
+			continue
+		}
+		if r == ']' {
+			epos = cnt
+			break
+		}
+		cnt++
+	}
+
+	if epos == -1 {
+		str = str[:idx] + "...]"
+	} else {
+		str = str[:idx] + "..." + str[epos:]
+	}
+	return str
 }

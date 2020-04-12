@@ -54,7 +54,8 @@ type SlowOps struct {
 	Log   string
 }
 
-type logStats struct {
+// LogStats log stats structure
+type LogStats struct {
 	filter string
 	index  string
 	milli  int
@@ -62,6 +63,8 @@ type logStats struct {
 	op     string
 	scan   string
 }
+
+const dollarCmd = "$cmd"
 
 // NewLogInfo -
 func NewLogInfo() *LogInfo {
@@ -177,7 +180,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	var isPrefix bool
 	var logType string
 	var opsMap map[string]OpPerformanceDoc
-	var stat logStats
+	var stat LogStats
 	opsMap = make(map[string]OpPerformanceDoc)
 	lineCounts := 0
 	if len(counts) > 0 {
@@ -202,29 +205,36 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		}
 		if logType == "" { //examine the log logType
 			if regexp.MustCompile("^{.*}$").MatchString(str) == true {
-				logType = "json"
-				if stat, err = li.parseJSON(str); err != nil {
+				logType = "logv2"
+				if stat, err = li.ParseLogv2(str); err != nil {
 					continue
 				}
 			} else if regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*").MatchString(str) == true {
 				logType = "text"
-				if stat, err = li.parseText(str); err != nil {
+				if stat, err = li.ParseLog(str); err != nil {
 					continue
 				}
 			} else {
 				return errors.New("unsupported format")
 			}
 		} else if logType == "text" {
-			if stat, err = li.parseText(str); err != nil {
+			if stat, err = li.ParseLog(str); err != nil {
 				continue
 			}
-		} else if logType == "json" {
-			if stat, err = li.parseJSON(str); err != nil {
+		} else if logType == "logv2" {
+			if stat, err = li.ParseLogv2(str); err != nil {
 				continue
 			}
 		}
-
-		key := stat.op + "." + stat.filter + "." + stat.scan
+		if stat.op == "" {
+			if li.verbose {
+				fmt.Println(str)
+			}
+			continue
+		} else if stat.op == dollarCmd {
+			continue
+		}
+		key := stat.op + "." + stat.ns + "." + stat.filter + "." + stat.scan
 		_, ok := opsMap[key]
 		if stat.op != "insert" && (len(li.SlowOps) < topN || stat.milli > li.SlowOps[topN-1].Milli) {
 			li.SlowOps = append(li.SlowOps, SlowOps{Milli: stat.milli, Log: str})
@@ -261,4 +271,86 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		fmt.Fprintf(os.Stderr, "\r     \r")
 	}
 	return nil
+}
+
+// printLogsSummary prints loginfo summary
+func (li *LogInfo) printLogsSummary() string {
+	summaries := []string{}
+	if li.verbose == true {
+		summaries = append([]string{}, li.mongoInfo)
+	}
+	if len(li.SlowOps) > 0 && li.verbose == true {
+		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
+		for _, op := range li.SlowOps {
+			summaries = append(summaries, fmt.Sprintf("%s (%s) %dms", op.Log, gox.MilliToTimeString(float64(op.Milli)), op.Milli))
+		}
+		summaries = append(summaries, "\n")
+	}
+	var buffer bytes.Buffer
+	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
+	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
+	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
+	for _, value := range li.OpsPatterns {
+		str := value.Filter
+		if len(value.Command) > 10 {
+			value.Command = value.Command[:10]
+		}
+		if len(value.Namespace) > 33 {
+			length := len(value.Namespace)
+			value.Namespace = value.Namespace[:1] + "*" + value.Namespace[(length-31):]
+		}
+		if len(str) > 60 {
+			str = value.Filter[:60]
+			idx := strings.LastIndex(str, " ")
+			if idx > 0 {
+				str = value.Filter[:idx]
+			}
+		}
+		output := ""
+		avg := float64(value.TotalMilli) / float64(value.Count)
+		avgstr := gox.MilliToTimeString(avg)
+		if value.Scan == COLLSCAN {
+			output = fmt.Sprintf("|%-10s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
+				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
+		} else {
+			output = fmt.Sprintf("|%-10s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-62s|\n", value.Command, value.Scan,
+				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
+		}
+		buffer.WriteString(output)
+		if len(value.Filter) > 60 {
+			remaining := value.Filter[len(str):]
+			for i := 0; i < len(remaining); i += 60 {
+				epos := i + 60
+				var pstr string
+				if epos > len(remaining) {
+					epos = len(remaining)
+					pstr = remaining[i:epos]
+				} else {
+					str = strings.Trim(remaining[i:epos], " ")
+					idx := strings.LastIndex(str, " ")
+					if idx >= 0 {
+						pstr = str[:idx]
+						i -= (60 - idx)
+					} else {
+						pstr = str
+						i -= (60 - len(str))
+					}
+				}
+				if value.Scan == COLLSCAN {
+					output = fmt.Sprintf("|%74s   \x1b[31;1m%-62s\x1b[0m|\n", " ", pstr)
+					buffer.WriteString(output)
+				} else {
+					output = fmt.Sprintf("|%74s   %-62s|\n", " ", pstr)
+					buffer.WriteString(output)
+				}
+			}
+		}
+		if value.Index != "" {
+			output = fmt.Sprintf("|...index:  \x1b[32;1m%-128s\x1b[0m|\n", value.Index)
+			buffer.WriteString(output)
+		}
+	}
+	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
+	summaries = append(summaries, buffer.String())
+	return strings.Join(summaries, "\n")
 }

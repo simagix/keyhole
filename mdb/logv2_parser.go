@@ -5,8 +5,6 @@ package mdb
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -22,9 +20,9 @@ const cmdInsert = "insert"
 const cmdRemove = "remove"
 const cmdUpdate = "update"
 
-// parseJSON - parses text message before v4.4
-func (li *LogInfo) parseJSON(str string) (logStats, error) {
-	var stat = logStats{}
+// ParseLogv2 - parses text message before v4.4
+func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
+	var stat = LogStats{}
 	var doc map[string]interface{}
 	if strings.Index(str, "durationMillis") < 0 {
 		return stat, errors.New("no durationMillis found")
@@ -33,8 +31,12 @@ func (li *LogInfo) parseJSON(str string) (logStats, error) {
 	attr := doc["attr"].(map[string]interface{})
 	stat.milli = int(attr["durationMillis"].(float64))
 	stat.ns = attr["ns"].(string)
-	if strings.HasPrefix(stat.ns, "admin.") || strings.HasPrefix(stat.ns, "config.") || strings.HasSuffix(stat.ns, ".$cmd") {
+	if strings.HasPrefix(stat.ns, "admin.") || strings.HasPrefix(stat.ns, "config.") || strings.HasPrefix(stat.ns, "local.") {
+		stat.op = dollarCmd
 		return stat, errors.New("system database")
+	} else if strings.HasSuffix(stat.ns, ".$cmd") {
+		stat.op = dollarCmd
+		return stat, errors.New("system command")
 	}
 	if attr["planSummary"] != nil {
 		plan := attr["planSummary"].(string)
@@ -42,20 +44,16 @@ func (li *LogInfo) parseJSON(str string) (logStats, error) {
 			stat.scan = attr["planSummary"].(string)
 		} else if strings.HasPrefix(plan, "IXSCAN") {
 			stat.index = plan[len("IXSCAN")+1:]
+		} else {
+			stat.index = plan
 		}
+	}
+	if li.collscan == true && stat.scan != COLLSCAN {
+		return stat, nil
 	}
 	command := attr["command"].(map[string]interface{})
 	if attr["type"] != nil {
 		stat.op = attr["type"].(string)
-		if (stat.op == cmdRemove || stat.op == cmdUpdate) && stat.scan != "" {
-			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(command["q"].(map[string]interface{}))
-			if buf, err := json.Marshal(doc); err == nil {
-				stat.filter = string(buf)
-			} else {
-				stat.filter = "{}"
-			}
-		}
 	}
 	if stat.op == "command" {
 		stat.op = ""
@@ -88,7 +86,13 @@ func (li *LogInfo) parseJSON(str string) (logStats, error) {
 	if stat.op == cmdInsert {
 		stat.filter = "N/A"
 	} else if (stat.op == cmdUpdate || stat.op == cmdRemove || stat.op == cmdDelete) && stat.filter == "" {
-		stat.filter = "{}"
+		walker := gox.NewMapWalker(cb)
+		doc := walker.Walk(command["q"].(map[string]interface{}))
+		if buf, err := json.Marshal(doc); err == nil {
+			stat.filter = string(buf)
+		} else {
+			stat.filter = "{}"
+		}
 	} else if stat.op == cmdAggregate {
 		pipeline := command["pipeline"].([]interface{})
 		var stage interface{}
@@ -117,11 +121,16 @@ func (li *LogInfo) parseJSON(str string) (logStats, error) {
 		}
 	}
 	if stat.op == "" {
-		fmt.Println(gox.Stringify(doc, "", "  "))
-		os.Exit(0)
+		return stat, nil
 	}
-	re := regexp.MustCompile(`:\[(\S+)\]`)
-	stat.filter = re.ReplaceAllString(stat.filter, ":[...]")
+	re := regexp.MustCompile(`\[(1,)*1\]`)
+	stat.filter = re.ReplaceAllString(stat.filter, `[...]`)
+	re = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
+	stat.filter = re.ReplaceAllString(stat.filter, `$2`)
+	re = regexp.MustCompile(`^{("(\$facet")):\S+}$`)
+	stat.filter = re.ReplaceAllString(stat.filter, `{$1:...}`)
+	re = regexp.MustCompile(`{"\$oid":1}`)
+	stat.filter = re.ReplaceAllString(stat.filter, `1`)
 	return stat, nil
 }
 

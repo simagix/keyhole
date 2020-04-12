@@ -7,14 +7,6 @@ import (
 	"testing"
 )
 
-func TestRemoveInElements(t *testing.T) {
-	str := "{ tveUserId: 12541178, titleId: { $in: [ 134734, 3425024 ] } }"
-	filter := removeInElements(str, "$in: [ ")
-	if filter != "{ tveUserId: 12541178, titleId: { $in: [... ] } }" {
-		t.Fatal()
-	}
-}
-
 func TestLogInfo(t *testing.T) {
 	loginfo := NewLogInfo()
 	loginfo.SetSilent(true)

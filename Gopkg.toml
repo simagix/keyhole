@@ -1,5 +1,5 @@
 [[constraint]]
-  version = "v1.3.1"
+  version = "v1.3.2"
   #branch = "master"
   name = "go.mongodb.org/mongo-driver"
 
@@ -23,8 +23,8 @@
   name = "golang.org/x/sys"
 
 [[constraint]]
-  #branch = "release-branch.go1.13"
-  branch = "master"
+  branch = "release-branch.go1.13"
+  #branch = "master"
   name = "golang.org/x/crypto"
 
 [prune]
