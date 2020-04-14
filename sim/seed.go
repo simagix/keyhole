@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -207,7 +209,8 @@ func (f *Feeder) seedNumbers(client *mongo.Client) error {
 	}
 
 	var docs []interface{}
-	for n := 0; n < 1000; n++ {
+	docs = append(docs, bson.M{"a": rand.Intn(100), "b": primitive.NewDecimal128(100, 0), "c": math.NaN()})
+	for n := 1; n < 1000; n++ {
 		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100)})
 	}
 	if _, err = numbersCollection.InsertMany(ctx, docs); err != nil {
@@ -287,21 +290,27 @@ func (f *Feeder) SeedCars(client *mongo.Client) error {
 
 	// create index example
 	indexView := carsCollection.Indexes()
-	idx := mongo.IndexModel{
-		Keys: bson.D{{Key: "filters.k", Value: 1}, {Key: "filters.v", Value: 1}},
-	}
-	indexView.CreateOne(ctx, idx)
-
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}, {Key: "brand", Value: 1}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "filters.k", Value: 1}, {Key: "filters.v", Value: 1}}})
 	dealersCount, _ := dealersCollection.CountDocuments(ctx, bson.M{})
 	carsCount := f.seedCollection(carsCollection, 1)
+	fopts := options.Find()
+	filter := bson.D{{Key: "color", Value: "Red"}}
+	fopts.SetSort(bson.D{{Key: "brand", Value: -1}})
+	fopts.SetProjection(bson.D{{Key: "_id", Value: 0}, {Key: "color", Value: 1}, {Key: "brand", Value: 11}})
+	carsCollection.Find(ctx, filter, fopts)
 	fmt.Printf("Seeded cars: %d, dealers: %d\n", carsCount, dealersCount)
 	return err
 }
 
 var dealers = []string{"Atlanta Auto", "Buckhead Auto", "Johns Creek Auto"}
-var brands = []string{"Audi", "BMW", "Chevrolet", "Ford", "Honda", "Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
+var brands = []string{"Audi", "BMW", "Chevrolet", "Ford", "Honda",
+	"Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
 var styles = []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
-var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold", "Gray", "Green", "Orange", "Pink", "Purple", "Red", "Silver", "White", "Yellow"}
+var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold",
+	"Gray", "Green", "Orange", "Pink", "Purple",
+	"Red", "Silver", "White", "Yellow"}
 
 func getVehicle() bson.M {
 	curYear := time.Now().Year()
@@ -379,18 +388,22 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	var bsize = getBatchSize(f.total, f.conns)
 	var remaining = f.total
 	var sdoc bson.M
+	var buf []byte
 	if sdoc, err = util.GetDocByTemplate(f.file, true); err != nil {
 		return err
 	}
-	bytes, _ := json.Marshal(sdoc)
+	if buf, err = json.Marshal(sdoc); err != nil {
+		return err
+	}
 	doc := make(map[string]interface{})
-	json.Unmarshal(bytes, &doc)
+	json.Unmarshal(buf, &doc)
 	collName := f.collection
 	if collName == "" {
 		collName = "examples"
 	}
 	log.Println("Seed data to collection", collName, "using", f.conns, "connections")
 	c := client.Database(f.database).Collection(collName)
+	c.InsertOne(ctx, sdoc)
 	if f.isDrop {
 		c.Drop(ctx)
 	}
