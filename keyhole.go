@@ -60,6 +60,7 @@ func main() {
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
 	webserver := flag.Bool("web", false, "enable web server")
+	wt := flag.Bool("wt", false, "visualize wiredTiger cache usage")
 	yes := flag.Bool("yes", false, "bypass confirmation")
 
 	flag.Parse()
@@ -154,13 +155,6 @@ func main() {
 	} else if *ver {
 		fmt.Println("keyhole", version)
 		os.Exit(0)
-	} else if *schema && *uri == "" {
-		if *file == "" {
-			fmt.Println(util.GetDemoSchema())
-		} else {
-			fmt.Println(util.GetDemoFromFile(*file))
-		}
-		os.Exit(0)
 	} else if *explain != "" && *uri == "" { //--explain file.json.gz (w/o uri)
 		exp := mdb.NewExplain()
 		if err = exp.PrintExplainResults(*explain); err != nil {
@@ -220,8 +214,12 @@ func main() {
 		ir.Print(m)
 		os.Exit(0)
 	} else if *schema == true {
+		if *collection == "" {
+			log.Fatal("usage: keyhole [-v] --schema --collection collection_name <mongodb_uri>")
+		}
+		c := client.Database(connString.Database).Collection(*collection)
 		var str string
-		if str, err = sim.GetSchemaFromCollection(client, connString.Database, *collection); err != nil {
+		if str, err = sim.GetSchema(c, *verbose); err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println(str)
@@ -249,6 +247,9 @@ func main() {
 		stream.SetPipelineString(*pipe)
 		stream.Watch(client, util.Echo)
 		os.Exit(0)
+	} else if *wt == true {
+		wtc := mdb.NewWiredTigerCache(client)
+		wtc.Start(5408)
 	}
 	if *peek == true {
 		mc := mdb.NewMongoCluster(client)

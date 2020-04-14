@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func TestGetSchemaFromCollection(t *testing.T) {
+func TestGetSchema(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	client = getMongoClient()
@@ -32,7 +32,7 @@ func TestGetSchemaFromCollection(t *testing.T) {
 	}
 
 	var str string
-	if str, err = GetSchemaFromCollection(client, "keyhole", "cars"); err != nil {
+	if str, err = GetSchema(collection, true); err != nil {
 		t.Fatal(err)
 	}
 

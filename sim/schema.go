@@ -5,32 +5,36 @@ package sim
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"regexp"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"github.com/simagix/keyhole/sim/util"
 )
 
-// GetSchemaFromCollection returns a masked first doc of a collection
-func GetSchemaFromCollection(client *mongo.Client, dbName string, collection string) (string, error) {
+// GetSchema returns a masked first doc of a collection
+func GetSchema(c *mongo.Collection, verbose bool) (string, error) {
 	var err error
-	var result bson.M
-	if collection == "" {
-		return "", errors.New("usage: keyhole --schema [--file filename | --uri connection_uri --collection collection_name]")
-	}
-	ctx := context.Background()
-	c := client.Database(dbName).Collection(collection)
-	if err = c.FindOne(ctx, bson.M{}).Decode(&result); err != nil {
+	var buf []byte
+	var doc bson.M
+	if err = c.FindOne(context.Background(), bson.M{}).Decode(&doc); err != nil {
 		return "", err
 	}
-	b, _ := json.Marshal(result)
-	var f interface{}
-	if err = json.Unmarshal(b, &f); err != nil {
+	if buf, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 		return "", err
 	}
-	doc := make(map[string]interface{})
-	util.RandomizeDocument(&doc, f, false)
-	b, _ = json.MarshalIndent(doc, "", "   ")
-	return string(b), err
+	json.Unmarshal(buf, &doc)
+	str := gox.Stringify(doc, "", "  ")
+	if verbose == true {
+		return str, err
+	}
+	re := regexp.MustCompile(`{\s+"\$oid":\s?("[a-fA-F0-9]{24}")\s+}`)
+	str = re.ReplaceAllString(str, "ObjectId($1)")
+	re = regexp.MustCompile(`{\s+"\$date":\s?("\S+")\s+}`)
+	str = re.ReplaceAllString(str, "ISODate($1)")
+	re = regexp.MustCompile(`{\s+"\$numberDecimal":\s?("\S+")\s+}`)
+	str = re.ReplaceAllString(str, "NumberDecimal($1)")
+	re = regexp.MustCompile(`{\s+"\$numberDouble":\s?("NaN")\s+}`)
+	str = re.ReplaceAllString(str, "NaN")
+	return str, err
 }
