@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -20,17 +21,17 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-type serverInfoDoc anly.ServerInfoDoc
-type serverStatusDoc anly.ServerStatusDoc
-type replSetStatusDoc anly.ReplSetStatusDoc
-
 var fileTimestamp = strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "", -1)
 var keyholeStatsDataFile = "./keyhole_stats." + fileTimestamp
 
 var mb = 1024.0 * 1024
-var serverInfoDocs = map[string]serverInfoDoc{}
-var serverStatusDocs = map[string][]serverStatusDoc{}
-var replSetStatusDocs = map[string][]replSetStatusDoc{}
+var serverInfoDocs = map[string]anly.ServerInfoDoc{}
+var serverStatusDocs = map[string][]anly.ServerStatusDoc{}
+var replSetStatusDocs = map[string][]anly.ReplSetStatusDoc{}
+
+func getServerInfoDocs(key string) anly.ServerInfoDoc         { return serverInfoDocs[key] }
+func getServerStatusDocs(key string) []anly.ServerStatusDoc   { return serverStatusDocs[key] }
+func getReplSetStatusDocs(key string) []anly.ReplSetStatusDoc { return replSetStatusDocs[key] }
 
 // Frequency stores wait time
 type Frequency struct {
@@ -77,8 +78,8 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 		if r := recover(); r != nil {
 		}
 	}()
-	var pstat = serverStatusDoc{}
-	var stat = serverStatusDoc{}
+	var pstat = anly.ServerStatusDoc{}
+	var stat = anly.ServerStatusDoc{}
 	var iop int
 	var piop int
 	var r, w, c float64
@@ -92,7 +93,7 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 		buf, _ := bson.Marshal(serverStatus)
 		bson.Unmarshal(buf, &stat)
 		serverStatusDocs[st.uri] = append(serverStatusDocs[st.uri], stat)
-		if len(serverStatusDocs[st.uri]) > 60 {
+		if len(serverStatusDocs[st.uri]) > 600 {
 			st.saveServerStatusDocsToFile(st.uri)
 		}
 
@@ -155,7 +156,7 @@ func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
 		}
 	}()
 	var err error
-	var replSetStatus = replSetStatusDoc{}
+	var replSetStatus = anly.ReplSetStatusDoc{}
 	var doc bson.M
 	if st.verbose {
 		rstr := fmt.Sprintf("ReplSetGetStatus gets every minute\n")
@@ -236,7 +237,7 @@ func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 	}()
 	var err error
 	st.channel <- "[" + st.mkey + "] getMongoConfig begins\n"
-	serverInfoDocs[st.uri] = serverInfoDoc{}
+	serverInfoDocs[st.uri] = anly.ServerInfoDoc{}
 	var config = bson.M{}
 	// hostInfo
 	var hostInfo bson.M
@@ -260,7 +261,7 @@ func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 // printServerStatus prints serverStatusDocs summary for the duration
 func (st *ServerStats) printServerStatus(client *mongo.Client, span int) (string, error) {
 	var err error
-	var stat serverStatusDoc
+	var stat anly.ServerStatusDoc
 	var filename string
 	var str string
 	serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
@@ -286,9 +287,9 @@ func (st *ServerStats) saveServerStatusDocsToFile(uri string) (string, error) {
 	var filename string
 	filename = keyholeStatsDataFile + "-" + st.mkey + ".gz"
 	sbuf, _ := json.Marshal(serverStatusDocs[uri])
-	serverStatusDocs[uri] = []serverStatusDoc{}
+	serverStatusDocs[uri] = []anly.ServerStatusDoc{}
 	rbuf, _ := json.Marshal(replSetStatusDocs[uri])
-	replSetStatusDocs[uri] = []replSetStatusDoc{}
+	replSetStatusDocs[uri] = []anly.ReplSetStatusDoc{}
 	cbuf, _ := json.Marshal(serverInfoDocs[uri])
 	var zbuf bytes.Buffer
 	gz := gzip.NewWriter(&zbuf)
@@ -309,4 +310,21 @@ func (st *ServerStats) saveServerStatusDocsToFile(uri string) (string, error) {
 	file.Write(zbuf.Bytes())
 	file.Sync()
 	return filename, err
+}
+
+func (st *ServerStats) collectMetrics(client *mongo.Client, key string) {
+	wtc := mdb.NewWiredTigerCache(client)
+	metrics := anly.NewMetrics()
+	metrics.ProcessFiles([]string{})
+	for {
+		if err := wtc.GetAllDatabasesInfo(); err != nil {
+			log.Println(err)
+		}
+		diag := anly.DiagnosticData{}
+		diag.ServerInfo = getServerInfoDocs(key)
+		diag.ServerStatusList = getServerStatusDocs(key)
+		diag.ReplSetStatusList = getReplSetStatusDocs(key)
+		metrics.AddFTDCDetailStats(&diag)
+		time.Sleep(5 * time.Second)
+	}
 }

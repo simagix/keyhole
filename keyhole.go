@@ -3,11 +3,11 @@
 package main
 
 import (
-	"bufio"
-	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -42,6 +42,7 @@ func main() {
 	peek := flag.Bool("peek", false, "only collect stats")
 	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
+	port := flag.Int("port", 5408, "web server port number")
 	regex := flag.String("regex", "", "regex pattern for loginfo")
 	request := flag.String("request", "", "Atlas API command")
 	resume := flag.Bool("resume", false, "resume an Atlas cluster atlas://user:key@group/cluster")
@@ -111,7 +112,9 @@ func main() {
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
 		if *webserver == true { // backward compatible
-			anly.SingleJSONServer(filenames)
+			metrics := anly.NewMetrics()
+			metrics.ProcessFiles(filenames)
+			log.Fatal(gox.StartWebServer(*port))
 		} else {
 			metrics := anly.NewDiagnosticData(*span)
 			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
@@ -121,6 +124,10 @@ func main() {
 			}
 		}
 		os.Exit(0)
+	} else if *webserver {
+		metrics := anly.NewMetrics()
+		metrics.ProcessFiles(flag.Args())
+		log.Fatal(gox.StartWebServer(*port))
 	} else if *loginfo {
 		if len(flag.Args()) < 1 {
 			log.Fatal("Usage: keyhole --loginfo filename")
@@ -247,27 +254,21 @@ func main() {
 		stream.SetPipelineString(*pipe)
 		stream.Watch(client, util.Echo)
 		os.Exit(0)
-	} else if *wt == true {
+	}
+
+	go func() {
+		http.HandleFunc("/", gox.Cors(handler))
+		log.Println(gox.StartWebServer(*port))
+	}()
+	if *wt == true {
 		wtc := mdb.NewWiredTigerCache(client)
-		wtc.Start(5408)
-	}
-	if *peek == true {
-		mc := mdb.NewMongoCluster(client)
-		mc.SetVerbose(true)
-		mc.SetConnString(connString)
-		if _, e := mc.GetClusterInfo(); e != nil {
-			log.Fatal(e)
-		}
-	} else if *yes == false {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Begin a load test [Y/n]: ")
-		text, _ := reader.ReadString('\n')
-		text = strings.Replace(text, "\n", "", -1)
-		if text != "y" && text != "" && text != "Y" {
-			os.Exit(0)
+		wtc.Start()
+		log.Printf("URL: http://localhost:%d/wt\n", *port)
+		if err := gox.StartWebServer(*port); err != nil {
+			log.Fatal(err)
 		}
 	}
-	client.Disconnect(context.Background())
+
 	var runner *sim.Runner
 	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
 		log.Fatal(err)
@@ -281,8 +282,13 @@ func main() {
 	runner.SetNumberConnections(*conn)
 	runner.SetTransactionTemplateFilename(*tx)
 	runner.SetSimOnlyMode(*simonly)
+	runner.SetAutoMode(*yes)
 	if err = runner.Start(); err != nil {
 		log.Fatal(err)
 	}
 	runner.CollectAllStatus()
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(map[string]interface{}{"ok": 1, "message": "hello keyhole!"})
 }
