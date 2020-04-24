@@ -28,24 +28,6 @@ func getMongoClient() *mongo.Client {
 	return client
 }
 
-/*
-
-type Runner struct {
-	uri           string
-	sslCAFile     string
-	sslPEMKeyFile string
-	tps           int
-	filename      string
-	verbose       bool
-	peek          bool
-	monitor       bool
-	duration      int
-	cleanup       bool
-	drop          bool
-	connString    connstring.ConnString
-	client        *mongo.Client
-}
-*/
 func TestCreateIndexes(t *testing.T) {
 	var docs = []bson.M{bson.M{"email": 1, "hostIp": 1}}
 	runner, _ := NewRunner(UnitTestURL, "", "")
