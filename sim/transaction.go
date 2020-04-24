@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/simagix/keyhole/mdb"
@@ -129,6 +130,11 @@ func execTx(c *mongo.Collection, doc bson.M) (bson.M, error) {
 	o := primitive.NewObjectID()
 	doc["_id"] = o
 	doc["ts"] = ts
+	email := util.GetEmailAddress()
+	s := strings.Split(strings.Split(email, "@")[0], ".")
+	doc["email"] = email
+	doc["firstName"] = s[0]
+	doc["lastName"] = s[2]
 	tm = append(tm, time.Now())
 	if _, err = c.InsertOne(ctx, doc); err != nil {
 		return execTime, err
