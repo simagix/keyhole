@@ -34,7 +34,6 @@ var CollectionName = "examples"
 type Runner struct {
 	auto                  bool
 	channel               chan string
-	cleanup               bool
 	client                *mongo.Client
 	conns                 int
 	dbname                string
@@ -60,8 +59,7 @@ var ssi mdb.ServerInfo
 func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Runner, error) {
 	var err error
 	runner := Runner{tlsCAFile: tlsCAFile, tlsCertificateKeyFile: tlsCertificateKeyFile,
-		cleanup: true, channel: make(chan string),
-		metrics: map[string][]bson.M{}, mutex: sync.RWMutex{}}
+		channel: make(chan string), metrics: map[string][]bson.M{}, mutex: sync.RWMutex{}}
 	connString, _ := connstring.Parse(uri)
 	runner.dbname = connString.Database
 	if connString.Database == "" {
@@ -175,26 +173,34 @@ func (rn *Runner) Start() error {
 	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
 		return err
 	}
+	indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
+	idx := mongo.IndexModel{
+		Keys: bson.D{{Key: "email", Value: 1}},
+	}
+	if _, err = indexView.CreateOne(ctx, idx); err != nil {
+		return err
+	}
 
 	if ssi.Cluster == mdb.SHARDED {
-		collname := SimDBName + "." + CollectionName
-		log.Println("Sharding collection:", collname)
+		ns := SimDBName + "." + CollectionName
+		log.Println("Sharding collection:", ns)
 		result := bson.M{}
-
-		if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "enableSharding", Value: SimDBName}}).Decode(&result); err != nil {
-			return err
+		cmd := bson.D{{Key: "enableSharding", Value: SimDBName}}
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+			log.Println(err)
 		}
 
-		indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
-		idx := mongo.IndexModel{
-			Keys: bson.D{{Key: "_id", Value: "hashed"}},
-		}
-		if _, err = indexView.CreateOne(ctx, idx); err != nil {
-			return err
+		cmd = bson.D{{Key: "shardCollection", Value: ns}, {Key: "key", Value: bson.M{"email": 1}}}
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+			log.Println(err)
 		}
 
-		if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}).Decode(&result); err != nil {
-			return err
+		log.Println("Splitting chunks...")
+		for _, v := range []string{"Ken.Chen@simagix.com"} {
+			cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": v}}}
+			if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+				log.Println(err)
+			}
 		}
 	}
 
@@ -226,24 +232,7 @@ func (rn *Runner) Start() error {
 			}
 		}(i)
 	}
-	return err
-}
-
-func (rn *Runner) addTerminationHandler() {
-	quit := make(chan os.Signal, 2)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	timer := time.NewTimer(time.Duration(rn.duration) * time.Minute)
-
-	go func() {
-		for {
-			select {
-			case <-quit:
-				rn.terminate()
-			case <-timer.C:
-				rn.terminate()
-			}
-		}
-	}()
+	return nil
 }
 
 func (rn *Runner) terminate() {
@@ -252,9 +241,7 @@ func (rn *Runner) terminate() {
 	var filename string
 	var err error
 
-	if rn.cleanup {
-		rn.Cleanup()
-	}
+	rn.Cleanup()
 	for _, uri := range rn.uriList {
 		if client, err = mdb.NewMongoClient(uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
 			log.Println(err)
@@ -277,7 +264,6 @@ func (rn *Runner) terminate() {
 // CollectAllStatus collects all server stats
 func (rn *Runner) CollectAllStatus() error {
 	var err error
-	rn.addTerminationHandler()
 	for i, uri := range rn.uriList {
 		var client *mongo.Client
 		if client, err = mdb.NewMongoClient(uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
@@ -296,9 +282,19 @@ func (rn *Runner) CollectAllStatus() error {
 		}
 	}
 
+	quit := make(chan os.Signal, 2)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	timer := time.NewTimer(time.Duration(rn.duration) * time.Minute)
+
 	for {
-		msg := <-rn.channel
-		log.Print(msg)
+		select {
+		case <-quit:
+			rn.terminate()
+		case <-timer.C:
+			rn.terminate()
+		default:
+			log.Print(<-rn.channel)
+		}
 		time.Sleep(50 * time.Millisecond)
 	}
 }
