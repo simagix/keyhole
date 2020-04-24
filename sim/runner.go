@@ -3,6 +3,7 @@
 package sim
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/gob"
@@ -31,58 +32,65 @@ var CollectionName = "examples"
 
 // Runner -
 type Runner struct {
-	uri           string
-	uriList       []string
-	sslCAFile     string
-	sslPEMKeyFile string
-	connString    connstring.ConnString
-	client        *mongo.Client
-	tps           int
-	filename      string
-	verbose       bool
-	peek          bool
-	duration      int
-	cleanup       bool
-	drop          bool
-	conns         int
-	txFilename    string
-	simOnly       bool
-	channel       chan string
-
-	metrics map[string][]bson.M
-	mutex   sync.RWMutex
+	auto                  bool
+	channel               chan string
+	client                *mongo.Client
+	conns                 int
+	dbname                string
+	drop                  bool
+	duration              int
+	filename              string
+	metrics               map[string][]bson.M
+	mutex                 sync.RWMutex
+	peek                  bool
+	simOnly               bool
+	tlsCAFile             string
+	tlsCertificateKeyFile string
+	tps                   int
+	txFilename            string
+	uri                   string
+	uriList               []string
+	verbose               bool
 }
 
 var ssi mdb.ServerInfo
 
 // NewRunner - Constructor
-func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string) (*Runner, error) {
+func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Runner, error) {
 	var err error
-	var client *mongo.Client
-	var runner Runner
+	runner := Runner{tlsCAFile: tlsCAFile, tlsCertificateKeyFile: tlsCertificateKeyFile,
+		channel: make(chan string), metrics: map[string][]bson.M{}, mutex: sync.RWMutex{}}
 	connString, _ := connstring.Parse(uri)
-
+	runner.dbname = connString.Database
 	if connString.Database == "" {
-		connString.Database = mdb.KEYHOLEDB
+		runner.dbname = mdb.KEYHOLEDB
 		pos := strings.Index(uri, "?")
 		if pos > 0 { // found ?query_string
-			uri = (uri)[:pos] + connString.Database + (uri)[pos:]
+			uri = (uri)[:pos] + runner.dbname + (uri)[pos:]
 		} else {
 			length := len(uri)
 			if (uri)[length-1] == '/' {
-				uri += connString.Database
+				uri += runner.dbname
 			} else {
-				uri += "/" + connString.Database
+				uri += "/" + runner.dbname
 			}
 		}
 	}
 
-	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
+	if runner.client, err = mdb.NewMongoClient(uri, tlsCAFile, tlsCertificateKeyFile); err != nil {
 		return &runner, err
 	}
-	runner = Runner{uri: uri, sslCAFile: sslCAFile, sslPEMKeyFile: sslPEMKeyFile,
-		cleanup: true, connString: connString, client: client, channel: make(chan string),
-		metrics: map[string][]bson.M{}, mutex: sync.RWMutex{}}
+	var ssi mdb.ServerInfo
+	if ssi, err = mdb.GetServerInfo(runner.client); err != nil {
+		return &runner, err
+	}
+	runner.uriList = []string{uri}
+	if ssi.Cluster == mdb.SHARDED {
+		if runner.uriList, err = mdb.GetShardListWithURI(runner.client, uri); err != nil {
+			return &runner, err
+		}
+	}
+	runner.uri = runner.uriList[len(runner.uriList)-1]
 	return &runner, err
 }
 
@@ -90,6 +98,9 @@ func NewRunner(uri string, sslCAFile string, sslPEMKeyFile string) (*Runner, err
 func (rn *Runner) SetTPS(tps int) {
 	rn.tps = tps
 }
+
+// SetAutoMode set transaction per second
+func (rn *Runner) SetAutoMode(auto bool) { rn.auto = auto }
 
 // SetTemplateFilename -
 func (rn *Runner) SetTemplateFilename(filename string) {
@@ -143,6 +154,14 @@ func (rn *Runner) Start() error {
 	ctx := context.Background()
 	if rn.peek == true {
 		return nil
+	} else if rn.auto == false {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Begin a load test [Y/n]: ")
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		if text != "y" && text != "" && text != "Y" {
+			os.Exit(0)
+		}
 	}
 	log.Println("Duration in minute(s):", rn.duration)
 	if rn.drop {
@@ -154,26 +173,34 @@ func (rn *Runner) Start() error {
 	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
 		return err
 	}
+	indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
+	idx := mongo.IndexModel{
+		Keys: bson.D{{Key: "email", Value: 1}},
+	}
+	if _, err = indexView.CreateOne(ctx, idx); err != nil {
+		return err
+	}
 
 	if ssi.Cluster == mdb.SHARDED {
-		collname := SimDBName + "." + CollectionName
-		log.Println("Sharding collection:", collname)
+		ns := SimDBName + "." + CollectionName
+		log.Println("Sharding collection:", ns)
 		result := bson.M{}
-
-		if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "enableSharding", Value: SimDBName}}).Decode(&result); err != nil {
-			return err
+		cmd := bson.D{{Key: "enableSharding", Value: SimDBName}}
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+			log.Println(err)
 		}
 
-		indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
-		idx := mongo.IndexModel{
-			Keys: bson.D{{Key: "_id", Value: "hashed"}},
-		}
-		if _, err = indexView.CreateOne(ctx, idx); err != nil {
-			return err
+		cmd = bson.D{{Key: "shardCollection", Value: ns}, {Key: "key", Value: bson.M{"email": 1}}}
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+			log.Println(err)
 		}
 
-		if err = rn.client.Database("admin").RunCommand(ctx, bson.D{{Key: "shardCollection", Value: collname}, {Key: "key", Value: bson.M{"_id": "hashed"}}}).Decode(&result); err != nil {
-			return err
+		log.Println("Splitting chunks...")
+		for _, v := range []string{"Ken.Chen@simagix.com"} {
+			cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": v}}}
+			if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+				log.Println(err)
+			}
 		}
 	}
 
@@ -192,7 +219,7 @@ func (rn *Runner) Start() error {
 	for i := 0; i < rn.conns; i++ {
 		go func(thread int) {
 			if rn.simOnly == false && rn.duration > 0 {
-				if err = PopulateData(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+				if err = PopulateData(rn.client); err != nil {
 					log.Println("Thread", thread, "existing with", err)
 					return
 				}
@@ -205,24 +232,7 @@ func (rn *Runner) Start() error {
 			}
 		}(i)
 	}
-	return err
-}
-
-func (rn *Runner) addTerminationHandler() {
-	quit := make(chan os.Signal, 2)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	timer := time.NewTimer(time.Duration(rn.duration) * time.Minute)
-
-	go func() {
-		for {
-			select {
-			case <-quit:
-				rn.terminate()
-			case <-timer.C:
-				rn.terminate()
-			}
-		}
-	}()
+	return nil
 }
 
 func (rn *Runner) terminate() {
@@ -231,11 +241,9 @@ func (rn *Runner) terminate() {
 	var filename string
 	var err error
 
-	if rn.cleanup {
-		rn.Cleanup()
-	}
+	rn.Cleanup()
 	for _, uri := range rn.uriList {
-		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+		if client, err = mdb.NewMongoClient(uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
 			log.Println(err)
 			continue
 		}
@@ -256,39 +264,37 @@ func (rn *Runner) terminate() {
 // CollectAllStatus collects all server stats
 func (rn *Runner) CollectAllStatus() error {
 	var err error
-	var ssi mdb.ServerInfo
-	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
-		return err
-	}
-	rn.uriList = []string{rn.uri}
-	if ssi.Cluster == mdb.SHARDED {
-		if rn.uriList, err = mdb.GetShardListWithURI(rn.client, rn.uri); err != nil {
-			return err
-		}
-	}
-	rn.addTerminationHandler()
-	for _, uri := range rn.uriList {
+	for i, uri := range rn.uriList {
 		var client *mongo.Client
-		if client, err = mdb.NewMongoClient(uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+		if client, err = mdb.NewMongoClient(uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
 			log.Println(err)
 			continue
 		}
 		stats := NewServerStats(uri, rn.channel)
 		stats.SetVerbose(rn.verbose)
 		stats.SetPeekingMode(rn.peek)
-		if rn.peek { // peek mode watch a defined db
-			go stats.getDBStats(client, rn.connString.Database)
-		} else { // load test mode watches _KEYHOLE_88000
-			go stats.getDBStats(client, SimDBName)
-		}
+		go stats.getDBStats(client, rn.dbname)
 		go stats.getReplSetGetStatus(client)
 		go stats.getServerStatus(client)
 		go stats.getMongoConfig(client)
+		if i == 0 {
+			go stats.collectMetrics(client, uri)
+		}
 	}
-	// infinite loop waits for goroutine to send messages back
+
+	quit := make(chan os.Signal, 2)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	timer := time.NewTimer(time.Duration(rn.duration) * time.Minute)
+
 	for {
-		msg := <-rn.channel
-		log.Print(msg)
+		select {
+		case <-quit:
+			rn.terminate()
+		case <-timer.C:
+			rn.terminate()
+		default:
+			log.Print(<-rn.channel)
+		}
 		time.Sleep(50 * time.Millisecond)
 	}
 }

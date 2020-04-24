@@ -70,12 +70,8 @@ func (rn *Runner) initSimDocs() {
 //	favoriteSports2
 //	favoriteSports3
 // }
-func PopulateData(uri string, sslCAFile string, sslPEMKeyFile string) error {
+func PopulateData(client *mongo.Client) error {
 	var err error
-	var client *mongo.Client
-	if client, err = mdb.NewMongoClient(uri, sslCAFile, sslPEMKeyFile); err != nil {
-		return err
-	}
 	c := client.Database(SimDBName).Collection(CollectionName)
 	btime := time.Now()
 	for time.Now().Sub(btime) < time.Minute {
@@ -100,7 +96,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 	var ctx = context.Background()
 	var totalTPS int
 
-	if client, err = mdb.NewMongoClient(rn.uri, rn.sslCAFile, rn.sslPEMKeyFile); err != nil {
+	if client, err = mdb.NewMongoClient(rn.uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
 		return err
 	}
 	defer client.Disconnect(ctx)

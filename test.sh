@@ -66,16 +66,8 @@ go run keyhole.go --index $DATABASE_URI
 validate ""
 
 # Test Schema
-echo ; echo "==> Test printing default schema (--schema)"
-go run keyhole.go --schema
-validate ""
-
-echo ; echo "==> Test printing schema from a template (--schema --file <file>)"
-go run keyhole.go --schema --file examples/template.json
-validate ""
-
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
-go run keyhole.go --schema --collection favorites $DATABASE_URI
+go run keyhole.go --schema --collection cars $DATABASE_URI
 validate ""
 
 # Test Cardinality
@@ -115,9 +107,9 @@ echo ; echo "==> Test printing clusters summary (--info <atlas_uri>)"
 go run keyhole.go --info "atlas://${ATLAS_AUTH}"
 
 # Test loginfo Atlas
-echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
-go run keyhole.go --seed ${ATLAS_URL}
-go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
+# echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
+# go run keyhole.go --seed ${ATLAS_URL}
+# go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
 rm -f mongodb.log.*
 
 shutdownServer

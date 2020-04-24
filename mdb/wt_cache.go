@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/simagix/gox"
@@ -27,26 +25,27 @@ type WiredTigerCache struct {
 // NewWiredTigerCache returns *WiredTigerCache
 func NewWiredTigerCache(client *mongo.Client) *WiredTigerCache {
 	wtc := WiredTigerCache{client: client, numPoints: 10}
+	http.HandleFunc("/wt", gox.Cors(wtc.Handler))
+	http.HandleFunc("/wt/", gox.Cors(wtc.Handler))
 	return &wtc
 }
 
 // Start starts a web server and a thread to collect caches
-func (wtc *WiredTigerCache) Start(port int) {
+func (wtc *WiredTigerCache) Start() {
 	var err error
-	http.HandleFunc("/", gox.Cors(wtc.Handler))
-	http.HandleFunc("/wt", gox.Cors(wtc.Handler))
-	http.HandleFunc("/wt/", gox.Cors(wtc.Handler))
-	hostname, _ := os.Hostname()
-	log.Println(fmt.Sprintf("HTTP server ready, URL: http://%s:%d/", hostname, port))
-	go func() {
-		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
-	}()
 	for {
-		if wtc.databases, err = GetAllDatabasesInfo(wtc.client); err != nil {
-			log.Fatal(err)
+		if err = wtc.GetAllDatabasesInfo(); err != nil {
+			log.Println(err)
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+// GetAllDatabasesInfo returns db info
+func (wtc *WiredTigerCache) GetAllDatabasesInfo() error {
+	var err error
+	wtc.databases, err = GetAllDatabasesInfo(wtc.client)
+	return err
 }
 
 // Handler supports resetful calls

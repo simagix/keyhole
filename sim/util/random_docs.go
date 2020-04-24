@@ -323,10 +323,17 @@ var quotes = []string{
 var domains = []string{"gmail.com", "me.com", "yahoo.com", "outlook.com", "google.com",
 	"simagix.com", "aol.com", "mongodb.com", "example.com", "cisco.com",
 	"microsoft.com", "facebook.com", "apple.com", "amazon.com", "oracle.com"}
-var fnames = []string{"Liam", "Emma", "Noah", "Olivia", "Willaim",
-	"Ava", "James", "Isabella", "Logan", "Sophia",
-	"John", "Robert", "Michael", "David", "Richard",
-	"Mary", "Patricia", "Jennifer", "Linda", "Elizabeth"}
+var fnames = []string{"Andrew", "Ava", "Becky", "Brian", "Cindy",
+	"Connie", "David", "Dawn", "Elizabeth", "Emma",
+	"Felix", "Frank", "George", "Grace", "Hector",
+	"Henry", "Ian", "Isabella", "Jennifer", "John",
+	"Kate", "Kenneth", "Linda", "Logan", "Mary",
+	"Michael", "Nancy", "Noah", "Olivia", "Otis",
+	"Patricia", "Peter", "Quentin", "Quinn", "Richard",
+	"Robert", "Samuel", "Sophia", "Todd", "Tom",
+	"Ulysses", "Umar", "Vincent", "Victoria", "Wesley",
+	"Willaim", "Xavier", "Xena", "Yosef", "Yuri", "Zach", "Zoey",
+}
 var lnames = []string{"Smith", "Johnson", "Williams", "Brown", "Jones",
 	"Miller", "Davis", "Garcia", "Rodriguez", "Chen",
 	"Adams", "Arthur", "Bush", "Carter", "Clinton",

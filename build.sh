@@ -15,12 +15,11 @@ if [ -d vendor ]; then
 fi
 
 $DEP ensure $UPDATE
-export version="$(git symbolic-ref --short HEAD)-$(date "+%Y%m%d.%s")"
-export ver="2.3.0"
-export version="v${ver}-$(date "+%Y%m%d")"
 mkdir -p build
-env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
+export ver="2.3.1"
+export version="v${ver}-$(date "+%Y%m%d")"
 env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-osx-x64 keyhole.go
+env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-linux-x64 keyhole.go
 env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-win-x64.exe keyhole.go
 
 if [ "$1" == "docker" ]; then
