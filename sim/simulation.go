@@ -70,9 +70,9 @@ func (rn *Runner) initSimDocs() {
 //	favoriteSports2
 //	favoriteSports3
 // }
-func PopulateData(client *mongo.Client) error {
+func (rn *Runner) PopulateData() error {
 	var err error
-	c := client.Database(SimDBName).Collection(CollectionName)
+	c := rn.client.Database(rn.dbName).Collection(rn.collectionName)
 	btime := time.Now()
 	for time.Now().Sub(btime) < time.Minute {
 		var contentArray []interface{}
@@ -100,7 +100,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 		return err
 	}
 	defer client.Disconnect(ctx)
-	c := client.Database(SimDBName).Collection(CollectionName)
+	c := client.Database(rn.dbName).Collection(rn.collectionName)
 	// metrics := map[string][]bson.M{}
 	minutes := 1
 

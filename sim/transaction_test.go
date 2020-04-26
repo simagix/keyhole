@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,7 +24,7 @@ func TestExecTXByTemplateAndTX(t *testing.T) {
 	var client *mongo.Client
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	c := client.Database(SimDBName).Collection(CollectionName)
+	c := client.Database(mdb.KEYHOLEDB).Collection("examples")
 	tx := GetTransactions(filename)
 	_, err := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions[0])
 	if err != nil {
@@ -37,7 +38,7 @@ func TestExecTx(t *testing.T) {
 	var tm bson.M
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	c := client.Database(SimDBName).Collection(CollectionName)
+	c := client.Database(mdb.KEYHOLEDB).Collection("examples")
 	if tm, err = execTx(c, util.GetDemoDoc()); err != nil {
 		t.Fatal()
 	}
