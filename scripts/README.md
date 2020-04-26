@@ -3,5 +3,5 @@
 ## Command
 
 ```
-mongo --quiet mongodb://localhost/ keyhole.js | grep -v '^202' > cluster-info.json
+mongo --quiet mongodb://localhost/ keyhole.js | tail -1 > cluster-info.json
 ```

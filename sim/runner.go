@@ -9,7 +9,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
@@ -21,28 +20,25 @@ import (
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
-
-// SimDBName - db name for simulation
-var SimDBName = fmt.Sprintf("_KEYHOLE_%X", 1024+1024*rand.Intn(1024))
-
-// CollectionName -
-var CollectionName = "examples"
 
 // Runner -
 type Runner struct {
 	auto                  bool
 	channel               chan string
 	client                *mongo.Client
+	collectionName        string
 	conns                 int
-	dbname                string
+	dbName                string
 	drop                  bool
 	duration              int
 	filename              string
 	metrics               map[string][]bson.M
 	mutex                 sync.RWMutex
 	peek                  bool
+	serverInfo            mdb.ServerInfo
 	simOnly               bool
 	tlsCAFile             string
 	tlsCertificateKeyFile string
@@ -53,39 +49,36 @@ type Runner struct {
 	verbose               bool
 }
 
-var ssi mdb.ServerInfo
-
 // NewRunner - Constructor
 func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Runner, error) {
 	var err error
 	runner := Runner{tlsCAFile: tlsCAFile, tlsCertificateKeyFile: tlsCertificateKeyFile,
-		channel: make(chan string), metrics: map[string][]bson.M{}, mutex: sync.RWMutex{}}
+		channel: make(chan string), collectionName: "examples", metrics: map[string][]bson.M{},
+		mutex: sync.RWMutex{}}
 	connString, _ := connstring.Parse(uri)
-	runner.dbname = connString.Database
+	runner.dbName = connString.Database
 	if connString.Database == "" {
-		runner.dbname = mdb.KEYHOLEDB
+		runner.dbName = mdb.KEYHOLEDB
 		pos := strings.Index(uri, "?")
 		if pos > 0 { // found ?query_string
-			uri = (uri)[:pos] + runner.dbname + (uri)[pos:]
+			uri = (uri)[:pos] + runner.dbName + (uri)[pos:]
 		} else {
 			length := len(uri)
 			if (uri)[length-1] == '/' {
-				uri += runner.dbname
+				uri += runner.dbName
 			} else {
-				uri += "/" + runner.dbname
+				uri += "/" + runner.dbName
 			}
 		}
 	}
-
 	if runner.client, err = mdb.NewMongoClient(uri, tlsCAFile, tlsCertificateKeyFile); err != nil {
 		return &runner, err
 	}
-	var ssi mdb.ServerInfo
-	if ssi, err = mdb.GetServerInfo(runner.client); err != nil {
+	if runner.serverInfo, err = mdb.GetServerInfo(runner.client); err != nil {
 		return &runner, err
 	}
 	runner.uriList = []string{uri}
-	if ssi.Cluster == mdb.SHARDED {
+	if runner.serverInfo.Cluster == mdb.SHARDED {
 		if runner.uriList, err = mdb.GetShardListWithURI(runner.client, uri); err != nil {
 			return &runner, err
 		}
@@ -151,10 +144,10 @@ func (rn *Runner) SetSimOnlyMode(mode bool) {
 // Start process requests
 func (rn *Runner) Start() error {
 	var err error
-	ctx := context.Background()
 	if rn.peek == true {
 		return nil
-	} else if rn.auto == false {
+	}
+	if rn.auto == false {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Begin a load test [Y/n]: ")
 		text, _ := reader.ReadString('\n')
@@ -167,42 +160,9 @@ func (rn *Runner) Start() error {
 	if rn.drop {
 		rn.Cleanup()
 	}
-
 	rn.initSimDocs()
-	var ssi mdb.ServerInfo
-	if ssi, err = mdb.GetServerInfo(rn.client); err != nil {
-		return err
-	}
-	indexView := rn.client.Database(SimDBName).Collection(CollectionName).Indexes()
-	idx := mongo.IndexModel{
-		Keys: bson.D{{Key: "email", Value: 1}},
-	}
-	if _, err = indexView.CreateOne(ctx, idx); err != nil {
-		return err
-	}
-
-	if ssi.Cluster == mdb.SHARDED {
-		ns := SimDBName + "." + CollectionName
-		log.Println("Sharding collection:", ns)
-		result := bson.M{}
-		cmd := bson.D{{Key: "enableSharding", Value: SimDBName}}
-		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
-			log.Println(err)
-		}
-
-		cmd = bson.D{{Key: "shardCollection", Value: ns}, {Key: "key", Value: bson.M{"email": 1}}}
-		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
-			log.Println(err)
-		}
-
-		log.Println("Splitting chunks...")
-		for _, v := range []string{"Ken.Chen@simagix.com"} {
-			cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": v}}}
-			if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
-				log.Println(err)
-			}
-		}
-	}
+	tdoc := GetTransactions(rn.txFilename)
+	rn.createIndexes(tdoc.Indexes)
 
 	// Simulation mode
 	// 1st minute - build up data and memory
@@ -210,8 +170,6 @@ func (rn *Runner) Start() error {
 	// remaining minutes - burst with no delay
 	// last minute - normal TPS ops until exit
 	log.Printf("Total TPS: %d (%d tps/conn * %d conns), duration: %d (mins)\n", rn.tps*rn.conns, rn.tps, rn.conns, rn.duration)
-	tdoc := GetTransactions(rn.txFilename)
-	rn.createIndexes(tdoc.Indexes)
 	simTime := rn.duration
 	if rn.simOnly == false {
 		simTime--
@@ -219,7 +177,7 @@ func (rn *Runner) Start() error {
 	for i := 0; i < rn.conns; i++ {
 		go func(thread int) {
 			if rn.simOnly == false && rn.duration > 0 {
-				if err = PopulateData(rn.client); err != nil {
+				if err = rn.PopulateData(); err != nil {
 					log.Println("Thread", thread, "existing with", err)
 					return
 				}
@@ -273,7 +231,7 @@ func (rn *Runner) CollectAllStatus() error {
 		stats := NewServerStats(uri, rn.channel)
 		stats.SetVerbose(rn.verbose)
 		stats.SetPeekingMode(rn.peek)
-		go stats.getDBStats(client, rn.dbname)
+		go stats.getDBStats(client, rn.dbName)
 		go stats.getReplSetGetStatus(client)
 		go stats.getServerStatus(client)
 		go stats.getMongoConfig(client)
@@ -303,22 +261,23 @@ func (rn *Runner) CollectAllStatus() error {
 func (rn *Runner) createIndexes(docs []bson.M) error {
 	var err error
 	var ctx = context.Background()
-	c := rn.client.Database(SimDBName).Collection(CollectionName)
+	c := rn.client.Database(rn.dbName).Collection(rn.collectionName)
 	indexView := c.Indexes()
-
+	idx := mongo.IndexModel{Keys: bson.D{{Key: "_search", Value: 1}}}
+	if _, err = indexView.CreateOne(ctx, idx); err != nil {
+		return err
+	}
 	if len(docs) == 0 {
-		idx := mongo.IndexModel{
-			Keys: bson.D{{Key: "favoriteCity", Value: 1}},
-		}
+		idx = mongo.IndexModel{Keys: bson.D{{Key: "email", Value: 1}}}
 		if _, err = indexView.CreateOne(ctx, idx); err != nil {
 			return err
 		}
-	}
-	idx := mongo.IndexModel{
-		Keys: bson.D{{Key: "_search", Value: 1}},
-	}
-	if _, err = indexView.CreateOne(ctx, idx); err != nil {
-		return err
+
+		if rn.serverInfo.Cluster == mdb.SHARDED {
+			if err = rn.splitChunks(); err != nil {
+				fmt.Println(err)
+			}
+		}
 	}
 
 	for _, doc := range docs {
@@ -354,12 +313,12 @@ func (rn *Runner) Cleanup() error {
 	var err error
 	if rn.peek == false {
 		ctx := context.Background()
-		log.Println("dropping collection", SimDBName, CollectionName)
-		if err = rn.client.Database(SimDBName).Collection(CollectionName).Drop(ctx); err != nil {
+		log.Println("dropping collection", rn.dbName, rn.collectionName)
+		if err = rn.client.Database(rn.dbName).Collection(rn.collectionName).Drop(ctx); err != nil {
 			log.Println(err)
 		}
-		log.Println("dropping database", SimDBName)
-		if err = rn.client.Database(SimDBName).Drop(ctx); err != nil {
+		log.Println("dropping database", rn.dbName)
+		if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
 			log.Println(err)
 		}
 		filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
@@ -372,6 +331,83 @@ func (rn *Runner) Cleanup() error {
 		gox.OutputGzipped(data.Bytes(), filename)
 		log.Println("optime written to", filename)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(time.Second)
 	return err
+}
+
+func (rn *Runner) splitChunks() error {
+	var err error
+	var ctx = context.Background()
+	var cursor *mongo.Cursor
+	ns := rn.dbName + "." + rn.collectionName
+	result := bson.M{}
+	filter := bson.M{"_id": rn.dbName}
+	if err = rn.client.Database("config").Collection("databases").FindOne(ctx, filter).Decode(&result); err != nil {
+		return err
+	}
+	primary := result["primary"].(string)
+	log.Println("Sharding collection:", ns)
+	cmd := bson.D{{Key: "enableSharding", Value: rn.dbName}}
+	if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+		return err
+	}
+	cmd = bson.D{{Key: "shardCollection", Value: ns}, {Key: "key", Value: bson.M{"email": 1}}}
+	if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+		return err
+	}
+	log.Println("splitting chunks...")
+	if cursor, err = rn.client.Database("config").Collection("shards").Find(ctx, bson.D{{}}); err != nil {
+		return err
+	}
+	shards := []bson.M{}
+	for cursor.Next(ctx) {
+		v := bson.M{}
+		if err = cursor.Decode(&v); err != nil {
+			log.Println(err)
+			continue
+		}
+		if primary != v["_id"].(string) {
+			shards = append(shards, v)
+		}
+	}
+	shardKeys := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+		"N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+	divider := 1 + len(shardKeys)/(len(shards)+1)
+	for i := range shards {
+		cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": shardKeys[(i+1)*divider]}}}
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+			log.Println(err)
+		}
+	}
+
+	log.Println("moving chunks...")
+	filter = bson.M{"ns": ns}
+	opts := options.Find()
+	opts.SetSort(bson.D{{Key: "_id", Value: -1}})
+	if cursor, err = rn.client.Database("config").Collection("chunks").Find(ctx, filter, opts); err != nil {
+		return err
+	}
+	i := 0
+	for cursor.Next(ctx) {
+		v := bson.M{}
+		if err = cursor.Decode(&v); err != nil {
+			continue
+		}
+		if v["shard"].(string) == shards[i]["_id"].(string) {
+			i++
+			continue
+		}
+		cmd := bson.D{{Key: "moveChunk", Value: ns}, {Key: "find", Value: v["min"].(bson.M)},
+			{Key: "to", Value: shards[i]["_id"].(string)}}
+		log.Printf("moving %v from %v to %v\n", v["min"], v["shard"], shards[i]["_id"])
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
+			log.Fatal(err)
+		}
+		i++
+		if i == len(shards) {
+			break
+		}
+	}
+	time.Sleep(1 * time.Second)
+	return nil
 }

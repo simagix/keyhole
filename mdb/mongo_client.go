@@ -20,8 +20,8 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// KEYHOLEDB -
-const KEYHOLEDB = "_KEYHOLE_"
+// KEYHOLEDB default database
+var KEYHOLEDB = "_KEYHOLE_88800"
 
 // NewMongoClient new mongo client
 func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
