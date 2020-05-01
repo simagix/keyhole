@@ -3,7 +3,6 @@
 package util
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,9 +13,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+const metaEmail = "$email"
+const metaIP = "$ip"
+const metaSSN = "$ssn"
+const metaTEL = "$tel"
+const metaDate = "$date"
+const metaOID = "$oId"
+const numberDecimal = "$numberDecimal"
+const uuid = "$uuid"
 
 // GetDocByTemplate returns a bson.M document
 func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
@@ -26,19 +35,36 @@ func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 	if buf, err = ioutil.ReadFile(filename); err != nil {
 		return nil, err
 	}
+	v := bson.M{}
+	if err = json.Unmarshal(buf, &v); err != nil {
+		return nil, err
+	}
+	if buf, err = bson.MarshalExtJSON(v, false, false); err != nil {
+		return nil, err
+	}
 	return GetRandomizedDoc(buf, meta)
 }
 
 // GetRandomizedDoc returns a randomized doc from byte string
 func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
 	var err error
-	var str string
-	re := regexp.MustCompile(`ObjectId\(\S+\)`)
-	str = re.ReplaceAllString(string(buf), "\"$$oId\"")
+	str := string(buf)
+	str = strings.ReplaceAll(str, "NaN", "0.0")
+	re := regexp.MustCompile(`{"\$oid":"[a-fA-F0-9]{24}"}`)
+	str = re.ReplaceAllString(str, `"$$oId"`)
+	re = regexp.MustCompile(`{"\$binary":{"base64":"\S+","subType":"04"}}`)
+	str = re.ReplaceAllString(str, `"$$uuid"`)
+	re = regexp.MustCompile(`{"\$numberDecimal":"[-+]?[0-9]*\.?[0-9]*(E-)?[0-9]*"}`)
+	str = re.ReplaceAllString(str, `"$$numberDecimal"`)
+	// backward compatible
+	re = regexp.MustCompile(`ObjectId\(\S+\)`)
+	str = re.ReplaceAllString(str, "\"$$oId\"")
 	re = regexp.MustCompile(`NumberDecimal\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	str = re.ReplaceAllString(str, "{\"$$numberDecimal\": $1}")
-	re = regexp.MustCompile(`NumberLong\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	re = regexp.MustCompile(`numberDouble\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	str = re.ReplaceAllString(str, "{\"$$numberDouble\": $1}")
 	str = re.ReplaceAllString(str, "{\"$$numberLong\": $1}")
+	re = regexp.MustCompile(`NumberLong\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	re = regexp.MustCompile(`NumberInt\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	str = re.ReplaceAllString(str, "{\"$$numberInt\": $1}")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
@@ -88,6 +114,12 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 				} else if value.(string) == metaOID || (len(value.(string)) == 24 && isHexString(value.(string))) {
 					(*doc)[key] = primitive.NewObjectID()
 					continue
+				} else if value.(string) == numberDecimal {
+					(*doc)[key] = primitive.NewDecimal128(rand.Uint64(), 0)
+					continue
+				} else if value.(string) == uuid {
+					(*doc)[key] = primitive.Binary{Subtype: 4, Data: []byte(gox.GetRandomDigitString(16))}
+					continue
 				}
 			}
 			(*doc)[key] = getMagicString(value.(string), meta)
@@ -121,6 +153,12 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 				} else if value.(string) == metaOID || (len(value.(string)) == 24 && isHexString(value.(string))) {
 					(*doc)[key] = primitive.NewObjectID()
 					continue
+				} else if value.(string) == numberDecimal {
+					(*doc)[key] = primitive.NewDecimal128(rand.Uint64(), 0)
+					continue
+				} else if value.(string) == uuid {
+					(*doc)[key] = primitive.Binary{Subtype: 4, Data: []byte(gox.GetRandomDigitString(16))}
+					continue
 				}
 			}
 			(*doc)[key] = getMagicString(value.(string), meta)
@@ -138,13 +176,6 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 	}
 }
 
-const metaEmail = "$email"
-const metaIP = "$ip"
-const metaSSN = "$ssn"
-const metaTEL = "$tel"
-const metaDate = "$date"
-const metaOID = "$oId"
-
 // Returns randomized string.  if meta is true, it intends to avoid future regex
 // actions by replacing the values with $email, $ip, and $date.
 func getMagicString(str string, meta bool) string {
@@ -161,6 +192,10 @@ func getMagicString(str string, meta bool) string {
 			return metaDate
 		} else if str == metaOID || (len(str) == 24 && isHexString(str)) {
 			return metaOID
+		} else if isHexString(str) {
+			return gox.GetRandomHexString(len(str))
+		} else if strings.HasPrefix(str, "$number") || str == uuid {
+			return str
 		}
 	} else if str == metaIP || isIP(str) {
 		return getIP()
@@ -170,8 +205,8 @@ func getMagicString(str string, meta bool) string {
 		// 	return getSSN()
 		// } else if str == metaTEL || isPhoneNumber(str) {
 		// 	return getPhoneNumber()
-		// } else if isHexString(str) {
-		// 	return getHexString(len(str))
+	} else if isHexString(str) {
+		return gox.GetRandomHexString(len(str))
 	} else if strings.HasPrefix(str, "$") { // could be a variable
 		return str
 	}
@@ -240,14 +275,6 @@ func getPhoneNumber() string {
 func isHexString(str string) bool {
 	var matched = regexp.MustCompile(`^[\da-fA-F]+$`)
 	return matched.MatchString(str)
-}
-
-func getHexString(n int) string {
-	bytes := make([]byte, n/2)
-	if _, err := rand.Read(bytes); err != nil {
-		return ""
-	}
-	return hex.EncodeToString(bytes)
 }
 
 func isDateString(str string) bool {
