@@ -23,12 +23,15 @@ func GetSchema(c *mongo.Collection, verbose bool) (string, error) {
 	if buf, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 		return "", err
 	}
-	json.Unmarshal(buf, &doc)
-	str := gox.Stringify(doc, "", "  ")
 	if verbose == true {
-		return str, err
+		json.Unmarshal(buf, &doc)
+		return gox.Stringify(doc, "", "  "), err
 	}
-	re := regexp.MustCompile(`{\s+"\$oid":\s?("[a-fA-F0-9]{24}")\s+}`)
+	re := regexp.MustCompile(`({"\$binary":{.*"subType":"04"}})`)
+	str := re.ReplaceAllString(string(buf), `"$$uuid"`)
+	json.Unmarshal([]byte(str), &doc)
+	str = gox.Stringify(doc, "", "  ")
+	re = regexp.MustCompile(`{\s+"\$oid":\s?("[a-fA-F0-9]{24}")\s+}`)
 	str = re.ReplaceAllString(str, "ObjectId($1)")
 	re = regexp.MustCompile(`{\s+"\$date":\s?("\S+")\s+}`)
 	str = re.ReplaceAllString(str, "ISODate($1)")
@@ -36,5 +39,7 @@ func GetSchema(c *mongo.Collection, verbose bool) (string, error) {
 	str = re.ReplaceAllString(str, "NumberDecimal($1)")
 	re = regexp.MustCompile(`{\s+"\$numberDouble":\s?("NaN")\s+}`)
 	str = re.ReplaceAllString(str, "NaN")
+	re = regexp.MustCompile(`"\$uuid"`)
+	str = re.ReplaceAllString(str, gox.GetRandomUUIDString())
 	return str, err
 }

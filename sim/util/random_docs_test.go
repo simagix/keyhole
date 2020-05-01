@@ -159,13 +159,6 @@ func TestIsHexString(t *testing.T) {
 	}
 }
 
-func TestGetHexString(t *testing.T) {
-	hex := getHexString(8)
-	if isHexString(hex) == false {
-		t.Fatal(hex)
-	}
-}
-
 func TestIsDateString(t *testing.T) {
 	var dstr = "2018-10-15T12:00:00Z"
 	if isDateString(dstr) == false {
