@@ -403,7 +403,6 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	}
 	log.Println("Seed data to collection", collName, "using", f.conns, "connections")
 	c := client.Database(f.database).Collection(collName)
-	c.InsertOne(ctx, sdoc)
 	if f.isDrop {
 		c.Drop(ctx)
 	}

@@ -1,5 +1,7 @@
 {
-	"_id": "a1b2c3d4e5f6f7e8d9c0b6a8",
+	"_id": {
+        "$oid": "5ea73359754ad1b05b055f3d"
+    },
 	"email": "simagix@gmail.com",
 	"hostIP": "192.168.1.1",
 	"ssn": "599-63-1888",
@@ -8,8 +10,12 @@
 	"longString": "This is another string value. You can use any field names",
 	"number": 123,
 	"hex": "a1b2c3d4",
-	"objectId": "a1b2c3d4e5f6f7e8d9c0b6a8",
-	"lastUpdated": "2018-01-01T01:23:45Z",
+	"objectId": {
+        "$oid": "a1b2c3d4e5f6f7e8d9c0b6a8"
+    },
+	"lastUpdated": {
+        "$date": "2020-04-27T19:32:41.518Z"
+    },
 	"array1": [123, 456, 789],
 	"array2": [ "little", "cute", "girl" ],
 	"array3": [

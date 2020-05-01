@@ -191,7 +191,9 @@ func emptyBinData(firstDoc bson.M) bson.M {
 		}
 		t := reflect.TypeOf(v).String()
 		if t == "primitive.Binary" {
-			firstDoc[k] = primitive.Binary{}
+			if v.(primitive.Binary).Subtype != 4 { // empty data when it's not UUID
+				firstDoc[k] = primitive.Binary{Subtype: v.(primitive.Binary).Subtype}
+			}
 		} else {
 			// fmt.Println(v, t)
 		}
