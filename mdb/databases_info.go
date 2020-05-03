@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // GetAllDatabasesInfo gets all db info
@@ -56,11 +57,28 @@ func GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, error) {
 			collection := client.Database(dbName).Collection(collectionName)
 
 			// firstDoc, FindOne
+			var cursor *mongo.Cursor
 			var firstDoc bson.M
-			if err = collection.FindOne(ctx, bson.D{{}}).Decode(&firstDoc); err != nil {
+			opts := options.Find()
+			opts.SetLimit(5) // get 5 samples and choose the max_size()
+			if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 				continue
 			}
-			firstDoc = emptyBinData(firstDoc)
+			dsize := 0
+			for cursor.Next(ctx) {
+				var v bson.M
+				cursor.Decode(&v)
+				if buf, err := bson.Marshal(v); err != nil {
+					continue
+				} else if len(buf) > dsize {
+					firstDoc = v
+					dsize = len(buf)
+				}
+			}
+			if firstDoc == nil {
+				continue
+			}
+			// firstDoc = emptyBinData(firstDoc)
 			indexes := ir.GetIndexesFromCollection(collection)
 
 			// stats
