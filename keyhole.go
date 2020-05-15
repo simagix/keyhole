@@ -60,6 +60,7 @@ func main() {
 	uri := flag.String("uri", "", "MongoDB URI") // orverides connection uri from args
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
+	vv := flag.Bool("vv", false, "very verbose")
 	webserver := flag.Bool("web", false, "enable web server")
 	wt := flag.Bool("wt", false, "visualize wiredTiger cache usage")
 	yes := flag.Bool("yes", false, "bypass confirmation")
@@ -114,7 +115,8 @@ func main() {
 		if *webserver == true { // backward compatible
 			metrics := anly.NewMetrics()
 			metrics.ProcessFiles(filenames)
-			log.Fatal(gox.StartWebServer(*port))
+			addr := fmt.Sprintf(":%d", *port)
+			log.Fatal(http.ListenAndServe(addr, nil))
 		} else {
 			metrics := anly.NewDiagnosticData(*span)
 			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
@@ -127,7 +129,8 @@ func main() {
 	} else if *webserver {
 		metrics := anly.NewMetrics()
 		metrics.ProcessFiles(flag.Args())
-		log.Fatal(gox.StartWebServer(*port))
+		addr := fmt.Sprintf(":%d", *port)
+		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *loginfo {
 		if len(flag.Args()) < 1 {
 			log.Fatal("Usage: keyhole --loginfo filename")
@@ -187,11 +190,12 @@ func main() {
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
 		mc.SetVerbose(*verbose)
+		mc.SetVeryVerbose(*vv)
 		mc.SetConnString(connString)
 		mc.SetDoodleMode(*doodle)
 		if doc, e := mc.GetClusterInfo(); e != nil {
 			log.Fatal(e)
-		} else if *verbose == false {
+		} else if *verbose == false && *vv == false {
 			fmt.Println(gox.Stringify(doc, "", "  "))
 		}
 		os.Exit(0)
@@ -258,15 +262,13 @@ func main() {
 
 	go func() {
 		http.HandleFunc("/", gox.Cors(handler))
-		log.Println(gox.StartWebServer(*port))
+		addr := fmt.Sprintf(":%d", *port)
+		log.Println(http.ListenAndServe(addr, nil))
 	}()
 	if *wt == true {
 		wtc := mdb.NewWiredTigerCache(client)
-		wtc.Start()
 		log.Printf("URL: http://localhost:%d/wt\n", *port)
-		if err := gox.StartWebServer(*port); err != nil {
-			log.Fatal(err)
-		}
+		wtc.Start()
 	}
 
 	var runner *sim.Runner
