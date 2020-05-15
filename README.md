@@ -2,6 +2,7 @@
 
 - [Peek at your MongoDB Clusters like a Pro with Keyhole: Part 1](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-1)
 - [Peek at your MongoDB Clusters like a Pro with Keyhole: Part 2](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-2)
+- [Maobi](https://hub.docker.com/repository/docker/simagix/maobi): A Keyhole reports generator
 
 Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  Moreover, keyhole can read MongoDB full-time diagnostic data (FTDC) data and is [integrated with Grafana's Simple JSON plugin](https://github.com/simagix/keyhole/wiki/MongoDB-FTDC-and-Grafana-Integration) seamlessly.  Golang was chosen to eliminate the needs to install an interpreter or 3pp modules.
 

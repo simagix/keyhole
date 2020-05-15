@@ -23,6 +23,7 @@ type MongoCluster struct {
 	doodle     bool
 	filename   string
 	verbose    bool
+	vv         bool
 }
 
 const replica = "replica"
@@ -36,6 +37,14 @@ func NewMongoCluster(client *mongo.Client) *MongoCluster {
 // SetVerbose -
 func (mc *MongoCluster) SetVerbose(verbose bool) {
 	mc.verbose = verbose
+}
+
+// SetVeryVerbose -
+func (mc *MongoCluster) SetVeryVerbose(vv bool) {
+	mc.vv = vv
+	if mc.vv == true {
+		mc.verbose = true
+	}
 }
 
 // SetFilename sets output file name
@@ -113,7 +122,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		return mc.cluster, err
 	}
 	fmt.Fprintf(os.Stderr, "\r     \r")
-	if mc.cluster["databases"], err = GetAllDatabasesInfo(mc.client); err != nil {
+	dbi := NewDatabaseInfo()
+	dbi.SetVerbose(mc.vv)
+	if mc.cluster["databases"], err = dbi.GetAllDatabasesInfo(mc.client); err != nil {
 		return mc.cluster, err
 	}
 	var data []byte
