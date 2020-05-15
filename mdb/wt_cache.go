@@ -44,7 +44,8 @@ func (wtc *WiredTigerCache) Start() {
 // GetAllDatabasesInfo returns db info
 func (wtc *WiredTigerCache) GetAllDatabasesInfo() error {
 	var err error
-	wtc.databases, err = GetAllDatabasesInfo(wtc.client)
+	dbi := NewDatabaseInfo()
+	wtc.databases, err = dbi.GetAllDatabasesInfo(wtc.client)
 	return err
 }
 
