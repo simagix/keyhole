@@ -140,14 +140,6 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 		var file *os.File
 		var reader *bufio.Reader
 		li.filename = filename
-		li.OutputFilename = filepath.Base(filename)
-		if strings.HasSuffix(li.OutputFilename, ".gz") {
-			li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
-		}
-		if strings.HasSuffix(li.OutputFilename, ".log") == false {
-			li.OutputFilename += ".log"
-		}
-		li.OutputFilename += ".enc"
 		if file, err = os.Open(filename); err != nil {
 			return "", err
 		}
@@ -163,12 +155,22 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 		if err = li.Parse(reader, lineCounts); err != nil {
 			return "", err
 		}
-		var data bytes.Buffer
-		enc := gob.NewEncoder(&data)
-		if err = enc.Encode(li); err != nil {
-			log.Println("encode error:", err)
+		if len(li.OpsPatterns) > 0 {
+			li.OutputFilename = filepath.Base(filename)
+			if strings.HasSuffix(li.OutputFilename, ".gz") {
+				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
+			}
+			if strings.HasSuffix(li.OutputFilename, ".log") == false {
+				li.OutputFilename += ".log"
+			}
+			li.OutputFilename += ".enc"
+			var data bytes.Buffer
+			enc := gob.NewEncoder(&data)
+			if err = enc.Encode(li); err != nil {
+				log.Println("encode error:", err)
+			}
+			ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
 		}
-		ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
 	}
 	return li.printLogsSummary(), nil
 }
