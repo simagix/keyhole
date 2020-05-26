@@ -9,5 +9,5 @@ MAINTAINER Ken Chen <simagix@gmail.com>
 RUN addgroup -S simagix && adduser -S simagix -G simagix
 USER simagix
 WORKDIR /home/simagix
-COPY --from=builder /go/src/github.com/simagix/keyhole/keyhole-linux-x64 /
+COPY --from=builder /go/src/github.com/simagix/keyhole/keyhole-linux-x64 /keyhole
 CMD ["/keyhole", "--version"]
