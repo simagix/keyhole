@@ -39,6 +39,7 @@ func main() {
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
 	loginfo := flag.Bool("loginfo", false, "log performance analytic from file or Atlas")
+	nocolor := flag.Bool("nocolor", false, "disable color codes")
 	peek := flag.Bool("peek", false, "only collect stats")
 	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
@@ -139,6 +140,8 @@ func main() {
 		for i, arg := range flag.Args() { // backward compatible
 			if arg == "-collscan" || arg == "--collscan" {
 				*collscan = true
+			} else if arg == "-silent" || arg == "--silent" {
+				*nocolor = true
 			} else if arg == "-v" || arg == "--v" {
 				*verbose = true
 			} else if (arg == "-regex" || arg == "--regex") && *regex != "" {
@@ -151,6 +154,7 @@ func main() {
 		li.SetRegexPattern(*regex)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
+		li.SetSilent(*nocolor)
 		for _, filename := range filenames {
 			var str string
 			if str, err = li.Analyze(filename); err != nil {
@@ -213,6 +217,7 @@ func main() {
 		os.Exit(0)
 	} else if *index == true {
 		ir := mdb.NewIndexesReader(client)
+		ir.SetNoColor(*nocolor)
 		if connString.Database == mdb.KEYHOLEDB {
 			connString.Database = ""
 		}

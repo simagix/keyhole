@@ -277,6 +277,12 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 
 // printLogsSummary prints loginfo summary
 func (li *LogInfo) printLogsSummary() string {
+	red := codeRed
+	green := codeGreen
+	if li.silent == true {
+		red = ""
+		green = ""
+	}
 	summaries := []string{}
 	if li.verbose == true {
 		summaries = append([]string{}, li.mongoInfo)
@@ -312,10 +318,10 @@ func (li *LogInfo) printLogsSummary() string {
 		avg := float64(value.TotalMilli) / float64(value.Count)
 		avgstr := gox.MilliToTimeString(avg)
 		if value.Scan == COLLSCAN {
-			output = fmt.Sprintf("|%-10s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s \x1b[31;1m%-62s\x1b[0m|\n", value.Command, value.Scan,
-				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
+			output = fmt.Sprintf("|%-10s %v%8s\x1b[0m %6s %8d %6d %-33s %v%-62s\x1b[0m|\n", value.Command, red, value.Scan,
+				avgstr, value.MaxMilli, value.Count, value.Namespace, red, str)
 		} else {
-			output = fmt.Sprintf("|%-10s \x1b[31;1m%8s\x1b[0m %6s %8d %6d %-33s %-62s|\n", value.Command, value.Scan,
+			output = fmt.Sprintf("|%-10s %v%8s\x1b[0m %6s %8d %6d %-33s %-62s|\n", value.Command, red, value.Scan,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, str)
 		}
 		buffer.WriteString(output)
@@ -339,7 +345,7 @@ func (li *LogInfo) printLogsSummary() string {
 					}
 				}
 				if value.Scan == COLLSCAN {
-					output = fmt.Sprintf("|%74s   \x1b[31;1m%-62s\x1b[0m|\n", " ", pstr)
+					output = fmt.Sprintf("|%74s   %v%-62s\x1b[0m|\n", " ", red, pstr)
 					buffer.WriteString(output)
 				} else {
 					output = fmt.Sprintf("|%74s   %-62s|\n", " ", pstr)
@@ -348,7 +354,7 @@ func (li *LogInfo) printLogsSummary() string {
 			}
 		}
 		if value.Index != "" {
-			output = fmt.Sprintf("|...index:  \x1b[32;1m%-128s\x1b[0m|\n", value.Index)
+			output = fmt.Sprintf("|...index:  %v%-128s\x1b[0m|\n", green, value.Index)
 			buffer.WriteString(output)
 		}
 	}

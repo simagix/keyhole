@@ -1,4 +1,4 @@
-FROM golang:alpine as builder
+FROM golang:1.13-alpine as builder
 RUN apk update && apk add dep git bash && rm -rf /var/cache/apk/* \
   && mkdir -p /go/src/github.com/simagix/keyhole
 ADD . /go/src/github.com/simagix/keyhole
