@@ -19,6 +19,7 @@ import (
 type IndexesReader struct {
 	client  *mongo.Client
 	dbName  string
+	nocolor bool
 	verbose bool
 }
 
@@ -49,6 +50,11 @@ type IndexStatsDoc struct {
 // NewIndexesReader establish seeding parameters
 func NewIndexesReader(client *mongo.Client) *IndexesReader {
 	return &IndexesReader{client: client}
+}
+
+// SetNoColor set nocolor flag
+func (ir *IndexesReader) SetNoColor(nocolor bool) {
+	ir.nocolor = nocolor
 }
 
 // SetVerbose sets verbose level
@@ -279,9 +285,17 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 				} else if o.IsShardKey == true {
 					font = "\x1b[0m* "
 				} else if o.IsDupped == true {
-					font = "\x1b[31;1mx " // red
+					red := codeRed
+					if ir.nocolor {
+						red = ""
+					}
+					font = fmt.Sprintf("%vx ", red) // red
 				} else if o.TotalOps == 0 {
-					font = "\x1b[34;1m? " // blue
+					blue := codeBlue
+					if ir.nocolor {
+						blue = ""
+					}
+					font = fmt.Sprintf("%v? ", blue) // red
 				}
 
 				buffer.WriteString(font + o.Key + "\x1b[0m")

@@ -193,8 +193,8 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 					sum += t
 				}
 				length := len(v)
-				p95 := int64(float64(length) * .95)
-				p99 := int64(float64(length) * .99)
+				p95 := int64(float64(length+1) * .95)
+				p99 := int64(float64(length+1) * .99)
 				stats += fmt.Sprintf("\n\t[%12s] (samples, min, avg, p95, p99, max) = (%v, %v, %v, %v, %v, %v)",
 					k, length, v[0], sum/time.Duration(length), v[p95], v[p99], v[length-1])
 			}

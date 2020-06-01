@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -39,6 +40,7 @@ func main() {
 	index := flag.Bool("index", false, "get indexes info")
 	info := flag.Bool("info", false, "get cluster info | Atlas info (atlas://user:key)")
 	loginfo := flag.Bool("loginfo", false, "log performance analytic from file or Atlas")
+	nocolor := flag.Bool("nocolor", false, "disable color codes")
 	peek := flag.Bool("peek", false, "only collect stats")
 	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
@@ -110,27 +112,26 @@ func main() {
 			}
 		}
 		os.Exit(0)
+	} else if *webserver {
+		filenames := append([]string{*diag}, flag.Args()...)
+		addr := fmt.Sprintf(":%d", *port)
+		if listener, err := net.Listen("tcp", addr); err != nil {
+			log.Fatal(err)
+		} else {
+			listener.Close()
+		}
+		metrics := anly.NewMetrics()
+		metrics.ProcessFiles(filenames)
+		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
-		if *webserver == true { // backward compatible
-			metrics := anly.NewMetrics()
-			metrics.ProcessFiles(filenames)
-			addr := fmt.Sprintf(":%d", *port)
-			log.Fatal(http.ListenAndServe(addr, nil))
+		metrics := anly.NewDiagnosticData(*span)
+		if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
+			log.Fatal(e)
 		} else {
-			metrics := anly.NewDiagnosticData(*span)
-			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
-				log.Fatal(e)
-			} else {
-				fmt.Println(str)
-			}
+			fmt.Println(str)
 		}
 		os.Exit(0)
-	} else if *webserver {
-		metrics := anly.NewMetrics()
-		metrics.ProcessFiles(flag.Args())
-		addr := fmt.Sprintf(":%d", *port)
-		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *loginfo {
 		if len(flag.Args()) < 1 {
 			log.Fatal("Usage: keyhole --loginfo filename")
@@ -139,6 +140,8 @@ func main() {
 		for i, arg := range flag.Args() { // backward compatible
 			if arg == "-collscan" || arg == "--collscan" {
 				*collscan = true
+			} else if arg == "-silent" || arg == "--silent" {
+				*nocolor = true
 			} else if arg == "-v" || arg == "--v" {
 				*verbose = true
 			} else if (arg == "-regex" || arg == "--regex") && *regex != "" {
@@ -151,6 +154,7 @@ func main() {
 		li.SetRegexPattern(*regex)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
+		li.SetSilent(*nocolor)
 		for _, filename := range filenames {
 			var str string
 			if str, err = li.Analyze(filename); err != nil {
@@ -213,6 +217,7 @@ func main() {
 		os.Exit(0)
 	} else if *index == true {
 		ir := mdb.NewIndexesReader(client)
+		ir.SetNoColor(*nocolor)
 		if connString.Database == mdb.KEYHOLEDB {
 			connString.Database = ""
 		}
