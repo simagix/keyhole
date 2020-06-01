@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -111,27 +112,26 @@ func main() {
 			}
 		}
 		os.Exit(0)
+	} else if *webserver {
+		filenames := append([]string{*diag}, flag.Args()...)
+		addr := fmt.Sprintf(":%d", *port)
+		if listener, err := net.Listen("tcp", addr); err != nil {
+			log.Fatal(err)
+		} else {
+			listener.Close()
+		}
+		metrics := anly.NewMetrics()
+		metrics.ProcessFiles(filenames)
+		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
-		if *webserver == true { // backward compatible
-			metrics := anly.NewMetrics()
-			metrics.ProcessFiles(filenames)
-			addr := fmt.Sprintf(":%d", *port)
-			log.Fatal(http.ListenAndServe(addr, nil))
+		metrics := anly.NewDiagnosticData(*span)
+		if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
+			log.Fatal(e)
 		} else {
-			metrics := anly.NewDiagnosticData(*span)
-			if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
-				log.Fatal(e)
-			} else {
-				fmt.Println(str)
-			}
+			fmt.Println(str)
 		}
 		os.Exit(0)
-	} else if *webserver {
-		metrics := anly.NewMetrics()
-		metrics.ProcessFiles(flag.Args())
-		addr := fmt.Sprintf(":%d", *port)
-		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *loginfo {
 		if len(flag.Args()) < 1 {
 			log.Fatal("Usage: keyhole --loginfo filename")

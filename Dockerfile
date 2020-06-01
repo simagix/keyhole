@@ -3,9 +3,9 @@ RUN apk update && apk add dep git bash && rm -rf /var/cache/apk/* \
   && mkdir -p /go/src/github.com/simagix/keyhole
 ADD . /go/src/github.com/simagix/keyhole
 WORKDIR /go/src/github.com/simagix/keyhole
-RUN ./build.sh all
+RUN ./build.sh cross-platform
 FROM alpine
-MAINTAINER Ken Chen <simagix@gmail.com>
+LABEL Ken Chen <ken.chen@simagix.com>
 RUN addgroup -S simagix && adduser -S simagix -G simagix
 USER simagix
 WORKDIR /build
