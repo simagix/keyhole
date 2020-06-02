@@ -280,25 +280,28 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 			buffer.WriteString(ns)
 			buffer.WriteString(":\n")
 			for _, o := range list {
-				font := "\x1b[0m  "
+				font := codeDefault
+				tailCode := codeDefault
+				if ir.nocolor {
+					font = ""
+					tailCode = ""
+				}
 				if o.Key == "{ _id: 1 }" {
+					buffer.WriteString(fmt.Sprintf("%v  %v%v", font, o.Key, tailCode))
 				} else if o.IsShardKey == true {
-					font = "\x1b[0m* "
+					buffer.WriteString(fmt.Sprintf("%v* %v%v", font, o.Key, tailCode))
 				} else if o.IsDupped == true {
-					red := codeRed
-					if ir.nocolor {
-						red = ""
+					if ir.nocolor == false {
+						font = codeRed
 					}
-					font = fmt.Sprintf("%vx ", red) // red
+					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.Key, tailCode))
 				} else if o.TotalOps == 0 {
-					blue := codeBlue
-					if ir.nocolor {
-						blue = ""
+					if ir.nocolor == false {
+						font = codeBlue
 					}
-					font = fmt.Sprintf("%v? ", blue) // red
+					buffer.WriteString(fmt.Sprintf("%v? %v%v", font, o.Key, tailCode))
 				}
 
-				buffer.WriteString(font + o.Key + "\x1b[0m")
 				for _, u := range o.Usage {
 					buffer.Write([]byte("\n\thost: " + u.Host + ", ops: " + fmt.Sprintf("%v", u.Accesses.Ops) + ", since: " + fmt.Sprintf("%v", u.Accesses.Since)))
 				}
