@@ -2,6 +2,7 @@
 
 - [Peek at your MongoDB Clusters like a Pro with Keyhole: Part 1](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-1)
 - [Peek at your MongoDB Clusters like a Pro with Keyhole: Part 2](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-2)
+- [Peek at your MongoDB Clusters like a Pro with Keyhole: Part 3](https://www.mongodb.com/blog/post/peek-your-clusters-like-pro-with-keyhole-part-3)
 - [Maobi](https://hub.docker.com/repository/docker/simagix/maobi): A Keyhole reports generator
 
 Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to measure performance of a MongoDB cluster.  Moreover, keyhole can read MongoDB full-time diagnostic data (FTDC) data and is [integrated with Grafana's Simple JSON plugin](https://github.com/simagix/keyhole/wiki/MongoDB-FTDC-and-Grafana-Integration) seamlessly.  Golang was chosen to eliminate the needs to install an interpreter or 3pp modules.
@@ -25,37 +26,41 @@ Several features are available, and they are
 - [Display indexes scores](https://github.com/simagix/keyhole/wiki/Indexes-Scores-and-Explain) of a query shape
 
 ## Use Cases
+
 Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 
 ## Usages
+
 ### Build
+
 You need `go` installed and use `dep` to pull down dependencies.
 
-```
-cd $GOPATH/src
-git clone --depth 1 https://github.com/simagix/keyhole.git
-cd keyhole
+```bash
 ./build.sh
 ```
 
 ### Usage
-```
-$ keyhole --help
+
+```bsdh
+keyhole --help
 ```
 
 ### Unit Tests
-```
-$ ./test.sh load
+
+```bash
+./test.sh load
 ```
 
 ### Atlas TLS/SSL Mode
+
 An example connecting to Atlas
 
-```
+```bash
 keyhole --info "mongodb+srv://user:secret@cluster0-v7due.gcp.mongodb.net/test"
 ```
 
 ### TLS/SSL Mode
-```
+
+```bash
 keyhole --info --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem "mongodb://user:password@localhost/keyhole?authSource=admin&ssl=true"
 ```
