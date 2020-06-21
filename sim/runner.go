@@ -207,7 +207,7 @@ func (rn *Runner) terminate() {
 		}
 		stats := NewServerStats(uri, rn.channel)
 		stats.SetVerbose(rn.verbose)
-		if filename, err = stats.printServerStatus(client, 60); err != nil {
+		if filename, err = stats.printServerStatus(client); err != nil {
 			log.Println(err)
 			continue
 		}
