@@ -51,7 +51,6 @@ func main() {
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
-	span := flag.Int("span", -1, "granunarity for summary")
 	sslCAFile := flag.String("sslCAFile", "", "CA file")
 	sslPEMKeyFile := flag.String("sslPEMKeyFile", "", "client PEM file")
 	tlsCAFile := flag.String("tlsCAFile", "", "TLS CA file")
@@ -125,7 +124,7 @@ func main() {
 		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
-		metrics := anly.NewDiagnosticData(*span)
+		metrics := anly.NewDiagnosticData()
 		if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
 			log.Fatal(e)
 		} else {

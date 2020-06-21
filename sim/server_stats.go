@@ -259,7 +259,7 @@ func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 }
 
 // printServerStatus prints serverStatusDocs summary for the duration
-func (st *ServerStats) printServerStatus(client *mongo.Client, span int) (string, error) {
+func (st *ServerStats) printServerStatus(client *mongo.Client) (string, error) {
 	var err error
 	var stat anly.ServerStatusDoc
 	var filename string
@@ -272,7 +272,7 @@ func (st *ServerStats) printServerStatus(client *mongo.Client, span int) (string
 		return filename, err
 	}
 	var filenames = []string{filename}
-	d := anly.NewDiagnosticData(span)
+	d := anly.NewDiagnosticData()
 	if str, err = d.PrintDiagnosticData(filenames); err != nil {
 		return filename, err
 	}

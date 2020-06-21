@@ -16,7 +16,7 @@ fi
 
 $DEP ensure $UPDATE
 mkdir -p build
-export ver="2.4.1"
+export ver="2.4.2"
 export version="v${ver}-$(date "+%Y%m%d")"
 env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o build/keyhole-osx-x64 keyhole.go
 

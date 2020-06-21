@@ -13,7 +13,7 @@
   name = "github.com/simagix/mongo-atlas"
 
 [[constraint]]
-  version = "v1.0.1"
+  version = "v1.0.2-rc0"
   #branch = "dev"
   name = "github.com/simagix/mongo-ftdc"
 
