@@ -30,7 +30,13 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	json.Unmarshal([]byte(str), &doc)
 	attr := doc["attr"].(map[string]interface{})
 	stat.milli = int(attr["durationMillis"].(float64))
-	stat.ns = attr["ns"].(string)
+	if attr["ns"] != nil {
+		stat.ns = attr["ns"].(string)
+	} else if attr["namespace"] != nil {
+		stat.ns = attr["namespace"].(string)
+	} else {
+		return stat, errors.New("no namespace found")
+	}
 	if strings.HasPrefix(stat.ns, "admin.") || strings.HasPrefix(stat.ns, "config.") || strings.HasPrefix(stat.ns, "local.") {
 		stat.op = dollarCmd
 		return stat, errors.New("system database")
@@ -51,6 +57,9 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if li.collscan == true && stat.scan != COLLSCAN {
 		return stat, nil
 	}
+	if attr["command"] == nil {
+		return stat, errors.New("no command found")
+	}
 	command := attr["command"].(map[string]interface{})
 	if attr["type"] != nil {
 		stat.op = attr["type"].(string)
@@ -64,20 +73,24 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			}
 		}
 		if stat.op == cmdFind {
-			fmap := command["filter"].(map[string]interface{})
-			if isRegex(fmap) == false {
-				walker := gox.NewMapWalker(cb)
-				doc := walker.Walk(fmap)
-				if buf, err := json.Marshal(doc); err == nil {
-					stat.filter = string(buf)
-				} else {
-					stat.filter = "{}"
-				}
+			if command["filter"] == nil {
+				stat.filter = "{}"
 			} else {
-				buf, _ := json.Marshal(fmap)
-				str := string(buf)
-				re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-				stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+				fmap := command["filter"].(map[string]interface{})
+				if isRegex(fmap) == false {
+					walker := gox.NewMapWalker(cb)
+					doc := walker.Walk(fmap)
+					if buf, err := json.Marshal(doc); err == nil {
+						stat.filter = string(buf)
+					} else {
+						stat.filter = "{}"
+					}
+				} else {
+					buf, _ := json.Marshal(fmap)
+					str := string(buf)
+					re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
+					stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+				}
 			}
 		} else if stat.op == "" {
 			return stat, errors.New("no op found")
