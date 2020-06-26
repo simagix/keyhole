@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,12 +18,18 @@ import (
 
 // DatabaseInfo stores struct
 type DatabaseInfo struct {
-	verbose bool
+	redaction bool
+	verbose   bool
 }
 
 // NewDatabaseInfo returns DatabaseInfo
 func NewDatabaseInfo() *DatabaseInfo {
 	return &DatabaseInfo{}
+}
+
+// SetRedaction sets redaction
+func (dbi *DatabaseInfo) SetRedaction(redaction bool) {
+	dbi.redaction = redaction
 }
 
 // SetVerbose sets verbosity
@@ -126,6 +133,13 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 				continue
 			}
 			// firstDoc = emptyBinData(firstDoc)
+			if dbi.redaction == true {
+				redact := NewRedactor()
+				walker := gox.NewMapWalker(redact.callback)
+				buf, _ := bson.Marshal(walker.Walk(firstDoc))
+				bson.Unmarshal(buf, &firstDoc)
+			}
+
 			indexes := ir.GetIndexesFromCollection(collection)
 
 			// stats

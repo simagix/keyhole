@@ -45,6 +45,7 @@ func main() {
 	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	port := flag.Int("port", 5408, "web server port number")
+	redaction := flag.Bool("redact", false, "redact document")
 	regex := flag.String("regex", "", "regex pattern for loginfo")
 	request := flag.String("request", "", "Atlas API command")
 	resume := flag.Bool("resume", false, "resume an Atlas cluster atlas://user:key@group/cluster")
@@ -192,6 +193,7 @@ func main() {
 
 	if *info == true {
 		mc := mdb.NewMongoCluster(client)
+		mc.SetRedaction(*redaction)
 		mc.SetVerbose(*verbose)
 		mc.SetVeryVerbose(*vv)
 		mc.SetConnString(connString)
