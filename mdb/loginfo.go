@@ -122,8 +122,13 @@ func getConfigOptions(buffers []string) []string {
 
 const topN = 25
 
-// Analyze -
+// Analyze analyze logs from a file without redaction
 func (li *LogInfo) Analyze(filename string) (string, error) {
+	return li.AnalyzeFile(filename, false)
+}
+
+// AnalyzeFile analyze logs from a file
+func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 	var err error
 
 	if strings.HasSuffix(filename, ".enc") == true {
@@ -147,8 +152,11 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 		if reader, err = gox.NewReader(file); err != nil {
 			return "", err
 		}
-		lineCounts, _ := gox.CountLines(reader)
-		file.Seek(0, 0)
+		var lineCounts int
+		if li.silent == false {
+			lineCounts, _ = gox.CountLines(reader)
+			file.Seek(0, 0)
+		}
 		if reader, err = gox.NewReader(file); err != nil {
 			return "", err
 		}
@@ -165,6 +173,9 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 			}
 			li.OutputFilename += ".enc"
 			var data bytes.Buffer
+			if redact == true {
+				li.SlowOps = []SlowOps{}
+			}
 			enc := gob.NewEncoder(&data)
 			if err = enc.Encode(li); err != nil {
 				log.Println("encode error:", err)

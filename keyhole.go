@@ -104,7 +104,7 @@ func main() {
 				var str string
 				li := mdb.NewLogInfo()
 				li.SetVerbose(*verbose)
-				if str, err = li.Analyze(filename); err != nil {
+				if str, err = li.AnalyzeFile(filename, *redaction); err != nil {
 					log.Println(err)
 					continue
 				}
@@ -157,7 +157,7 @@ func main() {
 		li.SetSilent(*nocolor)
 		for _, filename := range filenames {
 			var str string
-			if str, err = li.Analyze(filename); err != nil {
+			if str, err = li.AnalyzeFile(filename, *redaction); err != nil {
 				log.Fatal(err)
 			}
 			fmt.Println(str)
