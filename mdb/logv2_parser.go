@@ -5,34 +5,44 @@ package mdb
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/simagix/gox"
 )
 
-var ops = []string{cmdAggregate, cmdDelete, cmdFind, cmdInsert, cmdUpdate}
+var ops = []string{cmdAggregate, cmdCreateIndexes, cmdDelete, cmdFind, cmdGetMore, cmdInsert, cmdUpdate}
 
 const cmdAggregate = "aggregate"
+const cmdCreateIndexes = "createIndexes"
 const cmdDelete = "delete"
 const cmdFind = "find"
+const cmdGetMore = "getMore"
 const cmdInsert = "insert"
 const cmdRemove = "remove"
 const cmdUpdate = "update"
 
 // ParseLogv2 - parses text message before v4.4
 func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
+	var attr map[string]interface{}
+	var ok bool
 	var stat = LogStats{}
 	var doc map[string]interface{}
 	if strings.Index(str, "durationMillis") < 0 {
 		return stat, errors.New("no durationMillis found")
 	}
 	json.Unmarshal([]byte(str), &doc)
-	attr := doc["attr"].(map[string]interface{})
+	if doc["c"] == nil {
+		return stat, errors.New("no command (c) found")
+	}
+	if attr, ok = doc["attr"].(map[string]interface{}); !ok {
+		return stat, errors.New("no attr found")
+	}
 	stat.milli = int(attr["durationMillis"].(float64))
 	if attr["ns"] != nil {
 		stat.ns = attr["ns"].(string)
-	} else if attr["namespace"] != nil {
+	} else if attr["namespace"] != nil { // likely "c": "SHARDING", ignored already
 		stat.ns = attr["namespace"].(string)
 	} else {
 		return stat, errors.New("no namespace found")
@@ -44,7 +54,8 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		stat.op = dollarCmd
 		return stat, errors.New("system command")
 	}
-	if attr["planSummary"] != nil {
+
+	if attr["planSummary"] != nil { // not insert
 		plan := attr["planSummary"].(string)
 		if plan == COLLSCAN {
 			stat.scan = attr["planSummary"].(string)
@@ -54,6 +65,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			stat.index = plan
 		}
 	}
+
 	if li.collscan == true && stat.scan != COLLSCAN {
 		return stat, nil
 	}
@@ -64,7 +76,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if attr["type"] != nil {
 		stat.op = attr["type"].(string)
 	}
-	if stat.op == "command" {
+	if stat.op == "command" || stat.op == "none" {
 		stat.op = ""
 		for _, v := range ops {
 			if command[v] != nil {
@@ -72,31 +84,29 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 				break
 			}
 		}
-		if stat.op == cmdFind {
-			if command["filter"] == nil {
-				stat.filter = "{}"
-			} else {
-				fmap := command["filter"].(map[string]interface{})
-				if isRegex(fmap) == false {
-					walker := gox.NewMapWalker(cb)
-					doc := walker.Walk(fmap)
-					if buf, err := json.Marshal(doc); err == nil {
-						stat.filter = string(buf)
-					} else {
-						stat.filter = "{}"
-					}
-				} else {
-					buf, _ := json.Marshal(fmap)
-					str := string(buf)
-					re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-					stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
-				}
-			}
-		} else if stat.op == "" {
-			return stat, errors.New("no op found")
-		}
+
 	}
-	if stat.op == cmdInsert {
+	if stat.op == cmdFind || stat.op == cmdGetMore {
+		if command["filter"] == nil {
+			stat.filter = "{}"
+		} else {
+			fmap := command["filter"].(map[string]interface{})
+			if isRegex(fmap) == false {
+				walker := gox.NewMapWalker(cb)
+				doc := walker.Walk(fmap)
+				if buf, err := json.Marshal(doc); err == nil {
+					stat.filter = string(buf)
+				} else {
+					stat.filter = "{}"
+				}
+			} else {
+				buf, _ := json.Marshal(fmap)
+				str := string(buf)
+				re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
+				stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+			}
+		}
+	} else if stat.op == cmdInsert || stat.op == cmdCreateIndexes {
 		stat.filter = "N/A"
 	} else if (stat.op == cmdUpdate || stat.op == cmdRemove || stat.op == cmdDelete) && stat.filter == "" {
 		walker := gox.NewMapWalker(cb)
@@ -132,6 +142,8 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
 			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
 		}
+	} else if li.verbose == true {
+		fmt.Println(stat.op, str)
 	}
 	if stat.op == "" {
 		return stat, nil
