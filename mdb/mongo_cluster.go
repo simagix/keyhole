@@ -22,6 +22,7 @@ type MongoCluster struct {
 	connString connstring.ConnString
 	doodle     bool
 	filename   string
+	redaction  bool
 	verbose    bool
 	vv         bool
 }
@@ -32,6 +33,11 @@ const replica = "replica"
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	hostname, _ := os.Hostname()
 	return &MongoCluster{client: client, filename: hostname + ".bson.gz"}
+}
+
+// SetRedaction sets redact
+func (mc *MongoCluster) SetRedaction(redaction bool) {
+	mc.redaction = redaction
 }
 
 // SetVerbose -
@@ -123,6 +129,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	}
 	fmt.Fprintf(os.Stderr, "\r     \r")
 	dbi := NewDatabaseInfo()
+	dbi.SetRedaction(mc.redaction)
 	dbi.SetVerbose(mc.vv)
 	if mc.cluster["databases"], err = dbi.GetAllDatabasesInfo(mc.client); err != nil {
 		return mc.cluster, err
