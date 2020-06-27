@@ -5,22 +5,28 @@ package mdb
 import (
 	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// IndexesReader holder indexes reader struct
-type IndexesReader struct {
-	client  *mongo.Client
-	dbName  string
-	nocolor bool
-	verbose bool
+// Indexes holder indexes reader struct
+type Indexes struct {
+	client     *mongo.Client
+	dbName     string
+	filename   string
+	indexesMap map[string]CollectionIndexes
+	nocolor    bool
+	verbose    bool
 }
 
 // AccessesDoc - accessss
@@ -35,88 +41,130 @@ type UsageDoc struct {
 	Accesses AccessesDoc `json:"accesses"`
 }
 
+// CollectionIndexes store index stats in a map
+type CollectionIndexes map[string][]IndexStatsDoc
+
 // IndexStatsDoc -
 type IndexStatsDoc struct {
-	Fields       []string
-	Key          string     `json:"key"`
-	Name         string     `json:"name"`
-	EffectiveKey string     `json:"effectiveKey"`
-	IsDupped     bool       `json:"dupped"`
-	IsShardKey   bool       `json:"shardKey"`
-	TotalOps     int        `json:"totalOps"`
-	Usage        []UsageDoc `json:"stats"`
+	Background              bool   `json:"background"`
+	Collation               bson.D `json:"collation"`
+	EffectiveKey            string `json:"effectiveKey"`
+	ExpireAfterSeconds      int32  `json:"expireAfterSeconds"`
+	Fields                  []string
+	IndexKey                bson.D `json:"key"`
+	IsDupped                bool   `json:"dupped"`
+	IsShardKey              bool   `json:"shardKey"`
+	Key                     string
+	Name                    string     `json:"name"`
+	PartialFilterExpression bson.D     `json:"partialFilterExpression"`
+	Sparse                  bool       `json:"sparse"`
+	TotalOps                int        `json:"totalOps"`
+	Unique                  bool       `json:"unique"`
+	Usage                   []UsageDoc `json:"stats"`
+	Version                 int32      `json:"v"`
+}
+
+// NewIndexes establish seeding parameters
+func NewIndexes(client *mongo.Client) *Indexes {
+	gob.Register([]IndexStatsDoc{})
+	hostname, _ := os.Hostname()
+	return &Indexes{client: client, filename: hostname + "-index.enc", indexesMap: map[string]CollectionIndexes{}}
 }
 
 // NewIndexesReader establish seeding parameters
-func NewIndexesReader(client *mongo.Client) *IndexesReader {
-	return &IndexesReader{client: client}
+func NewIndexesReader(client *mongo.Client) *Indexes {
+	hostname, _ := os.Hostname()
+	return &Indexes{client: client, filename: hostname + "-index.enc", indexesMap: map[string]CollectionIndexes{}}
+}
+
+// SetFilename sets output file name
+func (ix *Indexes) SetFilename(filename string) {
+	ix.filename = strings.Replace(filename, ":", "_", -1)
+}
+
+// SetIndexesMap sets indexes map
+func (ix *Indexes) SetIndexesMap(indexesMap map[string]CollectionIndexes) {
+	ix.indexesMap = indexesMap
+}
+
+// SetIndexesMapFromFile File sets indexes map from a file
+func (ix *Indexes) SetIndexesMapFromFile(filename string) error {
+	var data []byte
+	var err error
+	if data, err = ioutil.ReadFile(filename); err != nil {
+		return err
+	}
+	buffer := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buffer)
+	return dec.Decode(&ix.indexesMap)
 }
 
 // SetNoColor set nocolor flag
-func (ir *IndexesReader) SetNoColor(nocolor bool) {
-	ir.nocolor = nocolor
+func (ix *Indexes) SetNoColor(nocolor bool) {
+	ix.nocolor = nocolor
 }
 
 // SetVerbose sets verbose level
-func (ir *IndexesReader) SetVerbose(verbose bool) {
-	ir.verbose = verbose
+func (ix *Indexes) SetVerbose(verbose bool) {
+	ix.verbose = verbose
 }
 
 // SetDBName sets verbose level
-func (ir *IndexesReader) SetDBName(dbName string) {
-	ir.dbName = dbName
+func (ix *Indexes) SetDBName(dbName string) {
+	ix.dbName = dbName
 }
 
 // GetIndexes list all indexes of collections of databases
-func (ir *IndexesReader) GetIndexes() (bson.M, error) {
+func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 	var err error
 	var dbNames []string
-	indexesMap := bson.M{}
-	if ir.dbName != "" {
-		indexesMap[ir.dbName], err = ir.GetIndexesFromDB(ir.dbName)
+	indexesMap := map[string]CollectionIndexes{}
+	if ix.dbName != "" {
+		indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
 		return indexesMap, err
 	}
 
-	if dbNames, err = ListDatabaseNames(ir.client); err != nil {
+	if dbNames, err = ListDatabaseNames(ix.client); err != nil {
 		return indexesMap, err
 	}
 	cnt := 0
 	for _, name := range dbNames {
 		if name == "admin" || name == "config" || name == "local" {
-			if ir.verbose == true {
+			if ix.verbose == true {
 				log.Println("Skip", name)
 			}
 			continue
 		}
 		cnt++
-		if ir.verbose == true {
+		if ix.verbose == true {
 			log.Println("checking", name)
 		}
-		if indexesMap[name], err = ir.GetIndexesFromDB(name); err != nil {
+		if indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
 			return indexesMap, err
 		}
 	}
-	if cnt == 0 && ir.verbose == true {
+	if cnt == 0 && ix.verbose == true {
 		log.Println("No database is available")
 	}
-	return indexesMap, err
+	ix.indexesMap = indexesMap
+	return ix.indexesMap, err
 }
 
 // GetIndexesFromDB list all indexes of collections of a database
-func (ir *IndexesReader) GetIndexesFromDB(dbName string) (bson.M, error) {
+func (ix *Indexes) GetIndexesFromDB(dbName string) (CollectionIndexes, error) {
 	var err error
 	var cur *mongo.Cursor
 	var ctx = context.Background()
-	var indexesMap = bson.M{}
-	if cur, err = ir.client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
+	var indexesMap = CollectionIndexes{}
+	if cur, err = ix.client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
 		return indexesMap, err
 	}
 	defer cur.Close(ctx)
 	collections := []string{}
 	for cur.Next(ctx) {
-		var elem = bson.M{}
+		var elem = map[string]interface{}{}
 		if err = cur.Decode(&elem); err != nil {
-			if ir.verbose == true {
+			if ix.verbose == true {
 				log.Println(err)
 			}
 			continue
@@ -124,7 +172,7 @@ func (ir *IndexesReader) GetIndexesFromDB(dbName string) (bson.M, error) {
 		coll := fmt.Sprintf("%v", elem["name"])
 		collType := fmt.Sprintf("%v", elem["type"])
 		if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
-			if ir.verbose == true {
+			if ix.verbose == true {
 				log.Println("skip", coll)
 			}
 			continue
@@ -134,34 +182,34 @@ func (ir *IndexesReader) GetIndexesFromDB(dbName string) (bson.M, error) {
 
 	sort.Strings(collections)
 	for _, collection := range collections {
-		indexesMap[collection] = ir.GetIndexesFromCollection(ir.client.Database(dbName).Collection(collection))
+		indexesMap[collection] = ix.GetIndexesFromCollection(ix.client.Database(dbName).Collection(collection))
 	}
 	return indexesMap, err
 }
 
 // GetIndexesFromCollection gets indexes from a collection
-func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) []IndexStatsDoc {
+func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []IndexStatsDoc {
 	var err error
 	var ctx = context.Background()
 	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
 	var list []IndexStatsDoc
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
-	if ir.verbose {
+	if ix.verbose {
 		log.Println("process GetIndexesFromCollection")
 	}
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
-		if ir.verbose == true {
+		if ix.verbose == true {
 			log.Println(err)
 		}
 		return list
 	}
-	var indexStats = []bson.M{}
+	var indexStats = []map[string]interface{}{}
 	for scur.Next(ctx) {
-		var result = bson.M{}
+		var result = map[string]interface{}{}
 		if err = scur.Decode(&result); err != nil {
-			if ir.verbose == true {
+			if ix.verbose == true {
 				log.Println(err)
 			}
 			continue
@@ -169,9 +217,11 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 		indexStats = append(indexStats, result)
 	}
 	scur.Close(ctx)
-	indexView := collection.Indexes()
-	if icur, err = indexView.List(ctx); err != nil {
-		if ir.verbose == true {
+
+	db := collection.Database().Name()
+	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
+	if icur, err = ix.client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
+		if ix.verbose == true {
 			log.Println(err)
 		}
 		return list
@@ -181,43 +231,67 @@ func (ir *IndexesReader) GetIndexesFromCollection(collection *mongo.Collection) 
 	for icur.Next(ctx) {
 		var idx = bson.D{}
 		if err = icur.Decode(&idx); err != nil {
-			if ir.verbose == true {
+			if ix.verbose == true {
 				log.Println(err)
 			}
 			continue
 		}
 
-		var keys bson.D
 		var indexName string
+		o := IndexStatsDoc{}
 		for _, v := range idx {
 			if v.Key == "name" {
 				indexName = v.Value.(string)
+				o.Name = indexName
 			} else if v.Key == "key" {
-				keys = v.Value.(bson.D)
+				o.IndexKey = v.Value.(bson.D)
+			} else if v.Key == "background" {
+				o.Background, _ = v.Value.(bool)
+			} else if v.Key == "expireAfterSeconds" {
+				if n, ok := v.Value.(int32); ok {
+					o.ExpireAfterSeconds = n
+				} else if n, ok := v.Value.(float64); ok {
+					o.ExpireAfterSeconds = int32(n)
+				}
+			} else if v.Key == "sparse" {
+				o.Sparse = v.Value.(bool)
+			} else if v.Key == "unique" {
+				o.Unique = v.Value.(bool)
+			} else if v.Key == "partialFilterExpression" {
+				o.PartialFilterExpression = v.Value.(bson.D)
+			} else if v.Key == "collation" {
+				o.Collation = v.Value.(bson.D)
+			} else if v.Key == "v" {
+				o.Version = v.Value.(int32)
+			} else if v.Key == "ns" {
+			} else if ix.verbose == true {
+				fmt.Println("additional attrib", v.Key, v.Value)
 			}
 		}
+
 		var strbuf bytes.Buffer
 		fields := []string{}
-		for n, value := range keys {
+		for n, value := range o.IndexKey {
 			fields = append(fields, value.Key)
 			if n == 0 {
 				strbuf.WriteString("{ ")
 			}
 			strbuf.WriteString(value.Key + ": " + fmt.Sprint(value.Value))
-			if n == len(keys)-1 {
+			if n == len(o.IndexKey)-1 {
 				strbuf.WriteString(" }")
 			} else {
 				strbuf.WriteString(", ")
 			}
 		}
-		o := IndexStatsDoc{Key: strbuf.String(), Fields: fields, Name: indexName}
+		o.Fields = fields
+		o.Key = strbuf.String()
 		// Check shard keys
-		var v bson.M
+		var v map[string]interface{}
 		ns := collection.Database().Name() + "." + collection.Name()
-		if ir.verbose {
+		if ix.verbose {
 			log.Println("process", ns)
 		}
-		if err = ir.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": keys}).Decode(&v); err == nil {
+		if err = ix.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.IndexKey}).Decode(&v); err == nil {
 			o.IsShardKey = true
 		}
 		o.EffectiveKey = strings.Replace(o.Key[2:len(o.Key)-2], ": -1", ": 1", -1)
@@ -269,11 +343,21 @@ func checkIfDupped(doc IndexStatsDoc, list []IndexStatsDoc) bool {
 }
 
 // Print prints indexes
-func (ir *IndexesReader) Print(indexesMap bson.M) {
-	for _, key := range getSortedKeys(indexesMap) {
-		val := indexesMap[key].(bson.M)
-		for _, k := range getSortedKeys(val) {
-			list := val[k].([]IndexStatsDoc)
+func (ix *Indexes) Print(indexesMap map[string]CollectionIndexes) {
+	var dbkeys []string
+	for k := range indexesMap {
+		dbkeys = append(dbkeys, k)
+	}
+	sort.Strings(dbkeys)
+	for _, key := range dbkeys {
+		collectionIndexes := indexesMap[key]
+		var keys []string
+		for k := range collectionIndexes {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			list := collectionIndexes[k]
 			var buffer bytes.Buffer
 			ns := key + "." + k
 			buffer.WriteString("\n")
@@ -282,7 +366,7 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 			for _, o := range list {
 				font := codeDefault
 				tailCode := codeDefault
-				if ir.nocolor {
+				if ix.nocolor {
 					font = ""
 					tailCode = ""
 				}
@@ -291,15 +375,17 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 				} else if o.IsShardKey == true {
 					buffer.WriteString(fmt.Sprintf("%v* %v%v", font, o.Key, tailCode))
 				} else if o.IsDupped == true {
-					if ir.nocolor == false {
+					if ix.nocolor == false {
 						font = codeRed
 					}
 					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.Key, tailCode))
 				} else if o.TotalOps == 0 {
-					if ir.nocolor == false {
+					if ix.nocolor == false {
 						font = codeBlue
 					}
 					buffer.WriteString(fmt.Sprintf("%v? %v%v", font, o.Key, tailCode))
+				} else {
+					buffer.WriteString(fmt.Sprintf("  %v", o.Key))
 				}
 
 				for _, u := range o.Usage {
@@ -312,11 +398,72 @@ func (ir *IndexesReader) Print(indexesMap bson.M) {
 	}
 }
 
-func getSortedKeys(rmap bson.M) []string {
-	var keys []string
-	for k := range rmap {
-		keys = append(keys, k)
+// CreateIndexes creates indexes
+func (ix *Indexes) CreateIndexes() error {
+	var ctx = context.Background()
+	var err error
+	for db := range ix.indexesMap {
+		indexes := ix.indexesMap[db]
+		for k, list := range indexes {
+			collection := ix.client.Database(db).Collection(k)
+			for _, o := range list {
+				if o.IsShardKey == true {
+					// TODO
+				}
+				var indexKey bson.D
+				for _, field := range o.Fields {
+					for _, e := range o.IndexKey {
+						if field == e.Key {
+							indexKey = append(indexKey, e)
+							break
+						}
+					}
+				}
+
+				opt := options.Index()
+				opt.SetVersion(o.Version)
+				opt.SetName(o.Name)
+				if o.Background == true {
+					opt.SetBackground(o.Background)
+				}
+				if o.ExpireAfterSeconds > 0 {
+					opt.SetExpireAfterSeconds(o.ExpireAfterSeconds)
+				}
+				if o.Unique == true {
+					opt.SetUnique(o.Unique)
+				}
+				if o.Sparse == true {
+					opt.SetSparse(o.Sparse)
+				}
+				if o.Collation != nil {
+					var collation *options.Collation
+					if data, err := bson.Marshal(o.Collation); err != nil {
+						fmt.Println(err)
+					} else {
+						bson.Unmarshal(data, &collation)
+						opt.SetCollation(collation)
+					}
+				}
+				if o.PartialFilterExpression != nil {
+					opt.SetPartialFilterExpression(o.PartialFilterExpression)
+				}
+				if _, err = collection.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: o.IndexKey, Options: opt}); err != nil {
+					fmt.Println(err)
+				}
+			}
+		}
 	}
-	sort.Strings(keys)
-	return keys
+	return err
+}
+
+// Save saves indexes map to a file
+func (ix *Indexes) Save() error {
+	var data bytes.Buffer
+	var err error
+	enc := gob.NewEncoder(&data)
+	if err = enc.Encode(ix.indexesMap); err != nil {
+		return err
+	}
+	fmt.Println("Encoded indexes info is written to", ix.filename)
+	return ioutil.WriteFile(ix.filename, data.Bytes(), 0644)
 }

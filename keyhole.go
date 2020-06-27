@@ -30,6 +30,7 @@ func main() {
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	conn := flag.Int("conn", runtime.NumCPU(), "nuumber of connections")
+	createIndex := flag.String("createIndex", "", "create indexes")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
 	doodle := flag.Bool("doodle", false, "print random values of sample docs")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -217,18 +218,40 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *index == true {
-		ir := mdb.NewIndexesReader(client)
-		ir.SetNoColor(*nocolor)
+		ix := mdb.NewIndexes(client)
+		ix.SetNoColor(*nocolor)
 		if connString.Database == mdb.KEYHOLEDB {
 			connString.Database = ""
 		}
-		ir.SetDBName(connString.Database)
-		ir.SetVerbose(*verbose)
-		m, e := ir.GetIndexes()
-		if e != nil {
-			log.Fatal(e)
+		ix.SetDBName(connString.Database)
+		ix.SetVerbose(*verbose)
+		if indexesMap, ixe := ix.GetIndexes(); ixe != nil {
+			log.Fatal(err)
+		} else {
+			ix.Print(indexesMap)
+			if err = ix.Save(); err != nil {
+				log.Fatal(err)
+			}
 		}
-		ir.Print(m)
+		os.Exit(0)
+	} else if *createIndex != "" {
+		if *uri == "" {
+			fmt.Println("Usage: keyhole --createIndex <filename>-index.bson.gz mongodb://<...>")
+		}
+		ix := mdb.NewIndexes(client)
+		ix.SetNoColor(*nocolor)
+		ix.SetVerbose(*verbose)
+		if err = ix.SetIndexesMapFromFile(*createIndex); err != nil {
+			log.Fatal(err)
+		}
+		if err = ix.CreateIndexes(); err != nil {
+			log.Fatal(err)
+		}
+		if indexesMap, ixe := ix.GetIndexes(); ixe != nil {
+			log.Fatal(err)
+		} else {
+			ix.Print(indexesMap)
+		}
 		os.Exit(0)
 	} else if *schema == true {
 		if *collection == "" {
