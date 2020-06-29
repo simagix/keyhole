@@ -236,7 +236,7 @@ func main() {
 		os.Exit(0)
 	} else if *createIndex != "" {
 		if *uri == "" {
-			fmt.Println("Usage: keyhole --createIndex <filename>-index.bson.gz mongodb://<...>")
+			log.Fatal("Usage: keyhole --createIndex <filename>-index.enc mongodb://<...>")
 		}
 		ix := mdb.NewIndexes(client)
 		ix.SetNoColor(*nocolor)
