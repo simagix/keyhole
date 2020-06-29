@@ -25,8 +25,8 @@ Several features are available, and they are
   - WiredTiger analytic
 - Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](docs/LOADTEST.md) for details).
 - [Cluster Info and Sanity Check](https://github.com/simagix/keyhole/wiki/MongoDB-Cluster-Info) to display information of a cluster including stats to help determine working set data size.
-- [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/List-All-Indexes-with-Usages)
-- [Duplicate all indexes](https://github.com/simagix/keyhole/wiki/List-All-Indexes-with-Usages) to another MongoDB cluster.
+- [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes)
+- [Duplicate all indexes](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes) to another MongoDB cluster.
 - [**Seed data**](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for demo and educational purposes as a trainer.
 - [Display average ops time](https://github.com/simagix/keyhole/wiki/Logs-Analytics) and query patterns by parsing logs.
 - [Display indexes scores](https://github.com/simagix/keyhole/wiki/Indexes-Scores-and-Explain) of a query shape.
