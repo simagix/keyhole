@@ -169,9 +169,10 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
 			}
 			if strings.HasSuffix(li.OutputFilename, ".log") == false {
-				li.OutputFilename += ".log"
+				li.OutputFilename += "-log.enc"
+			} else {
+				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-4] + "-log.enc"
 			}
-			li.OutputFilename += ".enc"
 			var data bytes.Buffer
 			if redact == true {
 				li.SlowOps = []SlowOps{}
