@@ -8,6 +8,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
@@ -44,8 +45,9 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 	var ctx = context.Background()
 	var databases = []bson.M{}
 	var dbNames []string
+	t := time.Now()
 	if dbi.verbose {
-		log.Println("process GetAllDatabasesInfo")
+		log.Println("* GetAllDatabasesInfo")
 	}
 	if dbNames, err = ListDatabaseNames(client); err != nil {
 		if dbi.verbose {
@@ -97,7 +99,7 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 		for _, collectionName := range collectionNames {
 			ns := dbName + "." + collectionName
 			if dbi.verbose {
-				log.Println("process", ns)
+				log.Println("GetAllDatabasesInfo", ns)
 			}
 			collection := client.Database(dbName).Collection(collectionName)
 
@@ -145,14 +147,22 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 			// stats
 			var stats bson.M
 			client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
+			chunks := []bson.M{}
 			if stats["shards"] != nil {
 				for k := range stats["shards"].(primitive.M) {
 					m := (stats["shards"].(primitive.M)[k]).(primitive.M)
 					delete(m, "$clusterTime")
 					delete(m, "$gleStats")
+					if chunk, cerr := dbi.collectChunksDistribution(client, k, ns); cerr != nil {
+						if dbi.verbose {
+							log.Println(cerr)
+						}
+					} else {
+						chunks = append(chunks, chunk)
+					}
 				}
 			}
-			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "document": firstDoc,
+			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "chunks": chunks, "document": firstDoc,
 				"indexes": indexes, "stats": trimMap(stats)})
 		}
 		var stats bson.M
@@ -164,5 +174,60 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 		}
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
+	if dbi.verbose {
+		log.Println("* GetAllDatabasesInfo took", time.Now().Sub(t))
+	}
 	return databases, nil
+}
+
+func (dbi *DatabaseInfo) collectChunksDistribution(client *mongo.Client, shard string, ns string) (bson.M, error) {
+	var count int64
+	var ctx = context.Background()
+	var cur *mongo.Cursor
+	var doc bson.M
+	var err error
+	var jcount int64
+	var ecount int64
+	var size int64
+	coll := client.Database("config").Collection("collections")
+	if err = coll.FindOne(ctx, bson.D{{Key: "_id", Value: ns}, {Key: "dropped", Value: false}}).Decode(&doc); err != nil {
+		return doc, err
+	}
+	t := time.Now()
+	coll = client.Database("config").Collection("chunks")
+	if dbi.verbose == true {
+		log.Println("* collectChunksDistribution on", shard, ns, " ...")
+		if cur, err = coll.Find(ctx, bson.M{"ns": ns, "shard": shard}); err != nil {
+			return doc, nil
+		}
+		for cur.Next(ctx) {
+			cur.Decode(&doc)
+			cmd := bson.D{{Key: "datasize", Value: ns}, {Key: "min", Value: doc["min"]}, {Key: "max", Value: doc["max"]}, {Key: "estimate", Value: true}}
+			client.Database("admin").RunCommand(ctx, cmd).Decode(&doc)
+			if doc["jumbo"] != nil && doc["jumbo"].(bool) == true {
+				jcount++
+			}
+			if doc["numObjects"] != nil && doc["numObjects"].(float64) == 0 {
+				ecount++
+			}
+			if doc["size"] != nil && doc["size"].(float64) > 0 {
+				size += int64(doc["size"].(float64))
+			}
+			count++
+		}
+	} else {
+		ecount = -1
+		size = -1
+		if count, err = coll.CountDocuments(ctx, bson.M{"shard": shard, "ns": ns}); err != nil {
+			return doc, err
+		}
+		if jcount, err = coll.CountDocuments(ctx, bson.M{"shard": shard, "ns": ns, "jumbo": true}); err != nil {
+			return doc, err
+		}
+	}
+	if dbi.verbose == true {
+		dur := time.Now().Sub(t)
+		log.Println("* collectChunksDistribution on", shard, ns, " took", dur, "for", count, "chunks, rate:", dur/time.Duration(count))
+	}
+	return bson.M{"shard": shard, "total": count, "empty": ecount, "jumbo": jcount, "size": size}, err
 }

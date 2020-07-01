@@ -196,7 +196,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
 	if ix.verbose {
-		log.Println("process GetIndexesFromCollection")
+		log.Println("* GetIndexesFromCollection")
 	}
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
@@ -289,7 +289,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 		var v map[string]interface{}
 		ns := collection.Database().Name() + "." + collection.Name()
 		if ix.verbose {
-			log.Println("process", ns)
+			log.Println("GetIndexesFromCollection", ns, o.Key)
 		}
 		if err = ix.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.IndexKey}).Decode(&v); err == nil {
 			o.IsShardKey = true
