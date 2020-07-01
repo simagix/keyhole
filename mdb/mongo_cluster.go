@@ -4,6 +4,7 @@ package mdb
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -92,6 +93,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	if info.Cluster == SHARDED {
 		mc.cluster["sharding"] = info.Sharding
 		if mc.cluster["shardIDs"], err = GetShards(mc.client); err != nil {
+			log.Println(err)
 		}
 		var shardList []string
 		if shardList, err = GetShardListWithURI(mc.client, mc.connString.String()); err == nil {
