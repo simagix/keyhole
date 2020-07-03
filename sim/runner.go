@@ -157,6 +157,7 @@ func (rn *Runner) Start() error {
 		}
 	}
 	log.Println("Duration in minute(s):", rn.duration)
+	rn.dbName = mdb.KEYHOLEDB // switch to _KEYHOLE_88800 database for load tests
 	if rn.drop {
 		rn.Cleanup()
 	}
@@ -317,9 +318,11 @@ func (rn *Runner) Cleanup() error {
 		if err = rn.client.Database(rn.dbName).Collection(rn.collectionName).Drop(ctx); err != nil {
 			log.Println(err)
 		}
-		log.Println("dropping database", rn.dbName)
-		if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
-			log.Println(err)
+		if rn.dbName == mdb.KEYHOLEDB {
+			log.Println("dropping database", rn.dbName)
+			if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
+				log.Println(err)
+			}
 		}
 		filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
 		var data bytes.Buffer
