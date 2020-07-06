@@ -20,8 +20,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// KEYHOLEDB default database
-var KEYHOLEDB = "_KEYHOLE_88800"
+// KeyholeDB default database
+var KeyholeDB = "_KEYHOLE_88800"
+
+// ExamplesCollection default test colection
+var ExamplesCollection = "__examples"
 
 // NewMongoClient new mongo client
 func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
@@ -93,7 +96,7 @@ func parse(uri string) (string, error) {
 	}
 
 	if connString.Database == "" {
-		connString.Database = KEYHOLEDB
+		connString.Database = KeyholeDB
 		pos := strings.LastIndex(uri, "?")
 		if pos > 0 { // found ?query_string
 			uri = (uri)[:pos] + connString.Database + (uri)[pos:]

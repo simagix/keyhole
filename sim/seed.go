@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/simagix/gox"
+	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -66,8 +67,8 @@ func (f *Feeder) SetCollection(collection string) {
 	f.collection = collection
 }
 
-// SetConnections set conns
-func (f *Feeder) SetConnections(conns int) {
+// SetNumberConnections set conns
+func (f *Feeder) SetNumberConnections(conns int) {
 	f.conns = conns
 }
 
@@ -399,7 +400,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	json.Unmarshal(buf, &doc)
 	collName := f.collection
 	if collName == "" {
-		collName = "examples"
+		collName = mdb.ExamplesCollection
 	}
 	log.Println("Seed data to collection", collName, "using", f.conns, "connections")
 	c := client.Database(f.database).Collection(collName)

@@ -72,10 +72,9 @@ func GetShardListWithURI(client *mongo.Client, uri string) ([]string, error) {
 		} else {
 			ruri += s[1] + "/?replicaSet=" + connString.ReplicaSet
 		}
-		if connString.AuthSource != "" {
+		if isSRV == false && connString.AuthSource != "" {
 			ruri += "&authSource=" + connString.AuthSource
-		}
-		if isSRV == true {
+		} else if isSRV == true {
 			ruri += "&authSource=admin&ssl=true"
 		}
 		list = append(list, ruri)

@@ -200,18 +200,14 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	}
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
-		if ix.verbose == true {
-			log.Println(err)
-		}
+		log.Println(err)
 		return list
 	}
 	var indexStats = []map[string]interface{}{}
 	for scur.Next(ctx) {
 		var result = map[string]interface{}{}
 		if err = scur.Decode(&result); err != nil {
-			if ix.verbose == true {
-				log.Println(err)
-			}
+			log.Println(err)
 			continue
 		}
 		indexStats = append(indexStats, result)
@@ -221,9 +217,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	db := collection.Database().Name()
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = ix.client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
-		if ix.verbose == true {
-			log.Println(err)
-		}
+		log.Println(err)
 		return list
 	}
 	defer icur.Close(ctx)
@@ -231,9 +225,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	for icur.Next(ctx) {
 		var idx = bson.D{}
 		if err = icur.Decode(&idx); err != nil {
-			if ix.verbose == true {
-				log.Println(err)
-			}
+			log.Println(err)
 			continue
 		}
 
@@ -307,7 +299,6 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 		}
 		list = append(list, o)
 	}
-	icur.Close(ctx)
 	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey < list[j].EffectiveKey) })
 	for i, o := range list {
 		if o.Key != "{ _id: 1 }" && o.IsShardKey == false {

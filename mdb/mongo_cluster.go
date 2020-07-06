@@ -20,8 +20,8 @@ import (
 type MongoCluster struct {
 	client     *mongo.Client
 	cluster    bson.M
+	conns      int
 	connString connstring.ConnString
-	doodle     bool
 	filename   string
 	redaction  bool
 	verbose    bool
@@ -59,14 +59,14 @@ func (mc *MongoCluster) SetFilename(filename string) {
 	mc.filename = strings.Replace(filename, ":", "_", -1)
 }
 
+// SetNumberConnections set # of conns
+func (mc *MongoCluster) SetNumberConnections(conns int) {
+	mc.conns = conns
+}
+
 // SetConnString set connString object
 func (mc *MongoCluster) SetConnString(connString connstring.ConnString) {
 	mc.connString = connString
-}
-
-// SetDoodleMode sets doodle
-func (mc *MongoCluster) SetDoodleMode(doodle bool) {
-	mc.doodle = doodle
 }
 
 // GetClusterInfo -
@@ -75,6 +75,9 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var config = bson.M{}
 	mc.cluster = bson.M{"config": config}
 	var info ServerInfo
+	if mc.verbose {
+		log.Println("* GetClusterInfo")
+	}
 	if info, err = GetServerInfo(mc.client); err != nil {
 		return nil, err
 	}
@@ -99,6 +102,13 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		if shardList, err = GetShardListWithURI(mc.client, mc.connString.String()); err == nil {
 			var shards []bson.M
 			for _, shardURI := range shardList {
+				if mc.verbose {
+					s := shardURI
+					if mc.connString.Password != "" {
+						s = strings.ReplaceAll(s, mc.connString.Password, "xxxxxx")
+					}
+					log.Println("* collect cluster info from shard", s)
+				}
 				var client *mongo.Client
 				if client, err = NewMongoClient(shardURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
 					continue
@@ -126,13 +136,17 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	if info.Cluster == replica {
 		config["oplog"] = info.Repl["oplog"]
 	}
+	if mc.verbose {
+		log.Println("* collectServerInfo")
+	}
 	if err = collectServerInfo(mc.client, &config, info.Cluster); err != nil {
 		return mc.cluster, err
 	}
-	fmt.Fprintf(os.Stderr, "\r     \r")
 	dbi := NewDatabaseInfo()
+	dbi.SetNumberConnections(mc.conns)
 	dbi.SetRedaction(mc.redaction)
-	dbi.SetVerbose(mc.vv)
+	dbi.SetVerbose(mc.verbose)
+	dbi.SetVeryVerbose(mc.vv)
 	if mc.cluster["databases"], err = dbi.GetAllDatabasesInfo(mc.client); err != nil {
 		return mc.cluster, err
 	}
