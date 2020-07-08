@@ -306,8 +306,9 @@ func (f *Feeder) SeedCars(client *mongo.Client) error {
 }
 
 var dealers = []string{"Atlanta Auto", "Buckhead Auto", "Johns Creek Auto"}
-var brands = []string{"Audi", "BMW", "Chevrolet", "Ford", "Honda",
-	"Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
+var brands = []string{"Acura", "Alfa Romeo", "Audi", "Bentley", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge",
+	"Fiat", "Ford", "GMC", "Genesis", "Honda", "Hyundai", "Infiniti", "Jaguar", "Jeep", "Kia",
+	"Land Rover", "Lexus", "Lincoln", "Maserati", "Mazda", "Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
 var styles = []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
 var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold",
 	"Gray", "Green", "Orange", "Pink", "Purple",

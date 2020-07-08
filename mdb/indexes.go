@@ -118,14 +118,14 @@ func (ix *Indexes) SetDBName(dbName string) {
 func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 	var err error
 	var dbNames []string
-	indexesMap := map[string]CollectionIndexes{}
+	ix.indexesMap = map[string]CollectionIndexes{} // reset
 	if ix.dbName != "" {
-		indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
-		return indexesMap, err
+		ix.indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
+		return ix.indexesMap, err
 	}
 
 	if dbNames, err = ListDatabaseNames(ix.client); err != nil {
-		return indexesMap, err
+		return ix.indexesMap, err
 	}
 	cnt := 0
 	for _, name := range dbNames {
@@ -139,14 +139,13 @@ func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 		if ix.verbose == true {
 			log.Println("checking", name)
 		}
-		if indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
-			return indexesMap, err
+		if ix.indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
+			return ix.indexesMap, err
 		}
 	}
 	if cnt == 0 && ix.verbose == true {
 		log.Println("No database is available")
 	}
-	ix.indexesMap = indexesMap
 	return ix.indexesMap, err
 }
 

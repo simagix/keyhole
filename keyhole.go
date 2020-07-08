@@ -107,6 +107,9 @@ func main() {
 					continue
 				}
 				fmt.Println(str)
+				if li.OutputFilename != "" {
+					log.Println("Encoded output written to", li.OutputFilename)
+				}
 			}
 		}
 		os.Exit(0)
