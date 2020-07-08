@@ -53,12 +53,12 @@ type Runner struct {
 func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Runner, error) {
 	var err error
 	runner := Runner{tlsCAFile: tlsCAFile, tlsCertificateKeyFile: tlsCertificateKeyFile,
-		channel: make(chan string), collectionName: "examples", metrics: map[string][]bson.M{},
+		channel: make(chan string), collectionName: mdb.ExamplesCollection, metrics: map[string][]bson.M{},
 		mutex: sync.RWMutex{}}
 	connString, _ := connstring.Parse(uri)
 	runner.dbName = connString.Database
 	if connString.Database == "" {
-		runner.dbName = mdb.KEYHOLEDB
+		runner.dbName = mdb.KeyholeDB
 		pos := strings.Index(uri, "?")
 		if pos > 0 { // found ?query_string
 			uri = (uri)[:pos] + runner.dbName + (uri)[pos:]
@@ -157,7 +157,7 @@ func (rn *Runner) Start() error {
 		}
 	}
 	log.Println("Duration in minute(s):", rn.duration)
-	rn.dbName = mdb.KEYHOLEDB // switch to _KEYHOLE_88800 database for load tests
+	rn.dbName = mdb.KeyholeDB // switch to _KEYHOLE_88800 database for load tests
 	if rn.drop {
 		rn.Cleanup()
 	}
@@ -318,7 +318,7 @@ func (rn *Runner) Cleanup() error {
 		if err = rn.client.Database(rn.dbName).Collection(rn.collectionName).Drop(ctx); err != nil {
 			log.Println(err)
 		}
-		if rn.dbName == mdb.KEYHOLEDB {
+		if rn.dbName == mdb.KeyholeDB {
 			log.Println("dropping database", rn.dbName)
 			if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
 				log.Println(err)
