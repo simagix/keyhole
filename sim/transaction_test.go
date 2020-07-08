@@ -24,7 +24,7 @@ func TestExecTXByTemplateAndTX(t *testing.T) {
 	var client *mongo.Client
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	c := client.Database(mdb.KEYHOLEDB).Collection("examples")
+	c := client.Database(mdb.KeyholeDB).Collection(mdb.ExamplesCollection)
 	tx := GetTransactions(filename)
 	_, err := execTXByTemplateAndTX(c, util.GetDemoDoc(), tx.Transactions[0])
 	if err != nil {
@@ -38,7 +38,7 @@ func TestExecTx(t *testing.T) {
 	var tm bson.M
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	c := client.Database(mdb.KEYHOLEDB).Collection("examples")
+	c := client.Database(mdb.KeyholeDB).Collection(mdb.ExamplesCollection)
 	if tm, err = execTx(c, util.GetDemoDoc()); err != nil {
 		t.Fatal()
 	}

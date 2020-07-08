@@ -25,14 +25,14 @@ import (
 var version = "self-built"
 
 func main() {
+	allinfo := flag.Bool("allinfo", false, "get all cluster info")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
-	conn := flag.Int("conn", runtime.NumCPU(), "nuumber of connections")
+	conn := flag.Int("conn", 0, "nuumber of connections")
 	createIndex := flag.String("createIndex", "", "create indexes")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
-	doodle := flag.Bool("doodle", false, "print random values of sample docs")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
@@ -81,9 +81,6 @@ func main() {
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 	var err error
-	if *conn < 1 {
-		*conn = runtime.NumCPU()
-	}
 	if strings.HasPrefix(*uri, "atlas://") {
 		var api *atlas.API
 		if api, err = atlas.ParseURI(*uri); err != nil {
@@ -110,6 +107,9 @@ func main() {
 					continue
 				}
 				fmt.Println(str)
+				if li.OutputFilename != "" {
+					log.Println("Encoded output written to", li.OutputFilename)
+				}
 			}
 		}
 		os.Exit(0)
@@ -192,13 +192,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *info == true {
+	if *info == true || *allinfo == true {
+		if *allinfo == true {
+			*verbose = true
+			*vv = true
+		}
+		nConnections := 16
+		if *conn != 0 {
+			nConnections = *conn
+		}
 		mc := mdb.NewMongoCluster(client)
+		mc.SetConnString(connString)
+		mc.SetNumberConnections(nConnections)
 		mc.SetRedaction(*redaction)
 		mc.SetVerbose(*verbose)
 		mc.SetVeryVerbose(*vv)
-		mc.SetConnString(connString)
-		mc.SetDoodleMode(*doodle)
 		if doc, e := mc.GetClusterInfo(); e != nil {
 			log.Fatal(e)
 		} else if *verbose == false && *vv == false {
@@ -208,10 +216,14 @@ func main() {
 	} else if *seed == true {
 		f := sim.NewFeeder()
 		f.SetCollection(*collection)
-		f.SetConnections(*conn)
 		f.SetDatabase(connString.Database)
 		f.SetFile(*file)
 		f.SetIsDrop(*drop)
+		nConnection := 2 * runtime.NumCPU()
+		if *conn != 0 {
+			nConnection = *conn
+		}
+		f.SetNumberConnections(nConnection)
 		f.SetTotal(*total)
 		if err = f.SeedData(client); err != nil {
 			log.Fatal(err)
@@ -220,7 +232,7 @@ func main() {
 	} else if *index == true {
 		ix := mdb.NewIndexes(client)
 		ix.SetNoColor(*nocolor)
-		if connString.Database == mdb.KEYHOLEDB {
+		if connString.Database == mdb.KeyholeDB {
 			connString.Database = ""
 		}
 		ix.SetDBName(connString.Database)
@@ -310,7 +322,11 @@ func main() {
 	runner.SetSimulationDuration(*duration)
 	runner.SetPeekingMode(*peek)
 	runner.SetDropFirstMode(*drop)
-	runner.SetNumberConnections(*conn)
+	nConnection := runtime.NumCPU()
+	if *conn != 0 {
+		nConnection = *conn
+	}
+	runner.SetNumberConnections(nConnection)
 	runner.SetTransactionTemplateFilename(*tx)
 	runner.SetSimOnlyMode(*simonly)
 	runner.SetAutoMode(*yes)
