@@ -243,7 +243,7 @@ func (dbi *DatabaseInfo) collectChunksDistribution(client *mongo.Client, shard s
 						jcount++
 					}
 					if chunk["numObjects"] != nil {
-						if chunk["numObjects"].(float64) == 0 {
+						if toInt64(chunk["numObjects"]) == 0 {
 							ecount++
 						}
 					}
