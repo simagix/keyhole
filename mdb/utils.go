@@ -69,3 +69,9 @@ func toInt64(num interface{}) int64 {
 	x, _ := strconv.ParseFloat(f, 64)
 	return int64(x)
 }
+
+func toFloat64(num interface{}) float64 {
+	f := fmt.Sprintf("%v", num)
+	x, _ := strconv.ParseFloat(f, 64)
+	return x
+}
