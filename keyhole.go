@@ -316,6 +316,7 @@ func main() {
 	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
 		log.Fatal(err)
 	}
+	runner.SetCollection(*collection)
 	runner.SetTPS(*tps)
 	runner.SetTemplateFilename(*file)
 	runner.SetVerbose(*verbose)
