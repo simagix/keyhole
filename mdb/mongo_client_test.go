@@ -35,7 +35,7 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 	if client, err = NewMongoClient(uri, "testdata/certs/ca.pem", "testdata/certs/client.pem"); err != nil {
 		t.Fatal(uri, err)
 	}
-	collection := client.Database("test").Collection("examples")
+	collection := client.Database("test").Collection(ExamplesCollection)
 	var count int64
 	if count, err = collection.CountDocuments(nil, bson.M{}); err != nil {
 		t.Fatal(uri, err)

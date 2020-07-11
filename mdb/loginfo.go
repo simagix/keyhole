@@ -10,12 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/simagix/gox"
 )
@@ -25,10 +26,10 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	OpsPatterns    []OpPerformanceDoc
+	OpsPatterns    []OpPerformanceDoc `bson:"opespatterns"`
 	OutputFilename string
-	SlowOps        []SlowOps
-	collscan       bool
+	SlowOps        []SlowOps `bson:"slowops"`
+	collscan       bool      `bson:"collscan"`
 	filename       string
 	mongoInfo      string
 	regex          string
@@ -38,14 +39,14 @@ type LogInfo struct {
 
 // OpPerformanceDoc stores performance data
 type OpPerformanceDoc struct {
-	Command    string // count, delete, find, remove, and update
-	Count      int    // number of ops
-	Filter     string // query pattern
-	MaxMilli   int    // max millisecond
-	Namespace  string // database.collectin
-	Scan       string // COLLSCAN
-	TotalMilli int    // total milliseconds
-	Index      string // index used
+	Command    string `bson:"command"`    // count, delete, find, remove, and update
+	Count      int    `bson:"count"`      // number of ops
+	Filter     string `bson:"filter"`     // query pattern
+	MaxMilli   int    `bson:"maxmilli"`   // max millisecond
+	Namespace  string `bson:"ns"`         // database.collectin
+	Scan       string `bson:"scan"`       // COLLSCAN
+	TotalMilli int    `bson:"totalmilli"` // total milliseconds
+	Index      string `bson:"index"`      // index used
 }
 
 // SlowOps holds slow ops log and time
@@ -169,19 +170,18 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
 			}
 			if strings.HasSuffix(li.OutputFilename, ".log") == false {
-				li.OutputFilename += "-log.enc"
+				li.OutputFilename += "-log.bson.gz"
 			} else {
-				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-4] + "-log.enc"
+				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-4] + "-log.bson.gz"
 			}
-			var data bytes.Buffer
 			if redact == true {
 				li.SlowOps = []SlowOps{}
 			}
-			enc := gob.NewEncoder(&data)
-			if err = enc.Encode(li); err != nil {
-				log.Println("encode error:", err)
-			}
-			ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
+			data, _ := bson.Marshal(li)
+			var bsond bson.D
+			bson.Unmarshal(data, &bsond)
+			data, _ = bson.Marshal(bsond)
+			ioutil.WriteFile(li.OutputFilename, data, 0644)
 		}
 	}
 	return li.printLogsSummary(), nil

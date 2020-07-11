@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/simagix/gox"
+	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -66,8 +67,8 @@ func (f *Feeder) SetCollection(collection string) {
 	f.collection = collection
 }
 
-// SetConnections set conns
-func (f *Feeder) SetConnections(conns int) {
+// SetNumberConnections set conns
+func (f *Feeder) SetNumberConnections(conns int) {
 	f.conns = conns
 }
 
@@ -214,7 +215,8 @@ func (f *Feeder) seedNumbers(client *mongo.Client) error {
 		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100)})
 	}
 	if _, err = numbersCollection.InsertMany(ctx, docs); err != nil {
-		log.Fatal(err)
+		fmt.Println("Seeded numbers: 0", err) // could be < v3.4
+		return nil
 	}
 	// create index example
 	indexView := numbersCollection.Indexes()
@@ -305,8 +307,9 @@ func (f *Feeder) SeedCars(client *mongo.Client) error {
 }
 
 var dealers = []string{"Atlanta Auto", "Buckhead Auto", "Johns Creek Auto"}
-var brands = []string{"Audi", "BMW", "Chevrolet", "Ford", "Honda",
-	"Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
+var brands = []string{"Acura", "Alfa Romeo", "Audi", "Bentley", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge",
+	"Fiat", "Ford", "GMC", "Genesis", "Honda", "Hyundai", "Infiniti", "Jaguar", "Jeep", "Kia",
+	"Land Rover", "Lexus", "Lincoln", "Maserati", "Mazda", "Mercedes-Benz", "Nissan", "Porsche", "Toyota", "Volkswagen"}
 var styles = []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"}
 var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold",
 	"Gray", "Green", "Orange", "Pink", "Purple",
@@ -399,7 +402,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	json.Unmarshal(buf, &doc)
 	collName := f.collection
 	if collName == "" {
-		collName = "examples"
+		collName = mdb.ExamplesCollection
 	}
 	log.Println("Seed data to collection", collName, "using", f.conns, "connections")
 	c := client.Database(f.database).Collection(collName)

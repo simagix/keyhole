@@ -53,12 +53,12 @@ type Runner struct {
 func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Runner, error) {
 	var err error
 	runner := Runner{tlsCAFile: tlsCAFile, tlsCertificateKeyFile: tlsCertificateKeyFile,
-		channel: make(chan string), collectionName: "examples", metrics: map[string][]bson.M{},
+		channel: make(chan string), collectionName: mdb.ExamplesCollection, metrics: map[string][]bson.M{},
 		mutex: sync.RWMutex{}}
 	connString, _ := connstring.Parse(uri)
 	runner.dbName = connString.Database
 	if connString.Database == "" {
-		runner.dbName = mdb.KEYHOLEDB
+		runner.dbName = mdb.KeyholeDB
 		pos := strings.Index(uri, "?")
 		if pos > 0 { // found ?query_string
 			uri = (uri)[:pos] + runner.dbName + (uri)[pos:]
@@ -85,6 +85,15 @@ func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Run
 	}
 	runner.uri = runner.uriList[len(runner.uriList)-1]
 	return &runner, err
+}
+
+// SetCollection set collection name
+func (rn *Runner) SetCollection(collectionName string) {
+	if collectionName != "" {
+		rn.collectionName = collectionName
+	} else {
+		rn.collectionName = mdb.ExamplesCollection
+	}
 }
 
 // SetTPS set transaction per second
@@ -157,7 +166,9 @@ func (rn *Runner) Start() error {
 		}
 	}
 	log.Println("Duration in minute(s):", rn.duration)
-	rn.dbName = mdb.KEYHOLEDB // switch to _KEYHOLE_88800 database for load tests
+	if rn.dbName == "" || rn.dbName == "admin" || rn.dbName == "config" || rn.dbName == "local" {
+		rn.dbName = mdb.KeyholeDB // switch to _KEYHOLE_88800 database for load tests
+	}
 	if rn.drop {
 		rn.Cleanup()
 	}
@@ -312,28 +323,31 @@ func (rn *Runner) createIndexes(docs []bson.M) error {
 // Cleanup drops the temp database
 func (rn *Runner) Cleanup() error {
 	var err error
-	if rn.peek == false {
+	if rn.peek == true {
+		return err
+	}
+	if rn.simOnly == false && rn.dbName == mdb.KeyholeDB {
 		ctx := context.Background()
-		log.Println("dropping collection", rn.dbName, rn.collectionName)
-		if err = rn.client.Database(rn.dbName).Collection(rn.collectionName).Drop(ctx); err != nil {
-			log.Println(err)
-		}
-		if rn.dbName == mdb.KEYHOLEDB {
-			log.Println("dropping database", rn.dbName)
-			if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
+		if rn.collectionName == mdb.ExamplesCollection {
+			log.Println("dropping collection", mdb.KeyholeDB, mdb.ExamplesCollection)
+			if err = rn.client.Database(mdb.KeyholeDB).Collection(mdb.ExamplesCollection).Drop(ctx); err != nil {
 				log.Println(err)
 			}
 		}
-		filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
-		var data bytes.Buffer
-		gob.Register(time.Duration(0))
-		enc := gob.NewEncoder(&data)
-		if err = enc.Encode(rn.metrics); err != nil {
-			log.Println("encode error:", err)
+		log.Println("dropping temp database", mdb.KeyholeDB)
+		if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
+			log.Println(err)
 		}
-		gox.OutputGzipped(data.Bytes(), filename)
-		log.Println("optime written to", filename)
 	}
+	filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
+	var data bytes.Buffer
+	gob.Register(time.Duration(0))
+	enc := gob.NewEncoder(&data)
+	if err = enc.Encode(rn.metrics); err != nil {
+		log.Println("encode error:", err)
+	}
+	gox.OutputGzipped(data.Bytes(), filename)
+	log.Println("optime written to", filename)
 	time.Sleep(time.Second)
 	return err
 }

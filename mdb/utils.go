@@ -64,8 +64,34 @@ func toArray(array interface{}) []bson.M {
 	return mapArray
 }
 
+func toInt(num interface{}) int {
+	f := fmt.Sprintf("%v", num)
+	x, _ := strconv.ParseFloat(f, 64)
+	return int(x)
+}
+
+func toInt32(num interface{}) int32 {
+	f := fmt.Sprintf("%v", num)
+	x, _ := strconv.ParseFloat(f, 64)
+	return int32(x)
+}
+
+// ToInt64 converts to in64
+func ToInt64(num interface{}) int64 {
+	return toInt64(num)
+}
 func toInt64(num interface{}) int64 {
 	f := fmt.Sprintf("%v", num)
 	x, _ := strconv.ParseFloat(f, 64)
 	return int64(x)
+}
+
+// ToFloat64 converts to float64
+func ToFloat64(num interface{}) float64 {
+	return toFloat64(num)
+}
+func toFloat64(num interface{}) float64 {
+	f := fmt.Sprintf("%v", num)
+	x, _ := strconv.ParseFloat(f, 64)
+	return x
 }

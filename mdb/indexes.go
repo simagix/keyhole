@@ -118,14 +118,14 @@ func (ix *Indexes) SetDBName(dbName string) {
 func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 	var err error
 	var dbNames []string
-	indexesMap := map[string]CollectionIndexes{}
+	ix.indexesMap = map[string]CollectionIndexes{} // reset
 	if ix.dbName != "" {
-		indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
-		return indexesMap, err
+		ix.indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
+		return ix.indexesMap, err
 	}
 
 	if dbNames, err = ListDatabaseNames(ix.client); err != nil {
-		return indexesMap, err
+		return ix.indexesMap, err
 	}
 	cnt := 0
 	for _, name := range dbNames {
@@ -139,14 +139,13 @@ func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 		if ix.verbose == true {
 			log.Println("checking", name)
 		}
-		if indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
-			return indexesMap, err
+		if ix.indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
+			return ix.indexesMap, err
 		}
 	}
 	if cnt == 0 && ix.verbose == true {
 		log.Println("No database is available")
 	}
-	ix.indexesMap = indexesMap
 	return ix.indexesMap, err
 }
 
@@ -200,18 +199,14 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	}
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
-		if ix.verbose == true {
-			log.Println(err)
-		}
+		log.Println(err)
 		return list
 	}
 	var indexStats = []map[string]interface{}{}
 	for scur.Next(ctx) {
 		var result = map[string]interface{}{}
 		if err = scur.Decode(&result); err != nil {
-			if ix.verbose == true {
-				log.Println(err)
-			}
+			log.Println(err)
 			continue
 		}
 		indexStats = append(indexStats, result)
@@ -221,9 +216,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	db := collection.Database().Name()
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = ix.client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
-		if ix.verbose == true {
-			log.Println(err)
-		}
+		log.Println(err)
 		return list
 	}
 	defer icur.Close(ctx)
@@ -231,9 +224,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	for icur.Next(ctx) {
 		var idx = bson.D{}
 		if err = icur.Decode(&idx); err != nil {
-			if ix.verbose == true {
-				log.Println(err)
-			}
+			log.Println(err)
 			continue
 		}
 
@@ -248,11 +239,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 			} else if v.Key == "background" {
 				o.Background, _ = v.Value.(bool)
 			} else if v.Key == "expireAfterSeconds" {
-				if n, ok := v.Value.(int32); ok {
-					o.ExpireAfterSeconds = n
-				} else if n, ok := v.Value.(float64); ok {
-					o.ExpireAfterSeconds = int32(n)
-				}
+				o.ExpireAfterSeconds = toInt32(v.Value)
 			} else if v.Key == "sparse" {
 				o.Sparse = v.Value.(bool)
 			} else if v.Key == "unique" {
@@ -307,7 +294,6 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 		}
 		list = append(list, o)
 	}
-	icur.Close(ctx)
 	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey < list[j].EffectiveKey) })
 	for i, o := range list {
 		if o.Key != "{ _id: 1 }" && o.IsShardKey == false {
