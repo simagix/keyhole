@@ -239,11 +239,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 			} else if v.Key == "background" {
 				o.Background, _ = v.Value.(bool)
 			} else if v.Key == "expireAfterSeconds" {
-				if n, ok := v.Value.(int32); ok {
-					o.ExpireAfterSeconds = n
-				} else if n, ok := v.Value.(float64); ok {
-					o.ExpireAfterSeconds = int32(n)
-				}
+				o.ExpireAfterSeconds = toInt32(v.Value)
 			} else if v.Key == "sparse" {
 				o.Sparse = v.Value.(bool)
 			} else if v.Key == "unique" {

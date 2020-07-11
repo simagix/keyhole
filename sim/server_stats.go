@@ -210,7 +210,7 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 			buf, _ := json.Marshal(stat)
 			json.Unmarshal(buf, &docs)
 			if docs["dataSize"] != nil {
-				dataSize = docs["dataSize"].(float64)
+				dataSize = mdb.ToFloat64(docs["dataSize"])
 			}
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
