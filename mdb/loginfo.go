@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -132,7 +133,8 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 	var err error
 
-	if strings.HasSuffix(filename, ".enc") == true {
+	if strings.HasSuffix(filename, "-log.enc") == true {
+		log.Println("Using a deprecated file type", filename)
 		var data []byte
 		if data, err = ioutil.ReadFile(filename); err != nil {
 			return "", err
@@ -142,6 +144,21 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 		if err = dec.Decode(li); err != nil {
 			return "", err
 		}
+		li.OutputFilename = ""
+	} else if strings.HasSuffix(filename, "-log.bson.gz") == true {
+		var data []byte
+		var err error
+		var fd *bufio.Reader
+		if fd, err = gox.NewFileReader(filename); err != nil {
+			return "", err
+		}
+		if data, err = ioutil.ReadAll(fd); err != nil {
+			return "", err
+		}
+		if err = bson.Unmarshal(data, &li); err != nil {
+			return "", err
+		}
+		li.OutputFilename = ""
 	} else {
 		var file *os.File
 		var reader *bufio.Reader
@@ -177,11 +194,22 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 			if redact == true {
 				li.SlowOps = []SlowOps{}
 			}
-			data, _ := bson.Marshal(li)
+			buf, _ := bson.Marshal(li)
 			var bsond bson.D
-			bson.Unmarshal(data, &bsond)
-			data, _ = bson.Marshal(bsond)
-			ioutil.WriteFile(li.OutputFilename, data, 0644)
+			bson.Unmarshal(buf, &bsond)
+			buf, _ = bson.Marshal(bsond)
+			gox.OutputGzipped(buf, li.OutputFilename)
+
+			var data bytes.Buffer
+			enc := gob.NewEncoder(&data)
+			if err = enc.Encode(li); err != nil {
+				log.Println("encode error:", err)
+			}
+			filename := li.OutputFilename
+			if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+				filename = filename[:idx] + "-log.enc"
+			}
+			ioutil.WriteFile(filename, data.Bytes(), 0644)
 		}
 	}
 	return li.printLogsSummary(), nil

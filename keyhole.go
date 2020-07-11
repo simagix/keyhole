@@ -108,7 +108,12 @@ func main() {
 				}
 				fmt.Println(str)
 				if li.OutputFilename != "" {
-					log.Println("Encoded output written to", li.OutputFilename)
+					log.Println("Log info written to", li.OutputFilename)
+					filename := li.OutputFilename
+					if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+						filename = filename[:idx] + "-log.enc"
+					}
+					log.Println("Encoded output written to", filename, "(deprecated)")
 				}
 			}
 		}
@@ -164,6 +169,11 @@ func main() {
 			fmt.Println(str)
 			if li.OutputFilename != "" {
 				log.Println("Encoded output written to", li.OutputFilename)
+				filename := li.OutputFilename
+				if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+					filename = filename[:idx] + "-log.enc"
+				}
+				log.Println("Encoded output written to", filename, "(deprecated)")
 			}
 		}
 		os.Exit(0)

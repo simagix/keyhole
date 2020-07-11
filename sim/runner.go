@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -339,7 +340,16 @@ func (rn *Runner) Cleanup() error {
 			log.Println(err)
 		}
 	}
-	filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
+	filename := "keyhole_perf." + fileTimestamp + ".bson.gz"
+	var buf []byte
+	if buf, err = json.Marshal(rn.metrics); err != nil {
+		log.Println("marshal error:", err)
+	}
+	gox.OutputGzipped(buf, filename)
+	log.Println("optime written to", filename)
+	filename = "keyhole_perf." + fileTimestamp + ".enc.gz"
+
+	// encoded structure will be deprecated
 	var data bytes.Buffer
 	gob.Register(time.Duration(0))
 	enc := gob.NewEncoder(&data)
@@ -392,8 +402,8 @@ func (rn *Runner) splitChunks() error {
 	divider := 1 + len(shardKeys)/(len(shards)+1)
 	for i := range shards {
 		cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": shardKeys[(i+1)*divider]}}}
-		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
-			log.Println(err)
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil { // could be split already
+			return err
 		}
 	}
 
