@@ -3,7 +3,6 @@
 package mdb
 
 import (
-	"encoding/json"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -15,21 +14,11 @@ func MongoPipeline(str string) mongo.Pipeline {
 	var pipeline = []bson.D{}
 	str = strings.TrimSpace(str)
 	if strings.Index(str, "[") != 0 {
-		var doc bson.M
-		json.Unmarshal([]byte(str), &doc)
-		var v bson.D
-		b, _ := bson.Marshal(doc)
-		bson.Unmarshal(b, &v)
-		pipeline = append(pipeline, v)
+		var doc bson.D
+		bson.UnmarshalExtJSON([]byte(str), false, &doc)
+		pipeline = append(pipeline, doc)
 	} else {
-		var docs []bson.M
-		json.Unmarshal([]byte(str), &docs)
-		for _, doc := range docs {
-			var v bson.D
-			b, _ := bson.Marshal(doc)
-			bson.Unmarshal(b, &v)
-			pipeline = append(pipeline, v)
-		}
+		bson.UnmarshalExtJSON([]byte(str), false, &pipeline)
 	}
 	return pipeline
 }

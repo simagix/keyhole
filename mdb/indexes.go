@@ -3,9 +3,11 @@
 package mdb
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/simagix/gox"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -46,35 +50,35 @@ type CollectionIndexes map[string][]IndexStatsDoc
 
 // IndexStatsDoc -
 type IndexStatsDoc struct {
-	Background              bool   `json:"background"`
-	Collation               bson.D `json:"collation"`
-	EffectiveKey            string `json:"effectiveKey"`
-	ExpireAfterSeconds      int32  `json:"expireAfterSeconds"`
-	Fields                  []string
-	IndexKey                bson.D `json:"key"`
-	IsDupped                bool   `json:"dupped"`
-	IsShardKey              bool   `json:"shardKey"`
-	Key                     string
+	Background              bool       `json:"background"`
+	Collation               bson.D     `json:"collation"`
+	EffectiveKey            string     `json:"effectivekey"`
+	ExpireAfterSeconds      int32      `json:"expireafterseconds"`
+	Fields                  []string   `json:"fields"`
+	IndexKey                bson.D     `json:"indexkey"`
+	IsDupped                bool       `json:"isdupped"`
+	IsShardKey              bool       `json:"isshardkey"`
+	Key                     string     `json:"key"`
 	Name                    string     `json:"name"`
-	PartialFilterExpression bson.D     `json:"partialFilterExpression"`
+	PartialFilterExpression bson.D     `json:"partialfilterexpression"`
 	Sparse                  bool       `json:"sparse"`
-	TotalOps                int        `json:"totalOps"`
+	TotalOps                int        `json:"totalops"`
 	Unique                  bool       `json:"unique"`
-	Usage                   []UsageDoc `json:"stats"`
-	Version                 int32      `json:"v"`
+	Usage                   []UsageDoc `json:"usage"`
+	Version                 int32      `json:"version"`
 }
 
 // NewIndexes establish seeding parameters
 func NewIndexes(client *mongo.Client) *Indexes {
 	gob.Register([]IndexStatsDoc{})
 	hostname, _ := os.Hostname()
-	return &Indexes{client: client, filename: hostname + "-index.enc", indexesMap: map[string]CollectionIndexes{}}
+	return &Indexes{client: client, filename: hostname + "-index.bson.gz", indexesMap: map[string]CollectionIndexes{}}
 }
 
 // NewIndexesReader establish seeding parameters
 func NewIndexesReader(client *mongo.Client) *Indexes {
 	hostname, _ := os.Hostname()
-	return &Indexes{client: client, filename: hostname + "-index.enc", indexesMap: map[string]CollectionIndexes{}}
+	return &Indexes{client: client, filename: hostname + "-index.bson.gz", indexesMap: map[string]CollectionIndexes{}}
 }
 
 // SetFilename sets output file name
@@ -89,6 +93,31 @@ func (ix *Indexes) SetIndexesMap(indexesMap map[string]CollectionIndexes) {
 
 // SetIndexesMapFromFile File sets indexes map from a file
 func (ix *Indexes) SetIndexesMapFromFile(filename string) error {
+	if strings.HasSuffix(filename, "-index.bson.gz") {
+		return ix.setIndexesMapFromBSONFile(filename)
+	} else if strings.HasSuffix(filename, "-index.enc") { // encoded structure is deprecated, replaced with bson.gz
+		log.Println("Using a deprecated file type", filename)
+		return ix.setIndexesMapFromEncodedFile(filename)
+	}
+	return errors.New("unsupported file type")
+}
+
+// setIndexesMapFromBSONFile File sets indexes map from a file
+func (ix *Indexes) setIndexesMapFromBSONFile(filename string) error {
+	var data []byte
+	var err error
+	var fd *bufio.Reader
+	if fd, err = gox.NewFileReader(filename); err != nil {
+		return err
+	}
+	if data, err = ioutil.ReadAll(fd); err != nil {
+		return err
+	}
+	return bson.Unmarshal(data, &ix.indexesMap)
+}
+
+// setIndexesMapFromEncodedFile File sets indexes map from a file
+func (ix *Indexes) setIndexesMapFromEncodedFile(filename string) error {
 	var data []byte
 	var err error
 	if data, err = ioutil.ReadFile(filename); err != nil {
@@ -118,14 +147,14 @@ func (ix *Indexes) SetDBName(dbName string) {
 func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 	var err error
 	var dbNames []string
-	indexesMap := map[string]CollectionIndexes{}
+	ix.indexesMap = map[string]CollectionIndexes{} // reset
 	if ix.dbName != "" {
-		indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
-		return indexesMap, err
+		ix.indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
+		return ix.indexesMap, err
 	}
 
 	if dbNames, err = ListDatabaseNames(ix.client); err != nil {
-		return indexesMap, err
+		return ix.indexesMap, err
 	}
 	cnt := 0
 	for _, name := range dbNames {
@@ -139,14 +168,13 @@ func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 		if ix.verbose == true {
 			log.Println("checking", name)
 		}
-		if indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
-			return indexesMap, err
+		if ix.indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
+			return ix.indexesMap, err
 		}
 	}
 	if cnt == 0 && ix.verbose == true {
 		log.Println("No database is available")
 	}
-	ix.indexesMap = indexesMap
 	return ix.indexesMap, err
 }
 
@@ -200,18 +228,14 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	}
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
-		if ix.verbose == true {
-			log.Println(err)
-		}
+		log.Println(err)
 		return list
 	}
 	var indexStats = []map[string]interface{}{}
 	for scur.Next(ctx) {
 		var result = map[string]interface{}{}
 		if err = scur.Decode(&result); err != nil {
-			if ix.verbose == true {
-				log.Println(err)
-			}
+			log.Println(err)
 			continue
 		}
 		indexStats = append(indexStats, result)
@@ -221,9 +245,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	db := collection.Database().Name()
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = ix.client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
-		if ix.verbose == true {
-			log.Println(err)
-		}
+		log.Println(err)
 		return list
 	}
 	defer icur.Close(ctx)
@@ -231,9 +253,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	for icur.Next(ctx) {
 		var idx = bson.D{}
 		if err = icur.Decode(&idx); err != nil {
-			if ix.verbose == true {
-				log.Println(err)
-			}
+			log.Println(err)
 			continue
 		}
 
@@ -248,11 +268,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 			} else if v.Key == "background" {
 				o.Background, _ = v.Value.(bool)
 			} else if v.Key == "expireAfterSeconds" {
-				if n, ok := v.Value.(int32); ok {
-					o.ExpireAfterSeconds = n
-				} else if n, ok := v.Value.(float64); ok {
-					o.ExpireAfterSeconds = int32(n)
-				}
+				o.ExpireAfterSeconds = toInt32(v.Value)
 			} else if v.Key == "sparse" {
 				o.Sparse = v.Value.(bool)
 			} else if v.Key == "unique" {
@@ -307,7 +323,6 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 		}
 		list = append(list, o)
 	}
-	icur.Close(ctx)
 	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey < list[j].EffectiveKey) })
 	for i, o := range list {
 		if o.Key != "{ _id: 1 }" && o.IsShardKey == false {
@@ -458,12 +473,30 @@ func (ix *Indexes) CreateIndexes() error {
 
 // Save saves indexes map to a file
 func (ix *Indexes) Save() error {
-	var data bytes.Buffer
 	var err error
-	enc := gob.NewEncoder(&data)
-	if err = enc.Encode(ix.indexesMap); err != nil {
+	var bsond bson.D
+	var buf []byte
+	if buf, err = bson.Marshal(ix.indexesMap); err != nil {
 		return err
 	}
-	fmt.Println("Encoded indexes info is written to", ix.filename)
-	return ioutil.WriteFile(ix.filename, data.Bytes(), 0644)
+	bson.Unmarshal(buf, &bsond)
+	if buf, err = bson.Marshal(bsond); err != nil {
+		return err
+	}
+	fmt.Println("Indexes info is written to", ix.filename)
+
+	if ix.verbose { // encoded structure is deprecated, replaced with bson.gz
+		var data bytes.Buffer
+		enc := gob.NewEncoder(&data)
+		if err = enc.Encode(ix.indexesMap); err != nil {
+			return err
+		}
+		filename := ix.filename
+		if idx := strings.LastIndex(filename, "-index.bson.gz"); idx > 0 {
+			filename = filename[:idx] + "-index.enc"
+		}
+		ioutil.WriteFile(filename, data.Bytes(), 0644)
+		fmt.Println("Encoded indexes info is written to", filename, "(deprecated)")
+	}
+	return gox.OutputGzipped(buf, ix.filename)
 }

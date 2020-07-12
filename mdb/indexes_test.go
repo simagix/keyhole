@@ -18,7 +18,7 @@ func TestGetIndexesFromDB(t *testing.T) {
 	var client *mongo.Client
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	c := client.Database(dbName).Collection("examples")
+	c := client.Database(dbName).Collection(ExamplesCollection)
 	seedNumbers(c)
 
 	// get index from keyhole database
@@ -31,7 +31,7 @@ func TestGetIndexes(t *testing.T) {
 	var client *mongo.Client
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
-	c := client.Database(dbName).Collection("examples")
+	c := client.Database(dbName).Collection(ExamplesCollection)
 	seedNumbers(c)
 
 	// get all indexes
