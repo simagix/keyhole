@@ -193,23 +193,27 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 			if redact == true {
 				li.SlowOps = []SlowOps{}
 			}
-			buf, _ := bson.Marshal(li)
+			var buf []byte
 			var bsond bson.D
+			if buf, err = bson.Marshal(li); err != nil {
+				return li.printLogsSummary(), err
+			}
 			bson.Unmarshal(buf, &bsond)
-			buf, _ = bson.Marshal(bsond)
+			if buf, err = bson.Marshal(bsond); err != nil {
+				return li.printLogsSummary(), err
+			}
 			gox.OutputGzipped(buf, li.OutputFilename)
 
-			var data bytes.Buffer
-			enc := gob.NewEncoder(&data)
-			if err = enc.Encode(li); err != nil {
-				log.Println("encode error:", err)
-			}
 			if li.verbose { // encoded structure is deprecated, replaced with bson.gz
-				filename := li.OutputFilename
-				if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
-					filename = filename[:idx] + "-log.enc"
+				var data bytes.Buffer
+				enc := gob.NewEncoder(&data)
+				if err = enc.Encode(li); err == nil {
+					filename := li.OutputFilename
+					if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+						filename = filename[:idx] + "-log.enc"
+					}
+					ioutil.WriteFile(filename, data.Bytes(), 0644)
 				}
-				ioutil.WriteFile(filename, data.Bytes(), 0644)
 			}
 		}
 	}
