@@ -50,33 +50,27 @@ type CollectionIndexes map[string][]IndexStatsDoc
 
 // IndexStatsDoc -
 type IndexStatsDoc struct {
-	Background              bool       `json:"background"`
-	Collation               bson.D     `json:"collation"`
-	EffectiveKey            string     `json:"effectivekey"`
-	ExpireAfterSeconds      int32      `json:"expireafterseconds"`
-	Fields                  []string   `json:"fields"`
-	IndexKey                bson.D     `json:"indexkey"`
-	IsDupped                bool       `json:"isdupped"`
-	IsShardKey              bool       `json:"isshardkey"`
-	Key                     string     `json:"key"`
-	Name                    string     `json:"name"`
-	PartialFilterExpression bson.D     `json:"partialfilterexpression"`
-	Sparse                  bool       `json:"sparse"`
-	TotalOps                int        `json:"totalops"`
-	Unique                  bool       `json:"unique"`
-	Usage                   []UsageDoc `json:"usage"`
-	Version                 int32      `json:"version"`
+	Background              bool       `json:"background" bson:"background"`
+	Collation               bson.D     `json:"collation" bson:"collation"`
+	EffectiveKey            string     `json:"effectivekey" bson:"effectivekey"`
+	ExpireAfterSeconds      int32      `json:"expireafterseconds" bson:"expireafterseconds"`
+	Fields                  []string   `json:"fields" bson:"fields"`
+	IndexKey                bson.D     `json:"indexkey" bson:"indexkey"`
+	IsDupped                bool       `json:"isdupped" bson:"isdupped"`
+	IsShardKey              bool       `json:"isshardkey" bson:"isshardkey"`
+	Key                     string     `json:"key" bson:"key"`
+	Name                    string     `json:"name" bson:"name"`
+	PartialFilterExpression bson.D     `json:"partialfilterexpression" bson:"partialfilterexpression"`
+	Sparse                  bool       `json:"sparse" bson:"sparse"`
+	TotalOps                int        `json:"totalops" bson:"totalops"`
+	Unique                  bool       `json:"unique" bson:"unique"`
+	Usage                   []UsageDoc `json:"usage" bson:"usage"`
+	Version                 int32      `json:"version" bson:"version"`
 }
 
 // NewIndexes establish seeding parameters
 func NewIndexes(client *mongo.Client) *Indexes {
 	gob.Register([]IndexStatsDoc{})
-	hostname, _ := os.Hostname()
-	return &Indexes{client: client, filename: hostname + "-index.bson.gz", indexesMap: map[string]CollectionIndexes{}}
-}
-
-// NewIndexesReader establish seeding parameters
-func NewIndexesReader(client *mongo.Client) *Indexes {
 	hostname, _ := os.Hostname()
 	return &Indexes{client: client, filename: hostname + "-index.bson.gz", indexesMap: map[string]CollectionIndexes{}}
 }
@@ -93,11 +87,11 @@ func (ix *Indexes) SetIndexesMap(indexesMap map[string]CollectionIndexes) {
 
 // SetIndexesMapFromFile File sets indexes map from a file
 func (ix *Indexes) SetIndexesMapFromFile(filename string) error {
-	if strings.HasSuffix(filename, "-index.enc") {
+	if strings.HasSuffix(filename, "-index.bson.gz") {
+		return ix.setIndexesMapFromBSONFile(filename)
+	} else if strings.HasSuffix(filename, "-index.enc") { // encoded structure is deprecated, replaced with bson.gz
 		log.Println("Using a deprecated file type", filename)
 		return ix.setIndexesMapFromEncodedFile(filename)
-	} else if strings.HasSuffix(filename, "-index.bson.gz") {
-		return ix.setIndexesMapFromBSONFile(filename)
 	}
 	return errors.New("unsupported file type")
 }
@@ -358,7 +352,12 @@ func checkIfDupped(doc IndexStatsDoc, list []IndexStatsDoc) bool {
 }
 
 // Print prints indexes
-func (ix *Indexes) Print(indexesMap map[string]CollectionIndexes) {
+func (ix *Indexes) Print() {
+	ix.PrintIndexesOf(ix.indexesMap)
+}
+
+// PrintIndexesOf prints indexes
+func (ix *Indexes) PrintIndexesOf(indexesMap map[string]CollectionIndexes) {
 	var dbkeys []string
 	for k := range indexesMap {
 		dbkeys = append(dbkeys, k)
@@ -473,19 +472,7 @@ func (ix *Indexes) CreateIndexes() error {
 
 // Save saves indexes map to a file
 func (ix *Indexes) Save() error {
-	var data bytes.Buffer
 	var err error
-	enc := gob.NewEncoder(&data)
-	if err = enc.Encode(ix.indexesMap); err != nil {
-		return err
-	}
-	filename := ix.filename
-	if idx := strings.LastIndex(filename, "-index.bson.gz"); idx > 0 {
-		filename = filename[:idx] + "-index.enc"
-	}
-	ioutil.WriteFile(filename, data.Bytes(), 0644)
-	fmt.Println("Encoded indexes info is written to", filename, "(deprecated)")
-
 	var bsond bson.D
 	var buf []byte
 	if buf, err = bson.Marshal(ix.indexesMap); err != nil {
@@ -495,6 +482,21 @@ func (ix *Indexes) Save() error {
 	if buf, err = bson.Marshal(bsond); err != nil {
 		return err
 	}
-	fmt.Println("Indexes info is written to", ix.filename)
-	return gox.OutputGzipped(buf, ix.filename)
+	if err = gox.OutputGzipped(buf, ix.filename); err == nil {
+		fmt.Println("Indexes info is written to", ix.filename)
+	}
+
+	if ix.verbose { // encoded structure is deprecated, replaced with bson.gz
+		var data bytes.Buffer
+		enc := gob.NewEncoder(&data)
+		if err := enc.Encode(ix.indexesMap); err == nil {
+			filename := ix.filename
+			if idx := strings.LastIndex(filename, "-index.bson.gz"); idx > 0 {
+				filename = filename[:idx] + "-index.enc"
+			}
+			ioutil.WriteFile(filename, data.Bytes(), 0644)
+			fmt.Println("Encoded indexes info is written to", filename, "(deprecated)")
+		}
+	}
+	return err
 }

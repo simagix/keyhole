@@ -229,6 +229,26 @@ func (rn *Runner) terminate() {
 	for _, filename := range filenames {
 		log.Println("stats written to", filename)
 	}
+	filename = "keyhole_perf." + fileTimestamp + ".bson.gz"
+	var buf []byte
+	if buf, err = json.Marshal(rn.metrics); err != nil {
+		log.Println("marshal error:", err)
+	}
+	gox.OutputGzipped(buf, filename)
+	log.Println("optime written to", filename)
+
+	// encoded structure will be deprecated
+	if rn.verbose { // encoded structure is deprecated, replaced with bson.gz
+		filename = "keyhole_perf." + fileTimestamp + ".enc.gz"
+		var data bytes.Buffer
+		gob.Register(time.Duration(0))
+		enc := gob.NewEncoder(&data)
+		if err = enc.Encode(rn.metrics); err != nil {
+			log.Println("encode error:", err)
+		}
+		gox.OutputGzipped(data.Bytes(), filename)
+		log.Println("optime written to", filename, "(deprecated)")
+	}
 	os.Exit(0)
 }
 
@@ -340,24 +360,7 @@ func (rn *Runner) Cleanup() error {
 			log.Println(err)
 		}
 	}
-	filename := "keyhole_perf." + fileTimestamp + ".bson.gz"
-	var buf []byte
-	if buf, err = json.Marshal(rn.metrics); err != nil {
-		log.Println("marshal error:", err)
-	}
-	gox.OutputGzipped(buf, filename)
-	log.Println("optime written to", filename)
-	filename = "keyhole_perf." + fileTimestamp + ".enc.gz"
 
-	// encoded structure will be deprecated
-	var data bytes.Buffer
-	gob.Register(time.Duration(0))
-	enc := gob.NewEncoder(&data)
-	if err = enc.Encode(rn.metrics); err != nil {
-		log.Println("encode error:", err)
-	}
-	gox.OutputGzipped(data.Bytes(), filename)
-	log.Println("optime written to", filename)
 	time.Sleep(time.Second)
 	return err
 }

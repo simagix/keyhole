@@ -48,7 +48,7 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, tx Transaction) (bso
 	var err error
 	var ctx = context.Background()
 	var op = make(map[string]interface{})
-	var execTime = bson.M{}
+	var execTime = bson.M{"total": 0}
 
 	t := time.Now()
 	if tx.C == "insertOne" {

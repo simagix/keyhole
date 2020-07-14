@@ -132,20 +132,7 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 // AnalyzeFile analyze logs from a file
 func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 	var err error
-
-	if strings.HasSuffix(filename, "-log.enc") == true {
-		log.Println("Using a deprecated file type", filename)
-		var data []byte
-		if data, err = ioutil.ReadFile(filename); err != nil {
-			return "", err
-		}
-		buffer := bytes.NewBuffer(data)
-		dec := gob.NewDecoder(buffer)
-		if err = dec.Decode(li); err != nil {
-			return "", err
-		}
-		li.OutputFilename = ""
-	} else if strings.HasSuffix(filename, "-log.bson.gz") == true {
+	if strings.HasSuffix(filename, "-log.bson.gz") == true {
 		var data []byte
 		var err error
 		var fd *bufio.Reader
@@ -156,6 +143,18 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 			return "", err
 		}
 		if err = bson.Unmarshal(data, &li); err != nil {
+			return "", err
+		}
+		li.OutputFilename = ""
+	} else if strings.HasSuffix(filename, "-log.enc") == true { // encoded structure is deprecated, replaced with bson.gz
+		log.Println("Using a deprecated file type", filename)
+		var data []byte
+		if data, err = ioutil.ReadFile(filename); err != nil {
+			return "", err
+		}
+		buffer := bytes.NewBuffer(data)
+		dec := gob.NewDecoder(buffer)
+		if err = dec.Decode(li); err != nil {
 			return "", err
 		}
 		li.OutputFilename = ""
@@ -194,22 +193,28 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 			if redact == true {
 				li.SlowOps = []SlowOps{}
 			}
-			buf, _ := bson.Marshal(li)
+			var buf []byte
 			var bsond bson.D
+			if buf, err = bson.Marshal(li); err != nil {
+				return li.printLogsSummary(), err
+			}
 			bson.Unmarshal(buf, &bsond)
-			buf, _ = bson.Marshal(bsond)
+			if buf, err = bson.Marshal(bsond); err != nil {
+				return li.printLogsSummary(), err
+			}
 			gox.OutputGzipped(buf, li.OutputFilename)
 
-			var data bytes.Buffer
-			enc := gob.NewEncoder(&data)
-			if err = enc.Encode(li); err != nil {
-				log.Println("encode error:", err)
+			if li.verbose { // encoded structure is deprecated, replaced with bson.gz
+				var data bytes.Buffer
+				enc := gob.NewEncoder(&data)
+				if err = enc.Encode(li); err == nil {
+					filename := li.OutputFilename
+					if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+						filename = filename[:idx] + "-log.enc"
+					}
+					ioutil.WriteFile(filename, data.Bytes(), 0644)
+				}
 			}
-			filename := li.OutputFilename
-			if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
-				filename = filename[:idx] + "-log.enc"
-			}
-			ioutil.WriteFile(filename, data.Bytes(), 0644)
 		}
 	}
 	return li.printLogsSummary(), nil

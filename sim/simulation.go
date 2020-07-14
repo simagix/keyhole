@@ -138,9 +138,9 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 							if res, err = execTXByTemplateAndTX(c, util.CloneDoc(doc), tx); err != nil {
 								break
 							}
+							rn.mutex.Lock()
 							txCount += res["total"].(int)
 							delete(res, "total")
-							rn.mutex.Lock()
 							rn.metrics[connID] = append(rn.metrics[connID], res)
 							rn.mutex.Unlock()
 						}
@@ -194,7 +194,13 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 				}
 				length := len(v)
 				p95 := int64(float64(length+1) * .95)
+				if p95 >= int64(length) {
+					p95 = int64(length - 1)
+				}
 				p99 := int64(float64(length+1) * .99)
+				if p99 >= int64(length) {
+					p99 = int64(length - 1)
+				}
 				stats += fmt.Sprintf("\n\t[%12s] (samples, min, avg, p95, p99, max) = (%v, %v, %v, %v, %v, %v)",
 					k, length, v[0], sum/time.Duration(length), v[p95], v[p99], v[length-1])
 			}
