@@ -147,7 +147,7 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 	}
 	for k, v := range doc {
 		summary.List = append(summary.List,
-			CardinalityCount{Field: strings.Replace(k, "__", ".", -1), Count: int64(v.(float64))})
+			CardinalityCount{Field: strings.Replace(k, "__", ".", -1), Count: toInt64(v)})
 	}
 
 	sort.Slice(summary.List, func(i, j int) bool {

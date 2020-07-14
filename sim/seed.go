@@ -215,7 +215,8 @@ func (f *Feeder) seedNumbers(client *mongo.Client) error {
 		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100)})
 	}
 	if _, err = numbersCollection.InsertMany(ctx, docs); err != nil {
-		log.Fatal(err)
+		fmt.Println("Seeded numbers: 0", err) // could be < v3.4
+		return nil
 	}
 	// create index example
 	indexView := numbersCollection.Indexes()

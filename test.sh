@@ -16,7 +16,7 @@ validate() {
 }
 
 echo ; echo "Spin up mongod"
-mongod --version
+mver=$(mongod --version|grep 'db version'|awk '{print $3}') 
 mkdir -p data/db
 rm -rf data/db/*
 mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB 1  --replSet replset
@@ -39,6 +39,10 @@ go run keyhole.go --info $DATABASE_URI
 if [ $? != 0 ]; then
     exit
 fi
+
+# Test All Info
+echo ; echo "==> Test printing cluster info (--info <uri>)"
+go run keyhole.go --allinfo $DATABASE_URI
 
 # Test seed
 echo ; echo "==> Test seeding default docs (--seed <uri>)"
@@ -65,41 +69,51 @@ echo ; echo "==> Test printing cluster indexes (--index <uri>)"
 go run keyhole.go --index $DATABASE_URI
 validate ""
 
+# Test Create Index
+echo ; echo "==> Test printing cluster indexes (--createIndex <index_info> <uri>)"
+go run keyhole.go --createIndex "$(hostname)-index.bson.gz" $DATABASE_URI
+rm -f "$(hostname)-index.bson.gz"
+validate ""
+
 # Test Schema
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
 go run keyhole.go --schema --collection cars $DATABASE_URI
 validate ""
 
-# Test Cardinality
-echo ; echo "==> Test printing number of distinct fileds values (--cardinality)"
-go run keyhole.go --cardinality favorites $DATABASE_URI
-validate ""
+if [[ "$mver" > "v3.4" ]]; then
+    # Test Cardinality
+    echo ; echo "==> Test printing number of distinct fileds values (--cardinality)"
+    go run keyhole.go --cardinality favorites $DATABASE_URI
+    validate ""
 
-# Test Cardinality
-echo ; echo "==> Test printing number of distinct fileds values (--explain)"
-go run keyhole.go --explain mdb/testdata/cars.log $DATABASE_URI
-validate ""
+    # Test Cardinality
+    echo ; echo "==> Test printing number of distinct fileds values (--explain)"
+    go run keyhole.go --explain mdb/testdata/cars.log $DATABASE_URI
+    validate ""
 
-# Test Cardinality
-echo ; echo "==> Test printing number of distinct fileds values (--explain)"
-go run keyhole.go --explain mdb/testdata/cars.json $DATABASE_URI
-validate ""
+    # Test Cardinality
+    echo ; echo "==> Test printing number of distinct fileds values (--explain)"
+    go run keyhole.go --explain mdb/testdata/cars.json $DATABASE_URI
+    validate ""
+fi
 
 if [ "$1" != "" ]; then
     # Test load test
     echo ; echo "==> Test load from a template (--file <file> <uri>)"
-    go run keyhole.go --file examples/template.json --duration 2 \
+    go run keyhole.go --yes --file examples/template.json --duration 2 \
         --tps 300 --conn 10 --simonly $DATABASE_URI
     validate ""
 
-    go run keyhole.go --file examples/template.json --duration 3 \
+    go run keyhole.go --yes --file examples/template.json --duration 3 \
         --tps 300 --conn 10 --tx examples/transactions.json $DATABASE_URI
+    rm -f keyhole_*.gz
     validate ""
 
     # Test loginfo
     echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
     go run keyhole.go --loginfo data/mongod.log
-    rm -f *-mongod.log.gz
+    go run keyhole.go --loginfo mongod-log.bson.gz
+    rm -f mongod-log.bson.gz
 fi
 
 # Test info Atlas

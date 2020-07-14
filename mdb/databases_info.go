@@ -81,7 +81,7 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 		}
 		defer cur.Close(ctx)
 		var collections = []bson.M{}
-		ir := NewIndexesReader(client)
+		ir := NewIndexes(client)
 		ir.SetVerbose(dbi.verbose)
 		collectionNames := []string{}
 

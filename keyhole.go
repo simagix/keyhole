@@ -46,6 +46,7 @@ func main() {
 	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	port := flag.Int("port", 5408, "web server port number")
+	print := flag.String("print", "", "print contents of input file")
 	redaction := flag.Bool("redact", false, "redact document")
 	regex := flag.String("regex", "", "regex pattern for loginfo")
 	request := flag.String("request", "", "Atlas API command")
@@ -108,7 +109,14 @@ func main() {
 				}
 				fmt.Println(str)
 				if li.OutputFilename != "" {
-					log.Println("Encoded output written to", li.OutputFilename)
+					log.Println("Log info written to", li.OutputFilename)
+					if *verbose { // encoded structure is deprecated, replaced with bson.gz
+						filename := li.OutputFilename
+						if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+							filename = filename[:idx] + "-log.enc"
+						}
+						log.Println("Encoded output written to", filename, "(deprecated)")
+					}
 				}
 			}
 		}
@@ -163,7 +171,14 @@ func main() {
 			}
 			fmt.Println(str)
 			if li.OutputFilename != "" {
-				log.Println("Encoded output written to", li.OutputFilename)
+				log.Println("Log info written to", li.OutputFilename)
+				if *verbose { // encoded structure is deprecated, replaced with bson.gz
+					filename := li.OutputFilename
+					if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+						filename = filename[:idx] + "-log.enc"
+					}
+					log.Println("Encoded output written to", filename, "(deprecated)")
+				}
 			}
 		}
 		os.Exit(0)
@@ -173,6 +188,11 @@ func main() {
 	} else if *explain != "" && *uri == "" { //--explain file.json.gz (w/o uri)
 		exp := mdb.NewExplain()
 		if err = exp.PrintExplainResults(*explain); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	} else if *print != "" {
+		if err := mdb.PrintBSON(*print); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
@@ -240,7 +260,7 @@ func main() {
 		if indexesMap, ixe := ix.GetIndexes(); ixe != nil {
 			log.Fatal(err)
 		} else {
-			ix.Print(indexesMap)
+			ix.PrintIndexesOf(indexesMap)
 			if err = ix.Save(); err != nil {
 				log.Fatal(err)
 			}
@@ -248,7 +268,7 @@ func main() {
 		os.Exit(0)
 	} else if *createIndex != "" {
 		if *uri == "" {
-			log.Fatal("Usage: keyhole --createIndex <filename>-index.enc mongodb://<...>")
+			log.Fatal("Usage: keyhole --createIndex <filename>-index.bson.gz mongodb://<...>")
 		}
 		ix := mdb.NewIndexes(client)
 		ix.SetNoColor(*nocolor)
@@ -262,7 +282,7 @@ func main() {
 		if indexesMap, ixe := ix.GetIndexes(); ixe != nil {
 			log.Fatal(err)
 		} else {
-			ix.Print(indexesMap)
+			ix.PrintIndexesOf(indexesMap)
 		}
 		os.Exit(0)
 	} else if *schema == true {
@@ -316,6 +336,7 @@ func main() {
 	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
 		log.Fatal(err)
 	}
+	runner.SetCollection(*collection)
 	runner.SetTPS(*tps)
 	runner.SetTemplateFilename(*file)
 	runner.SetVerbose(*verbose)

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -87,6 +88,15 @@ func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Run
 	return &runner, err
 }
 
+// SetCollection set collection name
+func (rn *Runner) SetCollection(collectionName string) {
+	if collectionName != "" {
+		rn.collectionName = collectionName
+	} else {
+		rn.collectionName = mdb.ExamplesCollection
+	}
+}
+
 // SetTPS set transaction per second
 func (rn *Runner) SetTPS(tps int) {
 	rn.tps = tps
@@ -157,7 +167,9 @@ func (rn *Runner) Start() error {
 		}
 	}
 	log.Println("Duration in minute(s):", rn.duration)
-	rn.dbName = mdb.KeyholeDB // switch to _KEYHOLE_88800 database for load tests
+	if rn.dbName == "" || rn.dbName == "admin" || rn.dbName == "config" || rn.dbName == "local" {
+		rn.dbName = mdb.KeyholeDB // switch to _KEYHOLE_88800 database for load tests
+	}
 	if rn.drop {
 		rn.Cleanup()
 	}
@@ -216,6 +228,26 @@ func (rn *Runner) terminate() {
 	}
 	for _, filename := range filenames {
 		log.Println("stats written to", filename)
+	}
+	filename = "keyhole_perf." + fileTimestamp + ".bson.gz"
+	var buf []byte
+	if buf, err = json.Marshal(rn.metrics); err != nil {
+		log.Println("marshal error:", err)
+	}
+	gox.OutputGzipped(buf, filename)
+	log.Println("optime written to", filename)
+
+	// encoded structure will be deprecated
+	if rn.verbose { // encoded structure is deprecated, replaced with bson.gz
+		filename = "keyhole_perf." + fileTimestamp + ".enc.gz"
+		var data bytes.Buffer
+		gob.Register(time.Duration(0))
+		enc := gob.NewEncoder(&data)
+		if err = enc.Encode(rn.metrics); err != nil {
+			log.Println("encode error:", err)
+		}
+		gox.OutputGzipped(data.Bytes(), filename)
+		log.Println("optime written to", filename, "(deprecated)")
 	}
 	os.Exit(0)
 }
@@ -312,28 +344,23 @@ func (rn *Runner) createIndexes(docs []bson.M) error {
 // Cleanup drops the temp database
 func (rn *Runner) Cleanup() error {
 	var err error
-	if rn.peek == false {
+	if rn.peek == true {
+		return err
+	}
+	if rn.simOnly == false && rn.dbName == mdb.KeyholeDB {
 		ctx := context.Background()
-		log.Println("dropping collection", rn.dbName, rn.collectionName)
-		if err = rn.client.Database(rn.dbName).Collection(rn.collectionName).Drop(ctx); err != nil {
-			log.Println(err)
-		}
-		if rn.dbName == mdb.KeyholeDB {
-			log.Println("dropping database", rn.dbName)
-			if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
+		if rn.collectionName == mdb.ExamplesCollection {
+			log.Println("dropping collection", mdb.KeyholeDB, mdb.ExamplesCollection)
+			if err = rn.client.Database(mdb.KeyholeDB).Collection(mdb.ExamplesCollection).Drop(ctx); err != nil {
 				log.Println(err)
 			}
 		}
-		filename := "keyhole_perf." + fileTimestamp + ".enc.gz"
-		var data bytes.Buffer
-		gob.Register(time.Duration(0))
-		enc := gob.NewEncoder(&data)
-		if err = enc.Encode(rn.metrics); err != nil {
-			log.Println("encode error:", err)
+		log.Println("dropping temp database", mdb.KeyholeDB)
+		if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
+			log.Println(err)
 		}
-		gox.OutputGzipped(data.Bytes(), filename)
-		log.Println("optime written to", filename)
 	}
+
 	time.Sleep(time.Second)
 	return err
 }
@@ -378,8 +405,8 @@ func (rn *Runner) splitChunks() error {
 	divider := 1 + len(shardKeys)/(len(shards)+1)
 	for i := range shards {
 		cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": shardKeys[(i+1)*divider]}}}
-		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
-			log.Println(err)
+		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil { // could be split already
+			return err
 		}
 	}
 

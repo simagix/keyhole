@@ -39,7 +39,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if attr, ok = doc["attr"].(map[string]interface{}); !ok {
 		return stat, errors.New("no attr found")
 	}
-	stat.milli = int(attr["durationMillis"].(float64))
+	stat.milli = toInt(attr["durationMillis"])
 	if attr["ns"] != nil {
 		stat.ns = attr["ns"].(string)
 	} else if attr["namespace"] != nil { // likely "c": "SHARDING", ignored already

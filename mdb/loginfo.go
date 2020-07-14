@@ -17,6 +17,8 @@ import (
 	"sort"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/bson"
+
 	"github.com/simagix/gox"
 )
 
@@ -25,10 +27,10 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	OpsPatterns    []OpPerformanceDoc
+	OpsPatterns    []OpPerformanceDoc `bson:"opespatterns"`
 	OutputFilename string
-	SlowOps        []SlowOps
-	collscan       bool
+	SlowOps        []SlowOps `bson:"slowops"`
+	collscan       bool      `bson:"collscan"`
 	filename       string
 	mongoInfo      string
 	regex          string
@@ -38,14 +40,14 @@ type LogInfo struct {
 
 // OpPerformanceDoc stores performance data
 type OpPerformanceDoc struct {
-	Command    string // count, delete, find, remove, and update
-	Count      int    // number of ops
-	Filter     string // query pattern
-	MaxMilli   int    // max millisecond
-	Namespace  string // database.collectin
-	Scan       string // COLLSCAN
-	TotalMilli int    // total milliseconds
-	Index      string // index used
+	Command    string `bson:"command"`    // count, delete, find, remove, and update
+	Count      int    `bson:"count"`      // number of ops
+	Filter     string `bson:"filter"`     // query pattern
+	MaxMilli   int    `bson:"maxmilli"`   // max millisecond
+	Namespace  string `bson:"ns"`         // database.collectin
+	Scan       string `bson:"scan"`       // COLLSCAN
+	TotalMilli int    `bson:"totalmilli"` // total milliseconds
+	Index      string `bson:"index"`      // index used
 }
 
 // SlowOps holds slow ops log and time
@@ -130,8 +132,22 @@ func (li *LogInfo) Analyze(filename string) (string, error) {
 // AnalyzeFile analyze logs from a file
 func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 	var err error
-
-	if strings.HasSuffix(filename, ".enc") == true {
+	if strings.HasSuffix(filename, "-log.bson.gz") == true {
+		var data []byte
+		var err error
+		var fd *bufio.Reader
+		if fd, err = gox.NewFileReader(filename); err != nil {
+			return "", err
+		}
+		if data, err = ioutil.ReadAll(fd); err != nil {
+			return "", err
+		}
+		if err = bson.Unmarshal(data, &li); err != nil {
+			return "", err
+		}
+		li.OutputFilename = ""
+	} else if strings.HasSuffix(filename, "-log.enc") == true { // encoded structure is deprecated, replaced with bson.gz
+		log.Println("Using a deprecated file type", filename)
 		var data []byte
 		if data, err = ioutil.ReadFile(filename); err != nil {
 			return "", err
@@ -141,6 +157,7 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 		if err = dec.Decode(li); err != nil {
 			return "", err
 		}
+		li.OutputFilename = ""
 	} else {
 		var file *os.File
 		var reader *bufio.Reader
@@ -169,19 +186,35 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
 			}
 			if strings.HasSuffix(li.OutputFilename, ".log") == false {
-				li.OutputFilename += "-log.enc"
+				li.OutputFilename += "-log.bson.gz"
 			} else {
-				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-4] + "-log.enc"
+				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-4] + "-log.bson.gz"
 			}
-			var data bytes.Buffer
 			if redact == true {
 				li.SlowOps = []SlowOps{}
 			}
-			enc := gob.NewEncoder(&data)
-			if err = enc.Encode(li); err != nil {
-				log.Println("encode error:", err)
+			var buf []byte
+			var bsond bson.D
+			if buf, err = bson.Marshal(li); err != nil {
+				return li.printLogsSummary(), err
 			}
-			ioutil.WriteFile(li.OutputFilename, data.Bytes(), 0644)
+			bson.Unmarshal(buf, &bsond)
+			if buf, err = bson.Marshal(bsond); err != nil {
+				return li.printLogsSummary(), err
+			}
+			gox.OutputGzipped(buf, li.OutputFilename)
+
+			if li.verbose { // encoded structure is deprecated, replaced with bson.gz
+				var data bytes.Buffer
+				enc := gob.NewEncoder(&data)
+				if err = enc.Encode(li); err == nil {
+					filename := li.OutputFilename
+					if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
+						filename = filename[:idx] + "-log.enc"
+					}
+					ioutil.WriteFile(filename, data.Bytes(), 0644)
+				}
+			}
 		}
 	}
 	return li.printLogsSummary(), nil

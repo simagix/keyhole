@@ -33,7 +33,7 @@ const replica = "replica"
 // NewMongoCluster server info struct
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	hostname, _ := os.Hostname()
-	return &MongoCluster{client: client, filename: hostname + ".bson.gz"}
+	return &MongoCluster{client: client, filename: hostname + "-cluster.bson.gz"}
 }
 
 // SetRedaction sets redact
@@ -91,7 +91,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	delete(info.StorageSize, "statsDetails")
 	mc.cluster["cluster"] = info.Cluster
 	mc.cluster["host"] = info.Host
-	mc.SetFilename(info.Host + ".bson.gz")
+	mc.SetFilename(info.Host + "-cluster.bson.gz")
 	mc.cluster["process"] = info.Process
 	if info.Cluster == SHARDED {
 		mc.cluster["sharding"] = info.Sharding
