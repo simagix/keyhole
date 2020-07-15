@@ -21,6 +21,7 @@ import (
 // DatabaseInfo stores struct
 type DatabaseInfo struct {
 	conns     int
+	logs      []string
 	redaction bool
 	verbose   bool
 	vv        bool
@@ -28,7 +29,12 @@ type DatabaseInfo struct {
 
 // NewDatabaseInfo returns DatabaseInfo
 func NewDatabaseInfo() *DatabaseInfo {
-	return &DatabaseInfo{}
+	return &DatabaseInfo{logs: []string{}}
+}
+
+// GetLogs returns logs
+func (dbi *DatabaseInfo) GetLogs() []string {
+	return dbi.logs
 }
 
 // SetNumberConnections set # of conns
@@ -180,7 +186,9 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 		databases = append(databases, bson.M{"DB": dbName, "collections": collections, "stats": trimMap(stats)})
 	}
 	if dbi.verbose {
-		log.Println("* GetAllDatabasesInfo took", time.Now().Sub(t))
+		msg := fmt.Sprintf("* GetAllDatabasesInfo took %v", time.Now().Sub(t))
+		dbi.logs = append(dbi.logs, msg)
+		log.Println(msg)
 	}
 	return databases, nil
 }
@@ -259,7 +267,10 @@ func (dbi *DatabaseInfo) collectChunksDistribution(client *mongo.Client, shard s
 		}
 		wg.Wait()
 		dur := time.Now().Sub(t)
-		log.Println("* collectChunksDistribution used", dbi.conns, "threads on", shard, ns, "took", dur, "for", count, "chunks, rate:", dur/time.Duration(count))
+		msg := fmt.Sprintf("* collectChunksDistribution used %v threads on %v %v took %v for %v chunks, rate: %v",
+			dbi.conns, shard, ns, dur, count, dur/time.Duration(count))
+		dbi.logs = append(dbi.logs, msg)
+		log.Println(msg)
 	} else {
 		emptyCounts = -1
 		if count, err = coll.CountDocuments(ctx, bson.M{"shard": shard, "ns": ns}); err != nil {

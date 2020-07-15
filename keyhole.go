@@ -223,6 +223,7 @@ func main() {
 		}
 		mc := mdb.NewMongoCluster(client)
 		mc.SetConnString(connString)
+		mc.SetKeyholeVersion(version)
 		mc.SetNumberConnections(nConnections)
 		mc.SetRedaction(*redaction)
 		mc.SetVerbose(*verbose)

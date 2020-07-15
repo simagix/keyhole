@@ -18,14 +18,21 @@ import (
 
 // MongoCluster holds mongo cluster info
 type MongoCluster struct {
-	client     *mongo.Client
-	cluster    bson.M
-	conns      int
-	connString connstring.ConnString
-	filename   string
-	redaction  bool
-	verbose    bool
-	vv         bool
+	client      *mongo.Client
+	cluster     bson.M
+	conns       int
+	connString  connstring.ConnString
+	filename    string
+	keyholeInfo KeyholeInfo
+	redaction   bool
+	verbose     bool
+	vv          bool
+}
+
+// KeyholeInfo stores keyhole info and logs
+type KeyholeInfo struct {
+	Logs    []string
+	Version string
 }
 
 const replica = "replica"
@@ -33,7 +40,13 @@ const replica = "replica"
 // NewMongoCluster server info struct
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	hostname, _ := os.Hostname()
-	return &MongoCluster{client: client, filename: hostname + "-cluster.bson.gz"}
+	keyholeInfo := KeyholeInfo{Logs: []string{}}
+	return &MongoCluster{client: client, filename: hostname + "-cluster.bson.gz", keyholeInfo: keyholeInfo}
+}
+
+// SetKeyholeVersion sets keyhole version
+func (mc *MongoCluster) SetKeyholeVersion(v string) {
+	mc.keyholeInfo.Version = v
 }
 
 // SetRedaction sets redact
@@ -150,6 +163,8 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	if mc.cluster["databases"], err = dbi.GetAllDatabasesInfo(mc.client); err != nil {
 		return mc.cluster, err
 	}
+	mc.keyholeInfo.Logs = append(mc.keyholeInfo.Logs, dbi.GetLogs()...)
+	mc.cluster["keyhole"] = mc.keyholeInfo
 	var data []byte
 	if data, err = bson.Marshal(mc.cluster); err != nil {
 		return mc.cluster, err
