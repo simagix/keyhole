@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
@@ -23,16 +24,10 @@ type MongoCluster struct {
 	conns       int
 	connString  connstring.ConnString
 	filename    string
-	keyholeInfo KeyholeInfo
+	KeyholeInfo *KeyholeInfo
 	redaction   bool
 	verbose     bool
 	vv          bool
-}
-
-// KeyholeInfo stores keyhole info and logs
-type KeyholeInfo struct {
-	Logs    []string
-	Version string
 }
 
 const replica = "replica"
@@ -40,13 +35,13 @@ const replica = "replica"
 // NewMongoCluster server info struct
 func NewMongoCluster(client *mongo.Client) *MongoCluster {
 	hostname, _ := os.Hostname()
-	keyholeInfo := KeyholeInfo{Logs: []string{}}
-	return &MongoCluster{client: client, filename: hostname + "-cluster.bson.gz", keyholeInfo: keyholeInfo}
+	return &MongoCluster{client: client, filename: hostname + "-cluster.bson.gz",
+		KeyholeInfo: &KeyholeInfo{}}
 }
 
-// SetKeyholeVersion sets keyhole version
-func (mc *MongoCluster) SetKeyholeVersion(v string) {
-	mc.keyholeInfo.Version = v
+// SetKeyholeInfo sets keyhole version
+func (mc *MongoCluster) SetKeyholeInfo(keyholeInfo *KeyholeInfo) {
+	mc.KeyholeInfo = keyholeInfo
 }
 
 // SetRedaction sets redact
@@ -113,34 +108,50 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 		}
 		var shardList []string
 		if shardList, err = GetShardListWithURI(mc.client, mc.connString.String()); err == nil {
+			var mu sync.Mutex
+			var wg = gox.NewWaitGroup(mc.conns) // runs in parallel
 			var shards []bson.M
-			for _, shardURI := range shardList {
-				if mc.verbose {
+			for i, shardURI := range shardList {
+				wg.Add(1)
+				go func(shardURI string, i int) {
+					defer wg.Done()
 					s := shardURI
 					if mc.connString.Password != "" {
 						s = strings.ReplaceAll(s, mc.connString.Password, "xxxxxx")
 					}
-					log.Println("* collect cluster info from shard", s)
-				}
-				var client *mongo.Client
-				if client, err = NewMongoClient(shardURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
-					continue
-				}
-				var sinfo ServerInfo
-				if sinfo, err = GetServerInfo(client, true); err == nil {
-					cluster := bson.M{}
-					cluster["cluster"] = sinfo.Cluster
-					cluster["host"] = sinfo.Host
-					cluster["process"] = sinfo.Process
-					if sinfo.Cluster == replica {
-						cluster["oplog"] = sinfo.Repl["oplog"]
+					msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
+					log.Println(msg)
+					mu.Lock()
+					mc.KeyholeInfo.Log(msg)
+					mu.Unlock()
+					var client *mongo.Client
+					if client, err = NewMongoClient(shardURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
+						return
 					}
-					if err = collectServerInfo(client, &cluster, sinfo.Cluster); err != nil {
-						continue
+					var sinfo ServerInfo
+					if sinfo, err = GetServerInfo(client, true); err == nil {
+						cluster := bson.M{}
+						cluster["cluster"] = sinfo.Cluster
+						cluster["host"] = sinfo.Host
+						cluster["process"] = sinfo.Process
+						if sinfo.Cluster == replica {
+							cluster["oplog"] = sinfo.Repl["oplog"]
+						}
+						if err = collectServerInfo(client, &cluster, sinfo.Cluster); err != nil {
+							return
+						}
+						mu.Lock()
+						shards = append(shards, cluster)
+						mu.Unlock()
 					}
-					shards = append(shards, cluster)
-				}
+					msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
+					log.Println(msg)
+					mu.Lock()
+					mc.KeyholeInfo.Log(msg)
+					mu.Unlock()
+				}(shardURI, i)
 			}
+			wg.Wait()
 			mc.cluster["shards"] = shards
 		}
 	}
@@ -163,8 +174,11 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	if mc.cluster["databases"], err = dbi.GetAllDatabasesInfo(mc.client); err != nil {
 		return mc.cluster, err
 	}
-	mc.keyholeInfo.Logs = append(mc.keyholeInfo.Logs, dbi.GetLogs()...)
-	mc.cluster["keyhole"] = mc.keyholeInfo
+	for _, s := range dbi.GetLogs() {
+		mc.KeyholeInfo.Log(s)
+	}
+	mc.KeyholeInfo.Log("GetClusterInfo() ends")
+	mc.cluster["keyhole"] = mc.KeyholeInfo
 	var data []byte
 	if data, err = bson.Marshal(mc.cluster); err != nil {
 		return mc.cluster, err

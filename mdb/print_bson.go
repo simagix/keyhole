@@ -45,6 +45,13 @@ func PrintBSON(filename string) error {
 			log.Fatal(err)
 		}
 		bson.Unmarshal(data, &doc)
+		if doc["keyhole"] != nil {
+			var keyholeInfo KeyholeInfo
+			if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
+				bson.Unmarshal(buf, &keyholeInfo)
+				fmt.Println(keyholeInfo.Print())
+			}
+		}
 		if data, err = bson.MarshalExtJSON(doc, false, false); err == nil {
 			ioutil.WriteFile(ofile, data, 0644)
 			fmt.Println("JSON outputs to", ofile)

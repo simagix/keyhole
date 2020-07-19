@@ -108,76 +108,86 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 		}
 
 		sort.Strings(collectionNames)
+		var wg = gox.NewWaitGroup(4) // runs in parallel
+		var mu sync.Mutex
 		for _, collectionName := range collectionNames {
-			ns := dbName + "." + collectionName
-			if dbi.verbose {
-				log.Println("GetAllDatabasesInfo", ns)
-			}
-			collection := client.Database(dbName).Collection(collectionName)
+			wg.Add(1)
+			go func(collectionName string) {
+				defer wg.Done()
+				ns := dbName + "." + collectionName
+				log.Println(fmt.Sprintf(`collecting from %v`, ns))
+				collection := client.Database(dbName).Collection(collectionName)
 
-			// firstDoc, FindOne
-			var cursor *mongo.Cursor
-			var firstDoc bson.M
-			opts := options.Find()
-			opts.SetLimit(5) // get 5 samples and choose the max_size()
-			if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
-				log.Println(err)
-				continue
-			}
-			dsize := 0
-			for cursor.Next(ctx) {
-				var v bson.M
-				cursor.Decode(&v)
-				if buf, err := bson.Marshal(v); err != nil {
+				// firstDoc, FindOne
+				var cursor *mongo.Cursor
+				var firstDoc bson.M
+				opts := options.Find()
+				opts.SetLimit(5) // get 5 samples and choose the max_size()
+				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 					log.Println(err)
-					continue
-				} else if len(buf) > dsize {
-					firstDoc = v
-					dsize = len(buf)
+					return
 				}
-			}
-			if firstDoc == nil {
-				if dbi.verbose {
-					log.Println("no sample doc available")
-				}
-				continue
-			}
-			// firstDoc = emptyBinData(firstDoc)
-			if dbi.redaction == true {
-				redact := NewRedactor()
-				walker := gox.NewMapWalker(redact.callback)
-				buf, _ := bson.Marshal(walker.Walk(firstDoc))
-				bson.Unmarshal(buf, &firstDoc)
-			}
-			indexes := ir.GetIndexesFromCollection(collection)
-
-			// stats
-			var stats bson.M
-			client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-			chunks := []bson.M{}
-			if stats["shards"] != nil {
-				keys := []string{}
-
-				for k := range stats["shards"].(primitive.M) {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-				for _, k := range keys {
-					m := (stats["shards"].(primitive.M)[k]).(primitive.M)
-					delete(m, "$clusterTime")
-					delete(m, "$gleStats")
-					if chunk, cerr := dbi.collectChunksDistribution(client, k, ns); cerr != nil {
-						// log.Println(cerr)
-					} else {
-						chunk["objects"] = m["count"]
-						chunk["size"] = m["size"]
-						chunks = append(chunks, chunk)
+				dsize := 0
+				for cursor.Next(ctx) {
+					var v bson.M
+					cursor.Decode(&v)
+					if buf, err := bson.Marshal(v); err != nil {
+						log.Println(err)
+						continue
+					} else if len(buf) > dsize {
+						firstDoc = v
+						dsize = len(buf)
 					}
 				}
-			}
-			collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "chunks": chunks, "document": firstDoc,
-				"indexes": indexes, "stats": trimMap(stats)})
+				if firstDoc == nil {
+					if dbi.verbose {
+						log.Println("no sample doc available")
+					}
+					return
+				}
+				// firstDoc = emptyBinData(firstDoc)
+				if dbi.redaction == true {
+					redact := NewRedactor()
+					walker := gox.NewMapWalker(redact.callback)
+					buf, _ := bson.Marshal(walker.Walk(firstDoc))
+					bson.Unmarshal(buf, &firstDoc)
+				}
+				indexes := ir.GetIndexesFromCollection(collection)
+
+				// stats
+				var stats bson.M
+				client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
+				chunks := []bson.M{}
+				if stats["shards"] != nil {
+					keys := []string{}
+
+					for k := range stats["shards"].(primitive.M) {
+						keys = append(keys, k)
+					}
+					sort.Strings(keys)
+					for _, k := range keys {
+						m := (stats["shards"].(primitive.M)[k]).(primitive.M)
+						delete(m, "$clusterTime")
+						delete(m, "$gleStats")
+						if chunk, cerr := dbi.collectChunksDistribution(client, k, ns); cerr != nil {
+							// log.Println(cerr)
+						} else {
+							chunk["objects"] = m["count"]
+							chunk["size"] = m["size"]
+							chunks = append(chunks, chunk)
+						}
+					}
+				}
+				mu.Lock()
+				collections = append(collections, bson.M{"NS": ns, "collection": collectionName, "chunks": chunks, "document": firstDoc,
+					"indexes": indexes, "stats": trimMap(stats)})
+				mu.Unlock()
+			}(collectionName)
 		}
+		wg.Wait()
+		sort.Slice(collections, func(i, j int) bool {
+			return collections[i]["collection"].(string) < collections[j]["collection"].(string)
+		})
 		var stats bson.M
 		if stats, err = RunCommandOnDB(client, "dbStats", dbName); err != nil {
 			log.Println(err)
@@ -193,7 +203,7 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 	return databases, nil
 }
 
-var batchSize = 16
+var batchSize = 5
 
 func (dbi *DatabaseInfo) collectChunksDistribution(client *mongo.Client, shard string, ns string) (bson.M, error) {
 	var count int64
