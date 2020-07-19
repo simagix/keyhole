@@ -32,6 +32,7 @@ type LogInfo struct {
 	SlowOps        []SlowOps `bson:"slowops"`
 	collscan       bool      `bson:"collscan"`
 	filename       string
+	KeyholeInfo    *KeyholeInfo `bson:"keyhole"`
 	mongoInfo      string
 	regex          string
 	silent         bool
@@ -78,6 +79,11 @@ func NewLogInfo() *LogInfo {
 // SetCollscan -
 func (li *LogInfo) SetCollscan(collscan bool) {
 	li.collscan = collscan
+}
+
+// SetKeyholeInfo sets keyhole version
+func (li *LogInfo) SetKeyholeInfo(keyholeInfo *KeyholeInfo) {
+	li.KeyholeInfo = keyholeInfo
 }
 
 // SetSilent -
@@ -407,5 +413,8 @@ func (li *LogInfo) printLogsSummary() string {
 	}
 	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
+	if li.KeyholeInfo != nil {
+		summaries = append(summaries, li.KeyholeInfo.Print())
+	}
 	return strings.Join(summaries, "\n")
 }
