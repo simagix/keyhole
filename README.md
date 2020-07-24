@@ -41,12 +41,16 @@ Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 You need `go` installed and use `dep` to pull down dependencies.
 
 ```bash
+mkdir -p $GOPATH/src/github/simagix
+cd $GOPATH/src/github/simagix
+git clone --depth 1 https://github.com/simagix/keyhole.git
+cd keyhole
 ./build.sh
 ```
 
 ## Usage
 
-```bsdh
+```bash
 keyhole --help
 ```
 
@@ -54,18 +58,4 @@ keyhole --help
 
 ```bash
 ./test.sh load
-```
-
-## Atlas TLS/SSL Mode
-
-An example connecting to Atlas
-
-```bash
-keyhole --info "mongodb+srv://user:secret@cluster0-v7due.gcp.mongodb.net/test"
-```
-
-## TLS/SSL Mode
-
-```bash
-keyhole --info --sslCAFile /etc/ssl/certs/ca.pem --sslPEMKeyFile /etc/ssl/certs/client.pem "mongodb://user:password@localhost/keyhole?authSource=admin&ssl=true"
 ```
