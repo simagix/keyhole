@@ -82,13 +82,14 @@ function GetIndexesFromCollection(dbname, name) {
     var index = { "totalOps": 0 };
     index["name"] = doc["name"];
     index["key"] = JSON.stringify(doc["key"]).replace(/"/g, "");
+    index["keystring"] = index["key"]
     var str = JSON.stringify(doc["key"]).replace(":-1", ":1").replace(/"/g, "");
     index["effectiveKey"] = str.substring(1, str.length-1);
-    index["stats"] = [];
+    index["usage"] = [];
 		for (var i = 0; i < docs.length; i++) {
 			if (docs[i]["name"] == index["name"]) {
 				index["totalOps"] += Number(docs[i]["accesses"]["ops"])
-				index["stats"].push({ "host": docs[i]["host"], "accesses": {"since": docs[i]["accesses"]["since"], "ops": Number(docs[i]["accesses"]["ops"])}})
+				index["usage"].push({ "host": docs[i]["host"], "accesses": {"since": docs[i]["accesses"]["since"], "ops": Number(docs[i]["accesses"]["ops"])}})
 			}
 		}
     indexes.push(index);
