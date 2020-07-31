@@ -39,7 +39,7 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 		return client, err
 	}
 	opts := options.Client().ApplyURI(uri)
-	if connString.ReplicaSet == "" {
+	if connString.ReplicaSet == "" && len(connString.Hosts) == 1 && strings.HasPrefix(uri, "mongodb://") {
 		opts.SetDirect(true)
 	}
 	if connString.Username == "" {

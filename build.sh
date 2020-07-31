@@ -17,7 +17,7 @@ if [[ -d vendor ]]; then
 fi
 
 mkdir -p build
-export ver="2.4.3"
+export ver="2.4.4"
 export version="v${ver}-$(date "+%Y%m%d")"
 
 if [[ "$1" == "all" ]]; then

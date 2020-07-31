@@ -143,7 +143,6 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 					if dbi.verbose {
 						log.Println("no sample doc available")
 					}
-					return
 				}
 				// firstDoc = emptyBinData(firstDoc)
 				if dbi.redaction == true {
