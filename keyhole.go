@@ -205,11 +205,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	client, err := mdb.NewMongoClient(*uri, *tlsCAFile, *tlsCertificateKeyFile)
-	if err != nil {
+	var connString connstring.ConnString
+	if connString, err = mdb.ParseURI(*uri); err != nil {
 		log.Fatal(err)
 	}
-	connString, err := connstring.Parse(*uri)
+	*uri = connString.String() // password can be injected if missing
+	client, err := mdb.NewMongoClient(*uri, *tlsCAFile, *tlsCertificateKeyFile)
 	if err != nil {
 		log.Fatal(err)
 	}

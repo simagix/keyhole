@@ -31,10 +31,6 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
 	var connString connstring.ConnString
-
-	if uri, err = parse(uri); err != nil {
-		return client, err
-	}
 	if connString, err = connstring.Parse(uri); err != nil {
 		return client, err
 	}
@@ -80,45 +76,24 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 	return client, err
 }
 
-// parse checks if password is included
-func parse(uri string) (string, error) {
+// ParseURI checks if password is included
+func ParseURI(uri string) (connstring.ConnString, error) {
 	var err error
 	var connString connstring.ConnString
 	if connString, err = connstring.Parse(uri); err != nil {
-		return uri, err
+		return connString, err
 	}
-	if connString.Username != "" && connString.Password == "" {
-		if connString.Password, err = readPasswordFromStdin(); err != nil {
-			return uri, err
+	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
+		fmt.Print("Enter Password: ")
+		var data []byte
+		if data, err = terminal.ReadPassword(int(syscall.Stdin)); err != nil {
+			return connString, err
 		}
-		index := strings.LastIndex(uri, "@")
-		uri = (uri)[:index] + ":" + template.URLQueryEscaper(connString.Password) + (uri)[index:]
+		fmt.Println("")
+		connString.Password = string(data)
+		i := strings.Index(uri, connString.Username) + len(connString.Username)
+		uri = (uri)[:i] + ":" + template.URLQueryEscaper(connString.Password) + (uri)[i:]
+		return connstring.Parse(uri)
 	}
-
-	if connString.Database == "" {
-		connString.Database = KeyholeDB
-		pos := strings.LastIndex(uri, "?")
-		if pos > 0 { // found ?query_string
-			uri = (uri)[:pos] + connString.Database + (uri)[pos:]
-		} else {
-			length := len(uri)
-			if (uri)[length-1] == '/' {
-				uri += connString.Database
-			} else {
-				uri += "/" + connString.Database
-			}
-		}
-	}
-	return uri, err
-}
-
-// readPasswordFromStdin reads password from stdin
-func readPasswordFromStdin() (string, error) {
-	var buffer []byte
-	var err error
-	fmt.Print("Enter Password: ")
-	if buffer, err = terminal.ReadPassword(int(syscall.Stdin)); err != nil {
-		return "", err
-	}
-	return string(buffer), err
+	return connString, err
 }
