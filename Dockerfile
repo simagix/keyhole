@@ -8,8 +8,8 @@ FROM alpine
 LABEL Ken Chen <ken.chen@simagix.com>
 RUN addgroup -S simagix && adduser -S simagix -G simagix
 USER simagix
-WORKDIR /build
-COPY --from=builder /go/src/github.com/simagix/keyhole/build/keyhole-* /build/
+WORKDIR /dist
+COPY --from=builder /go/src/github.com/simagix/keyhole/dist/keyhole-* /dist/
 WORKDIR /home/simagix
-COPY --from=builder /go/src/github.com/simagix/keyhole/build/keyhole-linux-x64 /keyhole
+COPY --from=builder /go/src/github.com/simagix/keyhole/dist/keyhole-linux-x64 /keyhole
 CMD ["/keyhole", "--version"]

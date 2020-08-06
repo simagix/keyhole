@@ -1,4 +1,5 @@
 **/.git
 **/testdata
 **/*.gz
-vendor
+vendor/
+dist/
