@@ -210,8 +210,8 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 		filter = re.ReplaceAllString(filter, "")
 		re = regexp.MustCompile(`( ObjectId\('\S+'\))|(UUID\("\S+"\))|( Timestamp\(\d+, \d+\))|(BinData\(\d+, \S+\))`)
 		filter = re.ReplaceAllString(filter, "1")
-		re = regexp.MustCompile(`(: \/(\^)?\S+\/(\S+)? })`)
-		filter = re.ReplaceAllString(filter, ": /${2}regex/$3}")
+		re = regexp.MustCompile(`(: \/(\^)?.*?(\$)?\/([igm])?(,)?\s)`)
+		filter = re.ReplaceAllString(filter, ": /$2regex$3/$4$5 ")
 		filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 		filter += aggStages
 		milli, _ := strconv.Atoi(ms)

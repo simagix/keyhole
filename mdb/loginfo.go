@@ -351,7 +351,12 @@ func (li *LogInfo) printLogsSummary() string {
 	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
+	count := 0
 	for _, value := range li.OpsPatterns {
+		count++
+		if count > 20 {
+			break
+		}
 		str := value.Filter
 		if len(value.Command) > 10 {
 			value.Command = value.Command[:10]
@@ -413,6 +418,7 @@ func (li *LogInfo) printLogsSummary() string {
 	}
 	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
+	summaries = append(summaries, fmt.Sprintf(`top %d lines displayed; see HTML report for details.`, count))
 	if li.KeyholeInfo != nil {
 		summaries = append(summaries, li.KeyholeInfo.Print())
 	}
