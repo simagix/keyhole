@@ -244,7 +244,7 @@ func collectServerInfo(client *mongo.Client, cluster *bson.M, clusterType string
 	} else {
 		(*cluster)["rolesInfo"] = bson.M{"ok": 0, "error": err.Error()}
 	}
-	return err
+	return nil
 }
 
 func emptyBinData(firstDoc bson.M) bson.M {

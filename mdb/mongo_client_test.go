@@ -42,14 +42,3 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 	}
 	t.Log(count, "total counts from", uri)
 }
-
-func TestParse(t *testing.T) {
-	uri := "mongodb://localhost/keyhole?replicaSet=replset"
-	str, err := parse(uri)
-	if err != nil || str != uri {
-		t.Fatal(err)
-	}
-}
-
-func TestReadPasswordFromStdin(t *testing.T) {
-}
