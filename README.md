@@ -27,7 +27,7 @@ Several features are available, and they are
 - [Cluster Info and Sanity Check](https://github.com/simagix/keyhole/wiki/MongoDB-Cluster-Info) to display information of a cluster including stats to help determine working set data size.
 - [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes)
 - [Duplicate all indexes](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes) to another MongoDB cluster.
-- [**Seed data**](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for demo and educational purposes as a trainer.
+- [Seed data](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for demo and educational purposes as a trainer.
 - [Display average ops time](https://github.com/simagix/keyhole/wiki/Logs-Analytics) and query patterns by parsing logs.
 - [Display indexes scores](https://github.com/simagix/keyhole/wiki/Indexes-Scores-and-Explain) of a query shape.
 - [Monitor WiredTiger Cache](https://github.com/simagix/keyhole/wiki/WiredTiger-Cache-Usage) in near real time.
@@ -59,3 +59,7 @@ keyhole --help
 ```bash
 ./test.sh load
 ```
+
+## Disclaimer
+
+This software is not supported by MongoDB, Inc. under any of their commercial support subscriptions or otherwise. Any usage of keyhole is at your own risk. Bug reports, feature requests and questions can be posted in the Issues section on GitHub.
