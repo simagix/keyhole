@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-var version = "self-built"
+var version = "devel-built"
 
 func main() {
 	allinfo := flag.Bool("allinfo", false, "get all cluster info")
@@ -222,6 +222,7 @@ func main() {
 			*vv = true
 			params = "-allinfo"
 		} else if *vv == true {
+			*verbose = true
 			params = "-info -vv"
 		} else if *verbose == true {
 			params = "-info -v"
@@ -342,6 +343,7 @@ func main() {
 		wtc.Start()
 	}
 
+	fmt.Println(mdb.GetClusterSummary(client))
 	var runner *sim.Runner
 	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
 		log.Fatal(err)

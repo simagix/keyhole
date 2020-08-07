@@ -115,7 +115,7 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 			go func(collectionName string) {
 				defer wg.Done()
 				ns := dbName + "." + collectionName
-				log.Println(fmt.Sprintf(`collecting from %v`, ns))
+				// log.Println(fmt.Sprintf(`collecting from %v`, ns))
 				collection := client.Database(dbName).Collection(collectionName)
 
 				// firstDoc, FindOne

@@ -80,29 +80,27 @@ func (mc *MongoCluster) SetConnString(connString connstring.ConnString) {
 // GetClusterInfo -
 func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
-	var config = bson.M{}
-	mc.cluster = bson.M{"config": config}
-	var info ServerInfo
+	mc.cluster = bson.M{}
+	config := GetServerInfo(mc.client)
+	mc.cluster["cluster"] = config["cluster"]
+	mc.cluster["host"] = config["host"]
+	mc.cluster["process"] = config["process"]
+	mc.cluster["edition"] = config["edition"]
+	mc.cluster["version"] = config["version"]
 	if mc.verbose {
 		log.Println("* GetClusterInfo")
+	} else {
+		return mc.cluster, err
 	}
-	if info, err = GetServerInfo(mc.client); err != nil {
-		return nil, err
-	}
-	var val bson.M
-	b, _ := bson.Marshal(info)
-	bson.Unmarshal(b, &val)
-	if mc.verbose == false {
-		return val, err
-	}
-	info.StorageSize["databases"] = info.StorageSize["statsDetails"]
-	delete(info.StorageSize, "statsDetails")
-	mc.cluster["cluster"] = info.Cluster
-	mc.cluster["host"] = info.Host
-	mc.SetFilename(info.Host + "-cluster.bson.gz")
-	mc.cluster["process"] = info.Process
-	if info.Cluster == SHARDED {
-		mc.cluster["sharding"] = info.Sharding
+	delete(config, "cluster")
+	delete(config, "host")
+	delete(config, "process")
+	delete(config, "edition")
+	delete(config, "version")
+	mc.cluster["config"] = config
+	mc.SetFilename(fmt.Sprintf(`%v-cluster.bson.gz`, mc.cluster["host"]))
+	clusterType := fmt.Sprintf(`%v`, mc.cluster["cluster"])
+	if clusterType == SHARDED {
 		if mc.cluster["shardIDs"], err = GetShards(mc.client); err != nil {
 			log.Println(err)
 		}
@@ -128,22 +126,10 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 					if client, err = NewMongoClient(shardURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
 						return
 					}
-					var sinfo ServerInfo
-					if sinfo, err = GetServerInfo(client, true); err == nil {
-						cluster := bson.M{}
-						cluster["cluster"] = sinfo.Cluster
-						cluster["host"] = sinfo.Host
-						cluster["process"] = sinfo.Process
-						if sinfo.Cluster == replica {
-							cluster["oplog"] = sinfo.Repl["oplog"]
-						}
-						if err = collectServerInfo(client, &cluster, sinfo.Cluster); err != nil {
-							return
-						}
-						mu.Lock()
-						shards = append(shards, cluster)
-						mu.Unlock()
-					}
+					cluster := GetServerInfo(client)
+					mu.Lock()
+					shards = append(shards, cluster)
+					mu.Unlock()
 					msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
 					log.Println(msg)
 					mu.Lock()
@@ -155,16 +141,8 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			mc.cluster["shards"] = shards
 		}
 	}
-	mc.cluster["storage"] = info.StorageSize
-	mc.cluster["version"] = info.Version
-	if info.Cluster == replica {
-		config["oplog"] = info.Repl["oplog"]
-	}
 	if mc.verbose {
 		log.Println("* collectServerInfo")
-	}
-	if err = collectServerInfo(mc.client, &config, info.Cluster); err != nil {
-		return mc.cluster, err
 	}
 	dbi := NewDatabaseInfo()
 	dbi.SetNumberConnections(mc.conns)
@@ -187,64 +165,6 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	}
 	fmt.Println("\rBSON is written to", mc.filename)
 	return mc.cluster, err
-}
-
-func collectServerInfo(client *mongo.Client, cluster *bson.M, clusterType string) error {
-	var err error // hostInfo
-	var hostInfo bson.M
-	if *cluster == nil {
-		cluster = &bson.M{}
-	}
-	if hostInfo, err = RunAdminCommand(client, "hostInfo"); err == nil {
-		(*cluster)["hostInfo"] = trimMap(hostInfo)
-	} else {
-		(*cluster)["hostInfo"] = bson.M{"ok": 0, "error": err.Error()}
-	}
-	// getCmdLineOpts
-	var getCmdLineOpts bson.M
-	if getCmdLineOpts, err = RunAdminCommand(client, "getCmdLineOpts"); err == nil {
-		(*cluster)["getCmdLineOpts"] = trimMap(getCmdLineOpts)
-	} else {
-		(*cluster)["getCmdLineOpts"] = bson.M{"ok": 0, "error": err.Error()}
-	}
-	// buildInfo
-	var buildInfo bson.M
-	if buildInfo, err = RunAdminCommand(client, "buildInfo"); err == nil {
-		(*cluster)["buildInfo"] = trimMap(buildInfo)
-	} else {
-		(*cluster)["buildInfo"] = bson.M{"ok": 0, "error": err.Error()}
-	}
-	// ServerStatus
-	var serverStatus bson.M
-	if serverStatus, err = RunAdminCommand(client, "serverStatus"); err == nil {
-		(*cluster)["serverStatus"] = trimMap(serverStatus)
-	} else {
-		(*cluster)["serverStatus"] = bson.M{"ok": 0, "error": err.Error()}
-	}
-	// replSetGetStatus
-	if clusterType == replica {
-		var replSetGetStatus bson.M
-		if replSetGetStatus, err = RunAdminCommand(client, "replSetGetStatus"); err == nil {
-			(*cluster)["replSetGetStatus"] = trimMap(replSetGetStatus)
-		} else {
-			(*cluster)["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
-		}
-	}
-	// usersInfo
-	var usersInfo bson.M
-	if usersInfo, err = RunAdminCommand(client, "usersInfo"); err == nil {
-		(*cluster)["usersInfo"] = trimMap(usersInfo)
-	} else {
-		(*cluster)["usersInfo"] = bson.M{"ok": 0, "error": err.Error()}
-	}
-	// rolesInfo
-	var rolesInfo bson.M
-	if rolesInfo, err = RunAdminCommand(client, "rolesInfo"); err == nil {
-		(*cluster)["rolesInfo"] = trimMap(rolesInfo)
-	} else {
-		(*cluster)["rolesInfo"] = bson.M{"ok": 0, "error": err.Error()}
-	}
-	return nil
 }
 
 func emptyBinData(firstDoc bson.M) bson.M {

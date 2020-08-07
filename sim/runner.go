@@ -30,6 +30,7 @@ type Runner struct {
 	auto                  bool
 	channel               chan string
 	client                *mongo.Client
+	clusterType           string
 	collectionName        string
 	conns                 int
 	dbName                string
@@ -39,7 +40,6 @@ type Runner struct {
 	metrics               map[string][]bson.M
 	mutex                 sync.RWMutex
 	peek                  bool
-	serverInfo            mdb.ServerInfo
 	simOnly               bool
 	tlsCAFile             string
 	tlsCertificateKeyFile string
@@ -75,11 +75,10 @@ func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Run
 	if runner.client, err = mdb.NewMongoClient(uri, tlsCAFile, tlsCertificateKeyFile); err != nil {
 		return &runner, err
 	}
-	if runner.serverInfo, err = mdb.GetServerInfo(runner.client); err != nil {
-		return &runner, err
-	}
+	cluster := mdb.GetServerInfo(runner.client)
+	runner.clusterType = fmt.Sprintf(`%v`, cluster["cluster"])
 	runner.uriList = []string{uri}
-	if runner.serverInfo.Cluster == mdb.SHARDED {
+	if runner.clusterType == mdb.SHARDED {
 		if runner.uriList, err = mdb.GetShardListWithURI(runner.client, uri); err != nil {
 			return &runner, err
 		}
@@ -306,7 +305,7 @@ func (rn *Runner) createIndexes(docs []bson.M) error {
 			return err
 		}
 
-		if rn.serverInfo.Cluster == mdb.SHARDED {
+		if rn.clusterType == mdb.SHARDED {
 			if err = rn.splitChunks(); err != nil {
 				fmt.Println(err)
 			}

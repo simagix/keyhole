@@ -4,9 +4,8 @@ package mdb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
+	"log"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,73 +20,116 @@ const REPLICA = "replica"
 // STANDALONE cluster
 const STANDALONE = "standalone"
 
-// ServerInfo constains server info from db.serverStatus()
-type ServerInfo struct {
-	Cluster     string     `json:"cluster" bson:"cluster"`
-	Host        string     `json:"host" bson:"host"`
-	Process     string     `json:"process" bson:"process"`
-	Version     string     `json:"version" bson:"version"`
-	Sharding    bson.M     `json:"sharding" bson:"sharding"`
-	Shards      []ShardDoc `json:"shards" bson:"shards"`
-	Repl        bson.M     `json:"repl" bson:"repl"`
-	StorageSize bson.M
+// GetClusterSummary returns cluster summary
+func GetClusterSummary(client *mongo.Client) string {
+	doc := GetServerInfo(client)
+	name, _ := doc["hostInfo"].(bson.M)["os"].(bson.M)["name"]
+	ncores, _ := doc["hostInfo"].(bson.M)["system"].(bson.M)["numCores"]
+	memsize, _ := doc["hostInfo"].(bson.M)["system"].(bson.M)["memSizeMB"]
+	return fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v %v cores %v mem`,
+		doc["version"], doc["edition"], doc["host"],
+		name, doc["process"], doc["cluster"], ncores, memsize)
 }
 
-// GetServerInfo returns ServerInfo from db.serverStatus()
-func GetServerInfo(client *mongo.Client, skipStorageStats ...bool) (ServerInfo, error) {
-	var err error
-	var result bson.M
-	var serverInfo = ServerInfo{}
-	if result, err = RunAdminCommand(client, "serverStatus"); err != nil {
-		return serverInfo, err
-	}
-	b, _ := bson.Marshal(result)
-	bson.Unmarshal(b, &serverInfo)
-
-	if serverInfo.Sharding == nil {
-		serverInfo.Sharding = bson.M{}
-	}
-
-	if serverInfo.Process == "mongos" {
-		serverInfo.Cluster = SHARDED
-		var shards []ShardDoc
-		if shards, err = GetShards(client); err != nil {
-			serverInfo.Shards = []ShardDoc{}
-		} else {
-			serverInfo.Shards = shards
-		}
-	} else if serverInfo.Repl != nil {
-		serverInfo.Cluster = REPLICA
-		serverInfo.Repl["oplog"] = GetOplogStats(client)
+// GetServerInfo gets mongo server information
+func GetServerInfo(client *mongo.Client) bson.M {
+	var err error // hostInfo
+	var estrs []string
+	var cluster = bson.M{}
+	var hostInfo bson.M
+	if hostInfo, err = RunAdminCommand(client, "hostInfo"); err == nil {
+		cluster["hostInfo"] = trimMap(hostInfo)
 	} else {
-		serverInfo.Cluster = STANDALONE
-		serverInfo.Repl = bson.M{}
+		log.Println(err)
+		estrs = append(estrs, err.Error())
+		cluster["hostInfo"] = bson.M{"ok": 0, "error": err.Error()}
+	}
+	// getCmdLineOpts
+	var getCmdLineOpts bson.M
+	if getCmdLineOpts, err = RunAdminCommand(client, "getCmdLineOpts"); err == nil {
+		cluster["getCmdLineOpts"] = trimMap(getCmdLineOpts)
+	} else {
+		log.Println(err)
+		estrs = append(estrs, err.Error())
+		cluster["getCmdLineOpts"] = bson.M{"ok": 0, "error": err.Error()}
+	}
+	// buildInfo
+	var buildInfo bson.M
+	if buildInfo, err = RunAdminCommand(client, "buildInfo"); err == nil {
+		cluster["buildInfo"] = trimMap(buildInfo)
+	} else {
+		log.Println(err)
+		estrs = append(estrs, err.Error())
+		cluster["buildInfo"] = bson.M{"ok": 0, "error": err.Error()}
+	}
+	// ServerStatus
+	var serverStatus bson.M
+	if serverStatus, err = RunAdminCommand(client, "serverStatus"); err == nil {
+		cluster["serverStatus"] = trimMap(serverStatus)
+	} else {
+		log.Println(err)
+		estrs = append(estrs, err.Error())
+		cluster["serverStatus"] = bson.M{"ok": 0, "error": err.Error()}
 	}
 
-	if len(skipStorageStats) > 0 {
-		return serverInfo, err
+	var bi struct {
+		Version string
+		Modules []string
 	}
-	var names []string
-	if names, err = ListDatabaseNames(client); err != nil {
-		return serverInfo, err
+	var hi struct {
+		OS struct {
+			Name string
+		}
+		System struct {
+			Hostname  string
+			NumCores  int
+			MemSizeMB int
+		}
 	}
-
-	dbStats := DBStats{}
-	var dataSize, indexSize int
-	list := []bson.M{}
-	total := len(names)
-	for i, name := range names {
-		fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*i)/total)
-		result, _ = RunCommandOnDB(client, "dbStats", name)
-		b, _ := json.Marshal(result)
-		json.Unmarshal(b, &dbStats)
-		dataSize += dbStats.DataSize
-		indexSize += dbStats.IndexSize
-		list = append(list, bson.M{"db": name, "objects": dbStats.Objects, "dataSize": dbStats.DataSize, "indexSize": dbStats.IndexSize})
+	var ss struct {
+		Process string
+		Repl    struct {
+			SetName string
+		}
+		Sharding struct {
+			ConfigsvrConnectionString string
+		}
 	}
-	fmt.Fprintf(os.Stderr, "\r     \r")
-	serverInfo.StorageSize = bson.M{"totalDataSize (MB)": dataSize / 1024 / 1024, "totalIndexSize (MB)": indexSize / 1024 / 1024, "statsDetails": list}
-	return serverInfo, nil
+	var data []byte
+	data, _ = bson.Marshal(buildInfo)
+	bson.Unmarshal(data, &bi)
+	edition := "community"
+	if len(bi.Modules) > 0 {
+		edition = bi.Modules[0]
+	}
+	data, _ = bson.Marshal(hostInfo)
+	bson.Unmarshal(data, &hi)
+	data, _ = bson.Marshal(serverStatus)
+	bson.Unmarshal(data, &ss)
+	clusterType := "standalone"
+	if ss.Repl.SetName != "" {
+		clusterType = "replica"
+	} else if ss.Sharding.ConfigsvrConnectionString != "" {
+		clusterType = "sharded"
+	}
+	// replSetGetStatus
+	if clusterType == replica {
+		var replSetGetStatus bson.M
+		if replSetGetStatus, err = RunAdminCommand(client, "replSetGetStatus"); err == nil {
+			cluster["replSetGetStatus"] = trimMap(replSetGetStatus)
+		} else {
+			log.Println(err)
+			estrs = append(estrs, err.Error())
+			cluster["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
+		}
+		cluster["oplog"] = GetOplogStats(client)
+	}
+	cluster["cluster"] = clusterType
+	cluster["host"] = hi.System.Hostname
+	cluster["process"] = ss.Process
+	cluster["edition"] = edition
+	cluster["version"] = bi.Version
+	return cluster
 }
 
 // ListDatabaseNames gets all database names
