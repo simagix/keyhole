@@ -199,9 +199,7 @@ func main() {
 		}
 		os.Exit(0)
 	} else if len(*uri) == 0 {
-		fmt.Println("Missing connection string")
-		fmt.Println("Usage: keyhole [opts] uri")
-		flag.PrintDefaults()
+		fmt.Println("Usage: keyhole [options] <connection string")
 		os.Exit(0)
 	}
 

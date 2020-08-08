@@ -4,16 +4,22 @@ package mdb
 
 import (
 	"context"
+	"log"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 func TestGetShardListWithURI(t *testing.T) {
-	var client *mongo.Client
-	client = getMongoClient()
+	var err error
+	client := getMongoClient()
 	defer client.Disconnect(context.Background())
-	if _, err := GetShardListWithURI(client, UnitTestURL); err != nil {
+	var shards []ShardDoc
+	if shards, err = GetShards(client); err != nil {
+		log.Println(err)
+	}
+	connString, _ := connstring.Parse(UnitTestURL)
+	if _, err := GetShardListWithURI(shards, connString); err != nil {
 		t.Log(err)
 		return
 	}

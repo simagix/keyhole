@@ -23,12 +23,14 @@ const STANDALONE = "standalone"
 // GetClusterSummary returns cluster summary
 func GetClusterSummary(client *mongo.Client) string {
 	doc := GetServerInfo(client)
-	name, _ := doc["hostInfo"].(bson.M)["os"].(bson.M)["name"]
-	ncores, _ := doc["hostInfo"].(bson.M)["system"].(bson.M)["numCores"]
-	memsize, _ := doc["hostInfo"].(bson.M)["system"].(bson.M)["memSizeMB"]
+	summary := doc["summary"].(bson.M)
+	return getClusterSummaryString(summary)
+}
+
+func getClusterSummaryString(doc bson.M) string {
 	return fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v %v cores %v mem`,
-		doc["version"], doc["edition"], doc["host"],
-		name, doc["process"], doc["cluster"], ncores, memsize)
+		doc["version"], doc["edition"], doc["host"], doc["os-name"],
+		doc["process"], doc["cluster"], doc["numCores"], doc["memSizeMB"])
 }
 
 // GetServerInfo gets mongo server information
@@ -124,11 +126,16 @@ func GetServerInfo(client *mongo.Client) bson.M {
 		}
 		cluster["oplog"] = GetOplogStats(client)
 	}
-	cluster["cluster"] = clusterType
-	cluster["host"] = hi.System.Hostname
-	cluster["process"] = ss.Process
-	cluster["edition"] = edition
-	cluster["version"] = bi.Version
+	summary := bson.M{}
+	summary["cluster"] = clusterType
+	summary["host"] = hi.System.Hostname
+	summary["process"] = ss.Process
+	summary["edition"] = edition
+	summary["version"] = bi.Version
+	summary["os-name"] = hi.OS.Name
+	summary["numCores"] = hi.System.NumCores
+	summary["memSizeMB"] = hi.System.MemSizeMB
+	cluster["summary"] = summary
 	return cluster
 }
 

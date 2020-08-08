@@ -38,23 +38,11 @@ func GetShards(client *mongo.Client) ([]ShardDoc, error) {
 }
 
 // GetShardListWithURI gets a list of shards
-func GetShardListWithURI(client *mongo.Client, uri string) ([]string, error) {
-	var err error
+func GetShardListWithURI(shards []ShardDoc, connString connstring.ConnString) ([]string, error) {
 	var list []string
-
 	isSRV := false
-	if strings.Index(uri, "mongodb+srv") == 0 {
+	if strings.Index(connString.String(), "mongodb+srv") == 0 {
 		isSRV = true
-		uri = strings.Replace(uri, "mongodb+srv", "mongodb", 1)
-	}
-	var connString connstring.ConnString
-	if connString, err = connstring.Parse(uri); err != nil {
-		return list, err
-	}
-
-	var shards []ShardDoc
-	if shards, err = GetShards(client); err != nil {
-		return list, err
 	}
 
 	for s := range shards {

@@ -79,7 +79,9 @@ func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Run
 	runner.clusterType = fmt.Sprintf(`%v`, cluster["cluster"])
 	runner.uriList = []string{uri}
 	if runner.clusterType == mdb.SHARDED {
-		if runner.uriList, err = mdb.GetShardListWithURI(runner.client, uri); err != nil {
+		if shards, err := mdb.GetShards(runner.client); err != nil {
+			return &runner, err
+		} else if runner.uriList, err = mdb.GetShardListWithURI(shards, connString); err != nil {
 			return &runner, err
 		}
 	}
@@ -158,10 +160,10 @@ func (rn *Runner) Start() error {
 	}
 	if rn.auto == false {
 		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Begin a load test [Y/n]: ")
+		fmt.Print("Begin a load test [y/N]: ")
 		text, _ := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
-		if text != "y" && text != "" && text != "Y" {
+		if text != "y" && text != "Y" {
 			os.Exit(0)
 		}
 	}

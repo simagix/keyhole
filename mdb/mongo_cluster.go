@@ -82,30 +82,29 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	var err error
 	mc.cluster = bson.M{}
 	config := GetServerInfo(mc.client)
-	mc.cluster["cluster"] = config["cluster"]
-	mc.cluster["host"] = config["host"]
-	mc.cluster["process"] = config["process"]
-	mc.cluster["edition"] = config["edition"]
-	mc.cluster["version"] = config["version"]
+	summary := config["summary"].(bson.M)
+	mc.cluster["cluster"] = summary["cluster"]
+	mc.cluster["host"] = summary["host"]
+	mc.cluster["process"] = summary["process"]
+	mc.cluster["version"] = summary["version"]
+	mc.cluster["summary"] = getClusterSummaryString(summary)
 	if mc.verbose {
-		log.Println("* GetClusterInfo")
+		log.Println(mc.cluster["summary"])
 	} else {
 		return mc.cluster, err
 	}
-	delete(config, "cluster")
-	delete(config, "host")
-	delete(config, "process")
-	delete(config, "edition")
-	delete(config, "version")
+	delete(config, "summary")
 	mc.cluster["config"] = config
 	mc.SetFilename(fmt.Sprintf(`%v-cluster.bson.gz`, mc.cluster["host"]))
 	clusterType := fmt.Sprintf(`%v`, mc.cluster["cluster"])
 	if clusterType == SHARDED {
-		if mc.cluster["shardIDs"], err = GetShards(mc.client); err != nil {
+		var shards []ShardDoc
+		if shards, err = GetShards(mc.client); err != nil {
 			log.Println(err)
 		}
+		mc.cluster["shardIDs"] = shards
 		var shardList []string
-		if shardList, err = GetShardListWithURI(mc.client, mc.connString.String()); err == nil {
+		if shardList, err = GetShardListWithURI(shards, mc.connString); err == nil {
 			var mu sync.Mutex
 			var wg = gox.NewWaitGroup(mc.conns) // runs in parallel
 			var shards []bson.M
