@@ -96,7 +96,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 	var ctx = context.Background()
 	var totalTPS int
 
-	if client, err = mdb.NewMongoClient(rn.uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
+	if client, err = mdb.NewMongoClient(rn.uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
 		return err
 	}
 	defer client.Disconnect(ctx)

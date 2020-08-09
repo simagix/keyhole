@@ -28,7 +28,6 @@ if [[ "$1" == "all" ]]; then
 else
   $DEP ensure $UPDATE
   if [ "$1" == "cross-platform"  ]; then
-    $DEP ensure $UPDATE
     env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o dist/keyhole-osx-x64 keyhole.go
     env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o dist/keyhole-linux-x64 keyhole.go
     env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o dist/keyhole-win-x64.exe keyhole.go

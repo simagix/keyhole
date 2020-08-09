@@ -136,6 +136,7 @@ func GetServerInfo(client *mongo.Client) bson.M {
 	summary["numCores"] = hi.System.NumCores
 	summary["memSizeMB"] = hi.System.MemSizeMB
 	cluster["summary"] = summary
+	cluster["cluster"] = clusterType
 	return cluster
 }
 

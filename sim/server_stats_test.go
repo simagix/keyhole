@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 func TestCollectServerStatus(t *testing.T) {
@@ -13,7 +15,8 @@ func TestCollectServerStatus(t *testing.T) {
 	if os.Getenv("DATABASE_URL") != "" {
 		UnitTestURL = os.Getenv("DATABASE_URL")
 	}
-	runner, _ := NewRunner(UnitTestURL, "", "")
+	connString, _ := connstring.Parse(UnitTestURL)
+	runner, _ := NewRunner(connString)
 	fmt.Println(runner.uri)
 	// runner.CollectServerStatus(runner.uri, channel)
 }

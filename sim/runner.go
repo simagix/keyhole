@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -27,57 +28,48 @@ import (
 
 // Runner -
 type Runner struct {
-	auto                  bool
-	channel               chan string
-	client                *mongo.Client
-	clusterType           string
-	collectionName        string
-	conns                 int
-	dbName                string
-	drop                  bool
-	duration              int
-	filename              string
-	metrics               map[string][]bson.M
-	mutex                 sync.RWMutex
-	peek                  bool
-	simOnly               bool
-	tlsCAFile             string
-	tlsCertificateKeyFile string
-	tps                   int
-	txFilename            string
-	uri                   string
-	uriList               []string
-	verbose               bool
+	auto           bool
+	channel        chan string
+	client         *mongo.Client
+	clusterType    string
+	collectionName string
+	conns          int
+	connString     connstring.ConnString
+	dbName         string
+	drop           bool
+	duration       int
+	filename       string
+	metrics        map[string][]bson.M
+	mutex          sync.RWMutex
+	peek           bool
+	simOnly        bool
+	tps            int
+	txFilename     string
+	uri            string
+	uriList        []string
+	verbose        bool
 }
 
 // NewRunner - Constructor
-func NewRunner(uri string, tlsCAFile string, tlsCertificateKeyFile string) (*Runner, error) {
+func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	var err error
-	runner := Runner{tlsCAFile: tlsCAFile, tlsCertificateKeyFile: tlsCertificateKeyFile,
+	runner := Runner{connString: connString,
 		channel: make(chan string), collectionName: mdb.ExamplesCollection, metrics: map[string][]bson.M{},
 		mutex: sync.RWMutex{}}
-	connString, _ := connstring.Parse(uri)
 	runner.dbName = connString.Database
-	if connString.Database == "" {
+	if runner.dbName == "" {
 		runner.dbName = mdb.KeyholeDB
-		pos := strings.Index(uri, "?")
-		if pos > 0 { // found ?query_string
-			uri = (uri)[:pos] + runner.dbName + (uri)[pos:]
-		} else {
-			length := len(uri)
-			if (uri)[length-1] == '/' {
-				uri += runner.dbName
-			} else {
-				uri += "/" + runner.dbName
-			}
-		}
 	}
-	if runner.client, err = mdb.NewMongoClient(uri, tlsCAFile, tlsCertificateKeyFile); err != nil {
+	if runner.client, err = mdb.NewMongoClient(connString.String(),
+		connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
 		return &runner, err
 	}
 	cluster := mdb.GetServerInfo(runner.client)
 	runner.clusterType = fmt.Sprintf(`%v`, cluster["cluster"])
-	runner.uriList = []string{uri}
+	if runner.clusterType == "" {
+		return nil, errors.New("invalid cluster type: " + runner.clusterType)
+	}
+	runner.uriList = []string{connString.String()}
 	if runner.clusterType == mdb.SHARDED {
 		if shards, err := mdb.GetShards(runner.client); err != nil {
 			return &runner, err
@@ -215,7 +207,7 @@ func (rn *Runner) terminate() {
 
 	rn.Cleanup()
 	for _, uri := range rn.uriList {
-		if client, err = mdb.NewMongoClient(uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
+		if client, err = mdb.NewMongoClient(uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
 			log.Println(err)
 			continue
 		}
@@ -258,7 +250,7 @@ func (rn *Runner) CollectAllStatus() error {
 	var err error
 	for i, uri := range rn.uriList {
 		var client *mongo.Client
-		if client, err = mdb.NewMongoClient(uri, rn.tlsCAFile, rn.tlsCertificateKeyFile); err != nil {
+		if client, err = mdb.NewMongoClient(uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
 			log.Println(err)
 			continue
 		}

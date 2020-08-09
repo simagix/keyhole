@@ -2,9 +2,10 @@
 # Copyright 2018 Kuei-chun Chen. All rights reserved.
 
 shutdownServer() {
-    echo "Shutdown mongod"
-    mongo --quiet --port 30097 --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
-    rm -rf data/db data/mongod.log.*
+    echo "Shutdown mongod" 
+    mongo --quiet ${DATABASE_URI} --tls --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
+    # rm -rf data/db data/mongod.log.* out/
+    rm -f keyfile
     exit
 }
 
@@ -19,14 +20,27 @@ echo ; echo "Spin up mongod"
 mver=$(mongod --version|grep 'db version'|awk '{print $3}') 
 mkdir -p data/db
 rm -rf data/db/*
-mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB 1  --replSet replset
+mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB 1
 validate "failed to start mongod"
-mongo --quiet mongodb://localhost:30097/admin --eval 'rs.initiate()'
-sleep 2
-mongo --port 30097 _KEYHOLE_88800 --eval "db.setProfilingLevel(0, {slowms: 5})"
+mongo --port 30097 keyhole --eval "db.setProfilingLevel(0, {slowms: 5})"
 validate "failed to set profiling level"
+rm -rf out/ 
 
-export DATABASE_URI="mongodb://localhost:30097/keyhole?replicaSet=replset"
+mongo --quiet mongodb://localhost:30097/admin --eval 'db.createUser({ user: "user", pwd: "password", roles: [ "root" ] } )'
+mongo --quiet mongodb://localhost:30097/admin --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
+mkdir -p out/
+openssl rand -base64 756 > out/keyfile
+chmod 400 out/keyfile
+mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB 1 --keyFile out/keyfile --replSet rs \
+    --tlsMode requireTLS --tlsCertificateKeyFile mdb/testdata/certs/server.pem --tlsCAFile mdb/testdata/certs/ca.pem
+
+export TLS_INFO="--tlsCertificateKeyFile mdb/testdata/certs/client.pem --tlsCAFile mdb/testdata/certs/ca.pem"
+echo "init replica set"
+mongo --quiet mongodb://user:password@localhost:30097/admin --eval 'rs.initiate()' --tls ${TLS_INFO} > /dev/null 2>&1
+sleep 2
+
+export DATABASE_URI="${TLS_INFO} mongodb://user:password@localhost:30097/keyhole?authSource=admin&replicaSet=rs&readPreference=primary&tls=true"
+mongo --quiet ${DATABASE_URI} --tls --eval 'version()'
 
 # Test version
 echo ; echo "==> Test version (--version)"
@@ -43,18 +57,19 @@ fi
 # Test All Info
 echo ; echo "==> Test printing cluster info (--info <uri>)"
 go run keyhole.go --allinfo $DATABASE_URI
+validate "--allinfo $DATABASE_URI"
 
 # Test seed
 echo ; echo "==> Test seeding default docs (--seed <uri>)"
 go run keyhole.go --seed $DATABASE_URI
-validate ""
+validate "--seed $DATABASE_URI"
 
 echo ; echo "==> Test seeding default docs after dropping collection (--seed --drop <uri>)"
 go run keyhole.go --seed --drop $DATABASE_URI
-validate ""
+validate "--seed --drop $DATABASE_URI"
 
-mongo $DATABASE_URI --eval 'db.cars.createIndex({color: 1})'
-mongo $DATABASE_URI --eval 'db.cars.createIndex({color: 1, style: 1})'
+mongo $DATABASE_URI --tls --eval 'db.cars.createIndex({color: 1})'
+mongo $DATABASE_URI --tls --eval 'db.cars.createIndex({color: 1, style: 1})'
 
 echo ; echo "==> Test seeding docs from a template (--file <file> --collection <collection> <uri>)"
 go run keyhole.go --seed --file examples/template.json --collection template $DATABASE_URI

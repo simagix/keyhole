@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -30,7 +32,8 @@ func getMongoClient() *mongo.Client {
 
 func TestCreateIndexes(t *testing.T) {
 	var docs = []bson.M{bson.M{"email": 1, "hostIp": 1}}
-	runner, _ := NewRunner(UnitTestURL, "", "")
+	connString, _ := connstring.Parse(UnitTestURL)
+	runner, _ := NewRunner(connString)
 	if err := runner.createIndexes(docs); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +43,8 @@ func TestCleanup(t *testing.T) {
 	var err error
 	var runner *Runner
 
-	if runner, err = NewRunner(UnitTestURL, "", ""); err != nil {
+	connString, _ := connstring.Parse(UnitTestURL)
+	if runner, err = NewRunner(connString); err != nil {
 		t.Fatal(err)
 	}
 	if err = runner.Cleanup(); err != nil {

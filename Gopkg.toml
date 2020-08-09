@@ -4,10 +4,6 @@
   name = "go.mongodb.org/mongo-driver"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/simagix/gox"
-
-[[constraint]]
   version = "v0.5.4"
   #branch = "master"
   name = "github.com/simagix/mongo-atlas"
@@ -16,16 +12,6 @@
   version = "v1.0.2"
   #branch = "dev"
   name = "github.com/simagix/mongo-ftdc"
-
-[[override]]
-  branch = "release-branch.go1.13"
-  #branch = "master"
-  name = "golang.org/x/sys"
-
-[[constraint]]
-  branch = "release-branch.go1.13"
-  #branch = "master"
-  name = "golang.org/x/crypto"
 
 [prune]
   go-tests = true

@@ -126,6 +126,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 						return
 					}
 					cluster := GetServerInfo(client)
+					delete(cluster, "summary")
 					mu.Lock()
 					shards = append(shards, cluster)
 					mu.Unlock()

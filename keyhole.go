@@ -199,7 +199,7 @@ func main() {
 		}
 		os.Exit(0)
 	} else if len(*uri) == 0 {
-		fmt.Println("Usage: keyhole [options] <connection string")
+		fmt.Println("Usage: keyhole [options] <connection string>")
 		os.Exit(0)
 	}
 
@@ -208,6 +208,8 @@ func main() {
 		log.Fatal(err)
 	}
 	*uri = connString.String() // password can be injected if missing
+	connString.SSLCaFile = *tlsCAFile
+	connString.SSLClientCertificateKeyFile = *tlsCertificateKeyFile
 	client, err := mdb.NewMongoClient(*uri, *tlsCAFile, *tlsCertificateKeyFile)
 	if err != nil {
 		log.Fatal(err)
@@ -276,9 +278,6 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *createIndex != "" {
-		if *uri == "" {
-			log.Fatal("Usage: keyhole --createIndex <filename>-index.bson.gz mongodb://<...>")
-		}
 		ix := mdb.NewIndexes(client)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
@@ -343,7 +342,7 @@ func main() {
 
 	fmt.Println(mdb.GetClusterSummary(client))
 	var runner *sim.Runner
-	if runner, err = sim.NewRunner(*uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
+	if runner, err = sim.NewRunner(connString); err != nil {
 		log.Fatal(err)
 	}
 	runner.SetCollection(*collection)
