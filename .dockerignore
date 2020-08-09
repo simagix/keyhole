@@ -3,3 +3,7 @@
 **/*.gz
 vendor/
 dist/
+keyhole
+build/
+out/
+scripts/

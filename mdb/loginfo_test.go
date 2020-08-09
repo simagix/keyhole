@@ -12,7 +12,15 @@ import (
 func TestLogInfo(t *testing.T) {
 	loginfo := NewLogInfo()
 	loginfo.SetSilent(true)
-	if _, err := loginfo.Analyze("testdata/mongod.log.gz"); err != nil {
+	if _, err := loginfo.Analyze("testdata/mongod.text.log.gz"); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(loginfo.OutputFilename)
+}
+func TestLogInfoV2(t *testing.T) {
+	loginfo := NewLogInfo()
+	loginfo.SetSilent(true)
+	if _, err := loginfo.Analyze("testdata/mongod.json.log.gz"); err != nil {
 		t.Fatal(err)
 	}
 	os.Remove(loginfo.OutputFilename)

@@ -178,8 +178,8 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 		var lineCounts int
 		if li.silent == false {
 			lineCounts, _ = gox.CountLines(reader)
-			file.Seek(0, 0)
 		}
+		file.Seek(0, 0)
 		if reader, err = gox.NewReader(file); err != nil {
 			return "", err
 		}
