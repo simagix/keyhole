@@ -73,7 +73,7 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	if runner.clusterType == mdb.SHARDED {
 		if shards, err := mdb.GetShards(runner.client); err != nil {
 			return &runner, err
-		} else if runner.uriList, err = mdb.GetShardListWithURI(shards, connString); err != nil {
+		} else if runner.uriList, err = mdb.GetAllShardURIs(shards, connString); err != nil {
 			return &runner, err
 		}
 	}

@@ -3,6 +3,7 @@
 package mdb
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -97,53 +98,71 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	mc.cluster["config"] = config
 	mc.SetFilename(fmt.Sprintf(`%v-cluster.bson.gz`, mc.cluster["host"]))
 	clusterType := fmt.Sprintf(`%v`, mc.cluster["cluster"])
+	var serversList []string
 	if clusterType == SHARDED {
 		var shards []ShardDoc
 		if shards, err = GetShards(mc.client); err != nil {
 			log.Println(err)
 		}
 		mc.cluster["shardIDs"] = shards
-		var shardList []string
-		if shardList, err = GetShardListWithURI(shards, mc.connString); err == nil {
-			var mu sync.Mutex
-			var wg = gox.NewWaitGroup(mc.conns) // runs in parallel
-			var shards []bson.M
-			for i, shardURI := range shardList {
-				wg.Add(1)
-				go func(shardURI string, i int) {
-					defer wg.Done()
-					s := shardURI
-					if mc.connString.Password != "" {
-						s = strings.ReplaceAll(s, mc.connString.Password, "xxxxxx")
-					}
-					msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
-					log.Println(msg)
-					mu.Lock()
-					mc.KeyholeInfo.Log(msg)
-					mu.Unlock()
-					var client *mongo.Client
-					if client, err = NewMongoClient(shardURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
-						return
-					}
-					cluster := GetServerInfo(client)
-					delete(cluster, "summary")
-					mu.Lock()
-					shards = append(shards, cluster)
-					mu.Unlock()
-					msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
-					log.Println(msg)
-					mu.Lock()
-					mc.KeyholeInfo.Log(msg)
-					mu.Unlock()
-				}(shardURI, i)
+		if serversList, err = GetAllServerURIs(shards, mc.connString); err != nil {
+			serversList = []string{}
+		}
+	} else if clusterType == REPLICA {
+		ss := config["serverStatus"].(bson.M)
+		if ss["repl"] != nil {
+			repl := ss["repl"].(bson.M)
+			setName := repl["setName"].(string)
+			data, _ := json.Marshal(repl["hosts"])
+			var hosts []string
+			json.Unmarshal(data, &hosts)
+			s := fmt.Sprintf(`%v/%v`, setName, strings.Join(hosts, ","))
+			d := ShardDoc{ID: setName, State: 1, Host: s}
+			if serversList, err = GetAllServerURIs([]ShardDoc{d}, mc.connString); err != nil {
+				serversList = []string{}
 			}
-			wg.Wait()
-			mc.cluster["shards"] = shards
 		}
 	}
-	if mc.verbose {
-		log.Println("* collectServerInfo")
+	var mu sync.Mutex
+	var wg = gox.NewWaitGroup(mc.conns) // runs in parallel
+	var shards []bson.M
+	for i, serverURI := range serversList {
+		wg.Add(1)
+		go func(serverURI string, i int) {
+			defer wg.Done()
+			s := serverURI
+			if mc.connString.Password != "" {
+				s = strings.ReplaceAll(s, mc.connString.Password, "xxxxxx")
+			}
+			msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
+			log.Println(msg)
+			mu.Lock()
+			mc.KeyholeInfo.Log(msg)
+			mu.Unlock()
+			var client *mongo.Client
+			if client, err = NewMongoClient(serverURI, mc.connString.SSLCaFile, mc.connString.SSLClientCertificateKeyFile); err != nil {
+				return
+			}
+			cluster := GetServerInfo(client)
+			var hostname string
+			if cluster["summary"] != nil {
+				hostname = fmt.Sprintf(`%v`, cluster["summary"].(bson.M)["host"])
+			}
+			if mc.cluster["host"] != hostname {
+				mu.Lock()
+				shards = append(shards, cluster)
+				mu.Unlock()
+			}
+			delete(cluster, "summary")
+			msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
+			log.Println(msg)
+			mu.Lock()
+			mc.KeyholeInfo.Log(msg)
+			mu.Unlock()
+		}(serverURI, i)
 	}
+	wg.Wait()
+	mc.cluster["shards"] = shards
 	dbi := NewDatabaseInfo()
 	dbi.SetNumberConnections(mc.conns)
 	dbi.SetRedaction(mc.redaction)
