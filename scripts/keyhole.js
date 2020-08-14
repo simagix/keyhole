@@ -77,22 +77,33 @@ function GetIndexesFromCollection(dbname, name) {
   istats.forEach(function(doc) {
     docs.push(doc);
   });
-  for (var n = 0; n < docs.length; n++) {
-    var doc = docs[n];
-    var index = { "totalOps": 0 };
-    index["name"] = doc["name"];
-    index["key"] = JSON.stringify(doc["key"]).replace(/"/g, "");
-    index["keystring"] = index["key"]
-    var str = JSON.stringify(doc["key"]).replace(":-1", ":1").replace(/"/g, "");
-    index["effectiveKey"] = str.substring(1, str.length-1);
-    index["usage"] = [];
-		for (var i = 0; i < docs.length; i++) {
-			if (docs[i]["name"] == index["name"]) {
-				index["totalOps"] += Number(docs[i]["accesses"]["ops"])
-				index["usage"].push({ "host": docs[i]["host"], "accesses": {"since": docs[i]["accesses"]["since"], "ops": Number(docs[i]["accesses"]["ops"])}})
-			}
-		}
-    indexes.push(index);
+
+  for(var i = 0; i < docs.length; i++) {
+    var doc = docs[i]; 
+    var exists = false;
+
+    for(var j = 0; j < indexes.length; j++) {
+      var index = indexes[j];
+      if (index["name"] == doc["name"] ) {  // found
+        var access = doc["accesses"];
+        indexes[j]["totalOps"] += Number(access["ops"]) 
+        indexes[j]["usage"].push({ "host": doc["host"], "accesses": {"since": access["since"], "ops": Number(access["ops"])}});
+        exists = true;
+        break;
+      }
+    }
+
+    if (exists == false) { // not found, push
+      var access = doc["accesses"];
+      doc = doc["spec"];
+      doc["keystring"] = JSON.stringify(doc["key"]).replace(/"/g, "");
+      var str = JSON.stringify(doc["keystring"]).replace(":-1", ":1").replace(/"/g, "");
+      doc["effectiveKey"] = str.substring(1, str.length-1);
+      doc["totalOps"] = Number(access["ops"])
+      doc["usage"] = [];
+      doc["usage"].push({ "host": doc["host"], "accesses": {"since": access["since"], "ops": Number(access["ops"])}});
+      indexes.push(doc);
+    }
   }
   return indexes;
 }

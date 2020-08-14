@@ -5,12 +5,10 @@ package mdb
 import (
 	"bufio"
 	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -152,18 +150,6 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 			return "", err
 		}
 		li.OutputFilename = ""
-	} else if strings.HasSuffix(filename, "-log.enc") == true { // encoded structure is deprecated, replaced with bson.gz
-		log.Println("Using a deprecated file type", filename)
-		var data []byte
-		if data, err = ioutil.ReadFile(filename); err != nil {
-			return "", err
-		}
-		buffer := bytes.NewBuffer(data)
-		dec := gob.NewDecoder(buffer)
-		if err = dec.Decode(li); err != nil {
-			return "", err
-		}
-		li.OutputFilename = ""
 	} else {
 		var file *os.File
 		var reader *bufio.Reader
@@ -209,18 +195,6 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 				return li.printLogsSummary(), err
 			}
 			gox.OutputGzipped(buf, li.OutputFilename)
-
-			if li.verbose { // encoded structure is deprecated, replaced with bson.gz
-				var data bytes.Buffer
-				enc := gob.NewEncoder(&data)
-				if err = enc.Encode(li); err == nil {
-					filename := li.OutputFilename
-					if idx := strings.LastIndex(filename, "-log.bson.gz"); idx > 0 {
-						filename = filename[:idx] + "-log.enc"
-					}
-					ioutil.WriteFile(filename, data.Bytes(), 0644)
-				}
-			}
 		}
 	}
 	return li.printLogsSummary(), nil

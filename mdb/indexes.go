@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -50,27 +49,27 @@ type CollectionIndexes map[string][]IndexStatsDoc
 
 // IndexStatsDoc -
 type IndexStatsDoc struct {
-	Background              bool       `json:"background" bson:"background"`
-	Collation               bson.D     `json:"collation" bson:"collation"`
-	EffectiveKey            string     `json:"effectivekey" bson:"effectivekey"`
-	ExpireAfterSeconds      int32      `json:"expireafterseconds" bson:"expireafterseconds"`
-	Fields                  []string   `json:"fields" bson:"fields"`
-	IndexKey                bson.D     `json:"indexkey" bson:"indexkey"`
-	IsDupped                bool       `json:"isdupped" bson:"isdupped"`
-	IsShardKey              bool       `json:"isshardkey" bson:"isshardkey"`
-	Key                     string     `json:"key" bson:"key"`
-	Name                    string     `json:"name" bson:"name"`
-	PartialFilterExpression bson.D     `json:"partialfilterexpression" bson:"partialfilterexpression"`
-	Sparse                  bool       `json:"sparse" bson:"sparse"`
-	TotalOps                int        `json:"totalops" bson:"totalops"`
-	Unique                  bool       `json:"unique" bson:"unique"`
-	Usage                   []UsageDoc `json:"usage" bson:"usage"`
-	Version                 int32      `json:"version" bson:"version"`
+	Background              bool   `json:"background" bson:"background"`
+	Collation               bson.D `json:"collation" bson:"collation"`
+	ExpireAfterSeconds      int32  `json:"expireAfterSeconds" bson:"expireAfterSeconds"`
+	Key                     bson.D `json:"key" bson:"key"`
+	Name                    string `json:"name" bson:"name"`
+	PartialFilterExpression bson.D `json:"partialFilterExpression" bson:"partialFilterExpression"`
+	Sparse                  bool   `json:"sparse" bson:"sparse"`
+	Unique                  bool   `json:"unique" bson:"unique"`
+	Version                 int32  `json:"v" bson:"v"`
+
+	EffectiveKey string     `json:"effectiveKey" bson:"effectiveKey"`
+	Fields       []string   `json:"fields" bson:"fields"`
+	IsDupped     bool       `json:"isDupped" bson:"isDupped"`
+	IsShardKey   bool       `json:"isShardkey" bson:"isShardkey"`
+	KeyString    string     `json:"keyString" bson:"keyString"`
+	TotalOps     int        `json:"totalOps" bson:"totalOps"`
+	Usage        []UsageDoc `json:"usage" bson:"usage"`
 }
 
 // NewIndexes establish seeding parameters
 func NewIndexes(client *mongo.Client) *Indexes {
-	gob.Register([]IndexStatsDoc{})
 	hostname, _ := os.Hostname()
 	return &Indexes{client: client, filename: hostname + "-index.bson.gz", indexesMap: map[string]CollectionIndexes{}}
 }
@@ -89,9 +88,6 @@ func (ix *Indexes) SetIndexesMap(indexesMap map[string]CollectionIndexes) {
 func (ix *Indexes) SetIndexesMapFromFile(filename string) error {
 	if strings.HasSuffix(filename, "-index.bson.gz") {
 		return ix.setIndexesMapFromBSONFile(filename)
-	} else if strings.HasSuffix(filename, "-index.enc") { // encoded structure is deprecated, replaced with bson.gz
-		log.Println("Using a deprecated file type", filename)
-		return ix.setIndexesMapFromEncodedFile(filename)
 	}
 	return errors.New("unsupported file type")
 }
@@ -108,18 +104,6 @@ func (ix *Indexes) setIndexesMapFromBSONFile(filename string) error {
 		return err
 	}
 	return bson.Unmarshal(data, &ix.indexesMap)
-}
-
-// setIndexesMapFromEncodedFile File sets indexes map from a file
-func (ix *Indexes) setIndexesMapFromEncodedFile(filename string) error {
-	var data []byte
-	var err error
-	if data, err = ioutil.ReadFile(filename); err != nil {
-		return err
-	}
-	buffer := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buffer)
-	return dec.Decode(&ix.indexesMap)
 }
 
 // SetNoColor set nocolor flag
@@ -245,69 +229,41 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	defer icur.Close(ctx)
 
 	for icur.Next(ctx) {
-		var idx = bson.D{}
-		if err = icur.Decode(&idx); err != nil {
+		o := IndexStatsDoc{}
+		if err = icur.Decode(&o); err != nil {
 			log.Println(err)
 			continue
 		}
 
-		var indexName string
-		o := IndexStatsDoc{}
-		for _, v := range idx {
-			if v.Key == "name" {
-				indexName = v.Value.(string)
-				o.Name = indexName
-			} else if v.Key == "key" {
-				o.IndexKey = v.Value.(bson.D)
-			} else if v.Key == "background" {
-				o.Background, _ = v.Value.(bool)
-			} else if v.Key == "expireAfterSeconds" {
-				o.ExpireAfterSeconds = toInt32(v.Value)
-			} else if v.Key == "sparse" {
-				o.Sparse = v.Value.(bool)
-			} else if v.Key == "unique" {
-				o.Unique = v.Value.(bool)
-			} else if v.Key == "partialFilterExpression" {
-				o.PartialFilterExpression = v.Value.(bson.D)
-			} else if v.Key == "collation" {
-				o.Collation = v.Value.(bson.D)
-			} else if v.Key == "v" {
-				o.Version = v.Value.(int32)
-			} else if v.Key == "ns" {
-			} else if ix.verbose == true {
-				fmt.Println("additional attrib", v.Key, v.Value)
-			}
-		}
-
 		var strbuf bytes.Buffer
 		fields := []string{}
-		for n, value := range o.IndexKey {
+		for n, value := range o.Key {
 			fields = append(fields, value.Key)
 			if n == 0 {
 				strbuf.WriteString("{ ")
 			}
 			strbuf.WriteString(value.Key + ": " + fmt.Sprint(value.Value))
-			if n == len(o.IndexKey)-1 {
+			if n == len(o.Key)-1 {
 				strbuf.WriteString(" }")
 			} else {
 				strbuf.WriteString(", ")
 			}
 		}
 		o.Fields = fields
-		o.Key = strbuf.String()
+		o.KeyString = strbuf.String()
 		// Check shard keys
 		var v map[string]interface{}
 		ns := collection.Database().Name() + "." + collection.Name()
 		if ix.verbose {
-			log.Println("GetIndexesFromCollection", ns, o.Key)
+			log.Println("GetIndexesFromCollection", ns, o.KeyString)
 		}
-		if err = ix.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.IndexKey}).Decode(&v); err == nil {
+		if err = ix.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
 			o.IsShardKey = true
 		}
-		o.EffectiveKey = strings.Replace(o.Key[2:len(o.Key)-2], ": -1", ": 1", -1)
+		o.EffectiveKey = strings.Replace(o.KeyString[2:len(o.KeyString)-2], ": -1", ": 1", -1)
 		o.Usage = []UsageDoc{}
 		for _, result := range indexStats {
-			if result["name"].(string) == indexName {
+			if result["name"].(string) == o.Name {
 				b, _ := bson.Marshal(result)
 				var usage UsageDoc
 				bson.Unmarshal(b, &usage)
@@ -319,7 +275,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	}
 	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey < list[j].EffectiveKey) })
 	for i, o := range list {
-		if o.Key != "{ _id: 1 }" && o.IsShardKey == false {
+		if o.KeyString != "{ _id: 1 }" && o.IsShardKey == false {
 			list[i].IsDupped = checkIfDupped(o, list)
 		}
 	}
@@ -330,7 +286,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 func checkIfDupped(doc IndexStatsDoc, list []IndexStatsDoc) bool {
 	for _, o := range list {
 		// check indexes if not marked as dupped, has the same first field, and more or equal number of fields
-		if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.Key != o.Key && len(o.Fields) >= len(doc.Fields) {
+		if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.KeyString != o.KeyString && len(o.Fields) >= len(doc.Fields) {
 			nmatched := 0
 			for i, fld := range doc.Fields {
 				if i == 0 {
@@ -384,22 +340,22 @@ func (ix *Indexes) PrintIndexesOf(indexesMap map[string]CollectionIndexes) {
 					font = ""
 					tailCode = ""
 				}
-				if o.Key == "{ _id: 1 }" {
-					buffer.WriteString(fmt.Sprintf("%v  %v%v", font, o.Key, tailCode))
+				if o.KeyString == "{ _id: 1 }" {
+					buffer.WriteString(fmt.Sprintf("%v  %v%v", font, o.KeyString, tailCode))
 				} else if o.IsShardKey == true {
-					buffer.WriteString(fmt.Sprintf("%v* %v%v", font, o.Key, tailCode))
+					buffer.WriteString(fmt.Sprintf("%v* %v%v", font, o.KeyString, tailCode))
 				} else if o.IsDupped == true {
 					if ix.nocolor == false {
 						font = codeRed
 					}
-					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.Key, tailCode))
+					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.KeyString, tailCode))
 				} else if o.TotalOps == 0 {
 					if ix.nocolor == false {
 						font = codeBlue
 					}
-					buffer.WriteString(fmt.Sprintf("%v? %v%v", font, o.Key, tailCode))
+					buffer.WriteString(fmt.Sprintf("%v? %v%v", font, o.KeyString, tailCode))
 				} else {
-					buffer.WriteString(fmt.Sprintf("  %v", o.Key))
+					buffer.WriteString(fmt.Sprintf("  %v", o.KeyString))
 				}
 
 				for _, u := range o.Usage {
@@ -426,7 +382,7 @@ func (ix *Indexes) CreateIndexes() error {
 				}
 				var indexKey bson.D
 				for _, field := range o.Fields {
-					for _, e := range o.IndexKey {
+					for _, e := range o.Key {
 						if field == e.Key {
 							indexKey = append(indexKey, e)
 							break
@@ -461,7 +417,7 @@ func (ix *Indexes) CreateIndexes() error {
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
 				}
-				if _, err = collection.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: o.IndexKey, Options: opt}); err != nil {
+				if _, err = collection.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: o.Key, Options: opt}); err != nil {
 					fmt.Println(err)
 				}
 			}
@@ -484,19 +440,6 @@ func (ix *Indexes) Save() error {
 	}
 	if err = gox.OutputGzipped(buf, ix.filename); err == nil {
 		fmt.Println("Indexes info is written to", ix.filename)
-	}
-
-	if ix.verbose { // encoded structure is deprecated, replaced with bson.gz
-		var data bytes.Buffer
-		enc := gob.NewEncoder(&data)
-		if err := enc.Encode(ix.indexesMap); err == nil {
-			filename := ix.filename
-			if idx := strings.LastIndex(filename, "-index.bson.gz"); idx > 0 {
-				filename = filename[:idx] + "-index.enc"
-			}
-			ioutil.WriteFile(filename, data.Bytes(), 0644)
-			fmt.Println("Encoded indexes info is written to", filename, "(deprecated)")
-		}
 	}
 	return err
 }

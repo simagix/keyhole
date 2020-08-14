@@ -4,9 +4,7 @@ package sim
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -229,19 +227,6 @@ func (rn *Runner) terminate() {
 	}
 	gox.OutputGzipped(buf, filename)
 	log.Println("optime written to", filename)
-
-	// encoded structure will be deprecated
-	if rn.verbose { // encoded structure is deprecated, replaced with bson.gz
-		filename = "keyhole_perf." + fileTimestamp + ".enc.gz"
-		var data bytes.Buffer
-		gob.Register(time.Duration(0))
-		enc := gob.NewEncoder(&data)
-		if err = enc.Encode(rn.metrics); err != nil {
-			log.Println("encode error:", err)
-		}
-		gox.OutputGzipped(data.Bytes(), filename)
-		log.Println("optime written to", filename, "(deprecated)")
-	}
 	os.Exit(0)
 }
 
