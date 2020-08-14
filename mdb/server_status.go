@@ -72,9 +72,9 @@ func GetServerStatus(client *mongo.Client) (ServerStatus, error) {
 // GetClusterType returns cluster type
 func GetClusterType(serverStatus ServerStatus) string {
 	if serverStatus.Repl.SetName != "" {
-		return "replica"
+		return Replica
 	} else if serverStatus.Sharding.ConfigsvrConnectionString != "" {
-		return "sharded"
+		return Sharded
 	}
-	return "standalone"
+	return Standalone
 }

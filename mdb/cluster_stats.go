@@ -17,6 +17,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// Sharded cluster
+const Sharded = "sharded"
+
+// Replica set
+const Replica = "replica"
+
+// Standalone server
+const Standalone = "standalone"
+
 // ClusterStats keeps slow ops struct
 type ClusterStats struct {
 	audit   *Audit
@@ -46,7 +55,7 @@ type ClusterDetails struct {
 
 // NewStats -
 func NewStats(version string) *ClusterStats {
-	s := ClusterStats{audit: NewAudit(version, "-stats"), bsonExt: "-stats.bson.gz", htmlExt: "-stats.html"}
+	s := ClusterStats{audit: NewAudit(version, "-allinfo"), bsonExt: "-stats.bson.gz", htmlExt: "-stats.html"}
 	return &s
 }
 
@@ -65,42 +74,46 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	var err error
 	var cluster = ClusterDetails{}
 	p.audit.Log("GetClusterStats() begins")
-	log.Println("GetClusterStats() begins")
 	if cluster, err = p.GetClusterStatsSummary(client); err != nil {
-		return cluster, err
+		p.audit.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
 	}
 	if cluster.CmdLineOpts, err = GetCmdLineOpts(client); err != nil {
-		return cluster, err
+		p.audit.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
 	}
-	if cluster.Cluster == "sharded" { //collects from the primary of each shard
-		message := "sharded detected, collecting from primary of each shard"
+	if cluster.Cluster == Sharded { //collects from the primary of each shard
+		message := "sharded detected, collecting from all servers"
 		p.audit.Log(message)
-		log.Println(message)
 		if cluster.Shards, err = GetShards(client); err != nil {
-			return cluster, err
+			p.audit.Log(fmt.Sprintf(`GetShards(): %v`, err))
 		}
-		if cluster.Servers, err = p.GetShardsStatsSummary(cluster.Shards, connString); err != nil {
-			log.Println(err)
+		if cluster.Servers, err = p.GeterversStatsSummary(cluster.Shards, connString); err != nil {
+			p.audit.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
-	} else if cluster.Cluster == "replica" { //collects replica info
-		message := "sharded detected, collecting from primary"
+	} else if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
+		message := "replica detected, collecting from all servers"
 		p.audit.Log(message)
-		log.Println(message)
 		if cluster.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
-			return cluster, err
+			p.audit.Log(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
+		}
+
+		setName := cluster.ServerStatus.Repl.SetName
+		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(cluster.ServerStatus.Repl.Hosts, ","))
+		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
+		if cluster.Servers, err = p.GeterversStatsSummary(oneShard, connString); err != nil {
+			p.audit.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
 	}
 	db := NewDatabaseStats()
 	var databases []Database
 	if databases, err = db.GetAllDatabasesStats(client); err != nil {
-		return cluster, err
+		p.audit.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
 	for _, m := range db.GetLogs() {
-		p.audit.Log(m)
+		p.audit.Add(m)
 	}
 	cluster.Databases = databases
 	cluster.Audit = p.audit
-	return cluster, err
+	return cluster, nil
 }
 
 // Save saves to data
@@ -122,28 +135,34 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) (ClusterDeta
 	var err error
 	var cluster = ClusterDetails{}
 	if cluster.BuildInfo, err = GetBuildInfo(client); err != nil {
-		return cluster, err
+		p.audit.Log(fmt.Sprintf(`GetBuildInfo(): %v`, err))
 	}
 	cluster.Version = cluster.BuildInfo.Version
 	if cluster.HostInfo, err = GetHostInfo(client); err != nil {
-		return cluster, err
+		p.audit.Log(fmt.Sprintf(`GetHostInfo(): %v`, err))
 	}
 	if cluster.ServerStatus, err = GetServerStatus(client); err != nil {
-		return cluster, err
+		p.audit.Log(fmt.Sprintf(`GetServerStatus(): %v`, err))
 	}
 	cluster.Host = cluster.ServerStatus.Host
 	cluster.Process = cluster.ServerStatus.Process
 	cluster.Cluster = GetClusterType(cluster.ServerStatus)
-	if cluster.Cluster == "replica" { //collects replica info
+	if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
 		if cluster.OplogStats, err = GetOplogStats(client); err != nil {
-			return cluster, err
+			p.audit.Log(fmt.Sprintf(`GetOplogStats(): %v`, err))
 		}
 	}
-	return cluster, err
+	return cluster, nil
 }
 
 // GetClusterShortSummary returns one line summary
-func (p *ClusterStats) GetClusterShortSummary(c ClusterDetails) string {
+func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
+	var err error
+	var c ClusterDetails
+	if c, err = p.GetClusterStatsSummary(client); err != nil {
+		p.audit.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
+		return err.Error()
+	}
 	edition := "community"
 	if len(c.BuildInfo.Modules) > 0 {
 		edition = c.BuildInfo.Modules[0]
@@ -154,29 +173,31 @@ func (p *ClusterStats) GetClusterShortSummary(c ClusterDetails) string {
 	return result
 }
 
-// GetShardsStatsSummary returns cluster stats from all shards
-func (p *ClusterStats) GetShardsStatsSummary(shards []Shard, connString connstring.ConnString) ([]ClusterDetails, error) {
+// GeterversStatsSummary returns cluster stats from all shards
+func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstring.ConnString) ([]ClusterDetails, error) {
 	var err error
 	var clusters []ClusterDetails
 	var uris []string
-	if uris, err = GetAllShardURIs(shards, connString); err != nil {
+	if uris, err = GetAllServerURIs(shards, connString); err != nil {
 		return clusters, err
 	}
 	wg := gox.NewWaitGroup(4)
 	var mu sync.Mutex
-	for _, uri := range uris {
+	for i, uri := range uris {
 		s := uri
 		cs, _ := connstring.Parse(s)
 		if cs.Password != "" {
 			s = strings.ReplaceAll(s, cs.Password, "xxxxxx")
 		}
-		p.audit.Log(s)
-		log.Println("collecting stats from", s)
+		msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
+		p.audit.Log(msg)
+		msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
 		wg.Add(1)
-		go func(uri string) {
+		go func(uri string, msg string) {
 			defer wg.Done()
+			defer p.audit.Log(msg)
 			var sclient *mongo.Client
-			if sclient, err = NewMongoClient(uri, connString.SSLCaFile, connString.SSLCertificateFile); err != nil {
+			if sclient, err = NewMongoClient(uri, connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
 				log.Println(err)
 				return
 			}
@@ -190,7 +211,7 @@ func (p *ClusterStats) GetShardsStatsSummary(shards []Shard, connString connstri
 			mu.Lock()
 			clusters = append(clusters, server)
 			mu.Unlock()
-		}(uri)
+		}(uri, msg)
 	}
 	wg.Wait()
 	return clusters, err

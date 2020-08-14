@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 // WiredTigerCache stores wiredTiger cache structure
 type WiredTigerCache struct {
 	client    *mongo.Client
-	databases []bson.M
+	databases []Database
 	numPoints int
 }
 
@@ -33,6 +34,14 @@ func NewWiredTigerCache(client *mongo.Client) *WiredTigerCache {
 // Start starts a web server and a thread to collect caches
 func (wtc *WiredTigerCache) Start() {
 	var err error
+	var ss ServerStatus
+	if ss, err = GetServerStatus(wtc.client); err != nil {
+		panic(ss)
+	}
+	if ss.Process != "mongod" {
+		fmt.Println(fmt.Sprintf(`connected to %v, exiting...`, ss.Process))
+		os.Exit(0)
+	}
 	for {
 		if err = wtc.GetAllDatabasesInfo(); err != nil {
 			log.Println(err)
@@ -44,8 +53,8 @@ func (wtc *WiredTigerCache) Start() {
 // GetAllDatabasesInfo returns db info
 func (wtc *WiredTigerCache) GetAllDatabasesInfo() error {
 	var err error
-	dbi := NewDatabaseInfo()
-	wtc.databases, err = dbi.GetAllDatabasesInfo(wtc.client)
+	dbi := NewDatabaseStats()
+	wtc.databases, err = dbi.GetAllDatabasesStats(wtc.client)
 	return err
 }
 
@@ -70,13 +79,12 @@ func (wtc *WiredTigerCache) GetWiredTigerCacheData(w http.ResponseWriter, r *htt
 	cacheIndexesSize := int64(0)
 
 	for _, database := range wtc.databases {
-		collections := toArray(database["collections"])
-		for _, collection := range collections {
-			ns := collection["NS"].(string)
+		for _, collection := range database.Collections {
+			ns := collection.NS
 			// top storage list
-			stats := collection["stats"].(bson.M)
-			if stats["wiredTiger"] != nil {
-				x := toInt64(stats["wiredTiger"].(bson.M)["cache"].(bson.M)["bytes currently in the cache"])
+			stats := collection.Stats
+			if stats.WiredTiger != nil {
+				x := toInt64(stats.WiredTiger["cache"].(bson.M)["bytes currently in the cache"])
 				cacheDataSize += x
 				topCaches = append(topCaches, ChartDataPoint{label: "D:" + ns, value: x})
 				if len(topDataCache) < wtc.numPoints {
@@ -88,8 +96,8 @@ func (wtc *WiredTigerCache) GetWiredTigerCacheData(w http.ResponseWriter, r *htt
 					return topDataCache[i].value > topDataCache[j].value
 				})
 			}
-			if stats["indexDetails"] != nil {
-				indexDetails := stats["indexDetails"].(bson.M)
+			if stats.IndexDetails != nil {
+				indexDetails := stats.IndexDetails
 				x := int64(0)
 				for _, v := range indexDetails {
 					if v.(bson.M)["cache"] != nil {

@@ -62,13 +62,14 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 		connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
 		return &runner, err
 	}
-	cluster := mdb.GetServerInfo(runner.client)
-	runner.clusterType = fmt.Sprintf(`%v`, cluster["cluster"])
+	stats := mdb.NewStats("")
+	details, _ := stats.GetClusterStatsSummary(runner.client)
+	runner.clusterType = details.Cluster
 	if runner.clusterType == "" {
 		return nil, errors.New("invalid cluster type: " + runner.clusterType)
 	}
 	runner.uriList = []string{connString.String()}
-	if runner.clusterType == mdb.SHARDED {
+	if runner.clusterType == mdb.Sharded {
 		if shards, err := mdb.GetShards(runner.client); err != nil {
 			return &runner, err
 		} else if runner.uriList, err = mdb.GetAllShardURIs(shards, connString); err != nil {
@@ -284,7 +285,7 @@ func (rn *Runner) createIndexes(docs []bson.M) error {
 			return err
 		}
 
-		if rn.clusterType == mdb.SHARDED {
+		if rn.clusterType == mdb.Sharded {
 			if err = rn.splitChunks(); err != nil {
 				fmt.Println(err)
 			}

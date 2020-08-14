@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // KeyholeInfo stores keyhole info
@@ -40,15 +38,4 @@ func (ptr *KeyholeInfo) Print() string {
 	strs := []string{fmt.Sprintf(`{ keyhole: { version: "%v", args: "%v" } }`, ptr.Version, ptr.Params)}
 	strs = append(strs, ptr.Logs...)
 	return strings.Join(strs, "\n")
-}
-
-// GetClusterShortSummary is a wrapper of NewStats.GetClusterShortSummary
-func (ptr *KeyholeInfo) GetClusterShortSummary(client *mongo.Client) string {
-	var err error
-	var cluster ClusterDetails
-	stats := NewStats(ptr.Version)
-	if cluster, err = stats.GetClusterStatsSummary(client); err != nil {
-		return err.Error()
-	}
-	return stats.GetClusterShortSummary(cluster)
 }

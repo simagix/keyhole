@@ -95,3 +95,28 @@ func toFloat64(num interface{}) float64 {
 	x, _ := strconv.ParseFloat(f, 64)
 	return x
 }
+
+func trimMap(doc bson.M) bson.M {
+	delete(doc, "$clusterTime")
+	delete(doc, "operationTime")
+	delete(doc, "$gleStats")
+	delete(doc, "ok")
+	return doc
+}
+
+func emptyBinData(firstDoc bson.M) bson.M {
+	for k, v := range firstDoc {
+		if reflect.TypeOf(v) == nil {
+			continue
+		}
+		t := reflect.TypeOf(v).String()
+		if t == "primitive.Binary" {
+			if v.(primitive.Binary).Subtype != 4 { // empty data when it's not UUID
+				firstDoc[k] = primitive.Binary{Subtype: v.(primitive.Binary).Subtype}
+			}
+		} else {
+			// fmt.Println(v, t)
+		}
+	}
+	return firstDoc
+}

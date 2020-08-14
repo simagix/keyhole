@@ -31,3 +31,13 @@ type CollectionStats struct {
 		StorageSize    int64   `bson:"storageSize,truncate"`
 	} `bson:"stats"`
 }
+
+// ChunkStats stores chunk stats
+type ChunkStats struct {
+	Empty   int64
+	Jumbo   int64
+	Objects int64
+	Shard   string
+	Size    int64
+	Total   int64
+}

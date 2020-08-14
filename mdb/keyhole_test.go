@@ -1,18 +1,18 @@
-// Copyright 2019 Kuei-chun Chen. All rights reserved.
+// Copyright 2020 Kuei-chun Chen. All rights reserved.
 
 package mdb
 
 import (
 	"context"
 	"os"
-	"testing"
 
-	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func getClient() *mongo.Client {
+var UnitTestURL = "mongodb://localhost/?replicaSet=replset"
+
+func getMongoClient() *mongo.Client {
 	var err error
 	var client *mongo.Client
 
@@ -24,15 +24,4 @@ func getClient() *mongo.Client {
 	}
 
 	return client
-}
-
-func TestGetClusterInfo(t *testing.T) {
-	client := getClient()
-	mc := NewMongoCluster(client)
-	mc.SetVerbose(true)
-	cluster, err := mc.GetClusterInfo()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(gox.Stringify(cluster, "", "  "))
 }

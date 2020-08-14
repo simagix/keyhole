@@ -4,6 +4,7 @@ package mdb
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -21,13 +22,21 @@ func NewAudit(version string, params string) *Audit {
 	audit := Audit{Version: version, Params: params}
 	now := time.Now()
 	audit.Collected = now
-	audit.Logs = []string{fmt.Sprintf(`%v lancet begins`, now.Format(time.RFC3339))}
+	audit.Logs = []string{fmt.Sprintf(`%v keyhole begins`, now.Format(time.RFC3339))}
 	return &audit
 }
 
-// Log adds a message
+// Add adds a message
+func (p *Audit) Add(message string) {
+	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
+	p.Logs = append(p.Logs, str)
+}
+
+// Log adds and prints a message
 func (p *Audit) Log(message string) {
-	p.Logs = append(p.Logs, fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message))
+	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
+	p.Logs = append(p.Logs, str)
+	log.Println(message)
 }
 
 // Print prints keyhole info

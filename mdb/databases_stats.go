@@ -320,3 +320,17 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	chunk = ChunkStats{Shard: shard, Total: count, Empty: emptyCounts, Jumbo: jumboCounts}
 	return chunk, err
 }
+
+// ListDatabaseNames gets all database names
+func ListDatabaseNames(client *mongo.Client) ([]string, error) {
+	var err error
+	var names []string
+	var result mongo.ListDatabasesResult
+	if result, err = client.ListDatabases(context.Background(), bson.M{}); err != nil {
+		return names, err
+	}
+	for _, db := range result.Databases {
+		names = append(names, db.Name)
+	}
+	return names, err
+}

@@ -75,10 +75,17 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 			} else {
 				ruri += fmt.Sprintf(`%v/?`, host)
 			}
-			if isSRV == false && connString.AuthSource != "" {
-				ruri += "authSource=" + connString.AuthSource
-			} else if isSRV == true {
+			if isSRV == true {
 				ruri += "authSource=admin&ssl=true"
+			} else {
+				if connString.AuthSource != "" {
+					ruri += "authSource=" + connString.AuthSource
+				} else {
+					ruri += "authSource=admin"
+				}
+				if connString.SSLCaFile != "" {
+					ruri += "&ssl=true"
+				}
 			}
 			list = append(list, ruri)
 		}

@@ -54,7 +54,7 @@ func NewServerStats(uri string, channel chan string) *ServerStats {
 	connStr, _ := connstring.Parse(uri)
 	mkey := connStr.ReplicaSet
 	if mkey == "" {
-		mkey = mdb.STANDALONE
+		mkey = mdb.Standalone
 	}
 	freq := Frequency{serverStatus: 5, replset: 10}
 	return &ServerStats{channel: channel, uri: uri, mkey: mkey, freq: freq}

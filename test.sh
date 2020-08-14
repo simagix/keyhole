@@ -53,99 +53,99 @@ mongo --quiet ${DATABASE_URI} ${TLS} --eval 'version()'
 
 # Test version
 echo ; echo "==> Test version (--version)"
-go run keyhole.go --version
+go run main.go --version
 validate "--version"
 
 # Test Info
 echo ; echo "==> Test printing cluster info (--info <uri>)"
-go run keyhole.go --info ${DATABASE_URI}
+go run main.go --info ${DATABASE_URI}
 validate "--info <uri>"
 
 # Test All Info
-echo ; echo "==> Test printing cluster info (--info <uri>)"
-go run keyhole.go --allinfo ${DATABASE_URI}
+echo ; echo "==> Test printing cluster info (--allinfo <uri>)"
+go run main.go --allinfo ${DATABASE_URI}
 validate "--allinfo ${DATABASE_URI}"
 
 # Test seed
 echo ; echo "==> Test seeding default docs (--seed <uri>)"
-go run keyhole.go --seed ${DATABASE_URI}
+go run main.go --seed ${DATABASE_URI}
 validate "--seed ${DATABASE_URI}"
 
 echo ; echo "==> Test seeding default docs after dropping collection (--seed --drop <uri>)"
-go run keyhole.go --seed --drop ${DATABASE_URI}
+go run main.go --seed --drop ${DATABASE_URI}
 validate "--seed --drop ${DATABASE_URI}"
 
 mongo ${DATABASE_URI} ${TLS} --eval 'db.cars.createIndex({color: 1})'
 mongo ${DATABASE_URI} ${TLS} --eval 'db.cars.createIndex({color: 1, style: 1})'
 
 echo ; echo "==> Test seeding docs from a template (--file <file> --collection <collection> <uri>)"
-go run keyhole.go --seed --file examples/template.json --collection template ${DATABASE_URI}
+go run main.go --seed --file examples/template.json --collection template ${DATABASE_URI}
 validate "--file <file> --collection <collection> <uri>"
 
 echo ; echo "==> Test seeding docs from a template after dropping collection (--file <file> --collection <collection> --drop <uri>)"
-go run keyhole.go --seed --file examples/template.json --collection template --drop ${DATABASE_URI}
+go run main.go --seed --file examples/template.json --collection template --drop ${DATABASE_URI}
 validate "--file <file> --collection <collection> --drop <uri>"
 
 # Test Index
 echo ; echo "==> Test printing cluster indexes (--index <uri>)"
-go run keyhole.go --index ${DATABASE_URI}
+go run main.go --index ${DATABASE_URI}
 validate "--index <uri>"
 
 # Test Create Index
 echo ; echo "==> Test printing cluster indexes (--createIndex <index_info> <uri>)"
-go run keyhole.go --createIndex "$(hostname)-index.bson.gz" ${DATABASE_URI}
+go run main.go --createIndex "$(hostname)-index.bson.gz" ${DATABASE_URI}
 rm -f "$(hostname)-index.bson.gz"
 validate "--createIndex <index_info> <uri>"
 
 # Test Schema
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
-go run keyhole.go --schema --collection cars ${DATABASE_URI}
+go run main.go --schema --collection cars ${DATABASE_URI}
 validate "--schema --collection <collection> <uri>"
 
 if [[ "$mver" > "v3.4" ]]; then
     # Test Cardinality
     echo ; echo "==> Test printing number of distinct fileds values (--cardinality)"
-    go run keyhole.go --cardinality favorites ${DATABASE_URI}
+    go run main.go --cardinality favorites ${DATABASE_URI}
     validate "--cardinality"
 
     # Test Cardinality
     echo ; echo "==> Test printing number of distinct fileds values (--explain)"
-    go run keyhole.go --explain mdb/testdata/cars.log ${DATABASE_URI}
+    go run main.go --explain mdb/testdata/cars.log ${DATABASE_URI}
     validate "--explain"
 
     # Test Cardinality
     echo ; echo "==> Test printing number of distinct fileds values (--explain)"
-    go run keyhole.go --explain mdb/testdata/cars.json ${DATABASE_URI}
+    go run main.go --explain mdb/testdata/cars.json ${DATABASE_URI}
     validate "--explain"
 fi
 
 if [ "$1" != "" ]; then
     # Test load test
     echo ; echo "==> Test load from a template (--file <file> <uri>)"
-    go run keyhole.go --yes --file examples/template.json --duration 2 \
+    go run main.go --yes --file examples/template.json --duration 2 \
         --tps 300 --conn 10 --simonly ${DATABASE_URI}
     validate "--file <file> <uri>"
 
-    go run keyhole.go --yes --file examples/template.json --duration 3 \
+    go run main.go --yes --file examples/template.json --duration 3 \
         --tps 300 --conn 10 --tx examples/transactions.json ${DATABASE_URI}
     rm -f keyhole_*.gz
     validate "--yes"
 
     # Test loginfo
     echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
-    go run keyhole.go --loginfo data/mongod.log
-    go run keyhole.go --loginfo mongod-log.bson.gz
+    go run main.go --loginfo data/mongod.log
+    go run main.go --loginfo mongod-log.bson.gz
     rm -f mongod-log.bson.gz
 fi
 
 # Test info Atlas
 echo ; echo "==> Test printing clusters summary (--info <atlas_uri>)"
-go run keyhole.go --info "atlas://${ATLAS_AUTH}"
+go run main.go --info "atlas://${ATLAS_AUTH}"
 
 # Test loginfo Atlas
 # echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
-# go run keyhole.go --seed ${ATLAS_URL}
-# go run keyhole.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
+# go run main.go --seed ${ATLAS_URL}
+# go run main.go --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
 rm -f mongodb.log.*
 
 shutdownServer
