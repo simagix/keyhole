@@ -22,9 +22,9 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-var version = "devel-built"
+// var version = "devel-built"
 
-func main() {
+func main2() {
 	allinfo := flag.Bool("allinfo", false, "get all cluster info")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
 	collection := flag.String("collection", "", "collection name to print schema")

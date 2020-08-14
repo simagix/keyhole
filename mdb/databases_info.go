@@ -151,7 +151,7 @@ func (dbi *DatabaseInfo) GetAllDatabasesInfo(client *mongo.Client) ([]bson.M, er
 					buf, _ := bson.Marshal(walker.Walk(firstDoc))
 					bson.Unmarshal(buf, &firstDoc)
 				}
-				indexes := ir.GetIndexesFromCollection(collection)
+				indexes, _ := ir.GetIndexesFromCollection(collection)
 
 				// stats
 				var stats bson.M

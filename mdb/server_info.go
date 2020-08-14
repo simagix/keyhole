@@ -124,7 +124,7 @@ func GetServerInfo(client *mongo.Client) bson.M {
 			estrs = append(estrs, err.Error())
 			cluster["replSetGetStatus"] = bson.M{"ok": 0, "error": err.Error()}
 		}
-		cluster["oplog"] = GetOplogStats(client)
+		// cluster["oplog"] = GetOplogStats(client)
 	}
 	summary := bson.M{}
 	summary["cluster"] = clusterType

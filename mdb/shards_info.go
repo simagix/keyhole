@@ -1,45 +1,37 @@
-// Copyright 2018 Kuei-chun Chen. All rights reserved.
+// Copyright 2020 Kuei-chun Chen. All rights reserved.
 
 package mdb
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-// ShardDoc information
-type ShardDoc struct {
-	ID    string `json:"_id" bson:"_id"`
-	Host  string `json:"host" bson:"host"`
-	State int    `json:"state" bson:"state"`
+// Shard store shard information
+type Shard struct {
+	ID    string `bson:"_id"`
+	Host  string `bson:"host"`
+	State int    `bson:"state"`
 }
 
-// GetShards gets a list of shards
-func GetShards(client *mongo.Client) ([]ShardDoc, error) {
-	var err error
-	var m bson.M
-	var buf []byte
-	type shardInfo struct {
-		Shards []ShardDoc `json:"shards"`
+// GetShards return all shards from listShards command
+func GetShards(client *mongo.Client) ([]Shard, error) {
+	ctx := context.Background()
+	var shardsInfo struct {
+		Shards []Shard
 	}
-	var si shardInfo
-	if m, err = RunAdminCommand(client, "listShards"); err != nil {
-		return nil, err
-	}
-	if buf, err = json.Marshal(m); err != nil {
-		return nil, err
-	}
-	json.Unmarshal(buf, &si)
-	return si.Shards, err
+	err := client.Database("admin").RunCommand(ctx, bson.D{{Key: "listShards", Value: 1}}).Decode(&shardsInfo)
+	return shardsInfo.Shards, err
 }
 
 // GetAllShardURIs returns URIs of all replicas
-func GetAllShardURIs(shards []ShardDoc, connString connstring.ConnString) ([]string, error) {
+func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string, error) {
 	var list []string
 	isSRV := false
 	if strings.Index(connString.String(), "mongodb+srv") == 0 {
@@ -67,7 +59,7 @@ func GetAllShardURIs(shards []ShardDoc, connString connstring.ConnString) ([]str
 }
 
 // GetAllServerURIs returns URIs of all mongo servers
-func GetAllServerURIs(shards []ShardDoc, connString connstring.ConnString) ([]string, error) {
+func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]string, error) {
 	var list []string
 	isSRV := false
 	if strings.HasPrefix(connString.String(), "mongodb+srv") {

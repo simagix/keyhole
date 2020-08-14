@@ -45,10 +45,10 @@ type UsageDoc struct {
 }
 
 // CollectionIndexes store index stats in a map
-type CollectionIndexes map[string][]IndexStatsDoc
+type CollectionIndexes map[string][]IndexStats
 
-// IndexStatsDoc -
-type IndexStatsDoc struct {
+// IndexStats stores indexes stats
+type IndexStats struct {
 	Background              bool   `json:"background" bson:"background"`
 	Collation               bson.D `json:"collation" bson:"collation"`
 	ExpireAfterSeconds      int32  `json:"expireAfterSeconds" bson:"expireAfterSeconds"`
@@ -188,17 +188,17 @@ func (ix *Indexes) GetIndexesFromDB(dbName string) (CollectionIndexes, error) {
 
 	sort.Strings(collections)
 	for _, collection := range collections {
-		indexesMap[collection] = ix.GetIndexesFromCollection(ix.client.Database(dbName).Collection(collection))
+		indexesMap[collection], _ = ix.GetIndexesFromCollection(ix.client.Database(dbName).Collection(collection))
 	}
 	return indexesMap, err
 }
 
 // GetIndexesFromCollection gets indexes from a collection
-func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []IndexStatsDoc {
+func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) ([]IndexStats, error) {
 	var err error
 	var ctx = context.Background()
 	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
-	var list []IndexStatsDoc
+	var list []IndexStats
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
 	if ix.verbose {
@@ -207,7 +207,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
 		log.Println(err)
-		return list
+		return list, err
 	}
 	var indexStats = []map[string]interface{}{}
 	for scur.Next(ctx) {
@@ -224,12 +224,12 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = ix.client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
 		log.Println(err)
-		return list
+		return list, err
 	}
 	defer icur.Close(ctx)
 
 	for icur.Next(ctx) {
-		o := IndexStatsDoc{}
+		o := IndexStats{}
 		if err = icur.Decode(&o); err != nil {
 			log.Println(err)
 			continue
@@ -279,11 +279,11 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) []Inde
 			list[i].IsDupped = checkIfDupped(o, list)
 		}
 	}
-	return list
+	return list, nil
 }
 
 // check if an index is a dup of others
-func checkIfDupped(doc IndexStatsDoc, list []IndexStatsDoc) bool {
+func checkIfDupped(doc IndexStats, list []IndexStats) bool {
 	for _, o := range list {
 		// check indexes if not marked as dupped, has the same first field, and more or equal number of fields
 		if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.KeyString != o.KeyString && len(o.Fields) >= len(doc.Fields) {

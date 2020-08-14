@@ -100,7 +100,7 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 	clusterType := fmt.Sprintf(`%v`, mc.cluster["cluster"])
 	var serversList []string
 	if clusterType == SHARDED {
-		var shards []ShardDoc
+		var shards []Shard
 		if shards, err = GetShards(mc.client); err != nil {
 			log.Println(err)
 		}
@@ -117,8 +117,8 @@ func (mc *MongoCluster) GetClusterInfo() (bson.M, error) {
 			var hosts []string
 			json.Unmarshal(data, &hosts)
 			s := fmt.Sprintf(`%v/%v`, setName, strings.Join(hosts, ","))
-			d := ShardDoc{ID: setName, State: 1, Host: s}
-			if serversList, err = GetAllServerURIs([]ShardDoc{d}, mc.connString); err != nil {
+			d := Shard{ID: setName, State: 1, Host: s}
+			if serversList, err = GetAllServerURIs([]Shard{d}, mc.connString); err != nil {
 				serversList = []string{}
 			}
 		}
