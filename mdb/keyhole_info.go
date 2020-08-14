@@ -4,6 +4,7 @@ package mdb
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -18,24 +19,32 @@ type KeyholeInfo struct {
 
 // NewKeyholeInfo returns KeyholeInfo
 func NewKeyholeInfo(version string, params string) *KeyholeInfo {
-	keyholeInfo := KeyholeInfo{Version: version, Params: params}
+	k := KeyholeInfo{Version: version, Params: params}
 	now := time.Now()
-	keyholeInfo.Collected = now
-	keyholeInfo.Logs = []string{fmt.Sprintf(`%v keyhole begins`, now.Format(time.RFC3339))}
-	return &keyholeInfo
+	k.Collected = now
+	k.Logs = []string{fmt.Sprintf(`%v keyhole begins`, now.Format(time.RFC3339))}
+	return &k
 }
 
-// Log adds a message
-func (ptr *KeyholeInfo) Log(s string) {
-	ptr.Logs = append(ptr.Logs, fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), s))
+// Add adds a message
+func (p *KeyholeInfo) Add(message string) {
+	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
+	p.Logs = append(p.Logs, str)
+}
+
+// Log adds and prints a message
+func (p *KeyholeInfo) Log(message string) {
+	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
+	p.Logs = append(p.Logs, str)
+	log.Println(message)
 }
 
 // Print prints keyhole info
-func (ptr *KeyholeInfo) Print() string {
-	if ptr == nil {
+func (p *KeyholeInfo) Print() string {
+	if p == nil {
 		return ""
 	}
-	strs := []string{fmt.Sprintf(`{ keyhole: { version: "%v", args: "%v" } }`, ptr.Version, ptr.Params)}
-	strs = append(strs, ptr.Logs...)
+	strs := []string{fmt.Sprintf(`{ keyhole: { version: "%v", args: "%v" } }`, p.Version, p.Params)}
+	strs = append(strs, p.Logs...)
 	return strings.Join(strs, "\n")
 }
