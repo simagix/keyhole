@@ -99,7 +99,6 @@ func main() {
 				fmt.Println("=> processing", filename)
 				var str string
 				li := mdb.NewLogInfo()
-				li.SetKeyholeInfo(mdb.NewKeyholeInfo(version, "-loginfo"))
 				li.SetVerbose(*verbose)
 				if str, err = li.AnalyzeFile(filename, *redaction); err != nil {
 					log.Println(err)
@@ -144,7 +143,6 @@ func main() {
 	} else if *loginfo && len(flag.Args()) > 0 {
 		filenames := flag.Args()
 		li := mdb.NewLogInfo()
-		li.SetKeyholeInfo(mdb.NewKeyholeInfo(version, "-loginfo"))
 		li.SetRegexPattern(*regex)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)

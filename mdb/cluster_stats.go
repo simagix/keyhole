@@ -28,11 +28,11 @@ const Standalone = "standalone"
 
 // ClusterStats keeps slow ops struct
 type ClusterStats struct {
-	bsonExt     string
-	htmlExt     string
-	keyholeInfo *KeyholeInfo
-	redact      bool
-	verbose     bool
+	bsonExt string
+	htmlExt string
+	logger  *Logger
+	redact  bool
+	verbose bool
 }
 
 // ClusterDetails stores cluster details
@@ -43,7 +43,7 @@ type ClusterDetails struct {
 	Databases        []Database       `bson:"databases"`
 	Host             string           `bson:"host"`
 	HostInfo         HostInfo         `bson:"hostInfo"`
-	KeyholeInfo      *KeyholeInfo     `bson:"keyhole"`
+	Logger           *Logger          `bson:"logs"`
 	OplogStats       OplogStats       `bson:"oplog"`
 	Process          string           `bson:"process"`
 	ReplSetGetStatus ReplSetGetStatus `bson:"replSetGetStatus"`
@@ -54,7 +54,7 @@ type ClusterDetails struct {
 
 // NewStats -
 func NewStats(version string) *ClusterStats {
-	s := ClusterStats{keyholeInfo: NewKeyholeInfo(version, "-allinfo"), bsonExt: "-stats.bson.gz", htmlExt: "-stats.html"}
+	s := ClusterStats{logger: NewLogger(version, "-allinfo"), bsonExt: "-stats.bson.gz", htmlExt: "-stats.html"}
 	return &s
 }
 
@@ -72,46 +72,46 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) (ClusterDetails, error) {
 	var err error
 	var cluster = ClusterDetails{}
-	p.keyholeInfo.Log("GetClusterStats() begins")
+	p.logger.Log("GetClusterStats() begins")
 	if cluster, err = p.GetClusterStatsSummary(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
 	}
 	if cluster.CmdLineOpts, err = GetCmdLineOpts(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
 	}
 	if cluster.Cluster == Sharded { //collects from the primary of each shard
 		message := "sharded detected, collecting from all servers"
-		p.keyholeInfo.Log(message)
+		p.logger.Log(message)
 		if cluster.Shards, err = GetShards(client); err != nil {
-			p.keyholeInfo.Log(fmt.Sprintf(`GetShards(): %v`, err))
+			p.logger.Log(fmt.Sprintf(`GetShards(): %v`, err))
 		}
 		if cluster.Shards, err = p.GeterversStatsSummary(cluster.Shards, connString); err != nil {
-			p.keyholeInfo.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
+			p.logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
 	} else if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
 		message := "replica detected, collecting from all servers"
-		p.keyholeInfo.Log(message)
+		p.logger.Log(message)
 		if cluster.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
-			p.keyholeInfo.Log(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
+			p.logger.Log(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
 		}
 
 		setName := cluster.ServerStatus.Repl.SetName
 		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(cluster.ServerStatus.Repl.Hosts, ","))
 		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
 		if cluster.Shards, err = p.GeterversStatsSummary(oneShard, connString); err != nil {
-			p.keyholeInfo.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
+			p.logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
 	}
 	db := NewDatabaseStats()
 	var databases []Database
 	if databases, err = db.GetAllDatabasesStats(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
 	for _, m := range db.GetLogs() {
-		p.keyholeInfo.Add(m)
+		p.logger.Add(m)
 	}
 	cluster.Databases = databases
-	cluster.KeyholeInfo = p.keyholeInfo
+	cluster.Logger = p.logger
 	return cluster, nil
 }
 
@@ -134,21 +134,21 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) (ClusterDeta
 	var err error
 	var cluster = ClusterDetails{}
 	if cluster.BuildInfo, err = GetBuildInfo(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetBuildInfo(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetBuildInfo(): %v`, err))
 	}
 	cluster.Version = cluster.BuildInfo.Version
 	if cluster.HostInfo, err = GetHostInfo(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetHostInfo(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetHostInfo(): %v`, err))
 	}
 	if cluster.ServerStatus, err = GetServerStatus(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetServerStatus(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetServerStatus(): %v`, err))
 	}
 	cluster.Host = cluster.ServerStatus.Host
 	cluster.Process = cluster.ServerStatus.Process
 	cluster.Cluster = GetClusterType(cluster.ServerStatus)
 	if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
 		if cluster.OplogStats, err = GetOplogStats(client); err != nil {
-			p.keyholeInfo.Log(fmt.Sprintf(`GetOplogStats(): %v`, err))
+			p.logger.Log(fmt.Sprintf(`GetOplogStats(): %v`, err))
 		}
 	}
 	return cluster, nil
@@ -159,7 +159,7 @@ func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
 	var err error
 	var c ClusterDetails
 	if c, err = p.GetClusterStatsSummary(client); err != nil {
-		p.keyholeInfo.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
+		p.logger.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
 		return err.Error()
 	}
 	edition := "community"
@@ -193,19 +193,19 @@ func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstri
 			s = strings.ReplaceAll(s, cs.Password, "xxxxxx")
 		}
 		msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
-		p.keyholeInfo.Log(msg)
+		p.logger.Log(msg)
 		msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
 		wg.Add(1)
 		go func(uri string, msg string) {
 			defer wg.Done()
-			defer p.keyholeInfo.Log(msg)
+			defer p.logger.Log(msg)
 			var sclient *mongo.Client
 			if sclient, err = NewMongoClient(uri, connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
 				log.Println(err)
 				return
 			}
 			defer sclient.Disconnect(context.Background())
-			stats := NewStats(p.keyholeInfo.Version)
+			stats := NewStats(p.logger.Version)
 			var server ClusterDetails
 			if server, err = stats.GetClusterStatsSummary(sclient); err != nil {
 				log.Println(err)

@@ -46,10 +46,10 @@ func PrintBSON(filename string) error {
 		}
 		bson.Unmarshal(data, &doc)
 		if doc["keyhole"] != nil {
-			var keyholeInfo KeyholeInfo
+			var logger Logger
 			if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
-				bson.Unmarshal(buf, &keyholeInfo)
-				fmt.Println(keyholeInfo.Print())
+				bson.Unmarshal(buf, &logger)
+				fmt.Println(logger.Print())
 			}
 		}
 		if data, err = bson.MarshalExtJSON(doc, false, false); err == nil {

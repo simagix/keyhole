@@ -9,17 +9,17 @@ import (
 	"time"
 )
 
-// KeyholeInfo stores keyhole info
-type KeyholeInfo struct {
+// Logger stores logger info
+type Logger struct {
 	Collected time.Time
 	Logs      []string
 	Params    string
 	Version   string
 }
 
-// NewKeyholeInfo returns KeyholeInfo
-func NewKeyholeInfo(version string, params string) *KeyholeInfo {
-	k := KeyholeInfo{Version: version, Params: params}
+// NewLogger returns Logger
+func NewLogger(version string, params string) *Logger {
+	k := Logger{Version: version, Params: params}
 	now := time.Now()
 	k.Collected = now
 	k.Logs = []string{fmt.Sprintf(`%v keyhole begins`, now.Format(time.RFC3339))}
@@ -27,20 +27,20 @@ func NewKeyholeInfo(version string, params string) *KeyholeInfo {
 }
 
 // Add adds a message
-func (p *KeyholeInfo) Add(message string) {
+func (p *Logger) Add(message string) {
 	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
 	p.Logs = append(p.Logs, str)
 }
 
 // Log adds and prints a message
-func (p *KeyholeInfo) Log(message string) {
+func (p *Logger) Log(message string) {
 	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
 	p.Logs = append(p.Logs, str)
 	log.Println(message)
 }
 
 // Print prints keyhole info
-func (p *KeyholeInfo) Print() string {
+func (p *Logger) Print() string {
 	if p == nil {
 		return ""
 	}

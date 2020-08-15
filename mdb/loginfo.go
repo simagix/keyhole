@@ -28,13 +28,13 @@ type LogInfo struct {
 	OpsPatterns    []OpPerformanceDoc `bson:"opespatterns"`
 	OutputFilename string
 	SlowOps        []SlowOps `bson:"slowops"`
-	collscan       bool      `bson:"collscan"`
-	filename       string
-	KeyholeInfo    *KeyholeInfo `bson:"keyhole"`
-	mongoInfo      string
-	regex          string
-	silent         bool
-	verbose        bool
+
+	collscan  bool `bson:"collscan"`
+	filename  string
+	mongoInfo string
+	regex     string
+	silent    bool
+	verbose   bool
 }
 
 // OpPerformanceDoc stores performance data
@@ -77,11 +77,6 @@ func NewLogInfo() *LogInfo {
 // SetCollscan -
 func (li *LogInfo) SetCollscan(collscan bool) {
 	li.collscan = collscan
-}
-
-// SetKeyholeInfo sets keyhole version
-func (li *LogInfo) SetKeyholeInfo(keyholeInfo *KeyholeInfo) {
-	li.KeyholeInfo = keyholeInfo
 }
 
 // SetSilent -
@@ -393,8 +388,5 @@ func (li *LogInfo) printLogsSummary() string {
 	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
 	summaries = append(summaries, fmt.Sprintf(`top %d lines displayed; see HTML report for details.`, count))
-	if li.KeyholeInfo != nil {
-		summaries = append(summaries, li.KeyholeInfo.Print())
-	}
 	return strings.Join(summaries, "\n")
 }
