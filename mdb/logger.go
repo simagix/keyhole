@@ -11,10 +11,10 @@ import (
 
 // Logger stores logger info
 type Logger struct {
-	Collected time.Time
-	Logs      []string
-	Params    string
-	Version   string
+	Collected time.Time `bson:"collected"`
+	Logs      []string  `bson:"logs"`
+	Params    string    `bson:"params"`
+	Version   string    `bson:"version"`
 }
 
 // NewLogger returns Logger
