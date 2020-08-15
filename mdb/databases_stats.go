@@ -38,7 +38,6 @@ type ListDatabases struct {
 type Database struct {
 	Name        string            `bson:"name"`
 	Collections []CollectionStats `bson:"collections"`
-	DB          string            `bson:"DB"` // decoy
 	SizeOnDisk  int64             `bson:"sizeOnDisk,truncate"`
 	Empty       bool              `bson:"empty"`
 	Shards      bson.M            `bson:"shards"`
