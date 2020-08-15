@@ -22,14 +22,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Indexes holder indexes reader struct
-type Indexes struct {
-	client     *mongo.Client
-	dbName     string
-	filename   string
-	indexesMap map[string]CollectionIndexes
-	nocolor    bool
-	verbose    bool
+// IndexStats holder indexes reader struct
+type IndexStats struct {
+	IndexesMap map[string]CollectionIndexes `bson:"indexesMap"`
+	Logger     *Logger                      `bson:"keyhole"`
+
+	db       string `bson:"db"`
+	filename string `bson:"filename"`
+	nocolor  bool   `bson:"nocolor"`
+	verbose  bool
+	version  string `bson:"version"`
 }
 
 // AccessesDoc - accessss
@@ -45,19 +47,19 @@ type UsageDoc struct {
 }
 
 // CollectionIndexes store index stats in a map
-type CollectionIndexes map[string][]IndexStats
+type CollectionIndexes map[string][]Index
 
-// IndexStats stores indexes stats
-type IndexStats struct {
-	Background              bool   `json:"background" bson:"background"`
-	Collation               bson.D `json:"collation" bson:"collation"`
-	ExpireAfterSeconds      int32  `json:"expireAfterSeconds" bson:"expireAfterSeconds"`
-	Key                     bson.D `json:"key" bson:"key"`
-	Name                    string `json:"name" bson:"name"`
-	PartialFilterExpression bson.D `json:"partialFilterExpression" bson:"partialFilterExpression"`
-	Sparse                  bool   `json:"sparse" bson:"sparse"`
-	Unique                  bool   `json:"unique" bson:"unique"`
-	Version                 int32  `json:"v" bson:"v"`
+// Index stores indexes stats
+type Index struct {
+	Background              bool   `json:"background" bson:"background,truncate"`
+	Collation               bson.D `json:"collation" bson:"collation,truncate"`
+	ExpireAfterSeconds      int32  `json:"expireAfterSeconds" bson:"expireAfterSeconds,truncate"`
+	Key                     bson.D `json:"key" bson:"key,truncate"`
+	Name                    string `json:"name" bson:"name,truncate"`
+	PartialFilterExpression bson.D `json:"partialFilterExpression" bson:"partialFilterExpression,truncate"`
+	Sparse                  bool   `json:"sparse" bson:"sparse,truncate"`
+	Unique                  bool   `json:"unique" bson:"unique,truncate"`
+	Version                 int32  `json:"v" bson:"v,truncate"`
 
 	EffectiveKey string     `json:"effectiveKey" bson:"effectiveKey"`
 	Fields       []string   `json:"fields" bson:"fields"`
@@ -68,24 +70,25 @@ type IndexStats struct {
 	Usage        []UsageDoc `json:"usage" bson:"usage"`
 }
 
-// NewIndexes establish seeding parameters
-func NewIndexes(client *mongo.Client) *Indexes {
+// NewIndexStats establish seeding parameters
+func NewIndexStats(version string) *IndexStats {
 	hostname, _ := os.Hostname()
-	return &Indexes{client: client, filename: hostname + "-index.bson.gz", indexesMap: map[string]CollectionIndexes{}}
+	return &IndexStats{version: version, Logger: NewLogger(version, "-index"),
+		filename: hostname + "-index.bson.gz", IndexesMap: map[string]CollectionIndexes{}}
 }
 
 // SetFilename sets output file name
-func (ix *Indexes) SetFilename(filename string) {
+func (ix *IndexStats) SetFilename(filename string) {
 	ix.filename = strings.Replace(filename, ":", "_", -1)
 }
 
 // SetIndexesMap sets indexes map
-func (ix *Indexes) SetIndexesMap(indexesMap map[string]CollectionIndexes) {
-	ix.indexesMap = indexesMap
+func (ix *IndexStats) SetIndexesMap(IndexesMap map[string]CollectionIndexes) {
+	ix.IndexesMap = IndexesMap
 }
 
 // SetIndexesMapFromFile File sets indexes map from a file
-func (ix *Indexes) SetIndexesMapFromFile(filename string) error {
+func (ix *IndexStats) SetIndexesMapFromFile(filename string) error {
 	if strings.HasSuffix(filename, "-index.bson.gz") {
 		return ix.setIndexesMapFromBSONFile(filename)
 	}
@@ -93,7 +96,7 @@ func (ix *Indexes) SetIndexesMapFromFile(filename string) error {
 }
 
 // setIndexesMapFromBSONFile File sets indexes map from a file
-func (ix *Indexes) setIndexesMapFromBSONFile(filename string) error {
+func (ix *IndexStats) setIndexesMapFromBSONFile(filename string) error {
 	var data []byte
 	var err error
 	var fd *bufio.Reader
@@ -103,36 +106,36 @@ func (ix *Indexes) setIndexesMapFromBSONFile(filename string) error {
 	if data, err = ioutil.ReadAll(fd); err != nil {
 		return err
 	}
-	return bson.Unmarshal(data, &ix.indexesMap)
+	return bson.Unmarshal(data, &ix)
 }
 
 // SetNoColor set nocolor flag
-func (ix *Indexes) SetNoColor(nocolor bool) {
+func (ix *IndexStats) SetNoColor(nocolor bool) {
 	ix.nocolor = nocolor
 }
 
 // SetVerbose sets verbose level
-func (ix *Indexes) SetVerbose(verbose bool) {
+func (ix *IndexStats) SetVerbose(verbose bool) {
 	ix.verbose = verbose
 }
 
 // SetDBName sets verbose level
-func (ix *Indexes) SetDBName(dbName string) {
-	ix.dbName = dbName
+func (ix *IndexStats) SetDBName(db string) {
+	ix.db = db
 }
 
 // GetIndexes list all indexes of collections of databases
-func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
+func (ix *IndexStats) GetIndexes(client *mongo.Client) (map[string]CollectionIndexes, error) {
 	var err error
 	var dbNames []string
-	ix.indexesMap = map[string]CollectionIndexes{} // reset
-	if ix.dbName != "" {
-		ix.indexesMap[ix.dbName], err = ix.GetIndexesFromDB(ix.dbName)
-		return ix.indexesMap, err
+	ix.IndexesMap = map[string]CollectionIndexes{} // reset
+	if ix.db != "" {
+		ix.IndexesMap[ix.db], err = ix.GetIndexesFromDB(client, ix.db)
+		return ix.IndexesMap, err
 	}
 
-	if dbNames, err = ListDatabaseNames(ix.client); err != nil {
-		return ix.indexesMap, err
+	if dbNames, err = ListDatabaseNames(client); err != nil {
+		return ix.IndexesMap, err
 	}
 	cnt := 0
 	for _, name := range dbNames {
@@ -146,24 +149,24 @@ func (ix *Indexes) GetIndexes() (map[string]CollectionIndexes, error) {
 		if ix.verbose == true {
 			log.Println("checking", name)
 		}
-		if ix.indexesMap[name], err = ix.GetIndexesFromDB(name); err != nil {
-			return ix.indexesMap, err
+		if ix.IndexesMap[name], err = ix.GetIndexesFromDB(client, name); err != nil {
+			return ix.IndexesMap, err
 		}
 	}
 	if cnt == 0 && ix.verbose == true {
 		log.Println("No database is available")
 	}
-	return ix.indexesMap, err
+	return ix.IndexesMap, err
 }
 
 // GetIndexesFromDB list all indexes of collections of a database
-func (ix *Indexes) GetIndexesFromDB(dbName string) (CollectionIndexes, error) {
+func (ix *IndexStats) GetIndexesFromDB(client *mongo.Client, db string) (CollectionIndexes, error) {
 	var err error
 	var cur *mongo.Cursor
 	var ctx = context.Background()
-	var indexesMap = CollectionIndexes{}
-	if cur, err = ix.client.Database(dbName).ListCollections(ctx, bson.M{}); err != nil {
-		return indexesMap, err
+	var IndexesMap = CollectionIndexes{}
+	if cur, err = client.Database(db).ListCollections(ctx, bson.M{}); err != nil {
+		return IndexesMap, err
 	}
 	defer cur.Close(ctx)
 	collections := []string{}
@@ -188,17 +191,17 @@ func (ix *Indexes) GetIndexesFromDB(dbName string) (CollectionIndexes, error) {
 
 	sort.Strings(collections)
 	for _, collection := range collections {
-		indexesMap[collection], _ = ix.GetIndexesFromCollection(ix.client.Database(dbName).Collection(collection))
+		IndexesMap[collection], _ = ix.GetIndexesFromCollection(client, client.Database(db).Collection(collection))
 	}
-	return indexesMap, err
+	return IndexesMap, err
 }
 
 // GetIndexesFromCollection gets indexes from a collection
-func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) ([]IndexStats, error) {
+func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection *mongo.Collection) ([]Index, error) {
 	var err error
 	var ctx = context.Background()
 	var pipeline = MongoPipeline(`{"$indexStats": {}}`)
-	var list []IndexStats
+	var list []Index
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
 	if ix.verbose {
@@ -222,14 +225,14 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) ([]Ind
 
 	db := collection.Database().Name()
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
-	if icur, err = ix.client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
+	if icur, err = client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
 		log.Println(err)
 		return list, err
 	}
 	defer icur.Close(ctx)
 
 	for icur.Next(ctx) {
-		o := IndexStats{}
+		o := Index{}
 		if err = icur.Decode(&o); err != nil {
 			log.Println(err)
 			continue
@@ -257,7 +260,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) ([]Ind
 		if ix.verbose {
 			log.Println("GetIndexesFromCollection", ns, o.KeyString)
 		}
-		if err = ix.client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
+		if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
 			o.IsShardKey = true
 		}
 		o.EffectiveKey = strings.Replace(o.KeyString[2:len(o.KeyString)-2], ": -1", ": 1", -1)
@@ -283,7 +286,7 @@ func (ix *Indexes) GetIndexesFromCollection(collection *mongo.Collection) ([]Ind
 }
 
 // check if an index is a dup of others
-func checkIfDupped(doc IndexStats, list []IndexStats) bool {
+func checkIfDupped(doc Index, list []Index) bool {
 	for _, o := range list {
 		// check indexes if not marked as dupped, has the same first field, and more or equal number of fields
 		if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.KeyString != o.KeyString && len(o.Fields) >= len(doc.Fields) {
@@ -308,19 +311,19 @@ func checkIfDupped(doc IndexStats, list []IndexStats) bool {
 }
 
 // Print prints indexes
-func (ix *Indexes) Print() {
-	ix.PrintIndexesOf(ix.indexesMap)
+func (ix *IndexStats) Print() {
+	ix.PrintIndexesOf(ix.IndexesMap)
 }
 
 // PrintIndexesOf prints indexes
-func (ix *Indexes) PrintIndexesOf(indexesMap map[string]CollectionIndexes) {
+func (ix *IndexStats) PrintIndexesOf(IndexesMap map[string]CollectionIndexes) {
 	var dbkeys []string
-	for k := range indexesMap {
+	for k := range IndexesMap {
 		dbkeys = append(dbkeys, k)
 	}
 	sort.Strings(dbkeys)
 	for _, key := range dbkeys {
-		collectionIndexes := indexesMap[key]
+		collectionIndexes := IndexesMap[key]
 		var keys []string
 		for k := range collectionIndexes {
 			keys = append(keys, k)
@@ -369,13 +372,13 @@ func (ix *Indexes) PrintIndexesOf(indexesMap map[string]CollectionIndexes) {
 }
 
 // CreateIndexes creates indexes
-func (ix *Indexes) CreateIndexes() error {
+func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 	var ctx = context.Background()
 	var err error
-	for db := range ix.indexesMap {
-		indexes := ix.indexesMap[db]
+	for db := range ix.IndexesMap {
+		indexes := ix.IndexesMap[db]
 		for k, list := range indexes {
-			collection := ix.client.Database(db).Collection(k)
+			collection := client.Database(db).Collection(k)
 			for _, o := range list {
 				if o.IsShardKey == true {
 					// TODO
@@ -427,11 +430,11 @@ func (ix *Indexes) CreateIndexes() error {
 }
 
 // Save saves indexes map to a file
-func (ix *Indexes) Save() error {
+func (ix *IndexStats) Save() error {
 	var err error
 	var bsond bson.D
 	var buf []byte
-	if buf, err = bson.Marshal(ix.indexesMap); err != nil {
+	if buf, err = bson.Marshal(ix); err != nil {
 		return err
 	}
 	bson.Unmarshal(buf, &bsond)
@@ -439,7 +442,21 @@ func (ix *Indexes) Save() error {
 		return err
 	}
 	if err = gox.OutputGzipped(buf, ix.filename); err == nil {
-		fmt.Println("Indexes info is written to", ix.filename)
+		fmt.Println("Index stats is written to", ix.filename)
 	}
 	return err
+}
+
+// ListDatabaseNames gets all database names
+func ListDatabaseNames(client *mongo.Client) ([]string, error) {
+	var err error
+	var names []string
+	var result mongo.ListDatabasesResult
+	if result, err = client.ListDatabases(context.Background(), bson.M{}); err != nil {
+		return names, err
+	}
+	for _, db := range result.Databases {
+		names = append(names, db.Name)
+	}
+	return names, err
 }

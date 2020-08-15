@@ -24,7 +24,7 @@ type DatabaseStats struct {
 	logs      []string
 	redaction bool
 	verbose   bool
-	vv        bool
+	version   string
 }
 
 // ListDatabases stores listDatabases
@@ -36,13 +36,13 @@ type ListDatabases struct {
 
 // Database stores database stats
 type Database struct {
-	Name        string            `bson:"name"`
-	Collections []CollectionStats `bson:"collections"`
-	SizeOnDisk  int64             `bson:"sizeOnDisk,truncate"`
-	Empty       bool              `bson:"empty"`
-	Shards      bson.M            `bson:"shards"`
+	Name        string       `bson:"name"`
+	Collections []Collection `bson:"collections,truncate"`
+	SizeOnDisk  int64        `bson:"sizeOnDisk,truncate"`
+	Empty       bool         `bson:"empty,truncate"`
+	Shards      bson.M       `bson:"shards,truncate"`
 	Stats       struct {
-		Raw         bson.M `bson:"raw"`
+		Raw         bson.M `bson:"raw,truncate"`
 		Objects     int64  `bson:"objects,truncate"`
 		IndexSize   int64  `bson:"indexSize,truncate"`
 		FileSize    int64  `bson:"fileSize,truncate"`
@@ -55,9 +55,45 @@ type Database struct {
 	}
 }
 
+// Collection stores struct
+type Collection struct {
+	Chunks   []Chunk `bson:"chunks,truncate"`
+	Document bson.M  `bson:"document,truncate"`
+	Indexes  []Index `bson:"indexes,truncate"`
+	Name     string  `bson:"name,truncate"`
+	NS       string  `bson:"namespace,truncate"`
+	Stats    struct {
+		Count          int64   `bson:"count,truncate"`
+		IndexDetails   bson.M  `bson:"indexDetails,truncate"`
+		AvgObjSize     float64 `bson:"avgObjSize,truncate"`
+		WiredTiger     bson.M  `bson:"wiredTiger,truncate"`
+		IndexSizes     bson.M  `bson:"indexSizes,truncate"`
+		Capped         bool    `bson:"capped,truncate"`
+		TotalIndexSize int64   `bson:"totalIndexSize,truncate"`
+		MaxSize        int64   `bson:"maxSize,truncate"`
+		Nindexes       int64   `bson:"nindexes,truncate"`
+		Shards         bson.M  `bson:"shards,truncate"`
+		NS             string  `bson:"namespace,truncate"`
+		Nchunks        int64   `bson:"nchunks,truncate"`
+		Sharded        bool    `bson:"sharded,truncate"`
+		Size           int64   `bson:"size,truncate"`
+		StorageSize    int64   `bson:"storageSize,truncate"`
+	} `bson:"stats"`
+}
+
+// Chunk stores chunk stats
+type Chunk struct {
+	Empty   int64  `bson:"empty"`
+	Jumbo   int64  `bson:"jumbo"`
+	Objects int64  `bson:"objects"`
+	Shard   string `bson:"shard"`
+	Size    int64  `bson:"size"`
+	Total   int64  `bson:"total"`
+}
+
 // NewDatabaseStats returns DatabaseStats
-func NewDatabaseStats() *DatabaseStats {
-	return &DatabaseStats{logs: []string{}, threads: 16, vv: true}
+func NewDatabaseStats(version string) *DatabaseStats {
+	return &DatabaseStats{logs: []string{}, threads: 16, version: version}
 }
 
 // GetLogs returns logs
@@ -78,14 +114,6 @@ func (p *DatabaseStats) SetRedaction(redaction bool) {
 // SetVerbose sets verbosity
 func (p *DatabaseStats) SetVerbose(verbose bool) {
 	p.verbose = verbose
-}
-
-// SetVeryVerbose set very verbose
-func (p *DatabaseStats) SetVeryVerbose(vv bool) {
-	p.vv = vv
-	if p.vv == true {
-		p.verbose = true
-	}
 }
 
 // GetAllDatabasesStats gets all db info
@@ -109,8 +137,8 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			return listdb.Databases, err
 		}
 		defer cur.Close(ctx)
-		var collections = []CollectionStats{}
-		ir := NewIndexes(client)
+		var collections = []Collection{}
+		ir := NewIndexStats(p.version)
 		ir.SetVerbose(p.verbose)
 		collectionNames := []string{}
 
@@ -174,7 +202,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 					buf, _ := bson.Marshal(walker.Walk(sampleDoc))
 					bson.Unmarshal(buf, &sampleDoc)
 				}
-				indexes, err := ir.GetIndexesFromCollection(collection)
+				indexes, err := ir.GetIndexesFromCollection(client, collection)
 				if err != nil {
 					return
 				}
@@ -182,7 +210,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				// stats
 				var stats bson.M
 				client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-				chunks := []ChunkStats{}
+				chunks := []Chunk{}
 				if stats["shards"] != nil {
 					keys := []string{}
 
@@ -204,7 +232,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 					}
 				}
 				mu.Lock()
-				collstats := CollectionStats{NS: ns, Collection: collectionName, Chunks: chunks, Document: sampleDoc,
+				collstats := Collection{NS: ns, Name: collectionName, Chunks: chunks, Document: sampleDoc,
 					Indexes: indexes}
 				data, _ := bson.Marshal(stats)
 				bson.Unmarshal(data, &collstats.Stats)
@@ -214,7 +242,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		}
 		wg.Wait()
 		sort.Slice(collections, func(i, j int) bool {
-			return collections[i].Collection < collections[j].Collection
+			return collections[i].Name < collections[j].Name
 		})
 		if err = client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&db.Stats); err != nil {
 			log.Println(err.Error())
@@ -223,13 +251,13 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		db.Collections = collections
 		databases = append(databases, db)
 	}
-	msg := fmt.Sprintf("GetAllDatabasesInfo took %v", time.Now().Sub(t))
+	msg := fmt.Sprintf("GetAllDatabasesStats took %v", time.Now().Sub(t))
 	p.logs = append(p.logs, msg)
 	log.Println(msg)
 	return databases, nil
 }
 
-func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard string, ns string) (ChunkStats, error) {
+func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard string, ns string) (Chunk, error) {
 	var batchSize = 5
 	var count int64
 	var ctx = context.Background()
@@ -239,7 +267,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	var err error
 	var jumboCounts int64
 	var key bson.D
-	var chunk ChunkStats
+	var chunk Chunk
 	var mu sync.Mutex
 	coll := client.Database("config").Collection("collections")
 	if err = coll.FindOne(ctx, bson.D{{Key: "_id", Value: ns}, {Key: "dropped", Value: false}}).Decode(&doc); err != nil {
@@ -252,7 +280,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	}
 	t := time.Now()
 	coll = client.Database("config").Collection("chunks")
-	if p.vv == true {
+	if p.verbose == true {
 		log.Println(fmt.Sprintf(`collectChunksDistribution on %v %v ...`, shard, ns))
 		if cur, err = coll.Find(ctx, bson.M{"ns": ns, "shard": shard}); err != nil {
 			return chunk, nil
@@ -316,20 +344,6 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 			return chunk, err
 		}
 	}
-	chunk = ChunkStats{Shard: shard, Total: count, Empty: emptyCounts, Jumbo: jumboCounts}
+	chunk = Chunk{Shard: shard, Total: count, Empty: emptyCounts, Jumbo: jumboCounts}
 	return chunk, err
-}
-
-// ListDatabaseNames gets all database names
-func ListDatabaseNames(client *mongo.Client) ([]string, error) {
-	var err error
-	var names []string
-	var result mongo.ListDatabasesResult
-	if result, err = client.ListDatabases(context.Background(), bson.M{}); err != nil {
-		return names, err
-	}
-	for _, db := range result.Databases {
-		names = append(names, db.Name)
-	}
-	return names, err
 }

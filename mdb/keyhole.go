@@ -36,7 +36,7 @@ func (k *Keyhole) CollectClusterStats(client *mongo.Client, connString connstrin
 	var err error
 	var cluster ClusterDetails
 	stats := NewStats(k.version)
-	stats.SetVerbose(k.verbose)
+	stats.SetVerbose(true)
 	if cluster, err = stats.GetClusterStats(client, connString); err != nil {
 		return "", err
 	}

@@ -5,7 +5,6 @@ package mdb
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -30,9 +29,9 @@ const Standalone = "standalone"
 type ClusterStats struct {
 	bsonExt string
 	htmlExt string
-	logger  *Logger
 	redact  bool
 	verbose bool
+	version string
 }
 
 // ClusterDetails stores cluster details
@@ -54,7 +53,8 @@ type ClusterDetails struct {
 
 // NewStats -
 func NewStats(version string) *ClusterStats {
-	s := ClusterStats{logger: NewLogger(version, "-allinfo"), bsonExt: "-stats.bson.gz", htmlExt: "-stats.html"}
+	s := ClusterStats{version: version,
+		bsonExt: "-stats.bson.gz", htmlExt: "-stats.html"}
 	return &s
 }
 
@@ -71,47 +71,48 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 // GetClusterStats collects cluster stats
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) (ClusterDetails, error) {
 	var err error
-	var cluster = ClusterDetails{}
-	p.logger.Log("GetClusterStats() begins")
+	var cluster = ClusterDetails{Logger: NewLogger(p.version, "-allinfo")}
+	cluster.Logger.Log("GetClusterStats() begins")
 	if cluster, err = p.GetClusterStatsSummary(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
+		cluster.Logger.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
 	}
 	if cluster.CmdLineOpts, err = GetCmdLineOpts(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
+		cluster.Logger.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
 	}
 	if cluster.Cluster == Sharded { //collects from the primary of each shard
-		message := "sharded detected, collecting from all servers"
-		p.logger.Log(message)
+		cluster.Logger.Log("sharded detected, collecting from all servers")
 		if cluster.Shards, err = GetShards(client); err != nil {
-			p.logger.Log(fmt.Sprintf(`GetShards(): %v`, err))
+			cluster.Logger.Log(fmt.Sprintf(`GetShards(): %v`, err))
 		}
-		if cluster.Shards, err = p.GeterversStatsSummary(cluster.Shards, connString); err != nil {
-			p.logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
+		if cluster.Shards, err = p.GetServersStatsSummary(cluster.Shards, connString, cluster.Logger); err != nil {
+			cluster.Logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
+		cluster.Logger.Log("end collecting from all servers")
 	} else if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
 		message := "replica detected, collecting from all servers"
-		p.logger.Log(message)
+		cluster.Logger.Log(message)
 		if cluster.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
-			p.logger.Log(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
+			cluster.Logger.Log(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
 		}
 
 		setName := cluster.ServerStatus.Repl.SetName
 		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(cluster.ServerStatus.Repl.Hosts, ","))
 		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
-		if cluster.Shards, err = p.GeterversStatsSummary(oneShard, connString); err != nil {
-			p.logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
+		if cluster.Shards, err = p.GetServersStatsSummary(oneShard, connString, cluster.Logger); err != nil {
+			cluster.Logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
+		cluster.Logger.Log("end collecting from all servers")
 	}
-	db := NewDatabaseStats()
+	db := NewDatabaseStats(p.version)
+	db.SetVerbose(p.verbose)
 	var databases []Database
 	if databases, err = db.GetAllDatabasesStats(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
+		cluster.Logger.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
 	for _, m := range db.GetLogs() {
-		p.logger.Add(m)
+		cluster.Logger.Add(m)
 	}
 	cluster.Databases = databases
-	cluster.Logger = p.logger
 	return cluster, nil
 }
 
@@ -132,23 +133,23 @@ func (p *ClusterStats) Save(cluster ClusterDetails) (string, error) {
 // GetClusterStatsSummary collects cluster stats
 func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) (ClusterDetails, error) {
 	var err error
-	var cluster = ClusterDetails{}
+	var cluster = ClusterDetails{Logger: NewLogger(p.version, "-allinfo")}
 	if cluster.BuildInfo, err = GetBuildInfo(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetBuildInfo(): %v`, err))
+		cluster.Logger.Log(fmt.Sprintf(`GetBuildInfo(): %v`, err))
 	}
 	cluster.Version = cluster.BuildInfo.Version
 	if cluster.HostInfo, err = GetHostInfo(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetHostInfo(): %v`, err))
+		cluster.Logger.Log(fmt.Sprintf(`GetHostInfo(): %v`, err))
 	}
 	if cluster.ServerStatus, err = GetServerStatus(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetServerStatus(): %v`, err))
+		cluster.Logger.Log(fmt.Sprintf(`GetServerStatus(): %v`, err))
 	}
 	cluster.Host = cluster.ServerStatus.Host
 	cluster.Process = cluster.ServerStatus.Process
 	cluster.Cluster = GetClusterType(cluster.ServerStatus)
 	if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
 		if cluster.OplogStats, err = GetOplogStats(client); err != nil {
-			p.logger.Log(fmt.Sprintf(`GetOplogStats(): %v`, err))
+			cluster.Logger.Log(fmt.Sprintf(`GetOplogStats(): %v`, err))
 		}
 	}
 	return cluster, nil
@@ -159,7 +160,6 @@ func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
 	var err error
 	var c ClusterDetails
 	if c, err = p.GetClusterStatsSummary(client); err != nil {
-		p.logger.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
 		return err.Error()
 	}
 	edition := "community"
@@ -172,8 +172,8 @@ func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
 	return result
 }
 
-// GeterversStatsSummary returns cluster stats from all shards
-func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstring.ConnString) ([]Shard, error) {
+// GetServersStatsSummary returns cluster stats from all shards
+func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstring.ConnString, logger *Logger) ([]Shard, error) {
 	var err error
 	var uris []string
 	var smap = map[string]Shard{}
@@ -182,6 +182,7 @@ func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstri
 		smap[v.ID] = v
 	}
 	if uris, err = GetAllServerURIs(shards, connString); err != nil {
+		logger.Log(err.Error())
 		return shards, err
 	}
 	wg := gox.NewWaitGroup(4)
@@ -193,22 +194,22 @@ func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstri
 			s = strings.ReplaceAll(s, cs.Password, "xxxxxx")
 		}
 		msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
-		p.logger.Log(msg)
+		logger.Log(msg)
 		msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
 		wg.Add(1)
 		go func(uri string, msg string) {
 			defer wg.Done()
-			defer p.logger.Log(msg)
+			defer logger.Log(msg)
 			var sclient *mongo.Client
 			if sclient, err = NewMongoClient(uri, connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
-				log.Println(err)
+				logger.Log(err.Error())
 				return
 			}
 			defer sclient.Disconnect(context.Background())
-			stats := NewStats(p.logger.Version)
+			stats := NewStats(p.version)
 			var server ClusterDetails
 			if server, err = stats.GetClusterStatsSummary(sclient); err != nil {
-				log.Println(err)
+				logger.Log(err.Error())
 				return
 			}
 			mu.Lock()

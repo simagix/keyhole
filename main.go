@@ -98,7 +98,7 @@ func main() {
 			for _, filename := range api.GetLogNames() {
 				fmt.Println("=> processing", filename)
 				var str string
-				li := mdb.NewLogInfo()
+				li := mdb.NewLogInfo(version)
 				li.SetVerbose(*verbose)
 				if str, err = li.AnalyzeFile(filename, *redaction); err != nil {
 					log.Println(err)
@@ -142,7 +142,7 @@ func main() {
 		return
 	} else if *loginfo && len(flag.Args()) > 0 {
 		filenames := flag.Args()
-		li := mdb.NewLogInfo()
+		li := mdb.NewLogInfo(version)
 		li.SetRegexPattern(*regex)
 		li.SetCollscan(*collscan)
 		li.SetVerbose(*verbose)
@@ -159,7 +159,8 @@ func main() {
 		}
 		return
 	} else if *print != "" {
-		if err := mdb.PrintBSON(*print); err != nil {
+		printer := mdb.NewBSONPrinter(version)
+		if err := printer.Translate(*print); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -189,7 +190,6 @@ func main() {
 
 	if *allinfo {
 		keyhole := mdb.NewKeyhole(version)
-		keyhole.SetVerbose(*verbose)
 		if result, err = keyhole.CollectClusterStats(client, connString); err != nil {
 			log.Fatal(err)
 		}
@@ -212,16 +212,16 @@ func main() {
 		stream.Watch(client, util.Echo)
 		return
 	} else if *createIndex != "" {
-		ix := mdb.NewIndexes(client)
+		ix := mdb.NewIndexStats(version)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
 		if err = ix.SetIndexesMapFromFile(*createIndex); err != nil {
 			log.Fatal(err)
 		}
-		if err = ix.CreateIndexes(); err != nil {
+		if err = ix.CreateIndexes(client); err != nil {
 			log.Fatal(err)
 		}
-		if indexesMap, ixe := ix.GetIndexes(); ixe != nil {
+		if indexesMap, ixe := ix.GetIndexes(client); ixe != nil {
 			log.Fatal(err)
 		} else {
 			ix.PrintIndexesOf(indexesMap)
@@ -235,14 +235,14 @@ func main() {
 		}
 		return
 	} else if *index == true {
-		ix := mdb.NewIndexes(client)
+		ix := mdb.NewIndexStats(version)
 		ix.SetNoColor(*nocolor)
 		if connString.Database == mdb.KeyholeDB {
 			connString.Database = ""
 		}
 		ix.SetDBName(connString.Database)
 		ix.SetVerbose(*verbose)
-		if indexesMap, ixe := ix.GetIndexes(); ixe != nil {
+		if indexesMap, ixe := ix.GetIndexes(client); ixe != nil {
 			log.Fatal(err)
 		} else {
 			ix.PrintIndexesOf(indexesMap)
@@ -292,9 +292,9 @@ func main() {
 		log.Println(http.ListenAndServe(addr, nil))
 	}()
 	if *wt == true {
-		wtc := mdb.NewWiredTigerCache(client)
+		wtc := mdb.NewWiredTigerCache(version)
 		log.Printf("URL: http://localhost:%d/wt\n", *port)
-		wtc.Start()
+		wtc.Start(client)
 	}
 
 	var runner *sim.Runner

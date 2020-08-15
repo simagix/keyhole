@@ -122,12 +122,12 @@ fi
 if [ "$1" != "" ]; then
     # Test load test
     echo ; echo "==> Test load from a template (--file <file> <uri>)"
-    go run main.go --yes --file examples/template.json --duration 2 \
-        --tps 300 --conn 10 --simonly ${DATABASE_URI}
+    go run main.go --yes --file examples/template.json --duration 1 \
+        --tps 300 --conn 5 --simonly ${DATABASE_URI}
     validate "--file <file> <uri>"
 
-    go run main.go --yes --file examples/template.json --duration 3 \
-        --tps 300 --conn 10 --tx examples/transactions.json ${DATABASE_URI}
+    go run main.go --yes --file examples/template.json --duration 2 \
+        --tps 300 --conn 5 --tx examples/transactions.json ${DATABASE_URI}
     rm -f keyhole_*.gz
     validate "--yes"
 

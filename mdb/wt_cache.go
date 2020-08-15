@@ -18,24 +18,24 @@ import (
 
 // WiredTigerCache stores wiredTiger cache structure
 type WiredTigerCache struct {
-	client    *mongo.Client
 	databases []Database
 	numPoints int
+	version   string
 }
 
 // NewWiredTigerCache returns *WiredTigerCache
-func NewWiredTigerCache(client *mongo.Client) *WiredTigerCache {
-	wtc := WiredTigerCache{client: client, numPoints: 10}
+func NewWiredTigerCache(version string) *WiredTigerCache {
+	wtc := WiredTigerCache{version: version, numPoints: 10}
 	http.HandleFunc("/wt", gox.Cors(wtc.Handler))
 	http.HandleFunc("/wt/", gox.Cors(wtc.Handler))
 	return &wtc
 }
 
 // Start starts a web server and a thread to collect caches
-func (wtc *WiredTigerCache) Start() {
+func (wtc *WiredTigerCache) Start(client *mongo.Client) {
 	var err error
 	var ss ServerStatus
-	if ss, err = GetServerStatus(wtc.client); err != nil {
+	if ss, err = GetServerStatus(client); err != nil {
 		panic(ss)
 	}
 	if ss.Process != "mongod" {
@@ -43,18 +43,18 @@ func (wtc *WiredTigerCache) Start() {
 		os.Exit(0)
 	}
 	for {
-		if err = wtc.GetAllDatabasesInfo(); err != nil {
+		if err = wtc.GetAllDatabasesStats(client); err != nil {
 			log.Println(err)
 		}
 		time.Sleep(5 * time.Second)
 	}
 }
 
-// GetAllDatabasesInfo returns db info
-func (wtc *WiredTigerCache) GetAllDatabasesInfo() error {
+// GetAllDatabasesStats returns db info
+func (wtc *WiredTigerCache) GetAllDatabasesStats(client *mongo.Client) error {
 	var err error
-	dbi := NewDatabaseStats()
-	wtc.databases, err = dbi.GetAllDatabasesStats(wtc.client)
+	dbi := NewDatabaseStats(wtc.version)
+	wtc.databases, err = dbi.GetAllDatabasesStats(client)
 	return err
 }
 

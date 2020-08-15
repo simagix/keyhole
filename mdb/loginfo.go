@@ -25,9 +25,10 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	OpsPatterns    []OpPerformanceDoc `bson:"opespatterns"`
+	Logger         *Logger     `bson:"keyhole"`
+	OpPatterns     []OpPattern `bson:"opPatterns"`
 	OutputFilename string
-	SlowOps        []SlowOps `bson:"slowops"`
+	SlowOps        []SlowOps `bson:"slowOps"`
 
 	collscan  bool `bson:"collscan"`
 	filename  string
@@ -37,8 +38,8 @@ type LogInfo struct {
 	verbose   bool
 }
 
-// OpPerformanceDoc stores performance data
-type OpPerformanceDoc struct {
+// OpPattern stores performance data
+type OpPattern struct {
 	Command    string `bson:"command"`    // count, delete, find, remove, and update
 	Count      int    `bson:"count"`      // number of ops
 	Filter     string `bson:"filter"`     // query pattern
@@ -68,8 +69,8 @@ type LogStats struct {
 const dollarCmd = "$cmd"
 
 // NewLogInfo -
-func NewLogInfo() *LogInfo {
-	li := LogInfo{collscan: false, silent: false, verbose: false}
+func NewLogInfo(version string) *LogInfo {
+	li := LogInfo{Logger: NewLogger(version, "-loginfo"), collscan: false, silent: false, verbose: false}
 	li.regex = `^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	return &li
 }
@@ -167,7 +168,7 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 		if err = li.Parse(reader, lineCounts); err != nil {
 			return "", err
 		}
-		if len(li.OpsPatterns) > 0 {
+		if len(li.OpPatterns) > 0 {
 			li.OutputFilename = filepath.Base(filename)
 			if strings.HasSuffix(li.OutputFilename, ".gz") {
 				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
@@ -201,9 +202,9 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	var buf []byte
 	var isPrefix bool
 	var logType string
-	var opsMap map[string]OpPerformanceDoc
+	var opsMap map[string]OpPattern
 	var stat LogStats
-	opsMap = make(map[string]OpPerformanceDoc)
+	opsMap = make(map[string]OpPattern)
 	lineCounts := 0
 	if len(counts) > 0 {
 		lineCounts = counts[0]
@@ -275,19 +276,19 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			}
 			x := opsMap[key].TotalMilli + stat.milli
 			y := opsMap[key].Count + 1
-			opsMap[key] = OpPerformanceDoc{Command: opsMap[key].Command, Namespace: stat.ns, Filter: opsMap[key].Filter,
+			opsMap[key] = OpPattern{Command: opsMap[key].Command, Namespace: stat.ns, Filter: opsMap[key].Filter,
 				MaxMilli: max, TotalMilli: x, Count: y, Scan: stat.scan, Index: stat.index}
 		} else {
-			opsMap[key] = OpPerformanceDoc{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: stat.milli,
+			opsMap[key] = OpPattern{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: stat.milli,
 				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index}
 		}
 	}
-	li.OpsPatterns = make([]OpPerformanceDoc, 0, len(opsMap))
+	li.OpPatterns = make([]OpPattern, 0, len(opsMap))
 	for _, value := range opsMap {
-		li.OpsPatterns = append(li.OpsPatterns, value)
+		li.OpPatterns = append(li.OpPatterns, value)
 	}
-	sort.Slice(li.OpsPatterns, func(i, j int) bool {
-		return float64(li.OpsPatterns[i].TotalMilli)/float64(li.OpsPatterns[i].Count) > float64(li.OpsPatterns[j].TotalMilli)/float64(li.OpsPatterns[j].Count)
+	sort.Slice(li.OpPatterns, func(i, j int) bool {
+		return float64(li.OpPatterns[i].TotalMilli)/float64(li.OpPatterns[i].Count) > float64(li.OpPatterns[j].TotalMilli)/float64(li.OpPatterns[j].Count)
 	})
 	if li.silent == false {
 		fmt.Fprintf(os.Stderr, "\r     \r")
@@ -297,6 +298,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 
 // printLogsSummary prints loginfo summary
 func (li *LogInfo) printLogsSummary() string {
+	var maxSize = 10
 	red := codeRed
 	green := codeGreen
 	tail := codeDefault
@@ -321,9 +323,9 @@ func (li *LogInfo) printLogsSummary() string {
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
 	count := 0
-	for _, value := range li.OpsPatterns {
+	for _, value := range li.OpPatterns {
 		count++
-		if count > 20 {
+		if count > maxSize {
 			break
 		}
 		str := value.Filter

@@ -313,11 +313,11 @@ func (st *ServerStats) saveServerStatusDocsToFile(uri string) (string, error) {
 }
 
 func (st *ServerStats) collectMetrics(client *mongo.Client, key string) {
-	wtc := mdb.NewWiredTigerCache(client)
+	wtc := mdb.NewWiredTigerCache("server-stats")
 	metrics := anly.NewMetrics()
 	metrics.ProcessFiles([]string{})
 	for {
-		if err := wtc.GetAllDatabasesInfo(); err != nil {
+		if err := wtc.GetAllDatabasesStats(client); err != nil {
 			log.Println(err)
 		}
 		diag := anly.DiagnosticData{}
