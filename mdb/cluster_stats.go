@@ -43,7 +43,7 @@ type ClusterDetails struct {
 	Databases        []Database       `bson:"databases"`
 	Host             string           `bson:"host"`
 	HostInfo         HostInfo         `bson:"hostInfo"`
-	Logger           *Logger          `bson:"logs"`
+	Logger           *Logger          `bson:"keyhole"`
 	OplogStats       OplogStats       `bson:"oplog"`
 	Process          string           `bson:"process"`
 	ReplSetGetStatus ReplSetGetStatus `bson:"replSetGetStatus"`
