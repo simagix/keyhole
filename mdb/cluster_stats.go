@@ -49,7 +49,6 @@ type ClusterDetails struct {
 	ReplSetGetStatus ReplSetGetStatus `bson:"replSetGetStatus"`
 	ServerStatus     ServerStatus     `bson:"serverStatus"`
 	Shards           []Shard          `bson:"shards"`
-	Servers          []ClusterDetails `bson:"servers"`
 	Version          string           `bson:"version"`
 }
 
@@ -86,7 +85,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		if cluster.Shards, err = GetShards(client); err != nil {
 			p.keyholeInfo.Log(fmt.Sprintf(`GetShards(): %v`, err))
 		}
-		if cluster.Servers, err = p.GeterversStatsSummary(cluster.Shards, connString); err != nil {
+		if cluster.Shards, err = p.GeterversStatsSummary(cluster.Shards, connString); err != nil {
 			p.keyholeInfo.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
 	} else if cluster.Cluster == Replica && cluster.Process == "mongod" { //collects replica info
@@ -99,7 +98,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		setName := cluster.ServerStatus.Repl.SetName
 		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(cluster.ServerStatus.Repl.Hosts, ","))
 		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
-		if cluster.Servers, err = p.GeterversStatsSummary(oneShard, connString); err != nil {
+		if cluster.Shards, err = p.GeterversStatsSummary(oneShard, connString); err != nil {
 			p.keyholeInfo.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
 	}
@@ -174,12 +173,16 @@ func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
 }
 
 // GeterversStatsSummary returns cluster stats from all shards
-func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstring.ConnString) ([]ClusterDetails, error) {
+func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstring.ConnString) ([]Shard, error) {
 	var err error
-	var clusters []ClusterDetails
 	var uris []string
+	var smap = map[string]Shard{}
+	for _, v := range shards {
+		v.Servers = []ClusterDetails{}
+		smap[v.ID] = v
+	}
 	if uris, err = GetAllServerURIs(shards, connString); err != nil {
-		return clusters, err
+		return shards, err
 	}
 	wg := gox.NewWaitGroup(4)
 	var mu sync.Mutex
@@ -209,10 +212,17 @@ func (p *ClusterStats) GeterversStatsSummary(shards []Shard, connString connstri
 				return
 			}
 			mu.Lock()
-			clusters = append(clusters, server)
+			node := smap[server.ServerStatus.Repl.SetName]
+			node.Servers = append(node.Servers, server)
+			smap[server.ServerStatus.Repl.SetName] = node
 			mu.Unlock()
 		}(uri, msg)
 	}
 	wg.Wait()
-	return clusters, err
+
+	shards = []Shard{}
+	for _, v := range smap {
+		shards = append(shards, v)
+	}
+	return shards, nil
 }

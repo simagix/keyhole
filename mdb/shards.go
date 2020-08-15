@@ -15,9 +15,10 @@ import (
 
 // Shard store shard information
 type Shard struct {
-	ID    string `bson:"_id"`
-	Host  string `bson:"host"`
-	State int    `bson:"state"`
+	ID      string           `bson:"_id"`
+	Host    string           `bson:"host"`
+	State   int              `bson:"state"`
+	Servers []ClusterDetails `bson:"servers"`
 }
 
 // GetShards return all shards from listShards command
