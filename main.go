@@ -218,10 +218,10 @@ func main() {
 		if err = ix.CreateIndexes(client); err != nil {
 			log.Fatal(err)
 		}
-		if indexesMap, ixe := ix.GetIndexes(client); ixe != nil {
+		if databases, ixe := ix.GetIndexes(client); ixe != nil {
 			log.Fatal(err)
 		} else {
-			ix.PrintIndexesOf(indexesMap)
+			ix.PrintIndexesOf(databases)
 		}
 		return
 	} else if *explain != "" { // --explain json_or_log_file  [-v]
@@ -239,10 +239,10 @@ func main() {
 		}
 		ix.SetDBName(connString.Database)
 		ix.SetVerbose(*verbose)
-		if indexesMap, ixe := ix.GetIndexes(client); ixe != nil {
+		if databases, ixe := ix.GetIndexes(client); ixe != nil {
 			log.Fatal(err)
 		} else {
-			ix.PrintIndexesOf(indexesMap)
+			ix.PrintIndexesOf(databases)
 			if err = ix.Save(); err != nil {
 				log.Fatal(err)
 			}

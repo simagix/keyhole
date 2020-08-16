@@ -108,14 +108,9 @@ if [[ "$mver" > "v3.4" ]]; then
     go run main.go --cardinality favorites ${DATABASE_URI}
     validate "--cardinality"
 
-    # Test Cardinality
-    echo ; echo "==> Test printing number of distinct fileds values (--explain)"
+    # Test explain
+    echo ; echo "==> Test explain (--explain)"
     go run main.go --explain mdb/testdata/cars.log ${DATABASE_URI}
-    validate "--explain"
-
-    # Test Cardinality
-    echo ; echo "==> Test printing number of distinct fileds values (--explain)"
-    go run main.go --explain mdb/testdata/cars.json ${DATABASE_URI}
     validate "--explain"
 fi
 
