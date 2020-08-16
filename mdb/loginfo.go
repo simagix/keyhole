@@ -190,6 +190,9 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 			if buf, err = bson.Marshal(bsond); err != nil {
 				return li.printLogsSummary(), err
 			}
+			outdir := "./out/"
+			os.Mkdir(outdir, 0755)
+			li.OutputFilename = outdir + li.OutputFilename
 			gox.OutputGzipped(buf, li.OutputFilename)
 		}
 	}
@@ -325,7 +328,7 @@ func (li *LogInfo) printLogsSummary() string {
 	count := 0
 	for _, value := range li.OpPatterns {
 		count++
-		if count > maxSize {
+		if count >= maxSize {
 			break
 		}
 		str := value.Filter
@@ -389,6 +392,6 @@ func (li *LogInfo) printLogsSummary() string {
 	}
 	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
-	summaries = append(summaries, fmt.Sprintf(`top %d lines displayed; see HTML report for details.`, count))
+	summaries = append(summaries, fmt.Sprintf(`top %d of %v lines displayed; see HTML report for details.`, count, len(li.OpPatterns)))
 	return strings.Join(summaries, "\n")
 }

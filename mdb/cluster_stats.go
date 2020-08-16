@@ -4,6 +4,7 @@ package mdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -74,7 +75,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	var cluster = ClusterDetails{Logger: NewLogger(p.version, "-allinfo")}
 	cluster.Logger.Log("GetClusterStats() begins")
 	if cluster, err = p.GetClusterStatsSummary(client); err != nil {
-		cluster.Logger.Log(fmt.Sprintf(`GetClusterStatsSummary(): %v`, err))
+		return cluster, err
 	}
 	if cluster.CmdLineOpts, err = GetCmdLineOpts(client); err != nil {
 		cluster.Logger.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
@@ -118,6 +119,10 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 
 // Save saves to data
 func (p *ClusterStats) Save(cluster ClusterDetails) (string, error) {
+	if cluster.HostInfo.System.Hostname == "" {
+		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
+		return "", errors.New(result)
+	}
 	var err error
 	var data []byte
 	var results []string
@@ -135,14 +140,14 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) (ClusterDeta
 	var err error
 	var cluster = ClusterDetails{Logger: NewLogger(p.version, "-allinfo")}
 	if cluster.BuildInfo, err = GetBuildInfo(client); err != nil {
-		cluster.Logger.Log(fmt.Sprintf(`GetBuildInfo(): %v`, err))
+		return cluster, err
 	}
 	cluster.Version = cluster.BuildInfo.Version
 	if cluster.HostInfo, err = GetHostInfo(client); err != nil {
-		cluster.Logger.Log(fmt.Sprintf(`GetHostInfo(): %v`, err))
+		return cluster, err
 	}
 	if cluster.ServerStatus, err = GetServerStatus(client); err != nil {
-		cluster.Logger.Log(fmt.Sprintf(`GetServerStatus(): %v`, err))
+		return cluster, err
 	}
 	cluster.Host = cluster.ServerStatus.Host
 	cluster.Process = cluster.ServerStatus.Process
