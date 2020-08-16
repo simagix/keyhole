@@ -212,7 +212,7 @@ func main() {
 		ix := mdb.NewIndexStats(version)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
-		if err = ix.SetIndexesMapFromFile(*createIndex); err != nil {
+		if err = ix.SetClusterDetailsFromFile(*createIndex); err != nil {
 			log.Fatal(err)
 		}
 		if err = ix.CreateIndexes(client); err != nil {

@@ -81,16 +81,12 @@ func (ix *IndexStats) SetFilename(filename string) {
 	ix.filename = strings.Replace(filename, ":", "_", -1)
 }
 
-// SetIndexesMapFromFile File sets indexes map from a file
-func (ix *IndexStats) SetIndexesMapFromFile(filename string) error {
-	if strings.HasSuffix(filename, "-index.bson.gz") {
-		return ix.setIndexesMapFromBSONFile(filename)
+// SetClusterDetailsFromFile File sets cluster details from a file
+func (ix *IndexStats) SetClusterDetailsFromFile(filename string) error {
+	if strings.HasSuffix(filename, "-index.bson.gz") == false &&
+		strings.HasSuffix(filename, "-stats.bson.gz") == false {
+		return errors.New("unsupported file type")
 	}
-	return errors.New("unsupported file type")
-}
-
-// setIndexesMapFromBSONFile File sets indexes map from a file
-func (ix *IndexStats) setIndexesMapFromBSONFile(filename string) error {
 	var data []byte
 	var err error
 	var fd *bufio.Reader

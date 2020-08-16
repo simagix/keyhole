@@ -66,7 +66,7 @@ func (p *BSONPrinter) Print(filename string) error {
 	} else if strings.HasSuffix(filename, "-index.bson.gz") {
 		ix := NewIndexStats(p.version)
 		ix.SetVerbose(p.verbose)
-		if err = ix.SetIndexesMapFromFile(filename); err != nil {
+		if err = ix.SetClusterDetailsFromFile(filename); err != nil {
 			return err
 		}
 		ix.Print()

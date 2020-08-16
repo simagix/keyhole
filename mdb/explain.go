@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -75,7 +76,7 @@ func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 		scores := qe.GetIndexesScores(keys)
 		strs = append(strs, gox.Stringify(scores, "", "  "))
 		strs = append(strs, card.GetSummary(summary)+"\n")
-		document := make(map[string]interface{})
+		document := bson.M{}
 		document["ns"] = qe.NameSpace
 		document["cardinality"] = summary
 		document["explain"] = explainSummary
@@ -92,11 +93,14 @@ func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 		if counter == 1 {
 			fmt.Println(stdout)
 		}
-		ofile := fmt.Sprintf("%v-explain-%03d.json.gz", filepath.Base(filename), counter)
-		if err = gox.OutputGzipped([]byte(gox.Stringify(document)), ofile); err != nil {
+		outdir := "./out/"
+		os.Mkdir(outdir, 0755)
+		ofile := fmt.Sprintf("./out/%v-explain-%03d.json.gz", filepath.Base(filename), counter)
+		data, _ := bson.MarshalExtJSON(document, false, false)
+		if err = gox.OutputGzipped(data, ofile); err != nil {
 			return err
 		}
-		fmt.Println("* Explain JSON written to", ofile)
+		fmt.Println("json data written to", ofile)
 	}
 	return err
 }
