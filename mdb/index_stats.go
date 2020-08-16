@@ -441,8 +441,11 @@ func (ix *IndexStats) Save() error {
 	if buf, err = bson.Marshal(bsond); err != nil {
 		return err
 	}
-	if err = gox.OutputGzipped(buf, ix.filename); err == nil {
-		fmt.Println("Index stats is written to", ix.filename)
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
+	ofile := outdir + ix.filename
+	if err = gox.OutputGzipped(buf, ofile); err == nil {
+		fmt.Println("Index stats is written to", ofile)
 	}
 	return err
 }
