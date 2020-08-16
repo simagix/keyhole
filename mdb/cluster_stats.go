@@ -38,7 +38,7 @@ type ClusterStats struct {
 // ClusterDetails stores cluster details
 type ClusterDetails struct {
 	BuildInfo        BuildInfo        `bson:"buildInfo"`
-	CmdLineOpts      CmdLineOpts      `json:"getCmdLineOpts" bson:"getCmdLineOpts"`
+	CmdLineOpts      CmdLineOpts      `bson:"getCmdLineOpts"`
 	Cluster          string           `bson:"cluster"`
 	Databases        []Database       `bson:"databases"`
 	Host             string           `bson:"host"`
@@ -163,18 +163,11 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) (ClusterDeta
 // GetClusterShortSummary returns one line summary
 func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
 	var err error
-	var c ClusterDetails
-	if c, err = p.GetClusterStatsSummary(client); err != nil {
+	var cluster ClusterDetails
+	if cluster, err = p.GetClusterStatsSummary(client); err != nil {
 		return err.Error()
 	}
-	edition := "community"
-	if len(c.BuildInfo.Modules) > 0 {
-		edition = c.BuildInfo.Modules[0]
-	}
-	result := fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v %v cores %v mem`,
-		c.BuildInfo.Version, edition, c.HostInfo.System.Hostname, c.HostInfo.OS.Name,
-		c.ServerStatus.Process, c.Cluster, c.HostInfo.System.NumCores, c.HostInfo.System.MemSizeMB)
-	return result
+	return PrintShortSummary(cluster)
 }
 
 // GetServersStatsSummary returns cluster stats from all shards
@@ -231,4 +224,16 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 		shards = append(shards, v)
 	}
 	return shards, nil
+}
+
+// PrintShortSummary prints a short summary
+func PrintShortSummary(cluster ClusterDetails) string {
+	edition := "community"
+	if len(cluster.BuildInfo.Modules) > 0 {
+		edition = cluster.BuildInfo.Modules[0]
+	}
+	result := fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v %v cores %v mem`,
+		cluster.BuildInfo.Version, edition, cluster.HostInfo.System.Hostname, cluster.HostInfo.OS.Name,
+		cluster.ServerStatus.Process, cluster.Cluster, cluster.HostInfo.System.NumCores, cluster.HostInfo.System.MemSizeMB)
+	return result
 }

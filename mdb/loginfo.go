@@ -25,17 +25,18 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	Logger         *Logger     `bson:"keyhole"`
-	OpPatterns     []OpPattern `bson:"opPatterns"`
-	OutputFilename string
-	SlowOps        []SlowOps `bson:"slowOps"`
+	Collscan   bool        `bson:"collscan"`
+	Logger     *Logger     `bson:"keyhole"`
+	LogType    string      `bson:"type"`
+	Regex      string      `bson:"regex"`
+	OpPatterns []OpPattern `bson:"opPatterns"`
+	Redaction  bool        `bson:"redact"`
+	SlowOps    []SlowOps   `bson:"slowOps"`
 
-	collscan  bool `bson:"collscan"`
-	filename  string
-	mongoInfo string
-	regex     string
-	silent    bool
-	verbose   bool
+	filename string
+	regex    string
+	silent   bool
+	verbose  bool
 }
 
 // OpPattern stores performance data
@@ -70,14 +71,19 @@ const dollarCmd = "$cmd"
 
 // NewLogInfo -
 func NewLogInfo(version string) *LogInfo {
-	li := LogInfo{Logger: NewLogger(version, "-loginfo"), collscan: false, silent: false, verbose: false}
+	li := LogInfo{Logger: NewLogger(version, "-loginfo"), Collscan: false, silent: false, verbose: false}
 	li.regex = `^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	return &li
 }
 
 // SetCollscan -
 func (li *LogInfo) SetCollscan(collscan bool) {
-	li.collscan = collscan
+	li.Collscan = collscan
+}
+
+// SetRedaction sets redaction
+func (li *LogInfo) SetRedaction(redaction bool) {
+	li.Redaction = redaction
 }
 
 // SetSilent -
@@ -90,7 +96,7 @@ func (li *LogInfo) SetVerbose(verbose bool) {
 	li.verbose = verbose
 }
 
-// SetRegexPattern sets regex patthen
+// SetRegexPattern sets Regex patthen
 func (li *LogInfo) SetRegexPattern(regex string) {
 	if regex != "" {
 		li.regex = regex
@@ -124,38 +130,34 @@ func getConfigOptions(buffers []string) []string {
 
 const topN = 25
 
-// Analyze analyze logs from a file without redaction
-func (li *LogInfo) Analyze(filename string) (string, error) {
-	return li.AnalyzeFile(filename, false)
-}
-
 // AnalyzeFile analyze logs from a file
-func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
+func (li *LogInfo) AnalyzeFile(filename string) error {
 	var err error
+	li.filename = filename
 	if strings.HasSuffix(filename, "-log.bson.gz") == true {
 		var data []byte
 		var err error
 		var fd *bufio.Reader
 		if fd, err = gox.NewFileReader(filename); err != nil {
-			return "", err
+			return err
 		}
 		if data, err = ioutil.ReadAll(fd); err != nil {
-			return "", err
+			return err
 		}
 		if err = bson.Unmarshal(data, &li); err != nil {
-			return "", err
+			return err
 		}
-		li.OutputFilename = ""
 	} else {
+		li.LogType = ""
 		var file *os.File
 		var reader *bufio.Reader
 		li.filename = filename
 		if file, err = os.Open(filename); err != nil {
-			return "", err
+			return err
 		}
 		defer file.Close()
 		if reader, err = gox.NewReader(file); err != nil {
-			return "", err
+			return err
 		}
 		var lineCounts int
 		if li.silent == false {
@@ -163,40 +165,13 @@ func (li *LogInfo) AnalyzeFile(filename string, redact bool) (string, error) {
 		}
 		file.Seek(0, 0)
 		if reader, err = gox.NewReader(file); err != nil {
-			return "", err
+			return err
 		}
 		if err = li.Parse(reader, lineCounts); err != nil {
-			return "", err
-		}
-		if len(li.OpPatterns) > 0 {
-			li.OutputFilename = filepath.Base(filename)
-			if strings.HasSuffix(li.OutputFilename, ".gz") {
-				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-3]
-			}
-			if strings.HasSuffix(li.OutputFilename, ".log") == false {
-				li.OutputFilename += "-log.bson.gz"
-			} else {
-				li.OutputFilename = li.OutputFilename[:len(li.OutputFilename)-4] + "-log.bson.gz"
-			}
-			if redact == true {
-				li.SlowOps = []SlowOps{}
-			}
-			var buf []byte
-			var bsond bson.D
-			if buf, err = bson.Marshal(li); err != nil {
-				return li.printLogsSummary(), err
-			}
-			bson.Unmarshal(buf, &bsond)
-			if buf, err = bson.Marshal(bsond); err != nil {
-				return li.printLogsSummary(), err
-			}
-			outdir := "./out/"
-			os.Mkdir(outdir, 0755)
-			li.OutputFilename = outdir + li.OutputFilename
-			gox.OutputGzipped(buf, li.OutputFilename)
+			return err
 		}
 	}
-	return li.printLogsSummary(), nil
+	return nil
 }
 
 // Parse parse text or json
@@ -204,7 +179,6 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	var err error
 	var buf []byte
 	var isPrefix bool
-	var logType string
 	var opsMap map[string]OpPattern
 	var stat LogStats
 	opsMap = make(map[string]OpPattern)
@@ -229,25 +203,25 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			}
 			str += string(bbuf)
 		}
-		if logType == "" { //examine the log logType
+		if li.LogType == "" { //examine the log logType
 			if regexp.MustCompile("^{.*}$").MatchString(str) == true {
-				logType = "logv2"
+				li.LogType = "logv2"
 				if stat, err = li.ParseLogv2(str); err != nil {
 					continue
 				}
 			} else if regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*").MatchString(str) == true {
-				logType = "text"
+				li.LogType = "text"
 				if stat, err = li.ParseLog(str); err != nil {
 					continue
 				}
 			} else {
 				return errors.New("unsupported format")
 			}
-		} else if logType == "text" {
+		} else if li.LogType == "text" {
 			if stat, err = li.ParseLog(str); err != nil {
 				continue
 			}
-		} else if logType == "logv2" {
+		} else if li.LogType == "logv2" {
 			if stat, err = li.ParseLogv2(str); err != nil {
 				continue
 			}
@@ -299,6 +273,58 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	return nil
 }
 
+// Save saves loginfo bson data
+func (li *LogInfo) Save() error {
+	var err error
+	if len(li.OpPatterns) == 0 {
+		return err
+	}
+	ofile := filepath.Base(li.filename)
+	if strings.HasSuffix(ofile, ".gz") {
+		ofile = ofile[:len(ofile)-3]
+	}
+	if strings.HasSuffix(ofile, ".log") == false {
+		ofile += "-log.bson.gz"
+	} else {
+		ofile = ofile[:len(ofile)-4] + "-log.bson.gz"
+	}
+	if li.Redaction == true {
+		li.SlowOps = []SlowOps{}
+	}
+	if li.LogType == "text" {
+		li.Regex = li.regex
+	} else if li.LogType == "logv2" {
+		li.Regex = ""
+	}
+	var data []byte
+	if data, err = bson.Marshal(li); err != nil {
+		return err
+	}
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
+	ofile = outdir + ofile
+	gox.OutputGzipped(data, ofile)
+	fmt.Println("bson log info written to", ofile)
+	return nil
+}
+
+// Print prints indexes
+func (li *LogInfo) Print() {
+	fmt.Println(li.printLogsSummary())
+	if li.verbose {
+		var err error
+		var data []byte
+		if data, err = bson.MarshalExtJSON(li, false, false); err != nil {
+			return
+		}
+		outdir := "./out/"
+		os.Mkdir(outdir, 0755)
+		ofile := outdir + strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json")
+		ioutil.WriteFile(ofile, data, 0644)
+		fmt.Println("json data written to", ofile)
+	}
+}
+
 // printLogsSummary prints loginfo summary
 func (li *LogInfo) printLogsSummary() string {
 	var maxSize = 10
@@ -311,16 +337,6 @@ func (li *LogInfo) printLogsSummary() string {
 		tail = ""
 	}
 	summaries := []string{}
-	if li.verbose == true {
-		summaries = append([]string{}, li.mongoInfo)
-	}
-	if len(li.SlowOps) > 0 && li.verbose == true {
-		summaries = append(summaries, fmt.Sprintf("Ops slower than 10 seconds (list top %d):", len(li.SlowOps)))
-		for _, op := range li.SlowOps {
-			summaries = append(summaries, fmt.Sprintf("%s (%s) %dms", op.Log, gox.MilliToTimeString(float64(op.Milli)), op.Milli))
-		}
-		summaries = append(summaries, "\n")
-	}
 	var buffer bytes.Buffer
 	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))

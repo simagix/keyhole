@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -31,10 +32,9 @@ func (p *BSONPrinter) SetVerbose(verbose bool) {
 	p.verbose = verbose
 }
 
-// Translate bson to json
-func (p *BSONPrinter) Translate(filename string) error {
+// Print print summary or output json from bson
+func (p *BSONPrinter) Print(filename string) error {
 	var err error
-	var str string
 	var data []byte
 	var doc bson.M
 	var fd *bufio.Reader
@@ -45,42 +45,47 @@ func (p *BSONPrinter) Translate(filename string) error {
 		log.Fatal(err)
 	}
 	bson.Unmarshal(data, &doc)
-	if p.verbose {
-		fmt.Println(gox.Stringify(doc, "", "  "))
-	}
-	if doc["keyhole"] != nil {
-		var logger Logger
-		if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
-			bson.Unmarshal(buf, &logger)
-			fmt.Println(logger.Print())
-		} else {
-			return err
-		}
-	} else {
+	if doc["keyhole"] == nil {
 		return errors.New("unsupported")
+	}
+	var logger Logger
+	if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
+		bson.Unmarshal(buf, &logger)
+		fmt.Println(logger.Print())
+	} else {
+		return err
 	}
 
 	if strings.HasSuffix(filename, "-log.bson.gz") {
 		li := NewLogInfo(p.version)
-		if str, err = li.AnalyzeFile(filename, false); err != nil {
+		li.SetVerbose(p.verbose)
+		if err = li.AnalyzeFile(filename); err != nil {
 			return err
 		}
-		fmt.Println(str)
+		li.Print()
 	} else if strings.HasSuffix(filename, "-index.bson.gz") {
 		ix := NewIndexStats(p.version)
+		ix.SetVerbose(p.verbose)
 		if err = ix.SetIndexesMapFromFile(filename); err != nil {
 			return err
 		}
 		ix.Print()
-	} else if strings.HasSuffix(filename, "-stats.bson.gz") {
+	} else if strings.HasSuffix(filename, ".bson.gz") {
+		if strings.HasSuffix(filename, "-stats.bson.gz") {
+			var cluster ClusterDetails
+			bson.Unmarshal(data, &cluster)
+			fmt.Println(PrintShortSummary(cluster))
+		}
+		outdir := "./out/"
+		os.Mkdir(outdir, 0755)
 		ofile := filepath.Base(filename)
-		ofile = (ofile)[:len(ofile)-7] + "json"
-		if data, err = bson.MarshalExtJSON(doc, false, false); err == nil {
-			ioutil.WriteFile(ofile, data, 0644)
-			fmt.Println("JSON outputs to", ofile)
-		} else {
+		idx := strings.Index(ofile, ".bson")
+		ofile = outdir + (ofile)[:idx] + ".json"
+		if data, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 			return err
 		}
+		ioutil.WriteFile(ofile, data, 0644)
+		fmt.Println("json data written to", ofile)
 	} else {
 		return errors.New("unsupported")
 	}

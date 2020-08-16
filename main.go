@@ -97,17 +97,15 @@ func main() {
 		if *loginfo {
 			for _, filename := range api.GetLogNames() {
 				fmt.Println("=> processing", filename)
-				var str string
 				li := mdb.NewLogInfo(version)
+				li.SetRedaction(*redaction)
 				li.SetVerbose(*verbose)
-				if str, err = li.AnalyzeFile(filename, *redaction); err != nil {
+				if err = li.AnalyzeFile(filename); err != nil {
 					log.Println(err)
 					continue
 				}
-				fmt.Println(str)
-				if li.OutputFilename != "" {
-					log.Println("Log info written to", li.OutputFilename)
-				}
+				li.Print()
+				li.Save()
 			}
 		}
 		return
@@ -143,24 +141,23 @@ func main() {
 	} else if *loginfo && len(flag.Args()) > 0 {
 		filenames := flag.Args()
 		li := mdb.NewLogInfo(version)
-		li.SetRegexPattern(*regex)
 		li.SetCollscan(*collscan)
-		li.SetVerbose(*verbose)
+		li.SetRedaction(*redaction)
+		li.SetRegexPattern(*regex)
 		li.SetSilent(*nocolor)
+		li.SetVerbose(*verbose)
 		for _, filename := range filenames {
-			var str string
-			if str, err = li.AnalyzeFile(filename, *redaction); err != nil {
+			if err = li.AnalyzeFile(filename); err != nil {
 				log.Fatal(err)
 			}
-			fmt.Println(str)
-			if li.OutputFilename != "" {
-				log.Println("Log info written to", li.OutputFilename)
-			}
+			li.Print()
+			li.Save()
 		}
 		return
 	} else if *print != "" {
 		printer := mdb.NewBSONPrinter(version)
-		if err := printer.Translate(*print); err != nil {
+		printer.SetVerbose(*verbose)
+		if err := printer.Print(*print); err != nil {
 			log.Fatal(err)
 		}
 		return

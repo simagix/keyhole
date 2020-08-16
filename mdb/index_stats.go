@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -156,6 +157,7 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) (map[string]CollectionInd
 	if cnt == 0 && ix.verbose == true {
 		log.Println("No database is available")
 	}
+	ix.Logger.Add(fmt.Sprintf(`GetIndexes ends`))
 	return ix.IndexesMap, err
 }
 
@@ -204,9 +206,8 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	var list []Index
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
-	if ix.verbose {
-		log.Println("* GetIndexesFromCollection")
-	}
+	db := collection.Database().Name()
+	ix.Logger.Add(fmt.Sprintf(`GetIndexesFromCollection from %v.%v`, db, collection.Name()))
 
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
 		log.Println(err)
@@ -223,7 +224,6 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	}
 	scur.Close(ctx)
 
-	db := collection.Database().Name()
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
 		log.Println(err)
@@ -313,6 +313,18 @@ func checkIfDupped(doc Index, list []Index) bool {
 // Print prints indexes
 func (ix *IndexStats) Print() {
 	ix.PrintIndexesOf(ix.IndexesMap)
+	if ix.verbose {
+		var err error
+		var data []byte
+		if data, err = bson.MarshalExtJSON(ix, false, false); err != nil {
+			return
+		}
+		outdir := "./out/"
+		os.Mkdir(outdir, 0755)
+		ofile := outdir + strings.ReplaceAll(filepath.Base(ix.filename), "bson.gz", "json")
+		ioutil.WriteFile(ofile, data, 0644)
+		fmt.Println("json data written to", ofile)
+	}
 }
 
 // PrintIndexesOf prints indexes

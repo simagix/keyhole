@@ -66,7 +66,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		}
 	}
 
-	if li.collscan == true && stat.scan != COLLSCAN {
+	if li.Collscan == true && stat.scan != COLLSCAN {
 		return stat, nil
 	}
 	if attr["command"] == nil {

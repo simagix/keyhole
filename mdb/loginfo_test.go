@@ -4,7 +4,6 @@ package mdb
 
 import (
 	"bufio"
-	"os"
 	"strings"
 	"testing"
 )
@@ -12,18 +11,16 @@ import (
 func TestLogInfo(t *testing.T) {
 	loginfo := NewLogInfo("utest-xxxxxx")
 	loginfo.SetSilent(true)
-	if _, err := loginfo.Analyze("testdata/mongod.text.log.gz"); err != nil {
+	if err := loginfo.AnalyzeFile("testdata/mongod.text.log.gz"); err != nil {
 		t.Fatal(err)
 	}
-	os.Remove(loginfo.OutputFilename)
 }
 func TestLogInfoV2(t *testing.T) {
 	loginfo := NewLogInfo("utest-xxxxxx")
 	loginfo.SetSilent(true)
-	if _, err := loginfo.Analyze("testdata/mongod.json.log.gz"); err != nil {
+	if err := loginfo.AnalyzeFile("testdata/mongod.json.log.gz"); err != nil {
 		t.Fatal(err)
 	}
-	os.Remove(loginfo.OutputFilename)
 }
 
 func TestLoginfoParse(t *testing.T) {

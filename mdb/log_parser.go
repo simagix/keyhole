@@ -23,7 +23,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 		if strings.Index(str, "COLLSCAN") >= 0 {
 			scan = COLLSCAN
 		}
-		if li.collscan == true && scan != COLLSCAN {
+		if li.Collscan == true && scan != COLLSCAN {
 			return stat, err
 		}
 		result := matched.FindStringSubmatch(str)

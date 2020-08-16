@@ -22,8 +22,6 @@ mkdir -p data/db
 rm -rf data/db/*
 mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork --wiredTigerCacheSizeGB 1
 validate "failed to start mongod"
-mongo --port 30097 keyhole --eval "db.setProfilingLevel(0, {slowms: 5})"
-validate "failed to set profiling level"
 rm -rf out/ 
 
 mongo --quiet mongodb://localhost:30097/admin --eval 'db.createUser({ user: "user", pwd: "password", roles: [ "root" ] } )'
@@ -75,6 +73,8 @@ echo ; echo "==> Test seeding default docs after dropping collection (--seed --d
 go run main.go --seed --drop ${DATABASE_URI}
 validate "--seed --drop ${DATABASE_URI}"
 
+mongo ${DATABASE_URI} ${TLS} --eval "db.setProfilingLevel(0, {slowms: -1})"
+validate "failed to set profiling level"
 mongo ${DATABASE_URI} ${TLS} --eval 'db.cars.createIndex({color: 1})'
 mongo ${DATABASE_URI} ${TLS} --eval 'db.cars.createIndex({color: 1, style: 1})'
 
@@ -134,8 +134,7 @@ if [ "$1" != "" ]; then
     # Test loginfo
     echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
     go run main.go --loginfo data/mongod.log
-    go run main.go --loginfo mongod-log.bson.gz
-    rm -f mongod-log.bson.gz
+    go run main.go --loginfo out/mongod-log.bson.gz
 fi
 
 # Test info Atlas
