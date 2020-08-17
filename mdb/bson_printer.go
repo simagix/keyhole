@@ -18,18 +18,12 @@ import (
 
 // BSONPrinter stores bson printer info
 type BSONPrinter struct {
-	verbose bool
 	version string
 }
 
 // NewBSONPrinter returns BSONPrinter
 func NewBSONPrinter(version string) *BSONPrinter {
 	return &BSONPrinter{version: version}
-}
-
-// SetVerbose sets verbose level
-func (p *BSONPrinter) SetVerbose(verbose bool) {
-	p.verbose = verbose
 }
 
 // Print print summary or output json from bson
@@ -58,18 +52,20 @@ func (p *BSONPrinter) Print(filename string) error {
 
 	if strings.HasSuffix(filename, "-log.bson.gz") {
 		li := NewLogInfo(p.version)
-		li.SetVerbose(p.verbose)
 		if err = li.AnalyzeFile(filename); err != nil {
 			return err
 		}
 		li.Print()
+		if err = li.OutputJSON(); err != nil {
+			return err
+		}
 	} else if strings.HasSuffix(filename, "-index.bson.gz") {
 		ix := NewIndexStats(p.version)
-		ix.SetVerbose(p.verbose)
 		if err = ix.SetClusterDetailsFromFile(filename); err != nil {
 			return err
 		}
 		ix.Print()
+		ix.OutputJSON()
 	} else if strings.HasSuffix(filename, ".bson.gz") {
 		if strings.HasSuffix(filename, "-stats.bson.gz") {
 			var cluster ClusterDetails

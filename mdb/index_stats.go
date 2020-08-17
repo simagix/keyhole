@@ -293,20 +293,46 @@ func checkIfDupped(doc Index, list []Index) bool {
 	return false
 }
 
+// OutputBSON writes index stats bson to a file
+func (ix *IndexStats) OutputBSON() error {
+	var err error
+	var bsond bson.D
+	var buf []byte
+	if buf, err = bson.Marshal(ix); err != nil {
+		return err
+	}
+	bson.Unmarshal(buf, &bsond)
+	if buf, err = bson.Marshal(bsond); err != nil {
+		return err
+	}
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
+	ofile := outdir + ix.filename
+	if err = gox.OutputGzipped(buf, ofile); err == nil {
+		fmt.Println("Index stats is written to", ofile)
+	}
+	return err
+}
+
+// OutputJSON writes json data to a file
+func (ix *IndexStats) OutputJSON() error {
+	var err error
+	var data []byte
+	if data, err = bson.MarshalExtJSON(ix, false, false); err != nil {
+		return err
+	}
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
+	ofile := outdir + strings.ReplaceAll(filepath.Base(ix.filename), "bson.gz", "json")
+	ioutil.WriteFile(ofile, data, 0644)
+	fmt.Println("json data written to", ofile)
+	return err
+}
+
 // Print prints indexes
 func (ix *IndexStats) Print() {
 	ix.PrintIndexesOf(ix.Databases)
 	if ix.verbose {
-		var err error
-		var data []byte
-		if data, err = bson.MarshalExtJSON(ix, false, false); err != nil {
-			return
-		}
-		outdir := "./out/"
-		os.Mkdir(outdir, 0755)
-		ofile := outdir + strings.ReplaceAll(filepath.Base(ix.filename), "bson.gz", "json")
-		ioutil.WriteFile(ofile, data, 0644)
-		fmt.Println("json data written to", ofile)
 	}
 }
 
@@ -407,27 +433,6 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 				}
 			}
 		}
-	}
-	return err
-}
-
-// Save saves indexes map to a file
-func (ix *IndexStats) Save() error {
-	var err error
-	var bsond bson.D
-	var buf []byte
-	if buf, err = bson.Marshal(ix); err != nil {
-		return err
-	}
-	bson.Unmarshal(buf, &bsond)
-	if buf, err = bson.Marshal(bsond); err != nil {
-		return err
-	}
-	outdir := "./out/"
-	os.Mkdir(outdir, 0755)
-	ofile := outdir + ix.filename
-	if err = gox.OutputGzipped(buf, ofile); err == nil {
-		fmt.Println("Index stats is written to", ofile)
 	}
 	return err
 }

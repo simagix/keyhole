@@ -105,7 +105,7 @@ func main() {
 					continue
 				}
 				li.Print()
-				li.Save()
+				li.OutputBSON()
 			}
 		}
 		return
@@ -151,12 +151,11 @@ func main() {
 				log.Fatal(err)
 			}
 			li.Print()
-			li.Save()
+			li.OutputBSON()
 		}
 		return
 	} else if *print != "" {
 		printer := mdb.NewBSONPrinter(version)
-		printer.SetVerbose(*verbose)
 		if err := printer.Print(*print); err != nil {
 			log.Fatal(err)
 		}
@@ -239,7 +238,7 @@ func main() {
 			log.Fatal(err)
 		} else {
 			ix.PrintIndexesOf(databases)
-			if err = ix.Save(); err != nil {
+			if err = ix.OutputBSON(); err != nil {
 				log.Fatal(err)
 			}
 		}

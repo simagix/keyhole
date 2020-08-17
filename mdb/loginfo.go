@@ -273,8 +273,8 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	return nil
 }
 
-// Save saves loginfo bson data
-func (li *LogInfo) Save() error {
+// OutputBSON writes loginfo bson data
+func (li *LogInfo) OutputBSON() error {
 	var err error
 	if len(li.OpPatterns) == 0 {
 		return err
@@ -308,21 +308,24 @@ func (li *LogInfo) Save() error {
 	return nil
 }
 
+// OutputJSON writes json data to a file
+func (li *LogInfo) OutputJSON() error {
+	var err error
+	var data []byte
+	if data, err = bson.MarshalExtJSON(li, false, false); err != nil {
+		return err
+	}
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
+	ofile := outdir + strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json")
+	ioutil.WriteFile(ofile, data, 0644)
+	fmt.Println("json data written to", ofile)
+	return err
+}
+
 // Print prints indexes
 func (li *LogInfo) Print() {
 	fmt.Println(li.printLogsSummary())
-	if li.verbose {
-		var err error
-		var data []byte
-		if data, err = bson.MarshalExtJSON(li, false, false); err != nil {
-			return
-		}
-		outdir := "./out/"
-		os.Mkdir(outdir, 0755)
-		ofile := outdir + strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json")
-		ioutil.WriteFile(ofile, data, 0644)
-		fmt.Println("json data written to", ofile)
-	}
 }
 
 // printLogsSummary prints loginfo summary
