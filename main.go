@@ -234,10 +234,6 @@ func main() {
 	} else if *index == true {
 		ix := mdb.NewIndexStats(version)
 		ix.SetNoColor(*nocolor)
-		if connString.Database == mdb.KeyholeDB {
-			connString.Database = ""
-		}
-		ix.SetDBName(connString.Database)
 		ix.SetVerbose(*verbose)
 		if databases, ixe := ix.GetIndexes(client); ixe != nil {
 			log.Fatal(err)

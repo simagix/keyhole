@@ -25,14 +25,13 @@ import (
 
 // IndexStats holder indexes reader struct
 type IndexStats struct {
-	Databases []Database `bson:"database"`
+	Databases []Database `bson:"databases"`
 	Logger    *Logger    `bson:"keyhole"`
 
-	db       string `bson:"db"`
-	filename string `bson:"filename"`
-	nocolor  bool   `bson:"nocolor"`
+	filename string
+	nocolor  bool
 	verbose  bool
-	version  string `bson:"version"`
+	version  string
 }
 
 // Accesses stores index accesses
@@ -109,25 +108,12 @@ func (ix *IndexStats) SetVerbose(verbose bool) {
 	ix.verbose = verbose
 }
 
-// SetDBName sets verbose level
-func (ix *IndexStats) SetDBName(db string) {
-	ix.db = db
-}
-
 // GetIndexes list all indexes of collections of databases
 func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 	var err error
 	var dbNames []string
 	var collections []Collection
 	ix.Databases = []Database{}
-	if ix.db != "" {
-		if collections, err = ix.GetIndexesFromDB(client, ix.db); err != nil {
-			return ix.Databases, err
-		}
-		ix.Databases = append(ix.Databases, Database{Name: ix.db, Collections: collections})
-		return ix.Databases, err
-	}
-
 	var databases []Database
 	if dbNames, err = ListDatabaseNames(client); err != nil {
 		return databases, err
@@ -171,22 +157,20 @@ func (ix *IndexStats) GetIndexesFromDB(client *mongo.Client, db string) ([]Colle
 	defer cur.Close(ctx)
 	collectionNames := []string{}
 	for cur.Next(ctx) {
-		var elem = map[string]interface{}{}
+		var elem struct {
+			Name string `bson:"name"`
+			Type string `bson:"type"`
+		}
 		if err = cur.Decode(&elem); err != nil {
+			continue
+		}
+		if strings.HasPrefix(elem.Name, "system.") || elem.Type != "collection" {
 			if ix.verbose == true {
-				log.Println(err)
+				log.Println("skip", elem.Name)
 			}
 			continue
 		}
-		coll := fmt.Sprintf("%v", elem["name"])
-		collType := fmt.Sprintf("%v", elem["type"])
-		if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
-			if ix.verbose == true {
-				log.Println("skip", coll)
-			}
-			continue
-		}
-		collectionNames = append(collectionNames, coll)
+		collectionNames = append(collectionNames, elem.Name)
 	}
 
 	sort.Strings(collectionNames)

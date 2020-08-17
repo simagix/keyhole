@@ -36,7 +36,6 @@ func TestGetIndexes(t *testing.T) {
 
 	// get all indexes
 	ir := NewIndexStats("utest-xxxxxx")
-	ir.SetDBName("")
 	str, _ := ir.GetIndexes(client)
 	t.Log(str)
 }
