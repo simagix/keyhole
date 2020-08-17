@@ -91,16 +91,17 @@ echo ; echo "==> Test printing cluster indexes (--index <uri>)"
 go run main.go --index ${DATABASE_URI}
 validate "--index <uri>"
 
-# Test Create Index
-echo ; echo "==> Test printing cluster indexes (--createIndex <index_info> <uri>)"
-go run main.go --createIndex "$(hostname)-index.bson.gz" ${DATABASE_URI}
-rm -f "$(hostname)-index.bson.gz"
-validate "--createIndex <index_info> <uri>"
-
 # Test Schema
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
 go run main.go --schema --collection cars ${DATABASE_URI}
 validate "--schema --collection <collection> <uri>"
+
+if [[ -d mdb/testdata/ ]]; then
+    # Test loginfo
+    echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
+    go run main.go --loginfo mdb/testdata/mongod.text.log.gz
+    go run main.go --loginfo mdb/testdata/mongod.json.log.gz
+fi
 
 if [[ "$mver" > "v3.4" ]]; then
     # Test Cardinality
@@ -114,6 +115,15 @@ if [[ "$mver" > "v3.4" ]]; then
     validate "--explain"
 fi
 
+# Test Create Index
+echo ; echo "==> Test creating cluster indexes (--createIndex <index_info> <uri>)"
+go run main.go --createIndex "out/$(hostname)-index.bson.gz" ${DATABASE_URI}
+validate "--createIndex <index_info> <uri>"
+rm -f "out/$(hostname)-index.bson.gz"
+go run main.go --createIndex "out/$(hostname):30097-stats.bson.gz" ${DATABASE_URI}
+validate "--createIndex <index_info> <uri>"
+rm -f "out/$(hostname)-stats.bson.gz"
+
 if [ "$1" != "" ]; then
     # Test load test
     echo ; echo "==> Test load from a template (--file <file> <uri>)"
@@ -125,11 +135,6 @@ if [ "$1" != "" ]; then
         --tps 300 --conn 5 --tx examples/transactions.json ${DATABASE_URI}
     rm -f keyhole_*.gz
     validate "--yes"
-
-    # Test loginfo
-    echo ; echo "==> Test printing performance stats from a log file (--loginfo <file>)"
-    go run main.go --loginfo data/mongod.log
-    go run main.go --loginfo out/mongod-log.bson.gz
 fi
 
 # Test info Atlas
