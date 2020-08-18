@@ -41,8 +41,8 @@ Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 You need `go` installed and use `dep` to pull down dependencies.
 
 ```bash
-mkdir -p $GOPATH/src/github/simagix
-cd $GOPATH/src/github/simagix
+mkdir -p $GOPATH/src/github.com/simagix
+cd $GOPATH/src/github.com/simagix
 git clone --depth 1 https://github.com/simagix/keyhole.git
 cd keyhole
 ./build.sh
