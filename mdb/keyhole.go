@@ -37,13 +37,15 @@ func (k *Keyhole) GetClusterSummary(client *mongo.Client) string {
 // CollectClusterStats collects cluster stats
 func (k *Keyhole) CollectClusterStats(client *mongo.Client, connString connstring.ConnString) (string, error) {
 	var err error
-	var cluster ClusterDetails
 	stats := NewStats(k.version)
 	stats.SetVerbose(true)
-	if cluster, err = stats.GetClusterStats(client, connString); err != nil {
+	if err = stats.GetClusterStats(client, connString); err != nil {
 		log.Println(err)
 		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
 		return "", errors.New(result)
 	}
-	return stats.Save(cluster)
+	if err = stats.OutputBSON(); err != nil {
+		return "", err
+	}
+	return stats.PrintShortSummary(), err
 }

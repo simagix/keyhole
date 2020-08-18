@@ -68,9 +68,9 @@ func (p *BSONPrinter) Print(filename string) error {
 		ix.OutputJSON()
 	} else if strings.HasSuffix(filename, ".bson.gz") {
 		if strings.HasSuffix(filename, "-stats.bson.gz") {
-			var cluster ClusterDetails
+			var cluster ClusterStats
 			bson.Unmarshal(data, &cluster)
-			fmt.Println(PrintShortSummary(cluster))
+			fmt.Println(cluster.PrintShortSummary())
 		}
 		outdir := "./out/"
 		os.Mkdir(outdir, 0755)

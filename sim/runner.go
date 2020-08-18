@@ -63,8 +63,8 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 		return &runner, err
 	}
 	stats := mdb.NewStats("")
-	details, _ := stats.GetClusterStatsSummary(runner.client)
-	runner.clusterType = details.Cluster
+	stats.GetClusterStatsSummary(runner.client)
+	runner.clusterType = stats.Cluster
 	if runner.clusterType == "" {
 		return nil, errors.New("invalid cluster type: " + runner.clusterType)
 	}
