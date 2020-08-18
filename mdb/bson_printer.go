@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,10 +32,10 @@ func (p *BSONPrinter) Print(filename string) error {
 	var doc bson.M
 	var fd *bufio.Reader
 	if fd, err = gox.NewFileReader(filename); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if data, err = ioutil.ReadAll(fd); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	bson.Unmarshal(data, &doc)
 	if doc["keyhole"] == nil {
@@ -44,7 +43,9 @@ func (p *BSONPrinter) Print(filename string) error {
 	}
 	var logger Logger
 	if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
-		bson.Unmarshal(buf, &logger)
+		if err = bson.Unmarshal(buf, &logger); err != nil {
+			return err
+		}
 		fmt.Println(logger.Print())
 	} else {
 		return err
@@ -65,12 +66,16 @@ func (p *BSONPrinter) Print(filename string) error {
 			return err
 		}
 		ix.Print()
-		ix.OutputJSON()
+		if err = ix.OutputJSON(); err != nil {
+			return err
+		}
 	} else if strings.HasSuffix(filename, ".bson.gz") {
 		if strings.HasSuffix(filename, "-stats.bson.gz") {
 			var cluster ClusterStats
-			bson.Unmarshal(data, &cluster)
-			fmt.Println(cluster.PrintShortSummary())
+			if err = bson.Unmarshal(data, &cluster); err != nil {
+				return err
+			}
+			cluster.Print()
 		}
 		outdir := "./out/"
 		os.Mkdir(outdir, 0755)
@@ -80,7 +85,9 @@ func (p *BSONPrinter) Print(filename string) error {
 		if data, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 			return err
 		}
-		ioutil.WriteFile(ofile, data, 0644)
+		if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+			return err
+		}
 		fmt.Println("json data written to", ofile)
 	} else {
 		return errors.New("unsupported")

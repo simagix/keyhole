@@ -38,15 +38,3 @@ func TestRunCommandOnDB(t *testing.T) {
 		t.Log(string(bytes))
 	}
 }
-
-func TestIsMaster(t *testing.T) {
-	var err error
-	var client *mongo.Client
-	var m bson.M
-	client = getMongoClient()
-	defer client.Disconnect(context.Background())
-	if m, err = IsMaster(client); err != nil {
-		t.Fatal(err)
-	}
-	t.Log(m)
-}

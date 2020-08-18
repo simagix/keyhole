@@ -179,17 +179,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var result string
 	if *info && *verbose {
 		*allinfo = true
 	}
 
 	if *allinfo {
 		keyhole := mdb.NewKeyhole(version)
-		if result, err = keyhole.CollectClusterStats(client, connString); err != nil {
+		if err = keyhole.CollectClusterStats(client, connString); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(result)
 		return
 	} else if *cardinality != "" { // --card <collection> [-v]
 		card := mdb.NewCardinality(client)

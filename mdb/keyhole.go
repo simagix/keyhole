@@ -3,7 +3,6 @@
 package mdb
 
 import (
-	"errors"
 	"log"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -35,17 +34,18 @@ func (k *Keyhole) GetClusterSummary(client *mongo.Client) string {
 }
 
 // CollectClusterStats collects cluster stats
-func (k *Keyhole) CollectClusterStats(client *mongo.Client, connString connstring.ConnString) (string, error) {
+func (k *Keyhole) CollectClusterStats(client *mongo.Client, connString connstring.ConnString) error {
 	var err error
 	stats := NewStats(k.version)
 	stats.SetVerbose(true)
 	if err = stats.GetClusterStats(client, connString); err != nil {
-		log.Println(err)
 		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
-		return "", errors.New(result)
+		log.Println(result)
+		return err
 	}
 	if err = stats.OutputBSON(); err != nil {
-		return "", err
+		return err
 	}
-	return stats.PrintShortSummary(), err
+	stats.Print()
+	return err
 }

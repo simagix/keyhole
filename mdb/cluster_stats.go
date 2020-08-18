@@ -55,6 +55,7 @@ func NewStats(version string) *ClusterStats {
 // SetRedaction sets redact
 func (p *ClusterStats) SetRedaction(redact bool) {
 	p.redact = redact
+	p.Logger.Params += " -redact"
 }
 
 // SetVerbose sets verbose mode
@@ -99,36 +100,13 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	db := NewDatabaseStats(p.Logger.Version)
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
-	var databases []Database
-	if databases, err = db.GetAllDatabasesStats(client); err != nil {
+	if p.Databases, err = db.GetAllDatabasesStats(client); err != nil {
 		p.Logger.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
 	for _, m := range db.GetLogs() {
 		p.Logger.Add(m)
 	}
-	p.Databases = databases
 	return nil
-}
-
-// OutputBSON writes bson data to a file
-func (p *ClusterStats) OutputBSON() error {
-	if p.HostInfo.System.Hostname == "" {
-		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
-		return errors.New(result)
-	}
-	var err error
-	var data []byte
-	if data, err = bson.Marshal(p); err != nil {
-		return err
-	}
-	outdir := "./out/"
-	os.Mkdir(outdir, 0755)
-	ofile := outdir + p.HostInfo.System.Hostname + "-stats.bson.gz"
-	if err = gox.OutputGzipped(data, ofile); err != nil {
-		return err
-	}
-	fmt.Println(fmt.Sprintf(`bson data written to %v`, ofile))
-	return err
 }
 
 // GetClusterStatsSummary collects cluster stats
@@ -153,15 +131,6 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) error {
 		}
 	}
 	return nil
-}
-
-// GetClusterShortSummary returns one line summary
-func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
-	var err error
-	if err = p.GetClusterStatsSummary(client); err != nil {
-		return err.Error()
-	}
-	return p.PrintShortSummary()
 }
 
 // GetServersStatsSummary returns cluster stats from all shards
@@ -219,8 +188,17 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 	return shards, nil
 }
 
-// PrintShortSummary prints a short summary
-func (p *ClusterStats) PrintShortSummary() string {
+// GetClusterShortSummary returns one line summary
+func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
+	var err error
+	if err = p.GetClusterStatsSummary(client); err != nil {
+		return err.Error()
+	}
+	return p.GetShortSummary()
+}
+
+// GetShortSummary returns a short summary
+func (p *ClusterStats) GetShortSummary() string {
 	edition := "community"
 	if len(p.BuildInfo.Modules) > 0 {
 		edition = p.BuildInfo.Modules[0]
@@ -229,4 +207,30 @@ func (p *ClusterStats) PrintShortSummary() string {
 		p.BuildInfo.Version, edition, p.HostInfo.System.Hostname, p.HostInfo.OS.Name,
 		p.ServerStatus.Process, p.Cluster, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
 	return result
+}
+
+// Print prints a cluster short summary
+func (p *ClusterStats) Print() {
+	fmt.Println(p.GetShortSummary())
+}
+
+// OutputBSON writes bson data to a file
+func (p *ClusterStats) OutputBSON() error {
+	if p.HostInfo.System.Hostname == "" {
+		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
+		return errors.New(result)
+	}
+	var err error
+	var data []byte
+	if data, err = bson.Marshal(p); err != nil {
+		return err
+	}
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
+	ofile := outdir + p.HostInfo.System.Hostname + "-stats.bson.gz"
+	if err = gox.OutputGzipped(data, ofile); err != nil {
+		return err
+	}
+	fmt.Println(fmt.Sprintf(`bson data written to %v`, ofile))
+	return err
 }

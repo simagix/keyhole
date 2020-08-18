@@ -21,8 +21,3 @@ func RunCommandOnDB(client *mongo.Client, command string, db string) (bson.M, er
 	err = client.Database(db).RunCommand(context.Background(), bson.D{{Key: command, Value: 1}}).Decode(&result)
 	return result, err
 }
-
-// IsMaster executes dbisMaster()
-func IsMaster(client *mongo.Client) (bson.M, error) {
-	return RunAdminCommand(client, "isMaster")
-}

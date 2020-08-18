@@ -124,13 +124,14 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	var listdb ListDatabases
 	var databases []Database
 	t := time.Now()
-	log.Println("GetAllDatabasesStats")
+	if p.verbose {
+		log.Println("GetAllDatabasesStats")
+	}
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
 		return listdb.Databases, nil
 	}
 	for _, db := range listdb.Databases {
 		if db.Name == "admin" || db.Name == "config" || db.Name == "local" {
-			log.Println("skip database " + db.Name)
 			continue
 		}
 		if cur, err = client.Database(db.Name).ListCollections(ctx, bson.D{{}}); err != nil {
@@ -166,9 +167,11 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			go func(client *mongo.Client, collectionName string) {
 				defer wg.Done()
 				ns := db.Name + "." + collectionName
-				msg := fmt.Sprintf(`collecting from %v`, ns)
-				p.logs = append(p.logs, msg)
-				log.Println(msg)
+				if p.verbose {
+					msg := fmt.Sprintf(`collecting from %v`, ns)
+					p.logs = append(p.logs, msg)
+					log.Println(msg)
+				}
 				collection := client.Database(db.Name).Collection(collectionName)
 
 				var cursor *mongo.Cursor
@@ -251,9 +254,11 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		db.Collections = collections
 		databases = append(databases, db)
 	}
-	msg := fmt.Sprintf("GetAllDatabasesStats took %v", time.Now().Sub(t))
-	p.logs = append(p.logs, msg)
-	log.Println(msg)
+	if p.verbose {
+		msg := fmt.Sprintf("GetAllDatabasesStats took %v", time.Now().Sub(t))
+		p.logs = append(p.logs, msg)
+		log.Println(msg)
+	}
 	return databases, nil
 }
 
