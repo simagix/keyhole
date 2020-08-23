@@ -26,6 +26,7 @@ const COLLSCAN = "COLLSCAN"
 // LogInfo keeps loginfo struct
 type LogInfo struct {
 	Collscan   bool        `bson:"collscan"`
+	Histogram  []Histogram `bson:"histogram"`
 	Logger     *Logger     `bson:"keyhole"`
 	LogType    string      `bson:"type"`
 	Regex      string      `bson:"regex"`
@@ -65,6 +66,13 @@ type LogStats struct {
 	ns     string
 	op     string
 	scan   string
+	utc    string
+}
+
+// Histogram stores ops info
+type Histogram struct {
+	UTC string         `bson:"utc"`
+	Ops map[string]int `bson:"Ops"`
 }
 
 const dollarCmd = "$cmd"
@@ -72,7 +80,7 @@ const dollarCmd = "$cmd"
 // NewLogInfo -
 func NewLogInfo(version string) *LogInfo {
 	li := LogInfo{Logger: NewLogger(version, "-loginfo"), Collscan: false, silent: false, verbose: false}
-	li.regex = `^\S+ \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
+	li.regex = `^(\S+) \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	return &li
 }
 
@@ -187,6 +195,8 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		lineCounts = counts[0]
 	}
 	index := 0
+	var ts string
+	var hist = Histogram{Ops: map[string]int{}}
 	for {
 		if lineCounts > 0 && li.silent == false && index%50 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
@@ -234,6 +244,17 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		} else if stat.op == dollarCmd {
 			continue
 		}
+		if stat.utc != ts { //	push
+			fmt.Println(stat.utc)
+			if ts != "" {
+				li.Histogram = append(li.Histogram, hist)
+			}
+			ts = stat.utc
+			hist = Histogram{UTC: ts, Ops: map[string]int{}}
+		}
+		cnt := hist.Ops[stat.op]
+		cnt++
+		hist.Ops[stat.op] = cnt
 		key := stat.op + "." + stat.ns + "." + stat.filter + "." + stat.scan
 		_, ok := opsMap[key]
 		if stat.op != "insert" && (len(li.SlowOps) < topN || stat.milli > li.SlowOps[topN-1].Milli) {
@@ -260,6 +281,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index}
 		}
 	}
+	li.Histogram = append(li.Histogram, hist)
 	li.OpPatterns = make([]OpPattern, 0, len(opsMap))
 	for _, value := range opsMap {
 		li.OpPatterns = append(li.OpPatterns, value)

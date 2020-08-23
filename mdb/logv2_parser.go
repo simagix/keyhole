@@ -8,11 +8,32 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/simagix/gox"
 )
 
-var ops = []string{cmdAggregate, cmdCreateIndexes, cmdDelete, cmdFind, cmdGetMore, cmdInsert, cmdUpdate}
+// Logv2 stores logv2 info
+type Logv2 struct {
+	Attributes struct {
+		Command            map[string]interface{} `json:"command" bson:"command"`
+		Milli              int                    `json:"durationMillis" bson:"durationMillis"`
+		NS                 string                 `json:"ns" bson:"ns"`
+		OriginatingCommand map[string]interface{} `json:"originatingCommand" bson:"originatingCommand"`
+		PlanSummary        string                 `json:"planSummary" bson:"planSummary"`
+		Type               string                 `json:"type" bson:"type"`
+	} `json:"attr" bson:"attr"`
+	Component string    `json:"c" bson:"c"`
+	ID        int       `json:"id" bson:"id"`
+	Message   string    `json:"msg" bson:"msg"`
+	Severity  string    `json:"s" bson:"s"`
+	Timestamp time.Time `json:"t" bson:"t"`
+}
+
+var ops = []string{cmdAggregate, cmdDelete, cmdFind, cmdGetMore, cmdInsert, cmdUpdate}
 
 const cmdAggregate = "aggregate"
 const cmdCreateIndexes = "createIndexes"
@@ -25,29 +46,28 @@ const cmdUpdate = "update"
 
 // ParseLogv2 - parses text message before v4.4
 func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
-	var attr map[string]interface{}
-	var ok bool
+	var err error
 	var stat = LogStats{}
-	var doc map[string]interface{}
-	if strings.Index(str, "durationMillis") < 0 {
+	var doc Logv2
+	if strings.LastIndex(str, "durationMillis") < 0 {
 		return stat, errors.New("no durationMillis found")
 	}
-	json.Unmarshal([]byte(str), &doc)
-	if doc["c"] == nil {
-		return stat, errors.New("no command (c) found")
+	// if err = json.Unmarshal([]byte(str), &doc); err != nil {
+	// 	return stat, err
+	// }
+	bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	c := doc.Component
+	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
+		return stat, errors.New("unsupported command")
 	}
-	if attr, ok = doc["attr"].(map[string]interface{}); !ok {
-		return stat, errors.New("no attr found")
-	}
-	stat.milli = toInt(attr["durationMillis"])
-	if attr["ns"] != nil {
-		stat.ns = attr["ns"].(string)
-	} else if attr["namespace"] != nil { // likely "c": "SHARDING", ignored already
-		stat.ns = attr["namespace"].(string)
-	} else {
+	stat.milli = doc.Attributes.Milli
+	if doc.Attributes.NS == "" {
 		return stat, errors.New("no namespace found")
 	}
-	if strings.HasPrefix(stat.ns, "admin.") || strings.HasPrefix(stat.ns, "config.") || strings.HasPrefix(stat.ns, "local.") {
+	stat.ns = doc.Attributes.NS
+	if stat.ns == "" {
+		return stat, errors.New("no ns info")
+	} else if strings.HasPrefix(stat.ns, "admin.") || strings.HasPrefix(stat.ns, "config.") || strings.HasPrefix(stat.ns, "local.") {
 		stat.op = dollarCmd
 		return stat, errors.New("system database")
 	} else if strings.HasSuffix(stat.ns, ".$cmd") {
@@ -55,10 +75,10 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		return stat, errors.New("system command")
 	}
 
-	if attr["planSummary"] != nil { // not insert
-		plan := attr["planSummary"].(string)
+	if doc.Attributes.PlanSummary != "" { // not insert
+		plan := doc.Attributes.PlanSummary
 		if plan == COLLSCAN {
-			stat.scan = attr["planSummary"].(string)
+			stat.scan = COLLSCAN
 		} else if strings.HasPrefix(plan, "IXSCAN") {
 			stat.index = plan[len("IXSCAN")+1:]
 		} else {
@@ -67,44 +87,43 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	}
 
 	if li.Collscan == true && stat.scan != COLLSCAN {
-		return stat, nil
+		return stat, errors.New("skip, -collscan")
 	}
-	if attr["command"] == nil {
+	if doc.Attributes.Command == nil {
 		return stat, errors.New("no command found")
 	}
-	command := attr["command"].(map[string]interface{})
-	if attr["type"] != nil {
-		stat.op = attr["type"].(string)
-	}
+	command := doc.Attributes.Command
+	stat.op = doc.Attributes.Type
 	if stat.op == "command" || stat.op == "none" {
-		stat.op = ""
-		for _, v := range ops {
-			if command[v] != nil {
-				stat.op = v
-				break
-			}
-		}
-
+		stat.op = getOp(command)
 	}
-	if stat.op == cmdFind || stat.op == cmdGetMore {
+	var isGetMore bool
+	if stat.op == cmdGetMore {
+		isGetMore = true
+		command = doc.Attributes.OriginatingCommand
+		stat.op = getOp(command)
+	}
+	if stat.op == cmdFind {
 		if command["filter"] == nil {
-			stat.filter = "{}"
-		} else {
-			fmap := command["filter"].(map[string]interface{})
-			if isRegex(fmap) == false {
-				walker := gox.NewMapWalker(cb)
-				doc := walker.Walk(fmap)
-				if buf, err := json.Marshal(doc); err == nil {
-					stat.filter = string(buf)
-				} else {
-					stat.filter = "{}"
-				}
-			} else {
-				buf, _ := json.Marshal(fmap)
-				str := string(buf)
-				re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-				stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+			return stat, errors.New("no filter found")
+		}
+		fmap := command["filter"].(map[string]interface{})
+		if isRegex(fmap) == false {
+			walker := gox.NewMapWalker(cb)
+			doc := walker.Walk(fmap)
+			var data []byte
+			if data, err = json.Marshal(doc); err != nil {
+				return stat, err
 			}
+			stat.filter = string(data)
+			if stat.filter == `{"":null}` {
+				stat.filter = "{}"
+			}
+		} else {
+			buf, _ := json.Marshal(fmap)
+			str := string(buf)
+			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
+			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
 		}
 	} else if stat.op == cmdInsert || stat.op == cmdCreateIndexes {
 		stat.filter = "N/A"
@@ -117,7 +136,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			stat.filter = "{}"
 		}
 	} else if stat.op == cmdAggregate {
-		pipeline := command["pipeline"].([]interface{})
+		pipeline := command["pipeline"].(primitive.A)
 		var stage interface{}
 		for _, v := range pipeline {
 			stage = v
@@ -133,7 +152,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 				stat.filter = "{}"
 			}
 			if strings.Index(stat.filter, "$match") < 0 && strings.Index(stat.filter, "$sort") < 0 &&
-				strings.Index(stat.filter, "$facet") < 0 {
+				strings.Index(stat.filter, "$facet") < 0 && strings.Index(stat.filter, "$indexStats") < 0 {
 				stat.filter = "{}"
 			}
 		} else {
@@ -156,6 +175,11 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	stat.filter = re.ReplaceAllString(stat.filter, `{$1:...}`)
 	re = regexp.MustCompile(`{"\$oid":1}`)
 	stat.filter = re.ReplaceAllString(stat.filter, `1`)
+	if isGetMore {
+		stat.op = cmdGetMore
+	}
+	utc := doc.Timestamp.Format(time.RFC3339)[:15] + `0:00Z`
+	stat.utc = utc
 	return stat, nil
 }
 
@@ -166,6 +190,15 @@ func isRegex(doc map[string]interface{}) bool {
 		return true
 	}
 	return false
+}
+
+func getOp(command map[string]interface{}) string {
+	for _, v := range ops {
+		if command[v] != nil {
+			return v
+		}
+	}
+	return ""
 }
 
 func cb(value interface{}) interface{} {
