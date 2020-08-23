@@ -33,12 +33,13 @@ type Logv2 struct {
 	Timestamp time.Time `json:"t" bson:"t"`
 }
 
-var ops = []string{cmdAggregate, cmdDelete, cmdFind, cmdGetMore, cmdInsert, cmdUpdate}
+var ops = []string{cmdAggregate, cmdDelete, cmdFind, cmdFindAndModify, cmdGetMore, cmdInsert, cmdUpdate}
 
 const cmdAggregate = "aggregate"
 const cmdCreateIndexes = "createIndexes"
 const cmdDelete = "delete"
 const cmdFind = "find"
+const cmdFindAndModify = "findAndModify"
 const cmdGetMore = "getMore"
 const cmdInsert = "insert"
 const cmdRemove = "remove"
