@@ -5,13 +5,8 @@ package mdb
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/simagix/gox"
 )
@@ -26,20 +21,23 @@ type Logv2 struct {
 		PlanSummary        string                 `json:"planSummary" bson:"planSummary"`
 		Type               string                 `json:"type" bson:"type"`
 	} `json:"attr" bson:"attr"`
-	Component string    `json:"c" bson:"c"`
-	ID        int       `json:"id" bson:"id"`
-	Message   string    `json:"msg" bson:"msg"`
-	Severity  string    `json:"s" bson:"s"`
-	Timestamp time.Time `json:"t" bson:"t"`
+	Component string            `json:"c" bson:"c"`
+	ID        int               `json:"id" bson:"id"`
+	Message   string            `json:"msg" bson:"msg"`
+	Severity  string            `json:"s" bson:"s"`
+	Timestamp map[string]string `json:"t" bson:"t"`
 }
 
-var ops = []string{cmdAggregate, cmdDelete, cmdFind, cmdFindAndModify, cmdGetMore, cmdInsert, cmdUpdate}
+var ops = []string{cmdAggregate, cmdCount, cmdDelete, cmdDistinct, cmdFind,
+	cmdFindAndModify, cmdGetMore, cmdInsert, cmdUpdate}
 
 const cmdAggregate = "aggregate"
+const cmdCount = "count"
 const cmdCreateIndexes = "createIndexes"
 const cmdDelete = "delete"
+const cmdDistinct = "distinct"
 const cmdFind = "find"
-const cmdFindAndModify = "findAndModify"
+const cmdFindAndModify = "findandmodify"
 const cmdGetMore = "getMore"
 const cmdInsert = "insert"
 const cmdRemove = "remove"
@@ -53,10 +51,10 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if strings.LastIndex(str, "durationMillis") < 0 {
 		return stat, errors.New("no durationMillis found")
 	}
-	// if err = json.Unmarshal([]byte(str), &doc); err != nil {
-	// 	return stat, err
-	// }
-	bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	if err = json.Unmarshal([]byte(str), &doc); err != nil {
+		return stat, err
+	}
+	// bson.UnmarshalExtJSON([]byte(str), false, &doc)
 	c := doc.Component
 	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
 		return stat, errors.New("unsupported command")
@@ -104,29 +102,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		command = doc.Attributes.OriginatingCommand
 		stat.op = getOp(command)
 	}
-	if stat.op == cmdFind {
-		if command["filter"] == nil {
-			return stat, errors.New("no filter found")
-		}
-		fmap := command["filter"].(map[string]interface{})
-		if isRegex(fmap) == false {
-			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(fmap)
-			var data []byte
-			if data, err = json.Marshal(doc); err != nil {
-				return stat, err
-			}
-			stat.filter = string(data)
-			if stat.filter == `{"":null}` {
-				stat.filter = "{}"
-			}
-		} else {
-			buf, _ := json.Marshal(fmap)
-			str := string(buf)
-			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
-		}
-	} else if stat.op == cmdInsert || stat.op == cmdCreateIndexes {
+	if stat.op == cmdInsert || stat.op == cmdCreateIndexes {
 		stat.filter = "N/A"
 	} else if (stat.op == cmdUpdate || stat.op == cmdRemove || stat.op == cmdDelete) && stat.filter == "" {
 		walker := gox.NewMapWalker(cb)
@@ -137,7 +113,10 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			stat.filter = "{}"
 		}
 	} else if stat.op == cmdAggregate {
-		pipeline := command["pipeline"].(primitive.A)
+		pipeline, ok := command["pipeline"].([]interface{})
+		if !ok {
+			return stat, errors.New("pipeline not found")
+		}
 		var stage interface{}
 		for _, v := range pipeline {
 			stage = v
@@ -162,8 +141,34 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
 			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
 		}
-	} else if li.verbose == true {
-		fmt.Println(stat.op, str)
+	} else {
+		var fmap map[string]interface{}
+		if command["filter"] != nil {
+			fmap = command["filter"].(map[string]interface{})
+		} else if command["query"] != nil {
+			fmap = command["query"].(map[string]interface{})
+		} else if command["q"] != nil {
+			fmap = command["q"].(map[string]interface{})
+		} else {
+			return stat, errors.New("no filter found")
+		}
+		if isRegex(fmap) == false {
+			walker := gox.NewMapWalker(cb)
+			doc := walker.Walk(fmap)
+			var data []byte
+			if data, err = json.Marshal(doc); err != nil {
+				return stat, err
+			}
+			stat.filter = string(data)
+			if stat.filter == `{"":null}` {
+				stat.filter = "{}"
+			}
+		} else {
+			buf, _ := json.Marshal(fmap)
+			str := string(buf)
+			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
+			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+		}
 	}
 	if stat.op == "" {
 		return stat, nil
@@ -179,7 +184,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if isGetMore {
 		stat.op = cmdGetMore
 	}
-	utc := doc.Timestamp.Format(time.RFC3339)[:15] + `0:00Z`
+	utc := doc.Timestamp["$date"][:15] + `0:00Z` // todo doc.Timestamp.Format(time.RFC3339)[:15]
 	stat.utc = utc
 	return stat, nil
 }
