@@ -199,7 +199,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	var hist = Histogram{Ops: map[string]int{}}
 	for {
 		if lineCounts > 0 && li.silent == false && index%50 == 0 {
-			fmt.Fprintf(os.Stderr, "\r%3d%% ", (100*index)/lineCounts)
+			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/lineCounts)
 		}
 		if buf, isPrefix, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
 			break
@@ -245,7 +245,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			continue
 		}
 		if stat.utc != ts { //	push
-			fmt.Println(stat.utc)
+			fmt.Fprintf(os.Stderr, "\r     %v\r", stat.utc)
 			if ts != "" {
 				li.Histogram = append(li.Histogram, hist)
 			}
@@ -290,7 +290,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		return float64(li.OpPatterns[i].TotalMilli)/float64(li.OpPatterns[i].Count) > float64(li.OpPatterns[j].TotalMilli)/float64(li.OpPatterns[j].Count)
 	})
 	if li.silent == false {
-		fmt.Fprintf(os.Stderr, "\r     \r")
+		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
 	return nil
 }
