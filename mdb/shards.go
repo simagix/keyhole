@@ -81,7 +81,7 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 			} else {
 				if connString.AuthSource != "" {
 					ruri += "authSource=" + connString.AuthSource
-				} else {
+				} else if connString.Username != "" {
 					ruri += "authSource=admin"
 				}
 				if connString.SSLCaFile != "" {
