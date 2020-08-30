@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/simagix/gox"
+	"github.com/simagix/keyhole/atlas"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
-	"github.com/simagix/mongo-atlas/atlas"
 	anly "github.com/simagix/mongo-ftdc/analytics"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
