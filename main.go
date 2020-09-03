@@ -98,7 +98,10 @@ func main() {
 			for _, filename := range api.GetLogNames() {
 				fmt.Println("=> processing", filename)
 				li := mdb.NewLogInfo(version)
+				li.SetCollscan(*collscan)
 				li.SetRedaction(*redaction)
+				li.SetRegexPattern(*regex)
+				li.SetSilent(*nocolor)
 				li.SetVerbose(*verbose)
 				if err = li.AnalyzeFile(filename); err != nil {
 					log.Println(err)

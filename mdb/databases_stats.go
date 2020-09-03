@@ -207,7 +207,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				}
 				indexes, err := ir.GetIndexesFromCollection(client, collection)
 				if err != nil {
-					return
+					log.Println(err)
 				}
 
 				// stats

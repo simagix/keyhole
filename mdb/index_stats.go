@@ -195,20 +195,20 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	db := collection.Database().Name()
 	ix.Logger.Add(fmt.Sprintf(`GetIndexesFromCollection from %v.%v`, db, collection.Name()))
 
+	var indexStats = []IndexUsage{}
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
 		log.Println(err)
-		return list, err
-	}
-	var indexStats = []IndexUsage{}
-	for scur.Next(ctx) {
-		var result IndexUsage
-		if err = scur.Decode(&result); err != nil {
-			log.Println(err)
-			continue
+	} else {
+		for scur.Next(ctx) {
+			var result IndexUsage
+			if err = scur.Decode(&result); err != nil {
+				log.Println(err)
+				continue
+			}
+			indexStats = append(indexStats, result)
 		}
-		indexStats = append(indexStats, result)
+		scur.Close(ctx)
 	}
-	scur.Close(ctx)
 
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
