@@ -90,11 +90,11 @@ func (m *Metrics) ProcessFiles(filenames []string) error {
 	port := 3000
 	filenames = GetMetricsFilenames(filenames)
 	if len(filenames) == 0 {
-		t := time.Now().Unix() * 1000
-		minute := int64(60) * 1000
-		endpoint := fmt.Sprintf(analyticsEndpoint, t, t+(10*minute))
-		log.Println(fmt.Sprintf("http://localhost:%d%v", port, endpoint))
-		return errors.New("no available data files found")
+		// t := time.Now().Unix() * 1000
+		// minute := int64(60) * 1000
+		// endpoint := fmt.Sprintf(analyticsEndpoint, t, t+(10*minute))
+		// log.Println(fmt.Sprintf("http://localhost:%d%v", port, endpoint))
+		return errors.New("no valid data file found")
 	}
 	if m.latest > 0 && m.latest < len(filenames) {
 		filenames = filenames[len(filenames)-m.latest:]

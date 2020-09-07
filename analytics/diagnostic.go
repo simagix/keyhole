@@ -146,6 +146,9 @@ func (d *DiagnosticData) readDiagnosticDir(dirname string) error {
 // readDiagnosticFiles reads multiple files
 func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var err error
+	if len(filenames) == 0 {
+		return errors.New("no valid data file found")
+	}
 	sort.Strings(filenames)
 	if strings.Index(filenames[0], "keyhole_stats.") >= 0 {
 		for _, filename := range filenames {

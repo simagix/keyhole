@@ -113,15 +113,17 @@ func main() {
 		}
 		return
 	} else if *webserver {
-		filenames := append([]string{*diag}, flag.Args()...)
 		addr := fmt.Sprintf(":%d", *port)
 		if listener, err := net.Listen("tcp", addr); err != nil {
 			log.Fatal(err)
 		} else {
 			listener.Close()
 		}
+		filenames := append([]string{*diag}, flag.Args()...)
 		metrics := anly.NewMetrics()
-		metrics.ProcessFiles(filenames)
+		if err = metrics.ProcessFiles(filenames); err != nil {
+			log.Fatal(err)
+		}
 		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
@@ -188,6 +190,8 @@ func main() {
 
 	if *allinfo {
 		keyhole := mdb.NewKeyhole(version)
+		keyhole.SetRedaction(*redaction)
+		keyhole.SetVerbose(*verbose)
 		if err = keyhole.CollectClusterStats(client, connString); err != nil {
 			log.Fatal(err)
 		}
@@ -274,6 +278,8 @@ func main() {
 	}
 
 	keyhole := mdb.NewKeyhole(version)
+	keyhole.SetRedaction(*redaction)
+	keyhole.SetVerbose(*verbose)
 	fmt.Println(keyhole.GetClusterSummary(client))
 	if *info == true {
 		return
