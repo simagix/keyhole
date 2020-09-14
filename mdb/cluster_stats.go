@@ -228,6 +228,7 @@ func (p *ClusterStats) OutputBSON() error {
 	outdir := "./out/"
 	os.Mkdir(outdir, 0755)
 	ofile := outdir + p.HostInfo.System.Hostname + "-stats.bson.gz"
+	ofile = strings.ReplaceAll(ofile, ":", "_")
 	if err = gox.OutputGzipped(data, ofile); err != nil {
 		return err
 	}
