@@ -275,6 +275,9 @@ func getPhoneNumber() string {
 }
 
 func isHexString(str string) bool {
+	if len(str)%2 != 0 {
+		return false
+	}
 	var matched = regexp.MustCompile(`^[\da-fA-F]+$`)
 	return matched.MatchString(str)
 }

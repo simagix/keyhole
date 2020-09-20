@@ -75,8 +75,8 @@ validate "--seed --drop ${DATABASE_URI}"
 
 mongo ${DATABASE_URI} ${TLS} --eval "db.setProfilingLevel(0, {slowms: -1})"
 validate "failed to set profiling level"
-mongo ${DATABASE_URI} ${TLS} --eval 'db.cars.createIndex({color: 1})'
-mongo ${DATABASE_URI} ${TLS} --eval 'db.cars.createIndex({color: 1, style: 1})'
+mongo ${DATABASE_URI} ${TLS} --eval 'db.vehicles.createIndex({color: 1})'
+mongo ${DATABASE_URI} ${TLS} --eval 'db.vehicles.createIndex({color: 1, style: 1})'
 
 echo ; echo "==> Test seeding docs from a template (--file <file> --collection <collection> <uri>)"
 go run main.go --seed --file examples/template.json --collection template ${DATABASE_URI}
@@ -93,7 +93,7 @@ validate "--index <uri>"
 
 # Test Schema
 echo ; echo "==> Test printing schema from a template (--schema --collection <collection> <uri>)"
-go run main.go --schema --collection cars ${DATABASE_URI}
+go run main.go --schema --collection vehicles ${DATABASE_URI}
 validate "--schema --collection <collection> <uri>"
 
 if [[ -d mdb/testdata/ ]]; then
@@ -111,7 +111,7 @@ if [[ "$mver" > "v3.4" ]]; then
 
     # Test explain
     echo ; echo "==> Test explain (--explain)"
-    go run main.go --explain mdb/testdata/cars.log ${DATABASE_URI}
+    go run main.go --explain mdb/testdata/vehicles.log ${DATABASE_URI}
     validate "--explain"
 fi
 

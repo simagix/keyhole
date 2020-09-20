@@ -270,11 +270,11 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 
 // check if an index is a dup of others
 func checkIfDupped(doc Index, list []Index) bool {
-	if strings.Index(doc.KeyString, "2dsphere") < 0 {
+	if strings.Index(doc.KeyString, "2dsphere") > 0 {
 		return false
 	}
 	for _, o := range list {
-		if strings.Index(o.KeyString, "2dsphere") < 0 {
+		if strings.Index(o.KeyString, "2dsphere") > 0 {
 			continue
 		} else if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.KeyString != o.KeyString && len(o.Fields) >= len(doc.Fields) {
 			// check indexes if not marked as dupped, has the same first field, and more or equal number of fields

@@ -16,7 +16,7 @@ func TestGetSchema(t *testing.T) {
 	client = getMongoClient()
 	defer client.Disconnect(context.Background())
 
-	collection := client.Database("keyhole").Collection("cars")
+	collection := client.Database("keyhole").Collection("vehicles")
 	filter := bson.D{{}}
 	var count int64
 	if count, err = collection.CountDocuments(context.Background(), filter); err != nil {
@@ -28,7 +28,7 @@ func TestGetSchema(t *testing.T) {
 		f.SetIsDrop(true)
 		f.SetDatabase("keyhole")
 		f.SetShowProgress(false)
-		f.SeedCars(client)
+		f.SeedVehicles(client)
 	}
 
 	var str string
