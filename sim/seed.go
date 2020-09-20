@@ -3,6 +3,7 @@
 package sim
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/simagix/gox"
@@ -133,7 +135,7 @@ func (f *Feeder) SeedAllDemoData(client *mongo.Client) error {
 	if err = f.seedNumbers(client); err != nil {
 		return err
 	}
-	if err = f.SeedCars(client); err != nil {
+	if err = f.SeedVehicles(client); err != nil {
 		return err
 	}
 	return err
@@ -242,15 +244,15 @@ func (f *Feeder) seedNumbers(client *mongo.Client) error {
 	return err
 }
 
-// SeedCars seeds cars collection
-func (f *Feeder) SeedCars(client *mongo.Client) error {
+// SeedVehicles seeds vehicles collection
+func (f *Feeder) SeedVehicles(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
-	carsCollection := client.Database(f.database).Collection("cars")
+	vehiclesCollection := client.Database(f.database).Collection("vehicles")
 	dealersCollection := client.Database(f.database).Collection("dealers")
 	employeesCollection := client.Database(f.database).Collection("employees")
 	if f.isDrop {
-		carsCollection.Drop(ctx)
+		vehiclesCollection.Drop(ctx)
 		dealersCollection.Drop(ctx)
 		employeesCollection.Drop(ctx)
 	}
@@ -291,18 +293,20 @@ func (f *Feeder) SeedCars(client *mongo.Client) error {
 	}
 
 	// create index example
-	indexView := carsCollection.Indexes()
+	indexView := vehiclesCollection.Indexes()
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}, {Key: "brand", Value: 1}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}, {Key: "location", Value: "2dsphere"}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "filters.k", Value: 1}, {Key: "filters.v", Value: 1}}})
 	dealersCount, _ := dealersCollection.CountDocuments(ctx, bson.M{})
-	carsCount := f.seedCollection(carsCollection, 1)
+	vehiclesCount := f.seedCollection(vehiclesCollection, 1)
 	fopts := options.Find()
 	filter := bson.D{{Key: "color", Value: "Red"}}
 	fopts.SetSort(bson.D{{Key: "brand", Value: -1}})
 	fopts.SetProjection(bson.D{{Key: "_id", Value: 0}, {Key: "color", Value: 1}, {Key: "brand", Value: 11}})
-	carsCollection.Find(ctx, filter, fopts)
-	fmt.Printf("Seeded cars: %d, dealers: %d\n", carsCount, dealersCount)
+	vehiclesCollection.Find(ctx, filter, fopts)
+	fmt.Printf("Seeded vehicles: %d, dealers: %d\n", vehiclesCount, dealersCount)
 	return err
 }
 
@@ -406,41 +410,71 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	}
 	log.Println("Seed data to collection", collName, "using", f.conns, "connections")
 	c := client.Database(f.database).Collection(collName)
+	var uniq *mdb.Index
 	if f.isDrop {
 		c.Drop(ctx)
+	} else {
+		iview, _ := c.Indexes().List(ctx)
+		for iview.Next(ctx) {
+			var doc mdb.Index
+			iview.Decode(&doc)
+			if doc.Unique == true {
+				uniq = &doc
+				break
+			}
+		}
+	}
+	if uniq != nil {
+		fmt.Println("* unique index detected:", uniq.Name)
+		fmt.Print("* keyhole may not be able to seed all data, continue? [y/N]: ")
+		reader := bufio.NewReader(os.Stdin)
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		if text != "y" && text != "Y" {
+			os.Exit(0)
+		}
 	}
 
+	var mutex sync.RWMutex
 	var wg = gox.NewWaitGroup(f.conns)
-	for threadNum := 0; threadNum < f.total; threadNum += bsize {
+	var threads int
+	var zeroInserted int
+	for remaining > 0 && zeroInserted < 10 {
 		wg.Add(1)
 		num := bsize
 		if remaining < bsize {
 			num = remaining
 		}
 		remaining -= num
+		threads++
 		go func(num int) {
 			defer wg.Done()
-			var contentArray []interface{}
-			for n := 0; n < num; n++ {
-				ndoc := make(map[string]interface{})
-				util.RandomizeDocument(&ndoc, doc, false)
-				contentArray = append(contentArray, ndoc)
+			inserted, err := populateData(c, num, doc)
+			if err != nil {
+				// log.Println("bulkWrite failed", err)
+				time.Sleep(time.Second)
+				mutex.Lock()
+				if inserted == 0 {
+					zeroInserted++
+				}
+				remaining += (num - inserted)
+				mutex.Unlock()
 			}
-			opts := options.InsertMany()
-			opts.SetOrdered(false) // ignore duplication errors
-			c.InsertMany(ctx, contentArray, opts)
 			if f.showProgress {
 				fmt.Fprintf(os.Stderr, "\r%3.1f%% ", float64(100*(f.total-remaining))/float64(f.total))
 			}
 		}(num)
 	}
 	wg.Wait()
+	if remaining > 0 {
+		inserted, _ := populateData(c, remaining, doc) // catchup
+		remaining -= inserted
+	}
 
 	if f.showProgress {
 		fmt.Fprintf(os.Stderr, "\r        \r")
 	}
-	cnt, _ := c.CountDocuments(ctx, bson.M{})
-	fmt.Printf("\rSeeded %s: %d, total count: %d\n", collName, f.total, cnt)
+	fmt.Printf("\rSeeded %s: %d, inserted: %d\n", collName, f.total, (f.total - remaining))
 	return err
 }
 
@@ -463,4 +497,20 @@ func getBatchSize(total int, conns int) int {
 		return 1000
 	}
 	return size
+}
+
+func populateData(c *mongo.Collection, num int, doc map[string]interface{}) (int, error) {
+	if num == 0 {
+		return 0, nil
+	}
+	var contentArray []interface{}
+	for n := 0; n < num; n++ {
+		mdoc := make(map[string]interface{})
+		util.RandomizeDocument(&mdoc, doc, false)
+		contentArray = append(contentArray, mdoc)
+	}
+	opts := options.InsertMany()
+	opts.SetOrdered(false) // ignore _id duplication errors
+	res, err := c.InsertMany(context.TODO(), contentArray, opts)
+	return len(res.InsertedIDs), err
 }

@@ -27,14 +27,14 @@ func TestSeed(t *testing.T) {
 	// calling seed()
 	f.SeedData(client)
 	db := client.Database(dbName)
-	coll := db.Collection("cars")
+	coll := db.Collection("vehicles")
 	var count int64
 	if count, err = coll.CountDocuments(context.Background(), bson.M{}); err != nil {
 		t.Fatal(err)
 	}
 
 	if int64(total) != count {
-		t.Fatal(errors.New("cars count doesn't match"))
+		t.Fatal(errors.New("vehicles count doesn't match"))
 	}
 }
 
@@ -59,13 +59,13 @@ func TestSeedFromTemplate(t *testing.T) {
 	// calling seedFromTemplate
 	f.SeedData(client)
 	db := client.Database(dbName)
-	coll := db.Collection("cars")
+	coll := db.Collection("vehicles")
 	var count int64
 	if count, err = coll.CountDocuments(ctx, bson.M{}); err != nil {
 		t.Fatal(err)
 	}
 
 	if int64(total) != count {
-		t.Fatal(errors.New("cars count doesn't match"))
+		t.Fatal(errors.New("vehicles count doesn't match"))
 	}
 }

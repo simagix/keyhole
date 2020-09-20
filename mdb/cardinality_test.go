@@ -23,7 +23,7 @@ func TestGetCardinalityArray(t *testing.T) {
 	card.SetVerbose(true)
 	keys := []string{"color", "style", "attribs.color", "filters.k"}
 	// card.SetVerbose(true)
-	if summary, err = card.GetCardinalityArray(dbName, "cars", keys); err != nil {
+	if summary, err = card.GetCardinalityArray(dbName, "vehicles", keys); err != nil {
 		t.Fatal(err)
 	}
 	t.Log(summary.List)
