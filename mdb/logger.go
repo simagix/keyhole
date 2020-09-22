@@ -12,6 +12,7 @@ import (
 // Logger stores logger info
 type Logger struct {
 	Collected time.Time `bson:"collected"`
+	Warnings  []string  `bson:"warnings"`
 	Logs      []string  `bson:"logs"`
 	Params    string    `bson:"params"`
 	Version   string    `bson:"version"`
@@ -19,17 +20,22 @@ type Logger struct {
 
 // NewLogger returns Logger
 func NewLogger(version string, params string) *Logger {
-	k := Logger{Version: version, Params: params}
-	now := time.Now()
-	k.Collected = now
-	k.Logs = []string{fmt.Sprintf(`%v keyhole begins`, now.Format(time.RFC3339))}
-	return &k
+	p := Logger{Version: version, Params: params, Warnings: []string{}}
+	p.Collected = time.Now()
+	p.Logs = []string{fmt.Sprintf(`%v keyhole begins`, p.Collected.Format(time.RFC3339))}
+	return &p
 }
 
 // Add adds a message
 func (p *Logger) Add(message string) {
 	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
 	p.Logs = append(p.Logs, str)
+}
+
+// Warn adds an warning message
+func (p *Logger) Warn(message string) {
+	p.Warnings = append(p.Warnings, message)
+	fmt.Println(codeRed, "*", message, codeDefault)
 }
 
 // Log adds and prints a message
