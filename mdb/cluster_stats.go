@@ -98,13 +98,11 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		p.Logger.Log("end collecting from all servers")
 	}
 	db := NewDatabaseStats(p.Logger.Version)
+	db.SetLogger(p.Logger)
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
 	if p.Databases, err = db.GetAllDatabasesStats(client); err != nil {
 		p.Logger.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
-	}
-	for _, m := range db.GetLogs() {
-		p.Logger.Add(m)
 	}
 	return nil
 }

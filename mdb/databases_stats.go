@@ -21,7 +21,7 @@ import (
 // DatabaseStats stores struct
 type DatabaseStats struct {
 	threads   int
-	logs      []string
+	logger    *Logger
 	redaction bool
 	verbose   bool
 	version   string
@@ -93,12 +93,12 @@ type Chunk struct {
 
 // NewDatabaseStats returns DatabaseStats
 func NewDatabaseStats(version string) *DatabaseStats {
-	return &DatabaseStats{logs: []string{}, threads: 16, version: version}
+	return &DatabaseStats{logger: NewLogger(version, ""), threads: 16, version: version}
 }
 
-// GetLogs returns logs
-func (p *DatabaseStats) GetLogs() []string {
-	return p.logs
+// SetLogger sets logger
+func (p *DatabaseStats) SetLogger(logger *Logger) {
+	p.logger = logger
 }
 
 // SetNumberThreads set # of threads
@@ -140,6 +140,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		defer cur.Close(ctx)
 		var collections = []Collection{}
 		ir := NewIndexStats(p.version)
+		ir.SetLogger(p.logger)
 		ir.SetVerbose(p.verbose)
 		collectionNames := []string{}
 
@@ -169,8 +170,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				ns := db.Name + "." + collectionName
 				if p.verbose {
 					msg := fmt.Sprintf(`collecting from %v`, ns)
-					p.logs = append(p.logs, msg)
-					log.Println(msg)
+					p.logger.Log(msg)
 				}
 				collection := client.Database(db.Name).Collection(collectionName)
 
@@ -256,8 +256,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	}
 	if p.verbose {
 		msg := fmt.Sprintf("GetAllDatabasesStats took %v", time.Now().Sub(t))
-		p.logs = append(p.logs, msg)
-		log.Println(msg)
+		p.logger.Log(msg)
 	}
 	return databases, nil
 }
@@ -338,8 +337,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 		dur := time.Now().Sub(t)
 		msg := fmt.Sprintf("collectChunksDistribution used %v threads on %v %v took %v for %v chunks, rate: %v",
 			p.threads, shard, ns, dur, count, dur/time.Duration(count))
-		p.logs = append(p.logs, msg)
-		log.Println(msg)
+		p.logger.Log(msg)
 	} else {
 		emptyCounts = -1
 		if count, err = coll.CountDocuments(ctx, bson.M{"shard": shard, "ns": ns}); err != nil {

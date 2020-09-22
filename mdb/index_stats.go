@@ -42,9 +42,10 @@ type Accesses struct {
 
 // IndexUsage stores index accesses
 type IndexUsage struct {
-	Accesses Accesses `json:"accesses"`
-	Host     string   `json:"host"`
-	Name     string
+	Accesses Accesses `json:"accesses" bson:"accesses"`
+	Host     string   `json:"host" bson:"host"`
+	Name     string   `json:"name" bson:"name"`
+	Shard    string   `json:"shard" bson:"shard"`
 }
 
 // Index stores indexes stats
@@ -78,6 +79,11 @@ func NewIndexStats(version string) *IndexStats {
 // SetFilename sets output file name
 func (ix *IndexStats) SetFilename(filename string) {
 	ix.filename = strings.Replace(filename, ":", "_", -1)
+}
+
+// SetLogger sets logger
+func (ix *IndexStats) SetLogger(logger *Logger) {
+	ix.Logger = logger
 }
 
 // SetClusterDetailsFromFile File sets cluster details from a file
@@ -216,6 +222,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		return list, err
 	}
 	defer icur.Close(ctx)
+	indexesFound := map[int]bool{}
 
 	for icur.Next(ctx) {
 		o := Index{}
@@ -251,8 +258,9 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		}
 		o.EffectiveKey = strings.Replace(o.KeyString[2:len(o.KeyString)-2], ": -1", ": 1", -1)
 		o.Usage = []IndexUsage{}
-		for _, result := range indexStats {
+		for i, result := range indexStats {
 			if result.Name == o.Name {
+				indexesFound[i] = true
 				o.TotalOps += result.Accesses.Ops
 				o.Usage = append(o.Usage, result)
 			}
@@ -263,6 +271,15 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	for i, o := range list {
 		if o.KeyString != "{ _id: 1 }" && o.IsShardKey == false {
 			list[i].IsDupped = checkIfDupped(o, list)
+		}
+	}
+	if len(indexesFound) != len(indexStats) {
+		for i := 0; i < len(indexStats); i++ {
+			if indexesFound[i] != true {
+				ns := collection.Database().Name() + "." + collection.Name()
+				ix.Logger.Warn(fmt.Sprintf(`inconsistent index '%v' of namespace '%v' on shard '%v'`,
+					indexStats[i].Name, ns, indexStats[i].Shard))
+			}
 		}
 	}
 	return list, nil

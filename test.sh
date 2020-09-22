@@ -120,7 +120,7 @@ echo ; echo "==> Test creating cluster indexes (--createIndex <index_info> <uri>
 go run main.go --createIndex "out/$(hostname)-index.bson.gz" ${DATABASE_URI}
 validate "--createIndex <index_info> <uri>"
 rm -f "out/$(hostname)-index.bson.gz"
-go run main.go --createIndex "out/$(hostname):30097-stats.bson.gz" ${DATABASE_URI}
+go run main.go --createIndex "out/$(hostname)_30097-stats.bson.gz" ${DATABASE_URI}
 validate "--createIndex <index_info> <uri>"
 rm -f "out/$(hostname)-stats.bson.gz"
 
