@@ -45,6 +45,18 @@ type IndexUsage struct {
 	Accesses Accesses `json:"accesses"`
 	Host     string   `json:"host"`
 	Name     string
+	Shard    string `json:"shard"`
+}
+
+// MissingIndex Details
+type MissingIndex struct {
+	ID   ID  `json:"_id"`
+	Size int `json:"size"`
+}
+
+// ID struct
+type ID struct {
+	C int `json:"c"`
 }
 
 // Index stores indexes stats
@@ -192,6 +204,9 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	var list []Index
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
+	var shardCount int64
+	// get shard Count
+	shardCount = GetShardsCount(client)
 	db := collection.Database().Name()
 	ix.Logger.Add(fmt.Sprintf(`GetIndexesFromCollection from %v.%v`, db, collection.Name()))
 
@@ -249,6 +264,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
 			o.IsShardKey = true
 		}
+
 		o.EffectiveKey = strings.Replace(o.KeyString[2:len(o.KeyString)-2], ": -1", ": 1", -1)
 		o.Usage = []IndexUsage{}
 		for _, result := range indexStats {
@@ -263,6 +279,9 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	for i, o := range list {
 		if o.KeyString != "{ _id: 1 }" && o.IsShardKey == false {
 			list[i].IsDupped = checkIfDupped(o, list)
+			if int64(len(list[i].Usage)) < shardCount {
+				log.Println(o.EffectiveKey)
+			}
 		}
 	}
 	return list, nil
@@ -449,4 +468,13 @@ func ListDatabaseNames(client *mongo.Client) ([]string, error) {
 		names = append(names, db.Name)
 	}
 	return names, err
+}
+
+// GetShardsCount return count of all the shards
+func GetShardsCount(client *mongo.Client) (count int64) {
+	ctx := context.Background()
+
+	shardCount, err := client.Database("config").Collection("shards").CountDocuments(ctx, bson.D{})
+	_ = err
+	return shardCount
 }

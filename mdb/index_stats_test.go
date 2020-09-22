@@ -14,6 +14,8 @@ import (
 
 var dbName = "keyhole"
 
+//var collName = "sharded"
+
 func TestGetIndexesFromDB(t *testing.T) {
 	var client *mongo.Client
 	client = getMongoClient()
@@ -70,4 +72,29 @@ func seedNumbers(c *mongo.Collection) {
 		Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}, {Key: "c", Value: 1}},
 	}
 	indexView.CreateOne(ctx, idx)
+}
+
+func TestGetIndexesFromCollection(t *testing.T) {
+	var client *mongo.Client
+	var dbName = "test"
+	var collName = "sharded"
+	client = getMongoClient()
+	defer client.Disconnect(context.Background())
+	collection := client.Database(dbName).Collection(collName)
+	//seedNumbers(collection)
+	// get index from keyhole database
+	ir := NewIndexStats("utest-xxxxxx")
+	str, _ := ir.GetIndexesFromCollection(client, collection)
+	t.Log(str)
+}
+func TestShardsCount(t *testing.T) {
+	var err error
+	var shardCount = int64(0)
+	clientCount := getMongoClient()
+	defer clientCount.Disconnect(context.Background())
+	if shardCount = GetShardsCount(clientCount); err != nil {
+		t.Fatal(err)
+	}
+	_ = shardCount
+
 }
