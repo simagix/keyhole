@@ -161,6 +161,7 @@ func main() {
 		return
 	} else if *print != "" {
 		printer := mdb.NewBSONPrinter(version)
+		printer.SetNoColor(*nocolor)
 		if err := printer.Print(*print); err != nil {
 			log.Fatal(err)
 		}

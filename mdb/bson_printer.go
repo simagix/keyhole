@@ -17,12 +17,18 @@ import (
 
 // BSONPrinter stores bson printer info
 type BSONPrinter struct {
+	nocolor bool
 	version string
 }
 
 // NewBSONPrinter returns BSONPrinter
 func NewBSONPrinter(version string) *BSONPrinter {
 	return &BSONPrinter{version: version}
+}
+
+// SetNoColor set nocolor flag
+func (p *BSONPrinter) SetNoColor(nocolor bool) {
+	p.nocolor = nocolor
 }
 
 // Print print summary or output json from bson
@@ -46,6 +52,7 @@ func (p *BSONPrinter) Print(filename string) error {
 		if err = bson.Unmarshal(buf, &logger); err != nil {
 			return err
 		}
+		logger.SetNoColor(p.nocolor)
 		fmt.Println(logger.Print())
 	} else {
 		return err
