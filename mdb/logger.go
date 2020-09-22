@@ -16,6 +16,8 @@ type Logger struct {
 	Logs      []string  `bson:"logs"`
 	Params    string    `bson:"params"`
 	Version   string    `bson:"version"`
+
+	nocolor bool
 }
 
 // NewLogger returns Logger
@@ -24,6 +26,11 @@ func NewLogger(version string, params string) *Logger {
 	p.Collected = time.Now()
 	p.Logs = []string{fmt.Sprintf(`%v keyhole begins`, p.Collected.Format(time.RFC3339))}
 	return &p
+}
+
+// SetNoColor set nocolor flag
+func (p *Logger) SetNoColor(nocolor bool) {
+	p.nocolor = nocolor
 }
 
 // Add adds a message
@@ -52,5 +59,16 @@ func (p *Logger) Print() string {
 	}
 	strs := []string{fmt.Sprintf(`{ keyhole: { version: "%v", args: "%v" } }`, p.Version, p.Params)}
 	strs = append(strs, p.Logs...)
+	if len(p.Warnings) > 0 {
+		strs = append(strs, "\nWarnings:")
+		for _, warning := range p.Warnings {
+			if p.nocolor {
+				strs = append(strs, warning)
+			} else {
+				strs = append(strs, fmt.Sprintf(`%v%v%v`, codeRed, warning, codeDefault))
+			}
+		}
+		strs = append(strs, "")
+	}
 	return strings.Join(strs, "\n")
 }
