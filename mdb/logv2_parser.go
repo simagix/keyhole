@@ -5,6 +5,7 @@ package mdb
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -105,12 +106,26 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if stat.op == cmdInsert || stat.op == cmdCreateIndexes {
 		stat.filter = "N/A"
 	} else if (stat.op == cmdUpdate || stat.op == cmdRemove || stat.op == cmdDelete) && stat.filter == "" {
-		walker := gox.NewMapWalker(cb)
-		doc := walker.Walk(command["q"].(map[string]interface{}))
-		if buf, err := json.Marshal(doc); err == nil {
-			stat.filter = string(buf)
+		var query interface{}
+		if command["q"] != nil {
+			query = command["q"]
+		} else if command["query"] != nil {
+			query = command["query"]
+		}
+
+		if query != nil {
+			walker := gox.NewMapWalker(cb)
+			doc := walker.Walk(query.(map[string]interface{}))
+			if buf, err := json.Marshal(doc); err == nil {
+				stat.filter = string(buf)
+			} else {
+				stat.filter = "{}"
+			}
 		} else {
-			stat.filter = "{}"
+			if li.verbose {
+				fmt.Println(str)
+			}
+			return stat, errors.New("no filter found")
 		}
 	} else if stat.op == cmdAggregate {
 		pipeline, ok := command["pipeline"].([]interface{})
