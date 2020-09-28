@@ -1,13 +1,13 @@
 // Copyright 2020 Kuei-chun Chen. All rights reserved.
 var cluster = GetClustersSummary()
 var data = JSON.stringify(cluster);
-print(data)
+print(data);
 
 function GetClustersSummary() {
   var cluster = { "cluster": "standalone", "databases": [], 
     "keyhole": { "version": "v2.5.0-js", "collected": new Date(), "logs": [] } };
   cluster["keyhole"]["logs"].push(new Date().toISOString()+" keyhole.js began");
-  doc = db.serverStatus();
+  var doc = db.serverStatus();
   cluster["host"] = doc["host"];
   cluster["process"] = doc["process"];
   cluster["hostInfo"] = db.getSisterDB("admin").runCommand({ "hostInfo": 1 });
@@ -56,7 +56,7 @@ function GetOplogStats() {
 function GetDatabases() {
   var databases = [];
   var doc = db.adminCommand( { listDatabases: 1 } );
-  dbnames = doc["databases"];
+  var dbnames = doc["databases"];
   dbnames.forEach(function(database) {
     if(database["name"] == "admin" || database["name"] == "config" || database["name"] == "local") {
       // skip
