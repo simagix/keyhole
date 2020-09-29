@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -205,6 +204,9 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			break
 		}
 		index++
+		if len(buf) == 0 {
+			continue
+		}
 		str := string(buf)
 		for isPrefix == true {
 			var bbuf []byte
@@ -219,20 +221,19 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 				if stat, err = li.ParseLogv2(str); err != nil {
 					continue
 				}
-			} else if regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*").MatchString(str) == true {
+			} else {
 				li.LogType = "text"
 				if stat, err = li.ParseLog(str); err != nil {
 					continue
 				}
-			} else {
-				return errors.New("unsupported format")
 			}
-		} else if li.LogType == "text" {
-			if stat, err = li.ParseLog(str); err != nil {
+		} else if li.LogType == "logv2" || str[0:1] == "{" {
+			if stat, err = li.ParseLogv2(str); err != nil {
 				continue
 			}
-		} else if li.LogType == "logv2" {
-			if stat, err = li.ParseLogv2(str); err != nil {
+			li.LogType = "logv2"
+		} else {
+			if stat, err = li.ParseLog(str); err != nil {
 				continue
 			}
 		}
