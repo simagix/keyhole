@@ -80,9 +80,7 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 func ParseURI(uri string) (connstring.ConnString, error) {
 	var err error
 	var connString connstring.ConnString
-	if connString, err = connstring.Parse(uri); err != nil {
-		return connString, err
-	}
+	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
 		fmt.Print("Enter Password: ")
 		var data []byte

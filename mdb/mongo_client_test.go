@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -41,4 +43,17 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 		t.Fatal(uri, err)
 	}
 	t.Log(count, "total counts from", uri)
+}
+
+func TestParseURI(t *testing.T) {
+	var err error
+	var cs connstring.ConnString
+
+	uri := "mongodb://user:%24secret@localhost/keyhole"
+	if cs, err = ParseURI(uri); err != nil {
+		t.Fatal(err)
+	}
+	if cs.Password != "$secret" {
+		t.Fatal(err)
+	}
 }

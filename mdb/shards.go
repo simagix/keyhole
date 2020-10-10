@@ -5,6 +5,7 @@ package mdb
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
@@ -44,7 +45,7 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		hosts := shard.Host[idx+1:]
 		ruri := "mongodb://"
 		if connString.Username != "" {
-			ruri += connString.Username + ":" + connString.Password + "@" + hosts
+			ruri += connString.Username + ":" + template.URLQueryEscaper(connString.Password) + "@" + hosts
 		} else {
 			ruri += hosts
 		}
