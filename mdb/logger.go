@@ -21,8 +21,8 @@ type Logger struct {
 }
 
 // NewLogger returns Logger
-func NewLogger(version string, params string) *Logger {
-	p := Logger{Version: version, Params: params, Warnings: []string{}}
+func NewLogger(fullVersion string, params string) *Logger {
+	p := Logger{Version: fullVersion, Params: params, Warnings: []string{}}
 	p.Collected = time.Now()
 	p.Logs = []string{fmt.Sprintf(`%v keyhole begins`, p.Collected.Format(time.RFC3339))}
 	return &p
