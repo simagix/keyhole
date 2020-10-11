@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
+var repo = "keyhole"
 var version = "devel-xxxxxx"
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 	if version == "devel-xxxxxx" {
 		version = "devel-" + time.Now().Format("20060102")
 	}
+	fullVersion := fmt.Sprintf(`%v %v`, repo, version)
 
 	allinfo := flag.Bool("allinfo", false, "get all cluster info")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
@@ -97,7 +99,7 @@ func main() {
 		if *loginfo {
 			for _, filename := range api.GetLogNames() {
 				fmt.Println("=> processing", filename)
-				li := mdb.NewLogInfo(version)
+				li := mdb.NewLogInfo(fullVersion)
 				li.SetCollscan(*collscan)
 				li.SetRedaction(*redaction)
 				li.SetRegexPattern(*regex)
@@ -135,7 +137,7 @@ func main() {
 		}
 		return
 	} else if *ver {
-		fmt.Println("keyhole", version)
+		fmt.Println(fullVersion)
 		return
 	} else if *explain != "" && uri == "" { //--explain file.json.gz (w/o uri)
 		exp := mdb.NewExplain()
@@ -145,7 +147,7 @@ func main() {
 		return
 	} else if *loginfo && len(flag.Args()) > 0 {
 		filenames := flag.Args()
-		li := mdb.NewLogInfo(version)
+		li := mdb.NewLogInfo(fullVersion)
 		li.SetCollscan(*collscan)
 		li.SetRedaction(*redaction)
 		li.SetRegexPattern(*regex)
@@ -160,7 +162,7 @@ func main() {
 		}
 		return
 	} else if *print != "" {
-		printer := mdb.NewBSONPrinter(version)
+		printer := mdb.NewBSONPrinter(fullVersion)
 		printer.SetNoColor(*nocolor)
 		if err := printer.Print(*print); err != nil {
 			log.Fatal(err)
@@ -190,7 +192,7 @@ func main() {
 	}
 
 	if *allinfo {
-		keyhole := mdb.NewKeyhole(version)
+		keyhole := mdb.NewKeyhole(fullVersion)
 		keyhole.SetRedaction(*redaction)
 		keyhole.SetVerbose(*verbose)
 		if err = keyhole.CollectClusterStats(client, connString); err != nil {
@@ -214,7 +216,7 @@ func main() {
 		stream.Watch(client, util.Echo)
 		return
 	} else if *createIndex != "" {
-		ix := mdb.NewIndexStats(version)
+		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
 		if err = ix.SetClusterDetailsFromFile(*createIndex); err != nil {
@@ -237,7 +239,7 @@ func main() {
 		}
 		return
 	} else if *index == true {
-		ix := mdb.NewIndexStats(version)
+		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
 		if databases, ixe := ix.GetIndexes(client); ixe != nil {
@@ -278,7 +280,7 @@ func main() {
 		return
 	}
 
-	keyhole := mdb.NewKeyhole(version)
+	keyhole := mdb.NewKeyhole(fullVersion)
 	keyhole.SetRedaction(*redaction)
 	keyhole.SetVerbose(*verbose)
 	fmt.Println(keyhole.GetClusterSummary(client))
@@ -292,7 +294,7 @@ func main() {
 		log.Println(http.ListenAndServe(addr, nil))
 	}()
 	if *wt == true {
-		wtc := mdb.NewWiredTigerCache(version)
+		wtc := mdb.NewWiredTigerCache(fullVersion)
 		log.Printf("URL: http://localhost:%d/wt\n", *port)
 		wtc.Start(client)
 	}
