@@ -50,14 +50,14 @@ type IndexUsage struct {
 
 // Index stores indexes stats
 type Index struct {
-	Background              bool   `json:"background" bson:"background,truncate"`
-	Collation               bson.D `json:"collation" bson:"collation,truncate"`
-	ExpireAfterSeconds      int32  `json:"expireAfterSeconds" bson:"expireAfterSeconds,truncate"`
-	Key                     bson.D `json:"key" bson:"key,truncate"`
+	Background              bool   `json:"background" bson:"background"`
+	Collation               bson.D `json:"collation" bson:"collation"`
+	ExpireAfterSeconds      int32  `json:"expireAfterSeconds" bson:"expireAfterSeconds,truncate,omitempty"`
+	Key                     bson.D `json:"key" bson:"key"`
 	Name                    string `json:"name" bson:"name,truncate"`
-	PartialFilterExpression bson.D `json:"partialFilterExpression" bson:"partialFilterExpression,truncate"`
-	Sparse                  bool   `json:"sparse" bson:"sparse,truncate"`
-	Unique                  bool   `json:"unique" bson:"unique,truncate"`
+	PartialFilterExpression bson.D `json:"partialFilterExpression" bson:"partialFilterExpression"`
+	Sparse                  bool   `json:"sparse" bson:"sparse"`
+	Unique                  bool   `json:"unique" bson:"unique"`
 	Version                 int32  `json:"v" bson:"v,truncate"`
 
 	EffectiveKey string       `json:"effectiveKey" bson:"effectiveKey"`
@@ -225,12 +225,11 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	indexesFound := map[int]bool{}
 
 	for icur.Next(ctx) {
-		o := Index{}
+		o := Index{ExpireAfterSeconds: -1}
 		if err = icur.Decode(&o); err != nil {
 			log.Println(err)
 			continue
 		}
-
 		var strbuf bytes.Buffer
 		fields := []string{}
 		for n, value := range o.Key {

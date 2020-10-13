@@ -23,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-var repo = "keyhole"
+var repo = "simagix/keyhole"
 var version = "devel-xxxxxx"
 
 func main() {
