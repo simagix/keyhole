@@ -60,6 +60,10 @@ keyhole --help
 ./test.sh load
 ```
 
+## License
+
+[Apache-2.0 License](LICENSE)
+
 ## Disclaimer
 
 This software is not supported by MongoDB, Inc. under any of their commercial support subscriptions or otherwise. Any usage of keyhole is at your own risk. Bug reports, feature requests and questions can be posted in the Issues section on GitHub.
