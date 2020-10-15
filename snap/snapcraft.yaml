@@ -1,3 +1,4 @@
+## snapcraft config file
 name: keyhole
 version: git
 summary: Peek at your MongoDB Clusters like a Pro with Keyhole
