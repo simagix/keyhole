@@ -38,7 +38,7 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 	if connString.ReplicaSet == "" && len(connString.Hosts) == 1 && strings.HasPrefix(uri, "mongodb://") {
 		opts.SetDirect(true)
 	}
-	if connString.Username == "" {
+	if connString.Username == "" && connString.AuthMechanism == "" {
 		opts.Auth = nil
 	}
 	if len(files) > 0 && files[0] != "" {
