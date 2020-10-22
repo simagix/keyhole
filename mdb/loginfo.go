@@ -303,13 +303,16 @@ func (li *LogInfo) OutputBSON() error {
 		return err
 	}
 	ofile := filepath.Base(li.filename)
+	var bsonf, tsvf string
 	if strings.HasSuffix(ofile, ".gz") {
 		ofile = ofile[:len(ofile)-3]
 	}
 	if strings.HasSuffix(ofile, ".log") == false {
-		ofile += "-log.bson.gz"
+		bsonf += ofile + "-log.bson.gz"
+		tsvf += ofile + ".tsv"
 	} else {
-		ofile = ofile[:len(ofile)-4] + "-log.bson.gz"
+		bsonf = ofile[:len(ofile)-4] + "-log.bson.gz"
+		tsvf = ofile[:len(ofile)-4] + ".tsv"
 	}
 	if li.Redaction == true {
 		li.SlowOps = []SlowOps{}
@@ -325,9 +328,20 @@ func (li *LogInfo) OutputBSON() error {
 	}
 	outdir := "./out/"
 	os.Mkdir(outdir, 0755)
-	ofile = outdir + ofile
-	gox.OutputGzipped(data, ofile)
-	fmt.Println("bson log info written to", ofile)
+	bsonf = outdir + bsonf
+	gox.OutputGzipped(data, bsonf)
+	fmt.Println("bson log info written to", bsonf)
+
+	// output tsv file
+	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "Index(es) Used", "Query Pattern")}
+	for i, doc := range li.OpPatterns {
+		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, doc.TotalMilli, doc.MaxMilli, doc.Command,
+			doc.TotalMilli, doc.Namespace, doc.Index, doc.Filter))
+	}
+	tsvf = outdir + tsvf
+	data = []byte(strings.Join(lines, "\n"))
+	ioutil.WriteFile(tsvf, data, 0644)
+	fmt.Println("TSV log info written to", tsvf)
 	return nil
 }
 
