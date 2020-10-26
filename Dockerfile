@@ -1,5 +1,5 @@
-FROM golang:1.14-alpine as builder
-RUN apk update && apk add dep git bash && rm -rf /var/cache/apk/* \
+FROM golang:1.15-alpine as builder
+RUN apk update && apk add git bash && rm -rf /var/cache/apk/* \
   && mkdir -p /go/src/github.com/simagix/keyhole
 ADD . /go/src/github.com/simagix/keyhole
 WORKDIR /go/src/github.com/simagix/keyhole
