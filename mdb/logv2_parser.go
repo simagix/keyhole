@@ -129,7 +129,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		}
 	} else if stat.op == cmdAggregate {
 		pipeline, ok := command["pipeline"].([]interface{})
-		if !ok {
+		if !ok || len(pipeline) == 0 {
 			return stat, errors.New("pipeline not found")
 		}
 		var stage interface{}
