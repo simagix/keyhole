@@ -127,7 +127,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 		} else if op == "aggregate" || (op == "getmore" && strings.Index(filter, "pipeline:") > 0) {
 			s := ""
 			for _, mstr := range []string{"pipeline: [ { $match: ", "pipeline: [ { $sort: ", "$facet: "} {
-				s = getDocByField(ns, mstr)
+				s = getDocByField(filter, mstr)
 				if s != "" {
 					filter = s
 					x := strings.Index(body, "$group: ")
