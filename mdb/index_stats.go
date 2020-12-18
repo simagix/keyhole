@@ -407,6 +407,7 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 	var err error
 	for _, db := range ix.Databases {
 		for _, coll := range db.Collections {
+			client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: coll.Name}, {Key: "index", Value: "*"}})
 			collection := client.Database(db.Name).Collection(coll.Name)
 			for _, o := range coll.Indexes {
 				if o.IsShardKey == true {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
@@ -28,8 +29,13 @@ func GetShards(client *mongo.Client) ([]Shard, error) {
 	var shardsInfo struct {
 		Shards []Shard
 	}
-	err := client.Database("admin").RunCommand(ctx, bson.D{{Key: "listShards", Value: 1}}).Decode(&shardsInfo)
-	return shardsInfo.Shards, err
+	if err := client.Database("admin").RunCommand(ctx, bson.D{{Key: "listShards", Value: 1}}).Decode(&shardsInfo); err != nil {
+		return nil, err
+	}
+	sort.Slice(shardsInfo.Shards, func(i int, j int) bool {
+		return shardsInfo.Shards[i].ID < shardsInfo.Shards[j].ID
+	})
+	return shardsInfo.Shards, nil
 }
 
 // GetAllShardURIs returns URIs of all replicas
