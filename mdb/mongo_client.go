@@ -80,6 +80,14 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 func ParseURI(uri string) (connstring.ConnString, error) {
 	var err error
 	var connString connstring.ConnString
+	begin := strings.Index(uri, "://")
+	begin += 3
+	colon := strings.Index(uri[begin:], ":")
+	at := strings.LastIndex(uri, "@")
+	if colon > 0 && at > colon {
+		colon += begin
+		uri = strings.Replace(uri, uri[colon+1:at], template.URLQueryEscaper(uri[colon+1:at]), 1)
+	}
 	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
 		fmt.Print("Enter Password: ")
