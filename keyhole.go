@@ -1,6 +1,6 @@
 // Copyright 2020 Kuei-chun Chen. All rights reserved.
 
-package main
+package keyhole
 
 import (
 	"encoding/json"
@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/simagix/gox"
 	anly "github.com/simagix/keyhole/analytics"
@@ -23,16 +22,9 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-var repo = "simagix/keyhole"
-var version = "devel-xxxxxx"
-
-func main() {
+// Run executes main()
+func Run(fullVersion string) {
 	var err error
-	if version == "devel-xxxxxx" {
-		version = "devel-" + time.Now().Format("20060102")
-	}
-	fullVersion := fmt.Sprintf(`%v %v`, repo, version)
-
 	allinfo := flag.Bool("allinfo", false, "get all cluster info")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
@@ -192,12 +184,17 @@ func main() {
 	}
 
 	if *allinfo {
-		keyhole := mdb.NewKeyhole(fullVersion)
-		keyhole.SetRedaction(*redaction)
-		keyhole.SetVerbose(*verbose)
-		if err = keyhole.CollectClusterStats(client, connString); err != nil {
+		stats := mdb.NewStats(fullVersion)
+		stats.SetRedaction(*redaction)
+		stats.SetVerbose(true)
+		if err = stats.GetClusterStats(client, connString); err != nil {
+			result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
+			log.Fatal(result)
+		}
+		if err = stats.OutputBSON(); err != nil {
 			log.Fatal(err)
 		}
+		stats.Print()
 		return
 	} else if *cardinality != "" { // --card <collection> [-v]
 		card := mdb.NewCardinality(client)
@@ -280,10 +277,10 @@ func main() {
 		return
 	}
 
-	keyhole := mdb.NewKeyhole(fullVersion)
-	keyhole.SetRedaction(*redaction)
-	keyhole.SetVerbose(*verbose)
-	fmt.Println(keyhole.GetClusterSummary(client))
+	stats := mdb.NewStats(fullVersion)
+	stats.SetRedaction(*redaction)
+	stats.SetVerbose(*verbose)
+	fmt.Println(stats.GetClusterShortSummary(client))
 	if *info == true {
 		return
 	}
