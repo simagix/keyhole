@@ -167,8 +167,6 @@ func (rn *Runner) Start() error {
 	}
 	rn.initSimDocs()
 	tdoc := GetTransactions(rn.txFilename)
-	rn.createIndexes(tdoc.Indexes)
-
 	// Simulation mode
 	// 1st minute - build up data and memory
 	// 2nd and 3rd minutes - normal TPS ops
@@ -178,6 +176,7 @@ func (rn *Runner) Start() error {
 	simTime := rn.duration
 	if rn.simOnly == false {
 		simTime--
+		rn.createIndexes(tdoc.Indexes)
 	}
 	for i := 0; i < rn.conns; i++ {
 		go func(thread int) {

@@ -121,7 +121,7 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 	var collections []Collection
 	ix.Databases = []Database{}
 	var databases []Database
-	if dbNames, err = ListDatabaseNames(client); err != nil {
+	if dbNames, err = GetDatabaseNames(client); err != nil {
 		return databases, err
 	}
 	cnt := 0
@@ -459,8 +459,8 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 	return err
 }
 
-// ListDatabaseNames gets all database names
-func ListDatabaseNames(client *mongo.Client) ([]string, error) {
+// GetDatabaseNames gets all database names
+func GetDatabaseNames(client *mongo.Client) ([]string, error) {
 	var err error
 	var names []string
 	var result mongo.ListDatabasesResult

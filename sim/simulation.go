@@ -218,6 +218,8 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 			time.Sleep(time.Duration(seconds) * time.Second)
 		}
 	} //for run := 0; run < duration; run++
-	c.Drop(ctx)
+	if rn.simOnly == false {
+		c.Drop(ctx)
+	}
 	return nil
 }
