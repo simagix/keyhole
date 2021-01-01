@@ -30,6 +30,7 @@ func Run(fullVersion string) {
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
+	compare := flag.Bool("compare", false, "compare 2 clusters or 2 -allinfo output files")
 	conn := flag.Int("conn", 0, "nuumber of connections")
 	createIndex := flag.String("createIndex", "", "create indexes")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
@@ -104,6 +105,18 @@ func Run(fullVersion string) {
 				li.Print()
 				li.OutputBSON()
 			}
+		}
+		return
+	} else if *compare {
+		comp := NewComparison(fullVersion)
+		comp.SetTLSCAFile(*tlsCAFile)
+		comp.SetTLSCertificateKeyFile(*tlsCertificateKeyFile)
+		comp.SetVerbose(*verbose)
+		if err = comp.Run(); err != nil {
+			log.Fatal(err)
+		}
+		if err = comp.OutputBSON(); err != nil {
+			log.Fatal(err)
 		}
 		return
 	} else if *webserver {

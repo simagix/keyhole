@@ -130,6 +130,9 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
 		return listdb.Databases, nil
 	}
+	sort.Slice(listdb.Databases, func(i, j int) bool {
+		return listdb.Databases[i].Name < listdb.Databases[j].Name
+	})
 	for _, db := range listdb.Databases {
 		if db.Name == "admin" || db.Name == "config" || db.Name == "local" {
 			continue
@@ -214,7 +217,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				var stats bson.M
 				client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 				chunks := []Chunk{}
-				if stats["shards"] != nil {
+				if stats["shards"] != nil && p.verbose == true {
 					keys := []string{}
 
 					for k := range stats["shards"].(primitive.M) {
