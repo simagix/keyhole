@@ -11,11 +11,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var codeDefault = "\x1b[0m"
-var codeRed = "\x1b[31;1m"
-var codeGreen = "\x1b[32;1m"
-var codeYellow = "\x1b[33;1m"
-var codeBlue = "\x1b[34;1m"
+// CodeDefault shows default color
+var CodeDefault = "\x1b[0m"
+
+// CodeRed shows red color
+var CodeRed = "\x1b[31;1m"
+
+// CodeGreen shows green color
+var CodeGreen = "\x1b[32;1m"
+
+// CodeYellow shows yellow color
+var CodeYellow = "\x1b[33;1m"
+
+// CodeBlue shows blue color
+var CodeBlue = "\x1b[34;1m"
 
 // ChartDataPoint has chart data points key/value
 type ChartDataPoint struct {
