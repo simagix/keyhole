@@ -368,9 +368,9 @@ func (li *LogInfo) Print() {
 // printLogsSummary prints loginfo summary
 func (li *LogInfo) printLogsSummary() string {
 	var maxSize = 10
-	red := codeRed
-	green := codeGreen
-	tail := codeDefault
+	red := CodeRed
+	green := CodeGreen
+	tail := CodeDefault
 	if li.silent == true {
 		red = ""
 		green = ""

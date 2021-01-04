@@ -26,6 +26,7 @@ type Comparison struct {
 	Logger                *mdb.Logger       `bson:"keyhole"`
 	SourceStats           *mdb.ClusterStats `bson:"source"`
 	TargetStats           *mdb.ClusterStats `bson:"target"`
+	nocolor               bool
 	tlsCAFile             string
 	tlsCertificateKeyFile string
 	verbose               bool
@@ -37,6 +38,11 @@ func NewComparison(keyholeVersion string) *Comparison {
 	comp.SourceStats = mdb.NewStats(keyholeVersion)
 	comp.TargetStats = mdb.NewStats(keyholeVersion)
 	return &comp
+}
+
+// SetNoColor set nocolor flag
+func (p *Comparison) SetNoColor(nocolor bool) {
+	p.nocolor = nocolor
 }
 
 // SetTLSCAFile sets cloneDataOnly
@@ -128,6 +134,7 @@ func (p *Comparison) Run() error {
 	wg.Wait()
 	return p.compare()
 }
+
 func (p *Comparison) compare() error {
 	var err error
 	// build target stats map
@@ -136,21 +143,31 @@ func (p *Comparison) compare() error {
 		dbMap[db.Name] = p.TargetStats.Databases[i]
 	}
 	// compare a few key metrics
+	codeDefault := mdb.CodeDefault
+	if p.nocolor == true {
+		codeDefault = ""
+	}
 	printer := message.NewPrinter(language.English)
-	p.Logger.Log("\n=== Comparison Results (source vs. target) ===")
-	p.Logger.Log(printer.Sprintf("Number of Databases:       \t%12d\t%12d", len(p.SourceStats.Databases), len(p.TargetStats.Databases)))
+	p.Logger.Log("=== Comparison Results (source vs. target) ===")
+	p.Logger.Log(printer.Sprintf("Number of Databases:       \t%12d%v\t%12d%v",
+		len(p.SourceStats.Databases), p.getColor(int64(len(p.SourceStats.Databases)), int64(len(p.TargetStats.Databases))), len(p.TargetStats.Databases), codeDefault))
 	for i, db := range p.SourceStats.Databases {
 		collMap := map[string]mdb.Collection{}
 		for i, coll := range dbMap[db.Name].Collections {
 			collMap[coll.NS] = dbMap[db.Name].Collections[i]
 		}
 		p.Logger.Log(fmt.Sprintf("Database %v", db.Name))
-		p.Logger.Log(printer.Sprintf(" ├─Number of Collections:\t%12d\t%12d", len(db.Collections), len(p.TargetStats.Databases[i].Collections)))
-		p.Logger.Log(printer.Sprintf(" ├─Number of Indexes:    \t%12d\t%12d (all shards)", db.Stats.Indexes, dbMap[db.Name].Stats.Indexes))
-		p.Logger.Log(printer.Sprintf(" ├─Number of Objects:    \t%12d\t%12d", db.Stats.Objects, dbMap[db.Name].Stats.Objects))
-		p.Logger.Log(printer.Sprintf(" ├─Total Data Size:      \t%12s\t%12s", gox.GetStorageSize(db.Stats.DataSize), gox.GetStorageSize(dbMap[db.Name].Stats.DataSize)))
-		p.Logger.Log(printer.Sprintf(" ├─Average Data Size:    \t%12s\t%12s", gox.GetStorageSize(db.Stats.AvgObjSize), gox.GetStorageSize(dbMap[db.Name].Stats.AvgObjSize)))
-		p.Logger.Log(fmt.Sprintf(" └─Number of indexes"))
+		p.Logger.Log(printer.Sprintf(" ├─Number of Collections:\t%12d%v\t%12d%v",
+			len(db.Collections), p.getColor(int64(len(db.Collections)), int64(len(p.TargetStats.Databases[i].Collections))), len(p.TargetStats.Databases[i].Collections), codeDefault))
+		p.Logger.Log(printer.Sprintf(" ├─Number of Indexes:    \t%12d%v\t%12d%v (all shards)",
+			db.Stats.Indexes, p.getColor(db.Stats.Indexes, dbMap[db.Name].Stats.Indexes), dbMap[db.Name].Stats.Indexes, codeDefault))
+		p.Logger.Log(printer.Sprintf(" ├─Number of Objects:    \t%12d%v\t%12d%v",
+			db.Stats.Objects, p.getColor(db.Stats.Objects, dbMap[db.Name].Stats.Objects), dbMap[db.Name].Stats.Objects, codeDefault))
+		p.Logger.Log(printer.Sprintf(" ├─Total Data Size:      \t%12s%v\t%12s%v",
+			gox.GetStorageSize(db.Stats.DataSize), p.getColor(db.Stats.DataSize, dbMap[db.Name].Stats.DataSize), gox.GetStorageSize(dbMap[db.Name].Stats.DataSize), codeDefault))
+		p.Logger.Log(printer.Sprintf(" ├─Average Data Size:    \t%12s%v\t%12s%v",
+			gox.GetStorageSize(db.Stats.AvgObjSize), p.getColor(db.Stats.AvgObjSize, dbMap[db.Name].Stats.AvgObjSize), gox.GetStorageSize(dbMap[db.Name].Stats.AvgObjSize), codeDefault))
+		p.Logger.Log(fmt.Sprintf(" └─Number of indexes:"))
 		for _, coll := range db.Collections {
 			length := 0
 			if val, ok := collMap[coll.NS]; ok {
@@ -160,6 +177,19 @@ func (p *Comparison) compare() error {
 		}
 	}
 	return err
+}
+
+func (p *Comparison) getColor(a int64, b int64) string {
+	if p.nocolor == true {
+		if a != b {
+			return " ≠"
+		}
+		return ""
+	}
+	if a != b {
+		return mdb.CodeRed
+	}
+	return mdb.CodeDefault
 }
 
 // OutputBSON writes bson data to a file

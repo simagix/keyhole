@@ -367,8 +367,8 @@ func (ix *IndexStats) PrintIndexesOf(databases []Database) {
 			buffer.WriteString(ns)
 			buffer.WriteString(":\n")
 			for _, o := range coll.Indexes {
-				font := codeDefault
-				tailCode := codeDefault
+				font := CodeDefault
+				tailCode := CodeDefault
 				if ix.nocolor {
 					font = ""
 					tailCode = ""
@@ -379,12 +379,12 @@ func (ix *IndexStats) PrintIndexesOf(databases []Database) {
 					buffer.WriteString(fmt.Sprintf("%v* %v%v", font, o.KeyString, tailCode))
 				} else if o.IsDupped == true {
 					if ix.nocolor == false {
-						font = codeRed
+						font = CodeRed
 					}
 					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.KeyString, tailCode))
 				} else if o.TotalOps == 0 {
 					if ix.nocolor == false {
-						font = codeBlue
+						font = CodeBlue
 					}
 					buffer.WriteString(fmt.Sprintf("%v? %v%v", font, o.KeyString, tailCode))
 				} else {

@@ -109,6 +109,7 @@ func Run(fullVersion string) {
 		return
 	} else if *compare {
 		comp := NewComparison(fullVersion)
+		comp.SetNoColor(*nocolor)
 		comp.SetTLSCAFile(*tlsCAFile)
 		comp.SetTLSCertificateKeyFile(*tlsCertificateKeyFile)
 		comp.SetVerbose(*verbose)

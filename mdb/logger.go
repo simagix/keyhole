@@ -42,7 +42,7 @@ func (p *Logger) Add(message string) {
 // Warn adds an warning message
 func (p *Logger) Warn(message string) {
 	p.Warnings = append(p.Warnings, message)
-	fmt.Println(codeRed, "*", message, codeDefault)
+	fmt.Println(CodeRed, "*", message, CodeDefault)
 }
 
 // Log adds and prints a message
@@ -65,7 +65,7 @@ func (p *Logger) Print() string {
 			if p.nocolor {
 				strs = append(strs, warning)
 			} else {
-				strs = append(strs, fmt.Sprintf(`%v%v%v`, codeRed, warning, codeDefault))
+				strs = append(strs, fmt.Sprintf(`%v%v%v`, CodeRed, warning, CodeDefault))
 			}
 		}
 		strs = append(strs, "")
