@@ -1,10 +1,10 @@
 # Clusters Comparison
-The `-compare` feature compares two MongoDB clusters, either from connection strings or output files of `-allinfo`, and display results.  This feature provides a way of quick sanity check after migrating to a MongoDB cluster to Atlas.
+The `-compare` feature compares two MongoDB clusters, either from connection strings or output files of `-allinfo`, and display results.  This feature provides a way of quick sanity check after migrating a MongoDB cluster to Atlas.
 
 ## Usage
 
 ```bash
-keyhole -compare <source_connection_string> <target_connection_string>
+keyhole [-nocolor] -compare <source_connection_string> <target_connection_string>
 ```
 
 For example:
@@ -21,39 +21,40 @@ keyhole -compare source-allinfo-stats.bson.gz target-allinfo-stats.bson.gz
 
 ## Example Outputs
 
+The results are in red ink if the numbers between the source and the target are different.  If `-nocolor` flag is used, Keyhole mark it with a **≠** instead.
+
 ```bash
-2020/12/31 22:15:13 
-=== Comparison Results (source vs. target) ===
-2020/12/31 22:15:13 Number of Databases:                   4               5
-2020/12/31 22:15:13 Database keyhole
-2020/12/31 22:15:13  ├─Number of Collections:              8               8
-2020/12/31 22:15:13  ├─Number of Indexes:                 17              17 (all shards)
-2020/12/31 22:15:13  ├─Number of Objects:              3,160           3,160
-2020/12/31 22:15:13  ├─Total Data Size:                3.0MB           3.0MB
-2020/12/31 22:15:13  ├─Average Data Size:                989             989
-2020/12/31 22:15:13  └─Number of indexes
-2020/12/31 22:15:13    ├─keyhole.dealers:                  1               1
-2020/12/31 22:15:13    ├─keyhole.employees:                1               1
-2020/12/31 22:15:13    ├─keyhole.favorites:                1               1
-2020/12/31 22:15:13    ├─keyhole.lookups:                  1               1
-2020/12/31 22:15:13    ├─keyhole.models:                   1               1
-2020/12/31 22:15:13    ├─keyhole.numbers:                  5               5
-2020/12/31 22:15:13    ├─keyhole.robots:                   1               1
-2020/12/31 22:15:13    ├─keyhole.vehicles:                 6               6
-2020/12/31 22:15:13 Database maobi
-2020/12/31 22:15:13  ├─Number of Collections:              8               8
-2020/12/31 22:15:13  ├─Number of Indexes:                 23              17 (all shards)
-2020/12/31 22:15:13  ├─Number of Objects:             21,139          21,139
-2020/12/31 22:15:13  ├─Total Data Size:               29.3MB          29.3MB
-2020/12/31 22:15:13  ├─Average Data Size:              1.4KB           1.4KB
-2020/12/31 22:15:13  └─Number of indexes
-2020/12/31 22:15:13    ├─maobi.dealers:                    1               1
-2020/12/31 22:15:13    ├─maobi.employees:                  1               1
-2020/12/31 22:15:13    ├─maobi.favorites:                  1               1
-2020/12/31 22:15:13    ├─maobi.lookups:                    1               1
-2020/12/31 22:15:13    ├─maobi.models:                     1               1
-2020/12/31 22:15:13    ├─maobi.numbers:                    5               5
-2020/12/31 22:15:13    ├─maobi.robots:                     1               1
-2020/12/31 22:15:13    ├─maobi.vehicles:                   6               6
-2020/12/31 22:15:13 bson data written to ./out/hostname-compare.bson.gz
+2021/01/02 15:39:44 === Comparison Results (source vs. target) ===
+2021/01/02 15:39:44 Number of Databases:                   4               4
+2021/01/02 15:39:44 Database keyhole
+2021/01/02 15:39:44  ├─Number of Collections:              8               8
+2021/01/02 15:39:44  ├─Number of Indexes:                 17              17 (all shards)
+2021/01/02 15:39:44  ├─Number of Objects:              3,160           3,160
+2021/01/02 15:39:44  ├─Total Data Size:                3.0MB           3.0MB
+2021/01/02 15:39:44  ├─Average Data Size:                989             989
+2021/01/02 15:39:44  └─Number of indexes:
+2021/01/02 15:39:44    ├─keyhole.dealers:                  1               1
+2021/01/02 15:39:44    ├─keyhole.employees:                1               1
+2021/01/02 15:39:44    ├─keyhole.favorites:                1               1
+2021/01/02 15:39:44    ├─keyhole.lookups:                  1               1
+2021/01/02 15:39:44    ├─keyhole.models:                   1               1
+2021/01/02 15:39:44    ├─keyhole.numbers:                  5               5
+2021/01/02 15:39:44    ├─keyhole.robots:                   1               1
+2021/01/02 15:39:44    ├─keyhole.vehicles:                 6               6
+2021/01/02 15:39:44 Database maobi
+2021/01/02 15:39:44  ├─Number of Collections:              8               8
+2021/01/02 15:39:44  ├─Number of Indexes:                 18 ≠            17 (all shards)
+2021/01/02 15:39:44  ├─Number of Objects:            401,149 ≠       401,147
+2021/01/02 15:39:44  ├─Total Data Size:              584.5MB ≠       584.5MB
+2021/01/02 15:39:44  ├─Average Data Size:              1.5KB ≠         1.5KB
+2021/01/02 15:39:44  └─Number of indexes:
+2021/01/02 15:39:44    ├─oplog.dealers:                    1               1
+2021/01/02 15:39:44    ├─oplog.employees:                  1               1
+2021/01/02 15:39:44    ├─oplog.favorites:                  1               1
+2021/01/02 15:39:44    ├─oplog.lookups:                    1               1
+2021/01/02 15:39:44    ├─oplog.models:                     1               1
+2021/01/02 15:39:44    ├─oplog.numbers:                    5               5
+2021/01/02 15:39:44    ├─oplog.robots:                     1               1
+2021/01/02 15:39:44    ├─oplog.vehicles:                   6               6
+2021/01/02 15:39:44 bson data written to ./out/hostname-compare.bson.gz
 ```
