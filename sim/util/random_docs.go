@@ -52,6 +52,8 @@ func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
 	str = strings.ReplaceAll(str, "NaN", "0.0")
 	re := regexp.MustCompile(`{"\$oid":"[a-fA-F0-9]{24}"}`)
 	str = re.ReplaceAllString(str, `"$$oId"`)
+	re = regexp.MustCompile(`{"\$date":"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?(Z)?"}`)
+	str = re.ReplaceAllString(str, `"$$date"`)
 	re = regexp.MustCompile(`{"\$binary":{"base64":"[^"]*","subType":"(0[0-3])"}}`)
 	str = re.ReplaceAllString(str, `{"$$binary":{"base64":"","subType":"$1"}}`)
 	re = regexp.MustCompile(`{"\$binary":{"base64":".{24}","subType":"04"}}`)
