@@ -439,7 +439,7 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	var wg = gox.NewWaitGroup(f.conns)
 	var threads int
 	var zeroInserted int
-	for remaining > 0 && zeroInserted < 10 {
+	for remaining > 0 && zeroInserted < 3 {
 		wg.Add(1)
 		num := bsize
 		if remaining < bsize {
@@ -450,14 +450,17 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 		go func(num int) {
 			defer wg.Done()
 			inserted, err := populateData(c, num, doc)
+			remaining += (num - inserted)
 			if err != nil {
+				if mdb.IsUnauthorizedError(err) == true {
+					return
+				}
 				// log.Println("bulkWrite failed", err)
 				time.Sleep(time.Second)
 				mutex.Lock()
 				if inserted == 0 {
 					zeroInserted++
 				}
-				remaining += (num - inserted)
 				mutex.Unlock()
 			}
 			if f.showProgress {
@@ -467,8 +470,11 @@ func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
 	}
 	wg.Wait()
 	if remaining > 0 {
-		inserted, _ := populateData(c, remaining, doc) // catchup
+		inserted, err := populateData(c, remaining, doc) // catchup
 		remaining -= inserted
+		if err != nil && mdb.IsUnauthorizedError(err) == true {
+			log.Fatal(err)
+		}
 	}
 
 	if f.showProgress {
@@ -512,5 +518,8 @@ func populateData(c *mongo.Collection, num int, doc map[string]interface{}) (int
 	opts := options.InsertMany()
 	opts.SetOrdered(false) // ignore _id duplication errors
 	res, err := c.InsertMany(context.TODO(), contentArray, opts)
+	if err != nil {
+		return 0, err
+	}
 	return len(res.InsertedIDs), err
 }
