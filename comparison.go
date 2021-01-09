@@ -60,7 +60,7 @@ func (p *Comparison) SetVerbose(verbose bool) {
 	p.verbose = verbose
 }
 
-// Run executes migration commands
+// Run executes compare commands
 func (p *Comparison) Run() error {
 	var err error
 	if len(flag.Args()) < 2 {
@@ -157,8 +157,12 @@ func (p *Comparison) compare() error {
 			collMap[coll.NS] = dbMap[db.Name].Collections[i]
 		}
 		p.Logger.Log(fmt.Sprintf("Database %v", db.Name))
+		nColl := 0
+		if i < len(p.TargetStats.Databases) {
+			nColl = len(p.TargetStats.Databases[i].Collections)
+		}
 		p.Logger.Log(printer.Sprintf(" ├─Number of Collections:\t%12d%v\t%12d%v",
-			len(db.Collections), p.getColor(int64(len(db.Collections)), int64(len(p.TargetStats.Databases[i].Collections))), len(p.TargetStats.Databases[i].Collections), codeDefault))
+			len(db.Collections), p.getColor(int64(len(db.Collections)), int64(nColl)), nColl, codeDefault))
 		p.Logger.Log(printer.Sprintf(" ├─Number of Indexes:    \t%12d%v\t%12d%v (all shards)",
 			db.Stats.Indexes, p.getColor(db.Stats.Indexes, dbMap[db.Name].Stats.Indexes), dbMap[db.Name].Stats.Indexes, codeDefault))
 		p.Logger.Log(printer.Sprintf(" ├─Number of Objects:    \t%12d%v\t%12d%v",
