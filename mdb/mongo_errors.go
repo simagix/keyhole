@@ -8,10 +8,38 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+const (
+	errorInterrupted       int32 = 11601
+	namespaceExistsErrCode int32 = 48
+	unauthorizedError      int32 = 13
+)
+
+var (
+	duplicatedKeyErrorCodes = []int{11000, 11001}
+)
+
+// IsDuplicateKeyError check if error is from duplicate key
+func IsDuplicateKeyError(err error) bool {
+	werr, ok := err.(mongo.WriteError)
+	if ok {
+		return isDuplicateKeyCode(werr.Code)
+	}
+	blkerr, ok := err.(mongo.BulkWriteError)
+	if ok {
+		return isDuplicateKeyCode(blkerr.Code)
+	}
+	we, ok := err.(mongo.WriteException)
+	if ok {
+		return isDuplicateKeyCode(GetErrorCode(we))
+	}
+	blke, ok := err.(mongo.BulkWriteException)
+	return ok && isDuplicateKeyCode(GetErrorCode(blke))
+}
+
 // IsUnauthorizedError check Unauthorized error
 func IsUnauthorizedError(err error) bool {
 	e, ok := err.(mongo.CommandError)
-	return ok && e.Code == 13
+	return ok && e.Code == unauthorizedError
 }
 
 // GetErrorCode gets error code for debug purpose
@@ -20,18 +48,38 @@ func GetErrorCode(err error) int {
 	case mongo.CommandError:
 		return int(e.Code)
 	case mongo.BulkWriteError:
+		fmt.Println("BulkWriteError")
 		return e.Code
 	case mongo.BulkWriteException:
-		fmt.Println("BulkWriteException")
+		if len(e.WriteErrors) > 0 {
+			return e.WriteErrors[0].Code
+		}
+		if e.WriteConcernError != nil {
+			return e.WriteConcernError.Code
+		}
 		return 0
 	case mongo.WriteError:
 		return e.Code
 	case mongo.WriteException:
-		fmt.Println("WriteException")
+		if len(e.WriteErrors) > 0 {
+			return e.WriteErrors[0].Code
+		}
+		if e.WriteConcernError != nil {
+			return e.WriteConcernError.Code
+		}
 		return 0
 	default:
 		fmt.Println("unknown type") // prints unknown error type
 		return 0
 	}
 
+}
+
+func isDuplicateKeyCode(code int) bool {
+	for _, c := range duplicatedKeyErrorCodes {
+		if code == c {
+			return true
+		}
+	}
+	return false
 }

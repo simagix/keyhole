@@ -60,7 +60,7 @@ func (p *Comparison) SetVerbose(verbose bool) {
 	p.verbose = verbose
 }
 
-// Run executes migration commands
+// Run executes compare commands
 func (p *Comparison) Run() error {
 	var err error
 	if len(flag.Args()) < 2 {

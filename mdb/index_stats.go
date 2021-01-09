@@ -409,6 +409,7 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 		for _, coll := range db.Collections {
 			client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: coll.Name}, {Key: "index", Value: "*"}})
 			collection := client.Database(db.Name).Collection(coll.Name)
+			indexes := []mongo.IndexModel{}
 			for _, o := range coll.Indexes {
 				if o.IsShardKey == true {
 					// TODO
@@ -450,9 +451,11 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
 				}
-				if _, err = collection.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: o.Key, Options: opt}); err != nil {
-					fmt.Println(err)
-				}
+				ix.Logger.Log(fmt.Sprintf(`I creating index %v on %v `, o.KeyString, coll.NS))
+				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
+			}
+			if _, err = collection.Indexes().CreateMany(ctx, indexes); err != nil {
+				fmt.Println(err)
 			}
 		}
 	}
