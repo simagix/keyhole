@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -150,7 +151,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 		s := uri
 		cs, _ := connstring.Parse(s)
 		if cs.Password != "" {
-			s = strings.ReplaceAll(s, cs.Password, "xxxxxx")
+			s = strings.ReplaceAll(s, url.QueryEscape(cs.Password), "xxxxxx")
 		}
 		msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
 		p.Logger.Log(msg)

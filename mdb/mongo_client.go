@@ -8,8 +8,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/ioutil"
+	"net/url"
 	"strings"
 	"syscall"
 	"time"
@@ -86,7 +86,7 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 	at := strings.LastIndex(uri, "@")
 	if colon > 0 && at > colon {
 		colon += begin
-		uri = strings.Replace(uri, uri[colon+1:at], template.URLQueryEscaper(uri[colon+1:at]), 1)
+		uri = strings.Replace(uri, uri[colon+1:at], url.QueryEscape(uri[colon+1:at]), 1)
 	}
 	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
@@ -98,7 +98,7 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 		fmt.Println("")
 		connString.Password = string(data)
 		i := strings.Index(uri, connString.Username) + len(connString.Username)
-		uri = (uri)[:i] + ":" + template.URLQueryEscaper(connString.Password) + (uri)[i:]
+		uri = (uri)[:i] + ":" + url.QueryEscape(connString.Password) + (uri)[i:]
 		return connstring.Parse(uri)
 	}
 	return connString, err
