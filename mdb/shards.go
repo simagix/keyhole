@@ -5,7 +5,7 @@ package mdb
 import (
 	"context"
 	"fmt"
-	"html/template"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -51,7 +51,7 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		hosts := shard.Host[idx+1:]
 		ruri := "mongodb://"
 		if connString.Username != "" {
-			ruri += connString.Username + ":" + template.URLQueryEscaper(connString.Password) + "@" + hosts
+			ruri += connString.Username + ":" + url.QueryEscape(connString.Password) + "@" + hosts
 		} else {
 			ruri += hosts
 		}
@@ -79,7 +79,7 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 		for _, host := range hosts {
 			ruri := "mongodb://"
 			if connString.Username != "" {
-				ruri += fmt.Sprintf(`%v:%v@%v/?`, connString.Username, connString.Password, host)
+				ruri += fmt.Sprintf(`%v:%v@%v/?`, connString.Username, url.QueryEscape(connString.Password), host)
 			} else {
 				ruri += fmt.Sprintf(`%v/?`, host)
 			}
