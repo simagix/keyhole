@@ -90,7 +90,7 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 	}
 	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
-		fmt.Print("Enter Password: ")
+		fmt.Printf("Enter %v's Password: ", connString.Username)
 		var data []byte
 		if data, err = terminal.ReadPassword(int(syscall.Stdin)); err != nil {
 			return connString, err
