@@ -11,11 +11,11 @@ import (
 
 // Logger stores logger info
 type Logger struct {
-	Collected time.Time `bson:"collected"`
-	Warnings  []string  `bson:"warnings"`
-	Logs      []string  `bson:"logs"`
-	Params    string    `bson:"params"`
-	Version   string    `bson:"version"`
+	Collected time.Time `json:"collected" bson:"collected"`
+	Warnings  []string  `json:"warnings" bson:"warnings"`
+	Logs      []string  `json:"logs" bson:"logs"`
+	Params    string    `json:"params" bson:"params"`
+	Version   string    `json:"version" bson:"version"`
 
 	nocolor bool
 }
@@ -24,7 +24,7 @@ type Logger struct {
 func NewLogger(fullVersion string, params string) *Logger {
 	p := Logger{Version: fullVersion, Params: params, Warnings: []string{}}
 	p.Collected = time.Now()
-	p.Logs = []string{fmt.Sprintf(`%v keyhole begins`, p.Collected.Format(time.RFC3339))}
+	p.Logs = []string{fmt.Sprintf(`%v I %v begins`, p.Collected.Format(time.RFC3339), fullVersion)}
 	return &p
 }
 
