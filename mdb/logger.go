@@ -4,7 +4,6 @@ package mdb
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -35,21 +34,45 @@ func (p *Logger) SetNoColor(nocolor bool) {
 
 // Add adds a message
 func (p *Logger) Add(message string) {
-	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
+	str := fmt.Sprintf(`%v I %v`, time.Now().Format(time.RFC3339), message)
 	p.Logs = append(p.Logs, str)
 }
 
-// Warn adds an warning message
-func (p *Logger) Warn(message string) {
+// Warning adds an warning message
+func (p *Logger) Warning(message string) {
 	p.Warnings = append(p.Warnings, message)
 	fmt.Println(CodeRed, "*", message, CodeDefault)
 }
 
+// Error adds and prints an error message
+func (p *Logger) Error(v ...interface{}) {
+	p.print("E", v)
+}
+
+// Info adds and prints a message
+func (p *Logger) Info(v ...interface{}) {
+	p.print("I", v)
+}
+
+// Warn adds and prints a warning message
+func (p *Logger) Warn(v ...interface{}) {
+	p.print("W", v)
+}
+
+// Log same as Info
+func (p *Logger) Log(v ...interface{}) {
+	p.Info(v)
+}
+
 // Log adds and prints a message
-func (p *Logger) Log(message string) {
-	str := fmt.Sprintf(`%v %v`, time.Now().Format(time.RFC3339), message)
+func (p *Logger) print(indicator string, v ...interface{}) {
+	message := fmt.Sprint(v...)
+	if len(message) > 1 {
+		message = message[1 : len(message)-1]
+	}
+	str := fmt.Sprintf(`%v %v %v`, time.Now().Format(time.RFC3339), indicator, message)
 	p.Logs = append(p.Logs, str)
-	log.Println(message)
+	fmt.Println(str)
 }
 
 // Print prints keyhole info

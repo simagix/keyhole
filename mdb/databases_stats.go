@@ -5,7 +5,6 @@ package mdb
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -125,7 +124,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	var databases []Database
 	t := time.Now()
 	if p.verbose {
-		log.Println("GetAllDatabasesStats")
+		p.logger.Info("GetAllDatabasesStats")
 	}
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
 		return listdb.Databases, nil
@@ -156,7 +155,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			collType := fmt.Sprintf("%v", elem["type"])
 			if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
 				if p.verbose {
-					log.Println(fmt.Sprintf(`skip %v %v`, collType, coll))
+					p.logger.Info(fmt.Sprintf(`skip %v %v`, collType, coll))
 				}
 				continue
 			}
@@ -182,7 +181,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
 				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
-					log.Println(err.Error())
+					p.logger.Error(err.Error())
 					return
 				}
 				dsize := 0
@@ -190,7 +189,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 					var v bson.M
 					cursor.Decode(&v)
 					if buf, err := bson.Marshal(v); err != nil {
-						log.Println(err.Error())
+						p.logger.Error(err.Error())
 						continue
 					} else if len(buf) > dsize {
 						sampleDoc = v
@@ -199,7 +198,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				}
 				if sampleDoc == nil {
 					if p.verbose {
-						log.Println("no sample doc available")
+						p.logger.Info("no sample doc available")
 					}
 				}
 				if p.redaction == true {
@@ -210,7 +209,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				}
 				indexes, err := ir.GetIndexesFromCollection(client, collection)
 				if err != nil {
-					log.Println(err)
+					p.logger.Error(err)
 				}
 
 				// stats
@@ -229,7 +228,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 						delete(m, "$clusterTime")
 						delete(m, "$gleStats")
 						if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
-							// log.Println(cerr)
+							// p.logger.Error(cerr)
 						} else {
 							chunk.Objects = toInt64(m["count"])
 							chunk.Size = toInt64(m["size"])
@@ -251,7 +250,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			return collections[i].Name < collections[j].Name
 		})
 		if err = client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&db.Stats); err != nil {
-			log.Println(err.Error())
+			p.logger.Error(err.Error())
 			continue
 		}
 		db.Collections = collections
@@ -288,7 +287,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	t := time.Now()
 	coll = client.Database("config").Collection("chunks")
 	if p.verbose == true {
-		log.Println(fmt.Sprintf(`collectChunksDistribution on %v %v ...`, shard, ns))
+		p.logger.Info(fmt.Sprintf(`collectChunksDistribution on %v %v ...`, shard, ns))
 		if cur, err = coll.Find(ctx, bson.M{"ns": ns, "shard": shard}); err != nil {
 			return chunk, nil
 		}

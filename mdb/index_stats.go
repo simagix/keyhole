@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -128,13 +127,13 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 	for _, name := range dbNames {
 		if name == "admin" || name == "config" || name == "local" {
 			if ix.verbose == true {
-				log.Println("Skip", name)
+				ix.Logger.Info("Skip", name)
 			}
 			continue
 		}
 		cnt++
 		if ix.verbose == true {
-			log.Println("checking", name)
+			ix.Logger.Info("checking", name)
 		}
 		if collections, err = ix.GetIndexesFromDB(client, name); err != nil {
 			return ix.Databases, err
@@ -142,7 +141,7 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 		ix.Databases = append(ix.Databases, Database{Name: name, Collections: collections})
 	}
 	if cnt == 0 && ix.verbose == true {
-		log.Println("No database is available")
+		ix.Logger.Info("No database is available")
 	}
 	ix.Logger.Add(fmt.Sprintf(`GetIndexes ends`))
 	return ix.Databases, err
@@ -172,7 +171,7 @@ func (ix *IndexStats) GetIndexesFromDB(client *mongo.Client, db string) ([]Colle
 		}
 		if strings.HasPrefix(elem.Name, "system.") || elem.Type != "collection" {
 			if ix.verbose == true {
-				log.Println("skip", elem.Name)
+				ix.Logger.Info("skip", elem.Name)
 			}
 			continue
 		}
@@ -203,12 +202,12 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 
 	var indexStats = []IndexUsage{}
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
-		log.Println(err)
+		ix.Logger.Error(err)
 	} else {
 		for scur.Next(ctx) {
 			var result IndexUsage
 			if err = scur.Decode(&result); err != nil {
-				log.Println(err)
+				ix.Logger.Error(err)
 				continue
 			}
 			indexStats = append(indexStats, result)
@@ -218,7 +217,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 
 	cmd := bson.D{{Key: "listIndexes", Value: collection.Name()}}
 	if icur, err = client.Database(db).RunCommandCursor(ctx, cmd); err != nil {
-		log.Println(err)
+		ix.Logger.Error(err)
 		return list, err
 	}
 	defer icur.Close(ctx)
@@ -227,7 +226,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	for icur.Next(ctx) {
 		o := Index{ExpireAfterSeconds: -1}
 		if err = icur.Decode(&o); err != nil {
-			log.Println(err)
+			ix.Logger.Error(err)
 			continue
 		}
 		var strbuf bytes.Buffer
@@ -250,7 +249,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		var v map[string]interface{}
 		ns := collection.Database().Name() + "." + collection.Name()
 		if ix.verbose {
-			log.Println("GetIndexesFromCollection", ns, o.KeyString)
+			ix.Logger.Info("GetIndexesFromCollection", ns, o.KeyString)
 		}
 		if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
 			o.IsShardKey = true
@@ -276,7 +275,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		for i := 0; i < len(indexStats); i++ {
 			if indexesFound[i] != true {
 				ns := collection.Database().Name() + "." + collection.Name()
-				ix.Logger.Warn(fmt.Sprintf(`inconsistent index '%v' of namespace '%v' on shard '%v'`,
+				ix.Logger.Warning(fmt.Sprintf(`inconsistent index '%v' of namespace '%v' on shard '%v'`,
 					indexStats[i].Name, ns, indexStats[i].Shard))
 			}
 		}
@@ -451,7 +450,7 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
 				}
-				ix.Logger.Log(fmt.Sprintf(`I creating index %v on %v `, o.KeyString, coll.NS))
+				ix.Logger.Log(fmt.Sprintf(`creating index %v on %v `, o.KeyString, coll.NS))
 				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
 			}
 			if _, err = collection.Indexes().CreateMany(ctx, indexes); err != nil {
