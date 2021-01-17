@@ -32,44 +32,35 @@ func (p *Logger) SetNoColor(nocolor bool) {
 	p.nocolor = nocolor
 }
 
-// Add adds a message
-func (p *Logger) Add(message string) {
-	str := fmt.Sprintf(`%v I %v`, time.Now().Format(time.RFC3339), message)
-	p.Logs = append(p.Logs, str)
-}
-
 // Warning adds an warning message
 func (p *Logger) Warning(message string) {
 	p.Warnings = append(p.Warnings, message)
 	fmt.Println(CodeRed, "*", message, CodeDefault)
 }
 
+// Add adds a message
+func (p *Logger) Add(v ...interface{}) {
+	str := fmt.Sprintf(`%v I %v`, time.Now().Format(time.RFC3339), fmt.Sprint(v...))
+	p.Logs = append(p.Logs, str)
+}
+
 // Error adds and prints an error message
 func (p *Logger) Error(v ...interface{}) {
-	p.print("E", v)
+	p.print("E", fmt.Sprint(v...))
 }
 
 // Info adds and prints a message
 func (p *Logger) Info(v ...interface{}) {
-	p.print("I", v)
+	p.print("I", fmt.Sprint(v...))
 }
 
 // Warn adds and prints a warning message
 func (p *Logger) Warn(v ...interface{}) {
-	p.print("W", v)
-}
-
-// Log same as Info
-func (p *Logger) Log(v ...interface{}) {
-	p.Info(v)
+	p.print("W", fmt.Sprint(v...))
 }
 
 // Log adds and prints a message
-func (p *Logger) print(indicator string, v ...interface{}) {
-	message := fmt.Sprint(v...)
-	if len(message) > 1 {
-		message = message[1 : len(message)-1]
-	}
+func (p *Logger) print(indicator string, message string) {
 	str := fmt.Sprintf(`%v %v %v`, time.Now().Format(time.RFC3339), indicator, message)
 	p.Logs = append(p.Logs, str)
 	fmt.Println(str)

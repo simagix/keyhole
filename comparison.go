@@ -76,7 +76,6 @@ func (p *Comparison) Run() error {
 			return err
 		}
 		if err = bson.Unmarshal(data, p.SourceStats); err != nil {
-			panic(err)
 			return err
 		}
 		if fd, err = gox.NewFileReader(flag.Arg(1)); err != nil {
@@ -148,36 +147,36 @@ func (p *Comparison) compare() error {
 		codeDefault = ""
 	}
 	printer := message.NewPrinter(language.English)
-	p.Logger.Log("=== Comparison Results (source vs. target) ===")
-	p.Logger.Log(printer.Sprintf("Number of Databases:       \t%12d%v\t%12d%v",
+	p.Logger.Info("=== Comparison Results (source vs. target) ===")
+	p.Logger.Info(printer.Sprintf("Number of Databases:       \t%12d%v\t%12d%v",
 		len(p.SourceStats.Databases), p.getColor(int64(len(p.SourceStats.Databases)), int64(len(p.TargetStats.Databases))), len(p.TargetStats.Databases), codeDefault))
 	for i, db := range p.SourceStats.Databases {
 		collMap := map[string]mdb.Collection{}
 		for i, coll := range dbMap[db.Name].Collections {
 			collMap[coll.NS] = dbMap[db.Name].Collections[i]
 		}
-		p.Logger.Log(fmt.Sprintf("Database %v", db.Name))
+		p.Logger.Info(fmt.Sprintf("Database %v", db.Name))
 		nColl := 0
 		if i < len(p.TargetStats.Databases) {
 			nColl = len(p.TargetStats.Databases[i].Collections)
 		}
-		p.Logger.Log(printer.Sprintf(" ├─Number of Collections:\t%12d%v\t%12d%v",
+		p.Logger.Info(printer.Sprintf(" ├─Number of Collections:\t%12d%v\t%12d%v",
 			len(db.Collections), p.getColor(int64(len(db.Collections)), int64(nColl)), nColl, codeDefault))
-		p.Logger.Log(printer.Sprintf(" ├─Number of Indexes:    \t%12d%v\t%12d%v (all shards)",
+		p.Logger.Info(printer.Sprintf(" ├─Number of Indexes:    \t%12d%v\t%12d%v (all shards)",
 			db.Stats.Indexes, p.getColor(db.Stats.Indexes, dbMap[db.Name].Stats.Indexes), dbMap[db.Name].Stats.Indexes, codeDefault))
-		p.Logger.Log(printer.Sprintf(" ├─Number of Objects:    \t%12d%v\t%12d%v",
+		p.Logger.Info(printer.Sprintf(" ├─Number of Objects:    \t%12d%v\t%12d%v",
 			db.Stats.Objects, p.getColor(db.Stats.Objects, dbMap[db.Name].Stats.Objects), dbMap[db.Name].Stats.Objects, codeDefault))
-		p.Logger.Log(printer.Sprintf(" ├─Total Data Size:      \t%12s%v\t%12s%v",
+		p.Logger.Info(printer.Sprintf(" ├─Total Data Size:      \t%12s%v\t%12s%v",
 			gox.GetStorageSize(db.Stats.DataSize), p.getColor(db.Stats.DataSize, dbMap[db.Name].Stats.DataSize), gox.GetStorageSize(dbMap[db.Name].Stats.DataSize), codeDefault))
-		p.Logger.Log(printer.Sprintf(" ├─Average Data Size:    \t%12s%v\t%12s%v",
+		p.Logger.Info(printer.Sprintf(" ├─Average Data Size:    \t%12s%v\t%12s%v",
 			gox.GetStorageSize(db.Stats.AvgObjSize), p.getColor(db.Stats.AvgObjSize, dbMap[db.Name].Stats.AvgObjSize), gox.GetStorageSize(dbMap[db.Name].Stats.AvgObjSize), codeDefault))
-		p.Logger.Log(fmt.Sprintf(" └─Number of indexes:"))
+		p.Logger.Info(fmt.Sprintf(" └─Number of indexes:"))
 		for _, coll := range db.Collections {
 			length := 0
 			if val, ok := collMap[coll.NS]; ok {
 				length = len(val.Indexes)
 			}
-			p.Logger.Log(fmt.Sprintf("   ├─%v:    \t%12d\t%12d", coll.NS, len(coll.Indexes), length))
+			p.Logger.Info(fmt.Sprintf("   ├─%v:    \t%12d\t%12d", coll.NS, len(coll.Indexes), length))
 		}
 	}
 	return err
@@ -214,6 +213,6 @@ func (p *Comparison) OutputBSON() error {
 	if err = gox.OutputGzipped(data, ofile); err != nil {
 		return err
 	}
-	p.Logger.Log(fmt.Sprintf(`bson data written to %v`, ofile))
+	p.Logger.Info(fmt.Sprintf(`bson data written to %v`, ofile))
 	return err
 }

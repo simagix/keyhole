@@ -143,7 +143,7 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 	if cnt == 0 && ix.verbose == true {
 		ix.Logger.Info("No database is available")
 	}
-	ix.Logger.Add(fmt.Sprintf(`GetIndexes ends`))
+	ix.Logger.Add(`GetIndexes ends`)
 	return ix.Databases, err
 }
 
@@ -450,7 +450,7 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
 				}
-				ix.Logger.Log(fmt.Sprintf(`creating index %v on %v `, o.KeyString, coll.NS))
+				ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, coll.NS))
 				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
 			}
 			if _, err = collection.Indexes().CreateMany(ctx, indexes); err != nil {

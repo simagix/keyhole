@@ -67,43 +67,43 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 // GetClusterStats collects cluster stats
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) error {
 	var err error
-	p.Logger.Log("GetClusterStats() begins")
+	p.Logger.Info("GetClusterStats() begins")
 	if err = p.GetClusterStatsSummary(client); err != nil {
 		return err
 	}
 	if p.CmdLineOpts, err = GetCmdLineOpts(client); err != nil {
-		p.Logger.Log(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
+		p.Logger.Info(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
 	}
 	if p.Cluster == Sharded { //collects from the primary of each shard
-		p.Logger.Log("sharded detected, collecting from all servers")
+		p.Logger.Info("sharded detected, collecting from all servers")
 		if p.Shards, err = GetShards(client); err != nil {
-			p.Logger.Log(fmt.Sprintf(`GetShards(): %v`, err))
+			p.Logger.Info(fmt.Sprintf(`GetShards(): %v`, err))
 		}
 		if p.Shards, err = p.GetServersStatsSummary(p.Shards, connString); err != nil {
-			p.Logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
+			p.Logger.Info(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
-		p.Logger.Log("end collecting from all servers")
+		p.Logger.Info("end collecting from all servers")
 	} else if p.Cluster == Replica && p.Process == "mongod" { //collects replica info
 		message := "replica detected, collecting from all servers"
-		p.Logger.Log(message)
+		p.Logger.Info(message)
 		if p.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
-			p.Logger.Log(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
+			p.Logger.Info(fmt.Sprintf(`GetReplSetGetStatus(): %v`, err))
 		}
 
 		setName := p.ServerStatus.Repl.SetName
 		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(p.ServerStatus.Repl.Hosts, ","))
 		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
 		if p.Shards, err = p.GetServersStatsSummary(oneShard, connString); err != nil {
-			p.Logger.Log(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
+			p.Logger.Info(fmt.Sprintf(`GeterversStatsSummary(): %v`, err))
 		}
-		p.Logger.Log("end collecting from all servers")
+		p.Logger.Info("end collecting from all servers")
 	}
 	db := NewDatabaseStats(p.Logger.Version)
 	db.SetLogger(p.Logger)
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
 	if p.Databases, err = db.GetAllDatabasesStats(client); err != nil {
-		p.Logger.Log(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
+		p.Logger.Info(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) error {
 	p.Cluster = GetClusterType(p.ServerStatus)
 	if p.Cluster == Replica && p.Process == "mongod" { //collects replica info
 		if p.OplogStats, err = GetOplogStats(client); err != nil {
-			p.Logger.Log(fmt.Sprintf(`GetOplogStats(): %v`, err))
+			p.Logger.Info(fmt.Sprintf(`GetOplogStats(): %v`, err))
 		}
 	}
 	return nil
@@ -142,7 +142,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 		smap[v.ID] = v
 	}
 	if uris, err = GetAllServerURIs(shards, connString); err != nil {
-		p.Logger.Log(err.Error())
+		p.Logger.Info(err.Error())
 		return shards, err
 	}
 	wg := gox.NewWaitGroup(4)
@@ -154,21 +154,21 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			s = strings.ReplaceAll(s, url.QueryEscape(cs.Password), "xxxxxx")
 		}
 		msg := fmt.Sprintf(`[t-%d] begin collecting from %v`, i, s)
-		p.Logger.Log(msg)
+		p.Logger.Info(msg)
 		msg = fmt.Sprintf(`[t-%d] end collecting from %v`, i, s)
 		wg.Add(1)
 		go func(uri string, msg string) {
 			defer wg.Done()
-			defer p.Logger.Log(msg)
+			defer p.Logger.Info(msg)
 			var sclient *mongo.Client
 			if sclient, err = NewMongoClient(uri, connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
-				p.Logger.Log(err.Error())
+				p.Logger.Info(err.Error())
 				return
 			}
 			defer sclient.Disconnect(context.Background())
 			server := NewStats(p.Logger.Version)
 			if err = server.GetClusterStatsSummary(sclient); err != nil {
-				p.Logger.Log(err.Error())
+				p.Logger.Info(err.Error())
 				return
 			}
 			mu.Lock()

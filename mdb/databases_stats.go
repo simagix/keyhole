@@ -19,8 +19,9 @@ import (
 
 // DatabaseStats stores struct
 type DatabaseStats struct {
+	Logger *Logger
+
 	threads   int
-	logger    *Logger
 	redaction bool
 	verbose   bool
 	version   string
@@ -92,12 +93,12 @@ type Chunk struct {
 
 // NewDatabaseStats returns DatabaseStats
 func NewDatabaseStats(version string) *DatabaseStats {
-	return &DatabaseStats{logger: NewLogger(version, ""), threads: 16, version: version}
+	return &DatabaseStats{Logger: NewLogger(version, version), threads: 16, version: version}
 }
 
-// SetLogger sets logger
-func (p *DatabaseStats) SetLogger(logger *Logger) {
-	p.logger = logger
+// SetLogger sets Logger
+func (p *DatabaseStats) SetLogger(Logger *Logger) {
+	p.Logger = Logger
 }
 
 // SetNumberThreads set # of threads
@@ -124,7 +125,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	var databases []Database
 	t := time.Now()
 	if p.verbose {
-		p.logger.Info("GetAllDatabasesStats")
+		p.Logger.Info("GetAllDatabasesStats")
 	}
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
 		return listdb.Databases, nil
@@ -142,7 +143,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		defer cur.Close(ctx)
 		var collections = []Collection{}
 		ir := NewIndexStats(p.version)
-		ir.SetLogger(p.logger)
+		ir.SetLogger(p.Logger)
 		ir.SetVerbose(p.verbose)
 		collectionNames := []string{}
 
@@ -155,7 +156,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			collType := fmt.Sprintf("%v", elem["type"])
 			if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
 				if p.verbose {
-					p.logger.Info(fmt.Sprintf(`skip %v %v`, collType, coll))
+					p.Logger.Info(fmt.Sprintf(`skip %v %v`, collType, coll))
 				}
 				continue
 			}
@@ -172,7 +173,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				ns := db.Name + "." + collectionName
 				if p.verbose {
 					msg := fmt.Sprintf(`collecting from %v`, ns)
-					p.logger.Log(msg)
+					p.Logger.Info(msg)
 				}
 				collection := client.Database(db.Name).Collection(collectionName)
 
@@ -181,7 +182,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
 				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
-					p.logger.Error(err.Error())
+					p.Logger.Error(err.Error())
 					return
 				}
 				dsize := 0
@@ -189,7 +190,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 					var v bson.M
 					cursor.Decode(&v)
 					if buf, err := bson.Marshal(v); err != nil {
-						p.logger.Error(err.Error())
+						p.Logger.Error(err.Error())
 						continue
 					} else if len(buf) > dsize {
 						sampleDoc = v
@@ -198,7 +199,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				}
 				if sampleDoc == nil {
 					if p.verbose {
-						p.logger.Info("no sample doc available")
+						p.Logger.Info("no sample doc available")
 					}
 				}
 				if p.redaction == true {
@@ -209,7 +210,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				}
 				indexes, err := ir.GetIndexesFromCollection(client, collection)
 				if err != nil {
-					p.logger.Error(err)
+					p.Logger.Error(err)
 				}
 
 				// stats
@@ -228,7 +229,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 						delete(m, "$clusterTime")
 						delete(m, "$gleStats")
 						if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
-							// p.logger.Error(cerr)
+							// p.Logger.Error(cerr)
 						} else {
 							chunk.Objects = toInt64(m["count"])
 							chunk.Size = toInt64(m["size"])
@@ -250,7 +251,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			return collections[i].Name < collections[j].Name
 		})
 		if err = client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&db.Stats); err != nil {
-			p.logger.Error(err.Error())
+			p.Logger.Error(err.Error())
 			continue
 		}
 		db.Collections = collections
@@ -258,7 +259,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	}
 	if p.verbose {
 		msg := fmt.Sprintf("GetAllDatabasesStats took %v", time.Now().Sub(t))
-		p.logger.Log(msg)
+		p.Logger.Info(msg)
 	}
 	return databases, nil
 }
@@ -287,7 +288,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	t := time.Now()
 	coll = client.Database("config").Collection("chunks")
 	if p.verbose == true {
-		p.logger.Info(fmt.Sprintf(`collectChunksDistribution on %v %v ...`, shard, ns))
+		p.Logger.Info(fmt.Sprintf(`collectChunksDistribution on %v %v ...`, shard, ns))
 		if cur, err = coll.Find(ctx, bson.M{"ns": ns, "shard": shard}); err != nil {
 			return chunk, nil
 		}
@@ -339,7 +340,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 		dur := time.Now().Sub(t)
 		msg := fmt.Sprintf("collectChunksDistribution used %v threads on %v %v took %v for %v chunks, rate: %v",
 			p.threads, shard, ns, dur, count, dur/time.Duration(count))
-		p.logger.Log(msg)
+		p.Logger.Info(msg)
 	} else {
 		emptyCounts = -1
 		if count, err = coll.CountDocuments(ctx, bson.M{"shard": shard, "ns": ns}); err != nil {
