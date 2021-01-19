@@ -69,7 +69,7 @@ func GetErrorCode(err error) int {
 		}
 		return 0
 	default:
-		fmt.Println("unknown type") // prints unknown error type
+		fmt.Printf("unsupported type %T, %v\n", err, err) // prints unsupported error type
 		return 0
 	}
 
