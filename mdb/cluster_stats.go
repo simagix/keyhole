@@ -128,6 +128,10 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) error {
 		if p.OplogStats, err = GetOplogStats(client); err != nil {
 			p.Logger.Info(fmt.Sprintf(`GetOplogStats(): %v`, err))
 		}
+	} else if p.Cluster == Sharded {
+		if p.Shards, err = GetShards(client); err != nil {
+			p.Logger.Info(fmt.Sprintf(`GetShards(): %v`, err))
+		}
 	}
 	return nil
 }
@@ -202,9 +206,13 @@ func (p *ClusterStats) GetShortSummary() string {
 	if len(p.BuildInfo.Modules) > 0 {
 		edition = p.BuildInfo.Modules[0]
 	}
-	result := fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v %v cores %v mem`,
+	numShardStr := ""
+	if p.Cluster == Sharded {
+		numShardStr = fmt.Sprintf(`(%v)`, len(p.Shards))
+	}
+	result := fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v%v %v cores %v mem`,
 		p.BuildInfo.Version, edition, p.HostInfo.System.Hostname, p.HostInfo.OS.Name,
-		p.ServerStatus.Process, p.Cluster, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
+		p.ServerStatus.Process, p.Cluster, numShardStr, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
 	return result
 }
 
