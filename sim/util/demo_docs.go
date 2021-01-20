@@ -11,6 +11,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+var (
+	locations = []string{"US-NY", "US-GA", "US-IL", "US-TX", "US-CA", "US-WA"}
+)
+
 // FavoritesSchema -
 type FavoritesSchema struct {
 	ID            string `json:"_id" bson:"_id"`
@@ -76,6 +80,7 @@ func GetDemoDoc() bson.M {
 	email := GetEmailAddress()
 	s := strings.Split(strings.Split(email, "@")[0], ".")
 	doc := bson.M{
+		"location":  locations[rand.Intn(len(locations))],
 		"_search":   strconv.FormatInt(rand.Int63(), 16),
 		"email":     email,
 		"firstName": s[0],

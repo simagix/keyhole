@@ -294,10 +294,11 @@ func (f *Feeder) SeedVehicles(client *mongo.Client) error {
 
 	// create index example
 	indexView := vehiclesCollection.Indexes()
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{"location", 1}, {"color", 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}, {Key: "brand", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}}})
-	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}, {Key: "location", Value: "2dsphere"}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}, {Key: "coordinate", Value: "2dsphere"}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "filters.k", Value: 1}, {Key: "filters.v", Value: 1}}})
 	dealersCount, _ := dealersCollection.CountDocuments(ctx, bson.M{})
 	vehiclesCount := f.seedCollection(vehiclesCollection, 1)
@@ -318,6 +319,7 @@ var styles = []string{"Sedan", "Coupe", "Convertible", "Minivan", "SUV", "Truck"
 var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold",
 	"Gray", "Green", "Orange", "Pink", "Purple",
 	"Red", "Silver", "White", "Yellow"}
+var locations = []string{"US-NY", "US-GA", "US-IL", "US-TX", "US-CA", "US-WA"}
 
 func getVehicle() bson.M {
 	curYear := time.Now().Year()
@@ -332,12 +334,13 @@ func getVehicle() bson.M {
 	style := styles[rand.Intn(len(styles))]
 
 	return bson.M{
-		"dealer": fmt.Sprintf("DEALER-%d", 1+rand.Intn(len(dealers))),
-		"brand":  brand,
-		"color":  color,
-		"style":  style,
-		"year":   year,
-		"used":   used,
+		"location": locations[rand.Intn(len(locations))],
+		"dealer":   fmt.Sprintf("DEALER-%d", 1+rand.Intn(len(dealers))),
+		"brand":    brand,
+		"color":    color,
+		"style":    style,
+		"year":     year,
+		"used":     used,
 		"filters": []bson.M{
 			bson.M{"k": "brand", "v": brand},
 			bson.M{"k": "color", "v": color},
