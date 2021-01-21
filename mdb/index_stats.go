@@ -401,11 +401,21 @@ func (ix *IndexStats) PrintIndexesOf(databases []Database) {
 }
 
 // CreateIndexes creates indexes
-func (ix *IndexStats) CreateIndexes(client *mongo.Client) error {
+func (ix *IndexStats) CreateIndexes(client *mongo.Client, namespaces ...[]string) error {
 	var ctx = context.Background()
 	var err error
+	namespaceMap := map[string]bool{}
+	if len(namespaces) > 0 {
+		for _, ns := range namespaces[0] {
+			namespaceMap[ns] = true
+		}
+	}
 	for _, db := range ix.Databases {
 		for _, coll := range db.Collections {
+			ns := db.Name + "." + coll.Name
+			if SkipNamespace(ns, namespaceMap) == true {
+				continue
+			}
 			client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: coll.Name}, {Key: "index", Value: "*"}})
 			collection := client.Database(db.Name).Collection(coll.Name)
 			indexes := []mongo.IndexModel{}

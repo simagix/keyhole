@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -73,13 +74,15 @@ func toArray(array interface{}) []bson.M {
 	return mapArray
 }
 
-func toInt(num interface{}) int {
+// ToInt converts to int
+func ToInt(num interface{}) int {
 	f := fmt.Sprintf("%v", num)
 	x, _ := strconv.ParseFloat(f, 64)
 	return int(x)
 }
 
-func toInt32(num interface{}) int32 {
+// ToInt32 converts to int32
+func ToInt32(num interface{}) int32 {
 	f := fmt.Sprintf("%v", num)
 	x, _ := strconv.ParseFloat(f, 64)
 	return int32(x)
@@ -128,4 +131,26 @@ func emptyBinData(firstDoc bson.M) bson.M {
 		}
 	}
 	return firstDoc
+}
+
+// SplitNamespace returns db, collection
+func SplitNamespace(namespace string) (string, string) {
+	dot := strings.Index(namespace, ".")
+	if dot < 0 {
+		return "", ""
+	}
+	return namespace[:dot], namespace[dot+1:]
+}
+
+// SkipNamespace skips namespace
+func SkipNamespace(namespace string, namespaceMap map[string]bool) bool {
+	if len(namespaceMap) == 0 {
+		return false
+	}
+	dbName, _ := SplitNamespace(namespace)
+	allDB := dbName + ".*"
+	if namespaceMap[allDB] == true || namespaceMap[namespace] == true {
+		return false
+	}
+	return true
 }
