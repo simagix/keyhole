@@ -3,6 +3,7 @@
 package mdb
 
 import (
+	"regexp"
 	"testing"
 	"time"
 
@@ -19,6 +20,28 @@ func TestParseLogv2(t *testing.T) {
 	} else if stat.filter != `{"os":1,"token":1,"user":1}` {
 		t.Log(stat.filter)
 		t.Fatal(stat.filter)
+	}
+}
+
+func TestInRepeatedDocPattern(t *testing.T) {
+	str := `{"a":[{"$binary":{"base64":1,"subType":1}},{"$binary":{"base64":1,"subType":1}}}],"b":[1,1,1],"c":[1]}`
+	re := regexp.MustCompile(`\[1(,1)*\]`)
+	str = re.ReplaceAllString(str, `[...]`)
+	re = regexp.MustCompile(`\[\{\S+\}(,\{\S+\})*\]`)
+	str = re.ReplaceAllString(str, `[...]`)
+	if str != `{"a":[...],"b":[...],"c":[...]}` {
+		t.Fatal(str)
+	}
+	t.Log(str)
+	str = `{"t":{"$date":"2020-11-05T09:30:50.680+00:00"},"s":"I",  "c":"WRITE",    "id":51803,   "ctx":"conn851","msg":"Slow query","attr":{"type":"update","ns":"testcase.samplecollection","command":{"q":{"_id":{"$in":[{"$binary":{"base64":"jtWtXe56xEGlJ+2cNiz+Yg==","subType":"3"}},{"$binary":{"base64":"tgP+I+Jl+I1wya7jxapMAg==","subType":"3"}},{"$binary":{"base64":"ElxhlRkJfT8FOCxfe+OJ9w==","subType":"3"}},{"$binary":{"base64":"nFTaxhmUzWC/yEnrqYN3NA==","subType":"3"}}]}},"u":{"$set":{"Touched":{"$date":"2020-11-05T09:30:47.707Z"}}},"multi":true,"upsert":false},"planSummary":"IXSCAN { _id: 1 }","keysExamined":4,"docsExamined":4,"nMatched":4,"nModified":4,"numYields":4,"queryHash":"EDADD1D2","planCacheKey":"E5EEC495","locks":{"ParallelBatchWriterMode":{"acquireCount":{"r":5}},"ReplicationStateTransition":{"acquireCount":{"w":5}},"Global":{"acquireCount":{"w":5}},"Database":{"acquireCount":{"w":5}},"Collection":{"acquireCount":{"w":5}},"Mutex":{"acquireCount":{"r":1}}},"flowControl":{"acquireCount":5,"timeAcquiringMicros":49},"storage":{"data":{"bytesRead":40}},"durationMillis":234}}`
+	loginfo := NewLogInfo("utest-xxxxxx")
+	loginfo.SetVerbose(true)
+	if stat, err := loginfo.ParseLogv2(str); err != nil {
+		t.Fatal(err)
+	} else if stat.filter != `{"_id":{"$in":[...]}}` {
+		t.Fatal(stat.filter)
+	} else {
+		t.Log(stat.filter)
 	}
 }
 

@@ -188,7 +188,9 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if stat.op == "" {
 		return stat, nil
 	}
-	re := regexp.MustCompile(`\[(1,)*1\]`)
+	re := regexp.MustCompile(`\[1(,1)*\]`)
+	stat.filter = re.ReplaceAllString(stat.filter, `[...]`)
+	re = regexp.MustCompile(`\[{\S+}(,{\S+})*\]`) // matches repeated doc {"base64":1,"subType":1}}
 	stat.filter = re.ReplaceAllString(stat.filter, `[...]`)
 	re = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
 	stat.filter = re.ReplaceAllString(stat.filter, `$2`)
