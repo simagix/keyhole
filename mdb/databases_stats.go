@@ -17,6 +17,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const (
+	sampleDocSizeLimit = (32 * 1024) // 32KB
+)
+
 // DatabaseStats stores struct
 type DatabaseStats struct {
 	Logger *Logger
@@ -192,8 +196,11 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 					if buf, err := bson.Marshal(v); err != nil {
 						p.Logger.Error(err.Error())
 						continue
-					} else if len(buf) > dsize {
+					} else if len(buf) > dsize && len(buf) < sampleDocSizeLimit {
 						sampleDoc = v
+						dsize = len(buf)
+					} else if len(buf) > sampleDocSizeLimit {
+						sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
 						dsize = len(buf)
 					}
 				}
