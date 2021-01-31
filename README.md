@@ -48,6 +48,14 @@ cd keyhole
 ./build.sh
 ```
 
+### Cross Platform Build
+
+The `build.sh` script can build executables for Linux, macos, and Windows using the command below.
+
+```bash
+./build.sh cross-platform
+```
+
 ## Usage
 
 ```bash
