@@ -47,8 +47,8 @@ type ClusterStats struct {
 	verbose bool
 }
 
-// NewStats -
-func NewStats(version string) *ClusterStats {
+// NewClusterStats returns *ClusterStats
+func NewClusterStats(version string) *ClusterStats {
 	s := ClusterStats{Logger: NewLogger(version, "-allinfo")}
 	return &s
 }
@@ -170,7 +170,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 				return
 			}
 			defer sclient.Disconnect(context.Background())
-			server := NewStats(p.Logger.Version)
+			server := NewClusterStats(p.Logger.Version)
 			if err = server.GetClusterStatsSummary(sclient); err != nil {
 				p.Logger.Info(err.Error())
 				return

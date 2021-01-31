@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"runtime"
 	"strings"
 
 	"github.com/simagix/gox"
@@ -182,22 +181,13 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	}
 
-	if *info && *verbose {
-		*allinfo = true
-	}
-
-	if *allinfo {
-		stats := mdb.NewStats(fullVersion)
+	if *allinfo || (*info && *verbose) {
+		stats := mdb.NewClusterStats(fullVersion)
 		stats.SetRedaction(*redaction)
 		stats.SetVerbose(true)
-		if err = stats.GetClusterStats(client, connString); err != nil {
-			result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
-			log.Fatal(result)
-		}
-		if err = stats.OutputBSON(); err != nil {
+		if err = CollectCluserDetails(stats, client, connString); err != nil {
 			log.Fatal(err)
 		}
-		stats.Print()
 		return
 	} else if *cardinality != "" { // --card <collection> [-v]
 		card := mdb.NewCardinality(client)
@@ -268,11 +258,7 @@ func Run(fullVersion string) {
 		f.SetDatabase(connString.Database)
 		f.SetFile(*file)
 		f.SetIsDrop(*drop)
-		nConnection := 2 * runtime.NumCPU()
-		if *conn != 0 {
-			nConnection = *conn
-		}
-		f.SetNumberConnections(nConnection)
+		f.SetNumberConnections(*conn)
 		f.SetTotal(*total)
 		if err = f.SeedData(client); err != nil {
 			log.Fatal(err)
@@ -280,10 +266,7 @@ func Run(fullVersion string) {
 		return
 	}
 
-	stats := mdb.NewStats(fullVersion)
-	stats.SetRedaction(*redaction)
-	stats.SetVerbose(*verbose)
-	fmt.Println(stats.GetClusterShortSummary(client))
+	fmt.Println(GetClusterSummary(fullVersion, client))
 	if *info == true {
 		return
 	}
@@ -294,9 +277,8 @@ func Run(fullVersion string) {
 		log.Println(http.ListenAndServe(addr, nil))
 	}()
 	if *wt == true {
-		wtc := mdb.NewWiredTigerCache(fullVersion)
 		log.Printf("URL: http://localhost:%d/wt\n", *port)
-		wtc.Start(client)
+		MonitorWiredTigerCache(fullVersion, client)
 	}
 
 	var runner *sim.Runner
@@ -310,11 +292,7 @@ func Run(fullVersion string) {
 	runner.SetSimulationDuration(*duration)
 	runner.SetPeekingMode(*peek)
 	runner.SetDropFirstMode(*drop)
-	nConnection := runtime.NumCPU()
-	if *conn != 0 {
-		nConnection = *conn
-	}
-	runner.SetNumberConnections(nConnection)
+	runner.SetNumberConnections(*conn)
 	runner.SetTransactionTemplateFilename(*tx)
 	runner.SetSimOnlyMode(*simonly)
 	runner.SetAutoMode(*yes)

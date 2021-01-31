@@ -35,8 +35,8 @@ type Comparison struct {
 // NewComparison returns *Comparison
 func NewComparison(keyholeVersion string) *Comparison {
 	comp := Comparison{Logger: mdb.NewLogger(keyholeVersion, "-compare")}
-	comp.SourceStats = mdb.NewStats(keyholeVersion)
-	comp.TargetStats = mdb.NewStats(keyholeVersion)
+	comp.SourceStats = mdb.NewClusterStats(keyholeVersion)
+	comp.TargetStats = mdb.NewClusterStats(keyholeVersion)
 	return &comp
 }
 

@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -51,7 +52,7 @@ type Runner struct {
 // NewRunner - Constructor
 func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	var err error
-	runner := Runner{connString: connString,
+	runner := Runner{connString: connString, conns: runtime.NumCPU(),
 		channel: make(chan string), collectionName: mdb.ExamplesCollection, metrics: map[string][]bson.M{},
 		mutex: sync.RWMutex{}}
 	runner.dbName = connString.Database

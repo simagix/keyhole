@@ -12,6 +12,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -61,7 +62,7 @@ type Robot struct {
 
 // NewFeeder establish seeding parameters
 func NewFeeder() *Feeder {
-	return &Feeder{isDrop: false, total: 1000, showProgress: true}
+	return &Feeder{conns: runtime.NumCPU(), isDrop: false, total: 1000, showProgress: true}
 }
 
 // SetCollection set collection
