@@ -209,16 +209,8 @@ func Run(fullVersion string) {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
-		if err = ix.SetClusterDetailsFromFile(*createIndex); err != nil {
+		if err = DuplicateIndexesFromFile(ix, client, *createIndex); err != nil {
 			log.Fatal(err)
-		}
-		if err = ix.CreateIndexes(client); err != nil {
-			log.Fatal(err)
-		}
-		if databases, ixe := ix.GetIndexes(client); ixe != nil {
-			log.Fatal(err)
-		} else {
-			ix.PrintIndexesOf(databases)
 		}
 		return
 	} else if *explain != "" { // --explain json_or_log_file  [-v]
@@ -232,13 +224,8 @@ func Run(fullVersion string) {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
-		if databases, ixe := ix.GetIndexes(client); ixe != nil {
+		if err = CollectIndexStats(ix, client); err != nil {
 			log.Fatal(err)
-		} else {
-			ix.PrintIndexesOf(databases)
-			if err = ix.OutputBSON(); err != nil {
-				log.Fatal(err)
-			}
 		}
 		return
 	} else if *schema == true {
