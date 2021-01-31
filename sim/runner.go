@@ -62,7 +62,7 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 		connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
 		return &runner, err
 	}
-	stats := mdb.NewStats("")
+	stats := mdb.NewClusterStats("")
 	stats.GetClusterStatsSummary(runner.client)
 	runner.clusterType = stats.Cluster
 	if runner.clusterType == "" {
@@ -130,6 +130,9 @@ func (rn *Runner) SetDropFirstMode(mode bool) {
 
 // SetNumberConnections -
 func (rn *Runner) SetNumberConnections(num int) {
+	if num == 0 {
+		return
+	}
 	rn.conns = num
 }
 

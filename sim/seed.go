@@ -71,6 +71,9 @@ func (f *Feeder) SetCollection(collection string) {
 
 // SetNumberConnections set conns
 func (f *Feeder) SetNumberConnections(conns int) {
+	if conns == 0 {
+		return
+	}
 	f.conns = conns
 }
 
