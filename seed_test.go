@@ -1,24 +1,44 @@
-// Copyright 2018 Kuei-chun Chen. All rights reserved.
+// Copyright 2021 Kuei-chun Chen. All rights reserved.
 
-package sim
+package keyhole
 
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var (
+	UnitTestURL = "mongodb://localhost/?replicaSet=replset"
+)
+
+func GetMongoClient() *mongo.Client {
+	var err error
+	var client *mongo.Client
+
+	if os.Getenv("DATABASE_URL") != "" {
+		UnitTestURL = os.Getenv("DATABASE_URL")
+	}
+	if client, err = mongo.Connect(context.Background(), options.Client().ApplyURI(UnitTestURL)); err != nil {
+		panic(err)
+	}
+
+	return client
+}
 
 func TestSeed(t *testing.T) {
 	var err error
 	var client *mongo.Client
-	client = getMongoClient()
+	client = GetMongoClient()
 	defer client.Disconnect(context.Background())
 	dbName := "keyhole"
 	total := 100
-	f := NewFeeder()
+	f := NewSeed()
 	f.SetDatabase(dbName)
 	f.SetTotal(total)
 	f.SetIsDrop(true)
@@ -42,13 +62,13 @@ func TestSeedFromTemplate(t *testing.T) {
 	var err error
 	var client *mongo.Client
 	ctx := context.Background()
-	client = getMongoClient()
+	client = GetMongoClient()
 	defer client.Disconnect(context.Background())
 	file := "../examples/template.json"
 	collection := "template"
 	total := 100
 	dbName := "keyhole"
-	f := NewFeeder()
+	f := NewSeed()
 	f.SetCollection(collection)
 	f.SetDatabase(dbName)
 	f.SetFile(file)

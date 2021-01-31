@@ -1,6 +1,6 @@
-// Copyright 2018 Kuei-chun Chen. All rights reserved.
+// Copyright 2021 Kuei-chun Chen. All rights reserved.
 
-package sim
+package keyhole
 
 import (
 	"bufio"
@@ -26,8 +26,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Feeder seeds feeder
-type Feeder struct {
+// Seed seeds feeder
+type Seed struct {
 	collection   string
 	conns        int
 	database     string
@@ -60,18 +60,18 @@ type Robot struct {
 	Tasks      []Task  `json:"tasks" bson:"tasks"`
 }
 
-// NewFeeder establish seeding parameters
-func NewFeeder() *Feeder {
-	return &Feeder{conns: runtime.NumCPU(), isDrop: false, total: 1000, showProgress: true}
+// NewSeed establish seeding parameters
+func NewSeed() *Seed {
+	return &Seed{conns: runtime.NumCPU(), isDrop: false, total: 1000, showProgress: true}
 }
 
 // SetCollection set collection
-func (f *Feeder) SetCollection(collection string) {
+func (f *Seed) SetCollection(collection string) {
 	f.collection = collection
 }
 
 // SetNumberConnections set conns
-func (f *Feeder) SetNumberConnections(conns int) {
+func (f *Seed) SetNumberConnections(conns int) {
 	if conns == 0 {
 		return
 	}
@@ -79,32 +79,32 @@ func (f *Feeder) SetNumberConnections(conns int) {
 }
 
 // SetDatabase set database
-func (f *Feeder) SetDatabase(database string) {
+func (f *Seed) SetDatabase(database string) {
 	f.database = database
 }
 
 // SetFile set file
-func (f *Feeder) SetFile(file string) {
+func (f *Seed) SetFile(file string) {
 	f.file = file
 }
 
 // SetIsDrop set isDrop
-func (f *Feeder) SetIsDrop(isDrop bool) {
+func (f *Seed) SetIsDrop(isDrop bool) {
 	f.isDrop = isDrop
 }
 
 // SetShowProgress set showProgress
-func (f *Feeder) SetShowProgress(showProgress bool) {
+func (f *Seed) SetShowProgress(showProgress bool) {
 	f.showProgress = showProgress
 }
 
 // SetTotal set total
-func (f *Feeder) SetTotal(total int) {
+func (f *Seed) SetTotal(total int) {
 	f.total = total
 }
 
 // SeedData seeds all demo data
-func (f *Feeder) SeedData(client *mongo.Client) error {
+func (f *Seed) SeedData(client *mongo.Client) error {
 	if f.file == "" {
 		return f.SeedAllDemoData(client)
 	} else if f.collection == "" {
@@ -128,7 +128,7 @@ func (f *Feeder) SeedData(client *mongo.Client) error {
 //   "batteryPct": float,
 //   "tasks": [{"for": string, "minutesUsed": integer}]
 // }
-func (f *Feeder) SeedAllDemoData(client *mongo.Client) error {
+func (f *Seed) SeedAllDemoData(client *mongo.Client) error {
 	var err error
 	if err = f.SeedFavorites(client); err != nil {
 		return err
@@ -146,7 +146,7 @@ func (f *Feeder) SeedAllDemoData(client *mongo.Client) error {
 }
 
 // SeedFavorites seeds demo data of collection favorites
-func (f *Feeder) SeedFavorites(client *mongo.Client) error {
+func (f *Seed) SeedFavorites(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	c := client.Database(f.database).Collection("lookups")
@@ -172,7 +172,7 @@ func (f *Feeder) SeedFavorites(client *mongo.Client) error {
 	return err
 }
 
-func (f *Feeder) seedRobots(client *mongo.Client) error {
+func (f *Seed) seedRobots(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	modelsCollection := client.Database(f.database).Collection("models")
@@ -207,7 +207,7 @@ func (f *Feeder) seedRobots(client *mongo.Client) error {
 	return err
 }
 
-func (f *Feeder) seedNumbers(client *mongo.Client) error {
+func (f *Seed) seedNumbers(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	numbersCollection := client.Database(f.database).Collection("numbers")
@@ -249,7 +249,7 @@ func (f *Feeder) seedNumbers(client *mongo.Client) error {
 }
 
 // SeedVehicles seeds vehicles collection
-func (f *Feeder) SeedVehicles(client *mongo.Client) error {
+func (f *Seed) SeedVehicles(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	vehiclesCollection := client.Database(f.database).Collection("vehicles")
@@ -354,7 +354,7 @@ func getVehicle() bson.M {
 	}
 }
 
-func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
+func (f *Seed) seedCollection(c *mongo.Collection, fnum int) int {
 	fmt.Println("number of connections:", f.conns)
 	var ctx = context.Background()
 	var bsize = getBatchSize(f.total, f.conns)
@@ -396,7 +396,7 @@ func (f *Feeder) seedCollection(c *mongo.Collection, fnum int) int {
 }
 
 // SeedFromTemplate seeds data from a template in a file
-func (f *Feeder) seedFromTemplate(client *mongo.Client) error {
+func (f *Seed) seedFromTemplate(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	var bsize = getBatchSize(f.total, f.conns)

@@ -240,7 +240,7 @@ func Run(fullVersion string) {
 		fmt.Println(str)
 		return
 	} else if *seed == true {
-		f := sim.NewFeeder()
+		f := NewSeed()
 		f.SetCollection(*collection)
 		f.SetDatabase(connString.Database)
 		f.SetFile(*file)
