@@ -272,21 +272,20 @@ func Run(fullVersion string) {
 	if runner, err = sim.NewRunner(connString); err != nil {
 		log.Fatal(err)
 	}
-	runner.SetCollection(*collection)
-	runner.SetTPS(*tps)
-	runner.SetTemplateFilename(*file)
-	runner.SetVerbose(*verbose)
-	runner.SetSimulationDuration(*duration)
-	runner.SetPeekingMode(*peek)
-	runner.SetDropFirstMode(*drop)
-	runner.SetNumberConnections(*conn)
-	runner.SetTransactionTemplateFilename(*tx)
-	runner.SetSimOnlyMode(*simonly)
 	runner.SetAutoMode(*yes)
-	if err = runner.Start(); err != nil {
+	runner.SetCollection(*collection)
+	runner.SetDropFirstMode(*drop)
+	runner.SetDuration(*duration)
+	runner.SetNumberConnections(*conn)
+	runner.SetPeekingMode(*peek)
+	runner.SetSimOnlyMode(*simonly)
+	runner.SetTemplateFilename(*file)
+	runner.SetTPS(*tps)
+	runner.SetTransactionTemplate(*tx)
+	runner.SetVerbose(*verbose)
+	if err = StartSimulation(runner); err != nil {
 		log.Fatal(err)
 	}
-	runner.CollectAllStatus()
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {

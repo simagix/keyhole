@@ -119,8 +119,8 @@ func (rn *Runner) SetPeekingMode(mode bool) {
 	}
 }
 
-// SetSimulationDuration -
-func (rn *Runner) SetSimulationDuration(duration int) {
+// SetDuration sets simulation/load test duration
+func (rn *Runner) SetDuration(duration int) {
 	rn.duration = duration
 }
 
@@ -137,8 +137,8 @@ func (rn *Runner) SetNumberConnections(num int) {
 	rn.conns = num
 }
 
-// SetTransactionTemplateFilename -
-func (rn *Runner) SetTransactionTemplateFilename(filename string) {
+// SetTransactionTemplate sets transaction template file
+func (rn *Runner) SetTransactionTemplate(filename string) {
 	rn.txFilename = filename
 }
 

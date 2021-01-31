@@ -17,13 +17,13 @@ With Keyhole, experienced users should be able to spot performance issues and to
 Several features are available, and they are
 
 - **Write Throughputs Test** measures the MongoDB performance by writing documents at a high rate to a MongoDB cluster.
-- [**Load test**](docs/LOADTEST.md) extends the *Write throughputs test* by issuing different ops against a MongoDB cluster.  Stats analytic is also provided
+- [**Load test**](simulation.md) extends the *Write throughputs test* by issuing different ops against a MongoDB cluster.  Stats analytic is also provided
   - Memory: resident, virtual, and page faults
   - Executor and ops
   - Latency: read, write, and command
   - Metrics: index keys examined, collection scan, in-memory sort, and ops
   - WiredTiger analytic
-- Customized load test with a sample document.  Uses can load test using their own document format (see [LOADTEST.md](docs/LOADTEST.md) for details).
+- Customized load test with a sample document.  Uses can load test using their own document format (see [simulation.md](simulation.md) for details).
 - [Cluster Info and Sanity Check](https://github.com/simagix/keyhole/wiki/MongoDB-Cluster-Info) to display information of a cluster including stats to help determine working set data size.
 - [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes)
 - [Duplicate all indexes](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes) to another MongoDB cluster.
