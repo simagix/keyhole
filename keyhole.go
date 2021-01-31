@@ -90,20 +90,14 @@ func Run(fullVersion string) {
 		fmt.Println(api.Execute())
 
 		if *loginfo {
-			for _, filename := range api.GetLogNames() {
-				fmt.Println("=> processing", filename)
-				li := mdb.NewLogInfo(fullVersion)
-				li.SetCollscan(*collscan)
-				li.SetRedaction(*redaction)
-				li.SetRegexPattern(*regex)
-				li.SetSilent(*nocolor)
-				li.SetVerbose(*verbose)
-				if err = li.AnalyzeFile(filename); err != nil {
-					log.Println(err)
-					continue
-				}
-				li.Print()
-				li.OutputBSON()
+			l := mdb.NewLogInfo(fullVersion)
+			l.SetCollscan(*collscan)
+			l.SetRedaction(*redaction)
+			l.SetRegexPattern(*regex)
+			l.SetSilent(*nocolor)
+			l.SetVerbose(*verbose)
+			if err = AnalyzeMongoLogs(l, api.GetLogNames()); err != nil {
+				log.Fatal(err)
 			}
 		}
 		return
@@ -152,19 +146,14 @@ func Run(fullVersion string) {
 		}
 		return
 	} else if *loginfo && len(flag.Args()) > 0 {
-		filenames := flag.Args()
-		li := mdb.NewLogInfo(fullVersion)
-		li.SetCollscan(*collscan)
-		li.SetRedaction(*redaction)
-		li.SetRegexPattern(*regex)
-		li.SetSilent(*nocolor)
-		li.SetVerbose(*verbose)
-		for _, filename := range filenames {
-			if err = li.AnalyzeFile(filename); err != nil {
-				log.Fatal(err)
-			}
-			li.Print()
-			li.OutputBSON()
+		l := mdb.NewLogInfo(fullVersion)
+		l.SetCollscan(*collscan)
+		l.SetRedaction(*redaction)
+		l.SetRegexPattern(*regex)
+		l.SetSilent(*nocolor)
+		l.SetVerbose(*verbose)
+		if err = AnalyzeMongoLogs(l, flag.Args()); err != nil {
+			log.Fatal(err)
 		}
 		return
 	} else if *print != "" {
