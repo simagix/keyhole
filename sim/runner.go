@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/simagix/gox"
+	anly "github.com/simagix/keyhole/analytics"
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -27,6 +28,10 @@ import (
 
 // Runner -
 type Runner struct {
+	Logger  *mdb.Logger         `bson:"keyhole"`
+	Metrics map[string][]bson.M `bson:"metrics"`
+	Results []string            `bson:"results"`
+
 	auto           bool
 	channel        chan string
 	client         *mongo.Client
@@ -38,7 +43,6 @@ type Runner struct {
 	drop           bool
 	duration       int
 	filename       string
-	metrics        map[string][]bson.M
 	mutex          sync.RWMutex
 	peek           bool
 	simOnly        bool
@@ -52,8 +56,8 @@ type Runner struct {
 // NewRunner - Constructor
 func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	var err error
-	runner := Runner{connString: connString, conns: runtime.NumCPU(),
-		channel: make(chan string), collectionName: mdb.ExamplesCollection, metrics: map[string][]bson.M{},
+	runner := Runner{Logger: mdb.NewLogger("keyhole", "default"), connString: connString, conns: runtime.NumCPU(),
+		channel: make(chan string), collectionName: mdb.ExamplesCollection, Metrics: map[string][]bson.M{},
 		mutex: sync.RWMutex{}}
 	runner.dbName = connString.Database
 	if runner.dbName == "" {
@@ -98,12 +102,17 @@ func (rn *Runner) SetTPS(tps int) {
 // SetAutoMode set transaction per second
 func (rn *Runner) SetAutoMode(auto bool) { rn.auto = auto }
 
+// SetLogger sets keyhole Logger
+func (rn *Runner) SetLogger(logger *mdb.Logger) {
+	rn.Logger = logger
+}
+
 // SetTemplateFilename -
 func (rn *Runner) SetTemplateFilename(filename string) {
 	rn.filename = filename
 }
 
-// SetVerbose -
+// SetVerbose sets verbose mode
 func (rn *Runner) SetVerbose(verbose bool) {
 	rn.verbose = verbose
 }
@@ -162,7 +171,7 @@ func (rn *Runner) Start() error {
 			os.Exit(0)
 		}
 	}
-	log.Println("Duration in minute(s):", rn.duration)
+	rn.Logger.Info("Duration in minute(s):", rn.duration)
 	if rn.dbName == "" || rn.dbName == "admin" || rn.dbName == "config" || rn.dbName == "local" {
 		rn.dbName = mdb.KeyholeDB // switch to _KEYHOLE_88800 database for load tests
 	}
@@ -176,7 +185,7 @@ func (rn *Runner) Start() error {
 	// 2nd and 3rd minutes - normal TPS ops
 	// remaining minutes - burst with no delay
 	// last minute - normal TPS ops until exit
-	log.Printf("Total TPS: %d (%d tps/conn * %d conns), duration: %d (mins)\n", rn.tps*rn.conns, rn.tps, rn.conns, rn.duration)
+	rn.Logger.Info(fmt.Sprintf("Total TPS: %d (%d tps/conn * %d conns), duration: %d (mins)", rn.tps*rn.conns, rn.tps, rn.conns, rn.duration))
 	simTime := rn.duration
 	if rn.simOnly == false {
 		simTime--
@@ -186,14 +195,14 @@ func (rn *Runner) Start() error {
 		go func(thread int) {
 			if rn.simOnly == false && rn.duration > 0 {
 				if err = rn.PopulateData(); err != nil {
-					log.Println("Thread", thread, "existing with", err)
+					rn.Logger.Info("Thread", thread, "existing with", err)
 					return
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
 
 			if err = rn.Simulate(simTime, tdoc.Transactions, thread); err != nil {
-				log.Println("Thread", thread, "existing with", err)
+				rn.Logger.Info("Thread", thread, "existing with", err)
 				return
 			}
 		}(i)
@@ -202,35 +211,74 @@ func (rn *Runner) Start() error {
 }
 
 func (rn *Runner) terminate() {
-	var client *mongo.Client
-	var filenames []string
-	var filename string
 	var err error
+	var client *mongo.Client
+	var filename string
+	var filenames []string
+	var result string
 
+	outdir := "./out/"
+	os.Mkdir(outdir, 0755)
 	rn.Cleanup()
+	rn.Results = []string{}
 	for _, uri := range rn.uriList {
 		if client, err = mdb.NewMongoClient(uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
-			log.Println(err)
+			rn.Logger.Info(err)
 			continue
 		}
-		stats := NewServerStats(uri, rn.channel)
-		stats.SetVerbose(rn.verbose)
-		if filename, err = stats.printServerStatus(client); err != nil {
-			log.Println(err)
-			continue
+
+		var err error
+		var stat anly.ServerStatusDoc
+		serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
+		buf, _ := bson.Marshal(serverStatus)
+		bson.Unmarshal(buf, &stat)
+		serverStatusDocs[uri] = append(serverStatusDocs[uri], stat)
+
+		var data []byte
+		if data, err = getServerStatusData(uri); err != nil {
+			rn.Logger.Error(err)
+			break
 		}
+
+		// save metrics to a file
+		filename := outdir + keyholeStatsDataFile + "-" + getReplicaSetName(uri) + ".gz"
 		filenames = append(filenames, filename)
+		gox.OutputGzipped(data, filename)
+		d := anly.NewDiagnosticData()
+		reader := bufio.NewReader(strings.NewReader(string(data)))
+		if err = d.AnalyzeServerStatus(reader); err != nil {
+			rn.Logger.Error(err)
+			break
+		}
+		strs := []string{}
+		if d.ServerInfo != nil {
+			var p mdb.ClusterStats
+			data, _ := json.Marshal(d.ServerInfo)
+			json.Unmarshal(data, &p)
+			result := fmt.Sprintf("\n* MongoDB v%v %v (%v) %v %v %v cores %v mem",
+				p.BuildInfo.Version, p.HostInfo.System.Hostname, p.HostInfo.OS.Name,
+				p.ServerStatus.Process, p.Cluster, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
+			strs = append(strs, result)
+		}
+		strs = append(strs, anly.PrintAllStats(d.ServerStatusList, -1))
+		result = strings.Join(strs, "\n")
+		fmt.Println(result)
+		rn.Results = append(rn.Results, result)
 	}
-	for _, filename := range filenames {
-		log.Println("stats written to", filename)
-	}
-	filename = "keyhole_perf." + fileTimestamp + ".bson.gz"
+	hostname, _ := os.Hostname()
+	filename = fmt.Sprintf(`%s%s.%s-perf.bson.gz`, outdir, hostname, fileTimestamp)
 	var buf []byte
-	if buf, err = json.Marshal(rn.metrics); err != nil {
-		log.Println("marshal error:", err)
+	if buf, err = bson.Marshal(rn); err != nil {
+		rn.Logger.Info("marshal error:", err)
 	}
 	gox.OutputGzipped(buf, filename)
-	log.Println("optime written to", filename)
+	filenames = append(filenames, filename)
+	zipFile := fmt.Sprintf(`%s%s.%s-perf.zip`, outdir, hostname, fileTimestamp)
+	gox.ZipFiles(zipFile, filenames)
+	rn.Logger.Info("stats written to ", zipFile)
+	for _, f := range filenames {
+		os.Remove(f)
+	}
 	os.Exit(0)
 }
 
@@ -240,7 +288,7 @@ func (rn *Runner) CollectAllStatus() error {
 	for i, uri := range rn.uriList {
 		var client *mongo.Client
 		if client, err = mdb.NewMongoClient(uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
-			log.Println(err)
+			rn.Logger.Info(err)
 			continue
 		}
 		stats := NewServerStats(uri, rn.channel)
@@ -266,7 +314,7 @@ func (rn *Runner) CollectAllStatus() error {
 		case <-timer.C:
 			rn.terminate()
 		default:
-			log.Print(<-rn.channel)
+			rn.Logger.Info(<-rn.channel)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -332,14 +380,14 @@ func (rn *Runner) Cleanup() error {
 	if rn.simOnly == false && rn.dbName == mdb.KeyholeDB {
 		ctx := context.Background()
 		if rn.collectionName == mdb.ExamplesCollection {
-			log.Println("dropping collection", mdb.KeyholeDB, mdb.ExamplesCollection)
+			rn.Logger.Info("dropping collection", mdb.KeyholeDB, mdb.ExamplesCollection)
 			if err = rn.client.Database(mdb.KeyholeDB).Collection(mdb.ExamplesCollection).Drop(ctx); err != nil {
-				log.Println(err)
+				rn.Logger.Info(err)
 			}
 		}
-		log.Println("dropping temp database", mdb.KeyholeDB)
+		rn.Logger.Info("dropping temp database", mdb.KeyholeDB)
 		if err = rn.client.Database(rn.dbName).Drop(ctx); err != nil {
-			log.Println(err)
+			rn.Logger.Info(err)
 		}
 	}
 
@@ -358,7 +406,7 @@ func (rn *Runner) splitChunks() error {
 		return err
 	}
 	primary := result["primary"].(string)
-	log.Println("Sharding collection:", ns)
+	rn.Logger.Info("Sharding collection:", ns)
 	cmd := bson.D{{Key: "enableSharding", Value: rn.dbName}}
 	if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
 		return err
@@ -367,7 +415,7 @@ func (rn *Runner) splitChunks() error {
 	if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
 		return err
 	}
-	log.Println("splitting chunks...")
+	rn.Logger.Info("splitting chunks...")
 	if cursor, err = rn.client.Database("config").Collection("shards").Find(ctx, bson.D{{}}); err != nil {
 		return err
 	}
@@ -375,7 +423,7 @@ func (rn *Runner) splitChunks() error {
 	for cursor.Next(ctx) {
 		v := bson.M{}
 		if err = cursor.Decode(&v); err != nil {
-			log.Println(err)
+			rn.Logger.Info(err)
 			continue
 		}
 		if primary != v["_id"].(string) {
@@ -392,7 +440,7 @@ func (rn *Runner) splitChunks() error {
 		}
 	}
 
-	log.Println("moving chunks...")
+	rn.Logger.Info("moving chunks...")
 	filter = bson.M{"ns": ns}
 	opts := options.Find()
 	opts.SetSort(bson.D{{Key: "_id", Value: -1}})
@@ -411,7 +459,7 @@ func (rn *Runner) splitChunks() error {
 		}
 		cmd := bson.D{{Key: "moveChunk", Value: ns}, {Key: "find", Value: v["min"].(bson.M)},
 			{Key: "to", Value: shards[i]["_id"].(string)}}
-		log.Printf("moving %v from %v to %v\n", v["min"], v["shard"], shards[i]["_id"])
+		rn.Logger.Info(fmt.Sprintf("moving %v from %v to %v", v["min"], v["shard"], shards[i]["_id"]))
 		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
 			log.Fatal(err)
 		}

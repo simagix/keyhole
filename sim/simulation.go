@@ -101,23 +101,23 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 	}
 	defer client.Disconnect(ctx)
 	c := client.Database(rn.dbName).Collection(rn.collectionName)
-	// metrics := map[string][]bson.M{}
+	// Metrics := map[string][]bson.M{}
 	minutes := 1
 
 	for run := 0; run < duration; run++ {
 		// be a minute transactions
 		stage := setupStage
-		if run == (duration - 1) {
+		if run == 0 {
+			totalTPS = rn.tps / 2
+		} else if duration > 2 && run == (duration-1) {
 			stage = teardownStage
 			totalTPS = rn.tps
-		} else if run > 0 && run < (duration-1) {
+		} else {
 			stage = thrashingStage
 			totalTPS = rn.tps
-		} else {
-			totalTPS = rn.tps / 2
 		}
 		if thread == 0 {
-			log.Println(stage, "TPS/connection:", totalTPS)
+			rn.Logger.Info(stage, " TPS/connection: ", totalTPS)
 		}
 		batchCount := 0
 		totalCount := 0
@@ -141,7 +141,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 							rn.mutex.Lock()
 							txCount += res["total"].(int)
 							delete(res, "total")
-							rn.metrics[connID] = append(rn.metrics[connID], res)
+							rn.Metrics[connID] = append(rn.Metrics[connID], res)
 							rn.mutex.Unlock()
 						}
 					} else {
@@ -151,7 +151,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 						txCount += res["total"].(int)
 						delete(res, "total")
 						rn.mutex.Lock()
-						rn.metrics[connID] = append(rn.metrics[connID], res)
+						rn.Metrics[connID] = append(rn.Metrics[connID], res)
 						rn.mutex.Unlock()
 					}
 				} else if stage == teardownStage {
@@ -167,9 +167,9 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 			}
 		} // for time.Now().Sub(beginTime) < time.Minute
 
-		if len(rn.metrics[connID]) > 0 {
+		if len(rn.Metrics[connID]) > 0 {
 			durations := map[string][]time.Duration{}
-			for _, res := range rn.metrics[connID] {
+			for _, res := range rn.Metrics[connID] {
 				for k, v := range res {
 					durations[k] = append(durations[k], v.(time.Duration))
 				}

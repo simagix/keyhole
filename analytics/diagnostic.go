@@ -19,6 +19,7 @@ import (
 
 	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/ftdc"
+	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -91,12 +92,12 @@ func (d *DiagnosticData) DecodeDiagnosticData(filenames []string) error {
 	}
 
 	if len(d.ServerStatusList) == 0 {
-		log.Println("no FTDC data found")
+		log.Println("no server status found")
 		t := time.Now().Unix() * 1000
 		minute := int64(60) * 1000
 		d.endpoints = append(d.endpoints, fmt.Sprintf(analyticsEndpoint, t, t+(10*minute)))
 	} else {
-		log.Printf("Stats from %v to %v\n", d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z"),
+		fmt.Printf("\nStats from %v to %v\n", d.ServerStatusList[0].LocalTime.Format("2006-01-02T15:04:05Z"),
 			d.ServerStatusList[len(d.ServerStatusList)-1].LocalTime.Format("2006-01-02T15:04:05Z"))
 		d.endpoints = append(d.endpoints, fmt.Sprintf(analyticsEndpoint,
 			d.ServerStatusList[0].LocalTime.Unix()*1000,
@@ -112,8 +113,14 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string) (string, error)
 	}
 	strs := []string{}
 	if d.ServerInfo != nil {
-		b, _ := json.MarshalIndent(d.ServerInfo, "", "  ")
-		strs = append(strs, string(b))
+		var p mdb.ClusterStats
+		b, _ := json.Marshal(d.ServerInfo)
+		json.Unmarshal(b, &p)
+
+		result := fmt.Sprintf(`MongoDB v%v %v (%v) %v %v %v cores %v mem`,
+			p.BuildInfo.Version, p.HostInfo.System.Hostname, p.HostInfo.OS.Name,
+			p.ServerStatus.Process, p.Cluster, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
+		strs = append(strs, result)
 	}
 	strs = append(strs, PrintAllStats(d.ServerStatusList, -1))
 	return strings.Join(strs, "\n"), nil
@@ -152,7 +159,9 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	sort.Strings(filenames)
 	if strings.Index(filenames[0], "keyhole_stats.") >= 0 {
 		for _, filename := range filenames {
-			d.analyzeServerStatus(filename)
+			if err = d.analyzeServerStatusFromFile(filename); err != nil {
+				return err
+			}
 		}
 		return err
 	}
@@ -237,18 +246,24 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	return diagData, err
 }
 
-// analyzeServerStatus -
-func (d *DiagnosticData) analyzeServerStatus(filename string) error {
+// analyzeServerStatus analyzes serverStatus from a file
+func (d *DiagnosticData) analyzeServerStatusFromFile(filename string) error {
 	var err error
 	var reader *bufio.Reader
-	var allDocs = []ServerStatusDoc{}
-	var docs = []ServerStatusDoc{}
-	var allRepls = []ReplSetStatusDoc{}
-	var repls = []ReplSetStatusDoc{}
 
 	if reader, err = gox.NewFileReader(filename); err != nil {
 		return err
 	}
+	return d.AnalyzeServerStatus(reader)
+}
+
+// AnalyzeServerStatus -
+func (d *DiagnosticData) AnalyzeServerStatus(reader *bufio.Reader) error {
+	var err error
+	var allDocs = []ServerStatusDoc{}
+	var docs = []ServerStatusDoc{}
+	var allRepls = []ReplSetStatusDoc{}
+	var repls = []ReplSetStatusDoc{}
 
 	cnt := 0
 	for {
@@ -257,15 +272,21 @@ func (d *DiagnosticData) analyzeServerStatus(filename string) error {
 			break
 		}
 		cnt++
-		if cnt%3 == 1 {
-			json.Unmarshal(line, &docs)
+		if cnt%3 == 1 { // serverStatus
+			if err = json.Unmarshal(line, &docs); err != nil {
+				return err
+			}
 			allDocs = append(allDocs, docs...)
-		} else if cnt%3 == 2 { // serverInfo
-			json.Unmarshal(line, &repls)
+		} else if cnt%3 == 2 { // replica
+			if err = json.Unmarshal(line, &repls); err != nil {
+				return err
+			}
 			allRepls = append(allRepls, repls...)
 		} else if cnt == 3 { // serverInfo
 			d.ServerInfo = bson.M{}
-			json.Unmarshal(line, &d.ServerInfo)
+			if err = json.Unmarshal(line, &d.ServerInfo); err != nil {
+				return err
+			}
 		}
 	}
 

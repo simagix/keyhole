@@ -4,16 +4,15 @@ package sim
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/simagix/gox"
 	anly "github.com/simagix/keyhole/analytics"
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
@@ -51,13 +50,8 @@ type ServerStats struct {
 
 // NewServerStats gets server status
 func NewServerStats(uri string, channel chan string) *ServerStats {
-	connStr, _ := connstring.Parse(uri)
-	mkey := connStr.ReplicaSet
-	if mkey == "" {
-		mkey = mdb.Standalone
-	}
 	freq := Frequency{serverStatus: 5, replset: 10}
-	return &ServerStats{channel: channel, uri: uri, mkey: mkey, freq: freq}
+	return &ServerStats{channel: channel, uri: uri, mkey: getReplicaSetName(uri), freq: freq}
 }
 
 // SetVerbose sets verbose
@@ -87,14 +81,23 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 		rstr := fmt.Sprintf("getServerStatus gets every %d seconds(s)\n", st.freq.serverStatus)
 		st.channel <- rstr
 	}
-	st.channel <- "[" + st.mkey + "] getServerStatus begins\n"
+	st.channel <- "[" + st.mkey + "] getServerStatus begins"
 	for {
 		serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
 		buf, _ := bson.Marshal(serverStatus)
 		bson.Unmarshal(buf, &stat)
 		serverStatusDocs[st.uri] = append(serverStatusDocs[st.uri], stat)
 		if len(serverStatusDocs[st.uri]) > 600 {
-			st.saveServerStatusDocsToFile(st.uri)
+			var err error
+			var data []byte
+			if data, err = getServerStatusData(st.uri); err != nil {
+				return err
+			}
+			filename := keyholeStatsDataFile + "-" + st.mkey + ".gz"
+			gox.OutputGzipped(data, filename)
+			// also resets
+			serverStatusDocs[st.uri] = []anly.ServerStatusDoc{}
+			replSetStatusDocs[st.uri] = []anly.ReplSetStatusDoc{}
 		}
 
 		var msg1, msg2 string
@@ -106,9 +109,9 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 		if len(serverStatusDocs[st.uri]) > 6 && len(serverStatusDocs[st.uri])%6 == 1 {
 			pstat = serverStatusDocs[st.uri][len(serverStatusDocs[st.uri])-7]
 			if stat.Host == pstat.Host {
-				str += fmt.Sprintf(", page faults: %d, iops: %.1f\n",
+				str += fmt.Sprintf(", page faults: %d, iops: %.1f",
 					(stat.ExtraInfo.PageFaults - pstat.ExtraInfo.PageFaults), iops)
-				msg1 = fmt.Sprintf("[%s] CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d\n",
+				msg1 = fmt.Sprintf("[%s] CRUD+  - insert: %d, find: %d, update: %d, delete: %d, getmore: %d, command: %d",
 					st.mkey, stat.OpCounters.Insert-pstat.OpCounters.Insert,
 					stat.OpCounters.Query-pstat.OpCounters.Query,
 					stat.OpCounters.Update-pstat.OpCounters.Update,
@@ -127,13 +130,13 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 				if stat.OpLatencies.Commands.Ops > 0 {
 					c = float64(stat.OpLatencies.Commands.Latency) / float64(stat.OpLatencies.Commands.Ops) / 1000
 				}
-				msg2 = fmt.Sprintf("[%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)\n",
+				msg2 = fmt.Sprintf("[%s] Latency- read: %.1f, write: %.1f, command: %.1f (ms)",
 					st.mkey, r, w, c)
 			} else {
-				str += "\n"
+				str += ""
 			}
 		} else {
-			str += "\n"
+			str += ""
 		}
 		if len(serverStatusDocs[st.uri])%6 == 1 {
 			st.channel <- str
@@ -159,10 +162,10 @@ func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
 	var replSetStatus = anly.ReplSetStatusDoc{}
 	var doc bson.M
 	if st.verbose {
-		rstr := fmt.Sprintf("ReplSetGetStatus gets every minute\n")
+		rstr := fmt.Sprintf("ReplSetGetStatus gets every minute")
 		st.channel <- rstr
 	}
-	st.channel <- "[" + st.mkey + "] ReplSetGetStatus begins\n"
+	st.channel <- "[" + st.mkey + "] ReplSetGetStatus begins"
 
 	for {
 		doc, err = mdb.RunAdminCommand(client, "replSetGetStatus")
@@ -203,7 +206,7 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 	var dataSize float64
 	prevTime := time.Now()
 	now := prevTime
-	st.channel <- "[" + st.mkey + "] getDBStats begins\n"
+	st.channel <- "[" + st.mkey + "] getDBStats begins"
 	for i := 0; i < 30; i++ { // no need to get after 5 minutes
 		if err == nil {
 			stat, _ := mdb.RunCommandOnDB(client, "dbStats", dbName)
@@ -215,7 +218,7 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 			sec := now.Sub(prevTime).Seconds()
 			delta := (dataSize - prevDataSize) / mb / sec
 			if sec > 5 && delta >= 0 {
-				str := fmt.Sprintf("[%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec\n",
+				str := fmt.Sprintf("[%s] Storage: %.1f -> %.1f, rate: %.1f MB/sec",
 					st.mkey, prevDataSize/mb, dataSize/mb, delta)
 				st.channel <- str
 			}
@@ -225,7 +228,7 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 		}
 		time.Sleep(10 * time.Second)
 	}
-	st.channel <- "[" + st.mkey + "] getDBStats exiting...\n"
+	st.channel <- "[" + st.mkey + "] getDBStats exiting..."
 	return err
 }
 
@@ -236,7 +239,7 @@ func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 		}
 	}()
 	var err error
-	st.channel <- "[" + st.mkey + "] getMongoConfig begins\n"
+	st.channel <- "[" + st.mkey + "] getMongoConfig begins"
 	serverInfoDocs[st.uri] = anly.ServerInfoDoc{}
 	var config = bson.M{}
 	// hostInfo
@@ -254,62 +257,8 @@ func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 	cfg := serverInfoDocs[st.uri]
 	bson.Unmarshal(buf, &cfg)
 	serverInfoDocs[st.uri] = cfg
-	st.channel <- "[" + st.mkey + "] mongo version: " + serverInfoDocs[st.uri].BuildInfo.Version + "\n"
+	st.channel <- "[" + st.mkey + "] mongo version: " + serverInfoDocs[st.uri].BuildInfo.Version
 	return err
-}
-
-// printServerStatus prints serverStatusDocs summary for the duration
-func (st *ServerStats) printServerStatus(client *mongo.Client) (string, error) {
-	var err error
-	var stat anly.ServerStatusDoc
-	var filename string
-	var str string
-	serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
-	buf, _ := bson.Marshal(serverStatus)
-	bson.Unmarshal(buf, &stat)
-	serverStatusDocs[st.uri] = append(serverStatusDocs[st.uri], stat)
-	if filename, err = st.saveServerStatusDocsToFile(st.uri); err != nil {
-		return filename, err
-	}
-	var filenames = []string{filename}
-	d := anly.NewDiagnosticData()
-	if str, err = d.PrintDiagnosticData(filenames); err != nil {
-		return filename, err
-	}
-	fmt.Println(str)
-	return filename, err
-}
-
-// saveServerStatusDocsToFile appends []ServerStatusDoc to a file
-func (st *ServerStats) saveServerStatusDocsToFile(uri string) (string, error) {
-	var file *os.File
-	var err error
-	var filename string
-	filename = keyholeStatsDataFile + "-" + st.mkey + ".gz"
-	sbuf, _ := json.Marshal(serverStatusDocs[uri])
-	serverStatusDocs[uri] = []anly.ServerStatusDoc{}
-	rbuf, _ := json.Marshal(replSetStatusDocs[uri])
-	replSetStatusDocs[uri] = []anly.ReplSetStatusDoc{}
-	cbuf, _ := json.Marshal(serverInfoDocs[uri])
-	var zbuf bytes.Buffer
-	gz := gzip.NewWriter(&zbuf)
-	gz.Write(sbuf)
-	gz.Write([]byte{'\n'})
-	gz.Write(rbuf)
-	gz.Write([]byte{'\n'})
-	gz.Write(cbuf)
-	gz.Write([]byte{'\n'})
-	gz.Close() // close this before flushing the bytes to the buffer.
-
-	if file, err = os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0644); err != nil {
-		if file, err = os.Create(filename); err != nil {
-			return filename, err
-		}
-	}
-	defer file.Close()
-	file.Write(zbuf.Bytes())
-	file.Sync()
-	return filename, err
 }
 
 func (st *ServerStats) collectMetrics(client *mongo.Client, key string) {
@@ -327,4 +276,35 @@ func (st *ServerStats) collectMetrics(client *mongo.Client, key string) {
 		metrics.AddFTDCDetailStats(&diag)
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func getServerStatusData(uri string) ([]byte, error) {
+	var err error
+	var buf bytes.Buffer
+	var data []byte
+	if data, err = json.Marshal(serverStatusDocs[uri]); err != nil {
+		return data, err
+	}
+	buf.Write(data)
+	buf.Write([]byte{'\n'})
+	if data, err = json.Marshal(replSetStatusDocs[uri]); err != nil {
+		return data, err
+	}
+	buf.Write(data)
+	buf.Write([]byte{'\n'})
+	if data, err = json.Marshal(serverInfoDocs[uri]); err != nil {
+		return data, err
+	}
+	buf.Write(data)
+	buf.Write([]byte{'\n'})
+	return buf.Bytes(), err
+}
+
+func getReplicaSetName(uri string) string {
+	connStr, _ := connstring.Parse(uri)
+	name := connStr.ReplicaSet
+	if name == "" {
+		name = mdb.Standalone
+	}
+	return name
 }

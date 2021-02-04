@@ -253,8 +253,9 @@ func Run(fullVersion string) {
 		return
 	}
 
-	fmt.Println(GetClusterSummary(fullVersion, client))
+	clusterSummary := GetClusterSummary(fullVersion, client)
 	if *info == true {
+		fmt.Println(clusterSummary)
 		return
 	}
 
@@ -264,6 +265,7 @@ func Run(fullVersion string) {
 		log.Println(http.ListenAndServe(addr, nil))
 	}()
 	if *wt == true {
+		fmt.Println(clusterSummary)
 		log.Printf("URL: http://localhost:%d/wt\n", *port)
 		MonitorWiredTigerCache(fullVersion, client)
 	}
@@ -272,10 +274,13 @@ func Run(fullVersion string) {
 	if runner, err = sim.NewRunner(connString); err != nil {
 		log.Fatal(err)
 	}
+	logger := mdb.NewLogger(fullVersion, "")
+	logger.Info(clusterSummary)
 	runner.SetAutoMode(*yes)
 	runner.SetCollection(*collection)
 	runner.SetDropFirstMode(*drop)
 	runner.SetDuration(*duration)
+	runner.SetLogger(logger)
 	runner.SetNumberConnections(*conn)
 	runner.SetPeekingMode(*peek)
 	runner.SetSimOnlyMode(*simonly)
@@ -283,6 +288,7 @@ func Run(fullVersion string) {
 	runner.SetTPS(*tps)
 	runner.SetTransactionTemplate(*tx)
 	runner.SetVerbose(*verbose)
+
 	if err = StartSimulation(runner); err != nil {
 		log.Fatal(err)
 	}

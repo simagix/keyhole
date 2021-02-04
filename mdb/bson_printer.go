@@ -45,7 +45,7 @@ func (p *BSONPrinter) Print(filename string) error {
 	}
 	bson.Unmarshal(data, &doc)
 	if doc["keyhole"] == nil {
-		return errors.New("unsupported")
+		return errors.New("unsupported, keyhole signature not found")
 	}
 	var logger Logger
 	if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
@@ -57,7 +57,6 @@ func (p *BSONPrinter) Print(filename string) error {
 	} else {
 		return err
 	}
-
 	if strings.HasSuffix(filename, "-log.bson.gz") {
 		li := NewLogInfo(p.version)
 		if err = li.AnalyzeFile(filename); err != nil {
@@ -77,7 +76,21 @@ func (p *BSONPrinter) Print(filename string) error {
 			return err
 		}
 	} else if strings.HasSuffix(filename, ".bson.gz") {
-		if strings.HasSuffix(filename, "-stats.bson.gz") {
+		if strings.HasSuffix(filename, "-perf.bson.gz") {
+			type Perf struct {
+				Logger  *Logger             `bson:"keyhole"`
+				Metrics map[string][]bson.M `bson:"metrics"`
+				Results []string            `bson:"results"`
+			}
+			var perf Perf
+			if err = bson.Unmarshal(data, &perf); err != nil {
+				return err
+			}
+			for _, res := range perf.Results {
+				fmt.Println(res)
+			}
+			delete(doc, "results")
+		} else if strings.HasSuffix(filename, "-stats.bson.gz") {
 			var cluster ClusterStats
 			if err = bson.Unmarshal(data, &cluster); err != nil {
 				return err
