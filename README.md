@@ -38,7 +38,7 @@ Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 
 ## Build
 
-You need `go` installed.
+You need `go` installed to build.
 
 ```bash
 mkdir -p $GOPATH/src/github.com/simagix

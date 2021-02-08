@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -71,7 +70,7 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	stats.GetClusterStatsSummary(runner.client)
 	runner.clusterType = stats.Cluster
 	if runner.clusterType == "" {
-		return nil, errors.New("invalid cluster type: " + runner.clusterType)
+		runner.Logger.Warn("unable to retrieve cluster type")
 	}
 	runner.uriList = []string{connString.String()}
 	if runner.clusterType == mdb.Sharded {
@@ -82,7 +81,7 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 		}
 	}
 	runner.uri = runner.uriList[len(runner.uriList)-1]
-	return &runner, err
+	return &runner, nil
 }
 
 // SetCollection set collection name
