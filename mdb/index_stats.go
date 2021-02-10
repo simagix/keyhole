@@ -169,7 +169,7 @@ func (ix *IndexStats) GetIndexesFromDB(client *mongo.Client, db string) ([]Colle
 		if err = cur.Decode(&elem); err != nil {
 			continue
 		}
-		if strings.HasPrefix(elem.Name, "system.") || elem.Type != "collection" {
+		if strings.HasPrefix(elem.Name, "system.") || (elem.Type != "" && elem.Type != "collection") {
 			if ix.verbose == true {
 				ix.Logger.Info("skip", elem.Name)
 			}
