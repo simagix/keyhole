@@ -1,10 +1,10 @@
 # Keyhole - Survey Your Mongo Land
 
-Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to analyze performance of a MongoDB cluster.  Golang was chosen to eliminate the needs to install an interpreter or software modules.
+Keyhole is a performance analytics tool, written in GO (Golang), to collect stats and to analyze performance for MongoDB clusters.  Golang was chosen to eliminate the needs to install an interpreter or software modules.  Use [Maobi](https://www.simagix.com/2021/02/maobi-reports-generator-for-keyhole.html) to create HTML reports from data collected by Keyhole.
 
 ## Blogs
 
-Peek at your MongoDB Clusters like a Pro with Keyhole
+Peek at your MongoDB Clusters like a Pro with Keyhole:
 
 - [Part 1](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-1)
 - [Part 2](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-2)
@@ -48,13 +48,7 @@ cd keyhole
 ./build.sh
 ```
 
-### Cross Platform Build
-
-The `build.sh` script can build executables for Linux, macos, and Windows using the command below.
-
-```bash
-./build.sh cross-platform
-```
+Additional build and download details are available at [Build and Download Keyhole](https://www.simagix.com/2021/02/build-and-download-keyhole_7.html).
 
 ## Usage
 
