@@ -10,6 +10,7 @@ Peek at your MongoDB Clusters like a Pro with Keyhole:
 - [Part 2](https://www.mongodb.com/blog/post/peek-at-your-mongodb-clusters-like-a-pro-with-keyhole-part-2)
 - [Part 3](https://www.mongodb.com/blog/post/peek-your-clusters-like-pro-with-keyhole-part-3)
 
+Updated post is available at [Survey Your Mongo Land](https://www.simagix.com/2021/02/survey-your-mongo-land.html).
 ## Use Cases
 
 With Keyhole, experienced users should be able to spot performance issues and to determine whether upgrades are needed quickly from a few minutes of testing and analyzing the results.  Keyhole supports TLS/SSL connections.
