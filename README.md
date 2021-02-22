@@ -1,6 +1,6 @@
 # Keyhole - Survey Your Mongo Land
 
-Keyhole is a performance analytics tool, written in GO (Golang), to collect stats and to analyze performance for MongoDB clusters.  Golang was chosen to eliminate the needs to install an interpreter or software modules.  Use [Maobi](https://www.simagix.com/2021/02/maobi-reports-generator-for-keyhole.html) to create HTML reports from data collected by Keyhole.
+![keyhole](/keyhole-logo-40x40.png) Keyhole is a performance analytics tool, written in GO (Golang), to collect stats and to analyze performance for MongoDB clusters.  Golang was chosen to eliminate the needs to install an interpreter or software modules.  Use [Maobi](https://www.simagix.com/2021/02/maobi-reports-generator-for-keyhole.html) to create HTML reports from data collected by Keyhole.
 
 ## Blogs
 
