@@ -25,31 +25,21 @@ Several features are available, and they are
   - Metrics: index keys examined, collection scan, in-memory sort, and ops
   - WiredTiger analytic
 - Customized load test with a sample document.  Uses can load test using their own document format (see [simulation.md](simulation.md) for details).
-- [Cluster Info and Sanity Check](https://github.com/simagix/keyhole/wiki/MongoDB-Cluster-Info) to display information of a cluster including stats to help determine working set data size.
+- [Cluster Info and Sanity Check](https://www.simagix.com/2021/02/survey-your-mongo-land.html) to display information of a cluster including stats to help determine working set data size.
 - [Display all indexes and their usages](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes)
 - [Duplicate all indexes](https://github.com/simagix/keyhole/wiki/View-Indexes-Usages-and-Copy-Indexes) to another MongoDB cluster.
 - [Seed data](https://github.com/simagix/keyhole/wiki/Seed-Data-using-a-Template) for demo and educational purposes as a trainer.
-- [Display average ops time](https://github.com/simagix/keyhole/wiki/Logs-Analytics) and query patterns by parsing logs.
+- [Display ops time](https://www.simagix.com/2021/02/feel-pulse-of-mongo.html) and query patterns by parsing logs.
 - [Display indexes scores](https://github.com/simagix/keyhole/wiki/Indexes-Scores-and-Explain) of a query shape.
-- [Monitor WiredTiger Cache](https://github.com/simagix/keyhole/wiki/WiredTiger-Cache-Usage) in near real time.
+- [Monitor WiredTiger Cache](https://www.simagix.com/2021/02/peek-into-wiredtiger-cache.html) in near real time.
 - [View FTDC Data and scores](https://github.com/simagix/keyhole/wiki/MongoDB-FTDC-and-Grafana-Integration) with a friendly interface.
 - [MongoDB Atlas API](https://github.com/simagix/keyhole/wiki/Atlas-API) integration.
 
 Refer to [wiki](https://github.com/simagix/keyhole/wiki) for user's guide.
 
-## Build
+## Build and Download
 
-You need `go` installed to build.
-
-```bash
-mkdir -p $GOPATH/src/github.com/simagix
-cd $GOPATH/src/github.com/simagix
-git clone --depth 1 https://github.com/simagix/keyhole.git
-cd keyhole
-./build.sh
-```
-
-Additional build and download details are available at [Build and Download Keyhole](https://www.simagix.com/2021/02/build-and-download-keyhole_7.html).
+Build and download instructions are available at [Build and Download Keyhole](https://www.simagix.com/2021/02/build-and-download-keyhole_7.html).
 
 ## Usage
 
