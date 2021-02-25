@@ -158,7 +158,7 @@ func (p *Comparison) compare() error {
 		p.Logger.Info(fmt.Sprintf("Database %v", db.Name))
 		nColl := 0
 		if i < len(p.TargetStats.Databases) {
-			nColl = len(p.TargetStats.Databases[i].Collections)
+			nColl = len(dbMap[db.Name].Collections)
 		}
 		p.Logger.Info(printer.Sprintf(" ├─Number of Collections:\t%12d%v\t%12d%v",
 			len(db.Collections), p.getColor(int64(len(db.Collections)), int64(nColl)), nColl, codeDefault))
