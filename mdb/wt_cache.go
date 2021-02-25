@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -38,7 +39,8 @@ func (wtc *WiredTigerCache) Start(client *mongo.Client) {
 	if ss, err = GetServerStatus(client); err != nil {
 		panic(ss)
 	}
-	if ss.Process != "mongod" {
+	proc := filepath.Base(ss.Process)
+	if proc != "mongod" && proc != "mongod.exe" {
 		fmt.Println(fmt.Sprintf(`connected to %v, exiting...`, ss.Process))
 		os.Exit(0)
 	}
