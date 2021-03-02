@@ -373,7 +373,9 @@ func (f *Seed) seedCollection(c *mongo.Collection, fnum int) int {
 			var contentArray []interface{}
 			for n := 0; n < num; n++ {
 				if fnum == 1 {
-					contentArray = append(contentArray, getVehicle())
+					doc := getVehicle()
+					doc["_batch"] = n % 4
+					contentArray = append(contentArray, doc)
 				} else if fnum == 2 {
 					contentArray = append(contentArray, util.GetDemoDoc())
 				}
