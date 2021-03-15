@@ -333,9 +333,10 @@ func (li *LogInfo) OutputBSON() error {
 	fmt.Println("bson log info written to", bsonf)
 
 	// output tsv file
-	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "Index(es) Used", "Query Pattern")}
+	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "Index(es) Used", "Query Pattern")}
 	for i, doc := range li.OpPatterns {
-		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, doc.TotalMilli, doc.MaxMilli, doc.Command,
+		avg := float64(doc.TotalMilli) / float64(doc.Count)
+		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, avg, doc.MaxMilli, doc.Count,
 			doc.TotalMilli, doc.Namespace, doc.Index, doc.Filter))
 	}
 	tsvf = outdir + tsvf
