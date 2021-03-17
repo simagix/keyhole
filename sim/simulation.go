@@ -167,9 +167,12 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 			}
 		} // for time.Now().Sub(beginTime) < time.Minute
 
-		if len(rn.Metrics[connID]) > 0 {
+		rn.mutex.Lock()
+		metrics := rn.Metrics[connID]
+		rn.mutex.Unlock()
+		if len(metrics) > 0 {
 			durations := map[string][]time.Duration{}
-			for _, res := range rn.Metrics[connID] {
+			for _, res := range metrics {
 				for k, v := range res {
 					durations[k] = append(durations[k], v.(time.Duration))
 				}
