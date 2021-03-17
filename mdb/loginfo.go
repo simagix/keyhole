@@ -331,13 +331,13 @@ func (li *LogInfo) OutputBSON() error {
 	bsonf = outdir + bsonf
 	gox.OutputGzipped(data, bsonf)
 	fmt.Println("bson log info written to", bsonf)
-
+	re := regexp.MustCompile(`\r?\n`)
 	// output tsv file
-	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "Index(es) Used", "Query Pattern")}
+	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
 	for i, doc := range li.OpPatterns {
 		avg := float64(doc.TotalMilli) / float64(doc.Count)
-		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, avg, doc.MaxMilli, doc.Count,
-			doc.TotalMilli, doc.Namespace, doc.Index, doc.Filter))
+		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avg), doc.MaxMilli, doc.Count,
+			doc.TotalMilli, doc.Namespace, doc.Scan, re.ReplaceAllString(doc.Index, " "), doc.Filter))
 	}
 	tsvf = outdir + tsvf
 	data = []byte(strings.Join(lines, "\n"))
