@@ -58,7 +58,10 @@ type ServerStatus struct {
 	StorageEngine struct {
 		Name string `bson:"name"`
 	} `bson:"storageEngine"`
-	Version string `bson:"version"`
+	Version    string `bson:"version"`
+	WiredTiger struct {
+		Cache bson.M `bson:"cache"`
+	} `bson:"wiredTiger"`
 }
 
 // GetServerStatus returns MongoDB build information
