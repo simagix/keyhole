@@ -150,16 +150,13 @@ func (p *Comparison) compare() error {
 	p.Logger.Info("=== Comparison Results (source vs. target) ===")
 	p.Logger.Info(printer.Sprintf("Number of Databases:       \t%12d%v\t%12d%v",
 		len(p.SourceStats.Databases), p.getColor(int64(len(p.SourceStats.Databases)), int64(len(p.TargetStats.Databases))), len(p.TargetStats.Databases), codeDefault))
-	for i, db := range p.SourceStats.Databases {
+	for _, db := range p.SourceStats.Databases {
 		collMap := map[string]mdb.Collection{}
 		for i, coll := range dbMap[db.Name].Collections {
 			collMap[coll.NS] = dbMap[db.Name].Collections[i]
 		}
 		p.Logger.Info(fmt.Sprintf("Database %v", db.Name))
-		nColl := 0
-		if i < len(p.TargetStats.Databases) {
-			nColl = len(dbMap[db.Name].Collections)
-		}
+		nColl := len(dbMap[db.Name].Collections)
 		p.Logger.Info(printer.Sprintf(" ├─Number of Collections:\t%12d%v\t%12d%v",
 			len(db.Collections), p.getColor(int64(len(db.Collections)), int64(nColl)), nColl, codeDefault))
 		p.Logger.Info(printer.Sprintf(" ├─Number of Indexes:    \t%12d%v\t%12d%v (all shards)",
