@@ -188,7 +188,7 @@ func (f *Seed) seedRobots(client *mongo.Client) error {
 		descr := fmt.Sprintf("%s %s", model, name)
 		year := time.Now().Year() - rand.Intn(5)
 		if _, err = modelsCollection.InsertOne(ctx, &Model{model, name, descr, year}); err != nil {
-			log.Fatal(err)
+			continue
 		}
 
 		for r := 0; r < 2+rand.Intn(20); r++ {
@@ -267,7 +267,7 @@ func (f *Seed) SeedVehicles(client *mongo.Client) error {
 		opts := options.Update()
 		opts.SetUpsert(true)
 		if _, err := dealersCollection.UpdateOne(ctx, bson.M{"_id": dealerID}, bson.M{"$set": bson.M{"name": dealers[i]}}, opts); err != nil {
-			log.Fatal(err)
+			continue
 		}
 	}
 
@@ -482,7 +482,7 @@ func (f *Seed) seedFromTemplate(client *mongo.Client) error {
 		inserted, err := populateData(c, remaining, doc) // catchup
 		remaining -= inserted
 		if err != nil && mdb.IsUnauthorizedError(err) == true {
-			log.Fatal(err)
+
 		}
 	}
 
