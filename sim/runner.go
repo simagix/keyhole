@@ -62,8 +62,7 @@ func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	if runner.dbName == "" {
 		runner.dbName = mdb.KeyholeDB
 	}
-	if runner.client, err = mdb.NewMongoClient(connString.String(),
-		connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
+	if runner.client, err = mdb.NewMongoClient(connString.String()); err != nil {
 		return &runner, err
 	}
 	stats := mdb.NewClusterStats("")
@@ -221,7 +220,7 @@ func (rn *Runner) terminate() {
 	rn.Cleanup()
 	rn.Results = []string{}
 	for _, uri := range rn.uriList {
-		if client, err = mdb.NewMongoClient(uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
+		if client, err = mdb.NewMongoClient(uri); err != nil {
 			rn.Logger.Info(err)
 			continue
 		}
@@ -286,7 +285,7 @@ func (rn *Runner) CollectAllStatus() error {
 	var err error
 	for i, uri := range rn.uriList {
 		var client *mongo.Client
-		if client, err = mdb.NewMongoClient(uri, rn.connString.SSLCaFile, rn.connString.SSLClientCertificateKeyFile); err != nil {
+		if client, err = mdb.NewMongoClient(uri); err != nil {
 			rn.Logger.Info(err)
 			continue
 		}

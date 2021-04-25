@@ -61,6 +61,12 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		} else if isSRV == true {
 			ruri += "&authSource=admin&ssl=true"
 		}
+		if connString.SSLCaFile != "" {
+			ruri += "&tlsCAFile=" + connString.SSLCaFile
+		}
+		if connString.SSLClientCertificateKeyFile != "" {
+			ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
+		}
 		list = append(list, ruri)
 	}
 	return list, nil
@@ -93,6 +99,10 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 				}
 				if connString.SSLCaFile != "" {
 					ruri += "&ssl=true"
+					ruri += "&tlsCAFile=" + connString.SSLCaFile
+				}
+				if connString.SSLClientCertificateKeyFile != "" {
+					ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
 				}
 			}
 			list = append(list, ruri)

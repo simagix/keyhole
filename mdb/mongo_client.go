@@ -27,7 +27,7 @@ var KeyholeDB = "_KEYHOLE_88800"
 var ExamplesCollection = "__examples"
 
 // NewMongoClient new mongo client
-func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
+func NewMongoClient(uri string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
 	var connString connstring.ConnString
@@ -41,20 +41,20 @@ func NewMongoClient(uri string, files ...string) (*mongo.Client, error) {
 	if connString.Username == "" && connString.AuthMechanism == "" {
 		opts.Auth = nil
 	}
-	if len(files) > 0 && files[0] != "" {
+	if connString.SSLCaFile != "" {
 		connString.SSL = true
 		roots := x509.NewCertPool()
 		var caBytes []byte
-		if caBytes, err = ioutil.ReadFile(files[0]); err != nil {
+		if caBytes, err = ioutil.ReadFile(connString.SSLCaFile); err != nil {
 			return nil, err
 		}
 		if ok := roots.AppendCertsFromPEM(caBytes); !ok {
 			return client, errors.New("failed to parse root certificate")
 		}
 		var certs tls.Certificate
-		if len(files) >= 2 && files[1] != "" {
+		if connString.SSLClientCertificateKeyFile != "" {
 			var clientBytes []byte
-			if clientBytes, err = ioutil.ReadFile(files[1]); err != nil {
+			if clientBytes, err = ioutil.ReadFile(connString.SSLClientCertificateKeyFile); err != nil {
 				return nil, err
 			}
 			if certs, err = tls.X509KeyPair(clientBytes, clientBytes); err != nil {

@@ -54,8 +54,6 @@ func Run(fullVersion string) {
 	schema := flag.Bool("schema", false, "print schema")
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
-	tlsCAFile := flag.String("tlsCAFile", "", "TLS CA file")
-	tlsCertificateKeyFile := flag.String("tlsCertificateKeyFile", "", "TLS CertificateKey File")
 	tps := flag.Int("tps", 20, "number of trasaction per second per connection")
 	total := flag.Int("total", 1000, "nuumber of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
@@ -103,8 +101,6 @@ func Run(fullVersion string) {
 	} else if *compare {
 		comp := NewComparison(fullVersion)
 		comp.SetNoColor(*nocolor)
-		comp.SetTLSCAFile(*tlsCAFile)
-		comp.SetTLSCertificateKeyFile(*tlsCertificateKeyFile)
 		comp.SetVerbose(*verbose)
 		if err = comp.Run(); err != nil {
 			log.Fatal(err)
@@ -175,9 +171,7 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	}
 	uri = connString.String() // password can be injected if missing
-	connString.SSLCaFile = *tlsCAFile
-	connString.SSLClientCertificateKeyFile = *tlsCertificateKeyFile
-	if client, err = mdb.NewMongoClient(uri, *tlsCAFile, *tlsCertificateKeyFile); err != nil {
+	if client, err = mdb.NewMongoClient(uri); err != nil {
 		log.Fatal(err)
 	}
 

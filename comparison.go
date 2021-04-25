@@ -23,13 +23,11 @@ import (
 
 // Comparison contains parameters of comparison parameters
 type Comparison struct {
-	Logger                *mdb.Logger       `bson:"keyhole"`
-	SourceStats           *mdb.ClusterStats `bson:"source"`
-	TargetStats           *mdb.ClusterStats `bson:"target"`
-	nocolor               bool
-	tlsCAFile             string
-	tlsCertificateKeyFile string
-	verbose               bool
+	Logger      *mdb.Logger       `bson:"keyhole"`
+	SourceStats *mdb.ClusterStats `bson:"source"`
+	TargetStats *mdb.ClusterStats `bson:"target"`
+	nocolor     bool
+	verbose     bool
 }
 
 // NewComparison returns *Comparison
@@ -43,16 +41,6 @@ func NewComparison(keyholeVersion string) *Comparison {
 // SetNoColor set nocolor flag
 func (p *Comparison) SetNoColor(nocolor bool) {
 	p.nocolor = nocolor
-}
-
-// SetTLSCAFile sets cloneDataOnly
-func (p *Comparison) SetTLSCAFile(tlsCAFile string) {
-	p.tlsCAFile = tlsCAFile
-}
-
-// SetTLSCertificateKeyFile sets cloneDataOnly
-func (p *Comparison) SetTLSCertificateKeyFile(tlsCertificateKeyFile string) {
-	p.tlsCertificateKeyFile = tlsCertificateKeyFile
 }
 
 // SetVerbose sets verbose
@@ -97,8 +85,6 @@ func (p *Comparison) Run() error {
 	if sourceConnString, err = mdb.ParseURI(flag.Arg(0)); err != nil {
 		return err
 	}
-	sourceConnString.SSLCaFile = p.tlsCAFile
-	sourceConnString.SSLClientCertificateKeyFile = p.tlsCertificateKeyFile
 	if sourceClient, err = mdb.NewMongoClient(sourceConnString.String()); err != nil {
 		return err
 	}
@@ -106,8 +92,6 @@ func (p *Comparison) Run() error {
 	if targetConnString, err = mdb.ParseURI(flag.Arg(1)); err != nil {
 		return err
 	}
-	// targetConnString.SSLCaFile = *targetTLSCAFile
-	// targetConnString.SSLClientCertificateKeyFile = *targetTLSCertificateKeyFile
 	if targetClient, err = mdb.NewMongoClient(targetConnString.String()); err != nil {
 		return err
 	}

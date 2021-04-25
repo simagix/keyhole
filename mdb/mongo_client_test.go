@@ -29,7 +29,7 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 	var err error
 	var client *mongo.Client
 
-	uri := "mongodb://localhost/keyhole?replicaSet=replset"
+	uri := "mongodb://localhost/keyhole?replicaSet=replset&tlsCAFile=testdata/certs/ca.pem&tlsCertificateKeyFile=testdata/certs/client.pem"
 	if os.Getenv("DATABASE_URL") != "" {
 		uri = os.Getenv("DATABASE_URL")
 	}
@@ -54,6 +54,22 @@ func TestParseURI(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cs.Password != "$secret" {
+		t.Fatal(err)
+	}
+}
+
+func TestParseURITLSOptions(t *testing.T) {
+	var err error
+	var cs connstring.ConnString
+
+	uri := "mongodb://user:%24secret@localhost/keyhole?tlsCAFile=testdata/certs/ca.pem&tlsCertificateKeyFile=testdata/certs/client.pem"
+	if cs, err = ParseURI(uri); err != nil {
+		t.Fatal(err)
+	}
+	if cs.SSLCaFile != "testdata/certs/ca.pem" {
+		t.Fatal(err)
+	}
+	if cs.SSLClientCertificateKeyFile != "testdata/certs/client.pem" {
 		t.Fatal(err)
 	}
 }

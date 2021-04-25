@@ -3,7 +3,7 @@
 
 shutdownServer() {
     echo "Shutdown mongod" 
-    mongo --quiet ${DATABASE_URI} ${TLS} --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
+    mongo --quiet ${DATABASE_URI} ${TLS} ${TLS_CLIENT} --eval 'db.getSisterDB("admin").shutdownServer()' > /dev/null 2>&1
     rm -rf data/db data/mongod.log.*
     rm -f keyfile
     exit
@@ -32,7 +32,7 @@ chmod 400 out/keyfile
 
 if [[ -d "mdb/testdata/certs/" ]]; then
     export TLS="--tls"
-    export TLS_STR="&tls=true"
+    export TLS_STR="&tls=true&tlsCAFile=mdb/testdata/certs/ca.pem&tlsCertificateKeyFile=mdb/testdata/certs/client.pem"
     export TLS_MODE="--tlsMode requireTLS"
     export TLS_CLIENT="--tlsCAFile mdb/testdata/certs/ca.pem --tlsCertificateKeyFile mdb/testdata/certs/client.pem"
     export TLS_SERVER="--tlsCAFile mdb/testdata/certs/ca.pem --tlsCertificateKeyFile mdb/testdata/certs/server.pem"
@@ -45,8 +45,9 @@ mongo --quiet mongodb://user:password@localhost:30097/admin --eval 'rs.initiate(
 validate "init replica set"
 sleep 2
 
-export DATABASE_URI="${TLS_CLIENT} mongodb://user:password@localhost:30097/keyhole?authSource=admin&replicaSet=rs&readPreference=nearest${TLS_STR}"
-mongo --quiet ${DATABASE_URI} ${TLS} --eval 'version()'
+export DATABASE_URI="mongodb://user:password@localhost:30097/keyhole?authSource=admin&replicaSet=rs&readPreference=nearest${TLS_STR}"
+
+mongo --quiet ${DATABASE_URI} ${TLS} ${TLS_CLIENT} --eval 'version()'
 
 export EXEC="go run main/keyhole.go"
 # Test version
@@ -59,11 +60,6 @@ echo ; echo "==> Test printing cluster info (--info <uri>)"
 ${EXEC} --info ${DATABASE_URI}
 validate "--info <uri>"
 
-# Test All Info
-echo ; echo "==> Test printing cluster info (--allinfo <uri>)"
-${EXEC} --allinfo ${DATABASE_URI}
-validate "--allinfo ${DATABASE_URI}"
-
 # Test seed
 echo ; echo "==> Test seeding default docs (--seed <uri>)"
 ${EXEC} --seed ${DATABASE_URI}
@@ -73,10 +69,15 @@ echo ; echo "==> Test seeding default docs after dropping collection (--seed --d
 ${EXEC} --seed --drop ${DATABASE_URI}
 validate "--seed --drop ${DATABASE_URI}"
 
-mongo ${DATABASE_URI} ${TLS} --eval "db.setProfilingLevel(0, {slowms: -1})"
+# Test All Info
+echo ; echo "==> Test printing cluster info (--allinfo <uri>)"
+${EXEC} --allinfo ${DATABASE_URI}
+validate "--allinfo ${DATABASE_URI}"
+
+mongo ${DATABASE_URI} ${TLS} ${TLS_CLIENT} --eval "db.setProfilingLevel(0, {slowms: -1})"
 validate "failed to set profiling level"
-mongo ${DATABASE_URI} ${TLS} --eval 'db.vehicles.createIndex({color: 1})'
-mongo ${DATABASE_URI} ${TLS} --eval 'db.vehicles.createIndex({color: 1, style: 1})'
+mongo ${DATABASE_URI} ${TLS} ${TLS_CLIENT} --eval 'db.vehicles.createIndex({color: 1})'
+mongo ${DATABASE_URI} ${TLS} ${TLS_CLIENT} --eval 'db.vehicles.createIndex({color: 1, style: 1})'
 
 echo ; echo "==> Test seeding docs from a template (--file <file> --collection <collection> <uri>)"
 ${EXEC} --seed --file examples/template.json --collection template ${DATABASE_URI}
@@ -136,6 +137,10 @@ if [ "$1" != "" ]; then
     rm -f keyhole_*.gz
     validate "--yes"
 fi
+
+# Test compare
+${EXEC} --compare ${DATABASE_URI} ${DATABASE_URI}
+validate "--compare <uri> <uri>"
 
 # Test info Atlas
 echo ; echo "==> Test printing clusters summary (--info <atlas_uri>)"

@@ -165,7 +165,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			defer wg.Done()
 			defer p.Logger.Info(msg)
 			var sclient *mongo.Client
-			if sclient, err = NewMongoClient(uri, connString.SSLCaFile, connString.SSLClientCertificateKeyFile); err != nil {
+			if sclient, err = NewMongoClient(uri); err != nil {
 				p.Logger.Info(err.Error())
 				return
 			}
