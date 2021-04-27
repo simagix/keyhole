@@ -434,7 +434,7 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client, namespaces ...[]string
 				}
 
 				opt := options.Index()
-				opt.SetVersion(o.Version)
+				// opt.SetVersion(o.Version)
 				opt.SetName(o.Name)
 				if o.Background == true {
 					opt.SetBackground(o.Background)
