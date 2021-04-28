@@ -269,6 +269,7 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	}
 	logger := mdb.NewLogger(fullVersion, "")
+	logger.Info(fullVersion)
 	logger.Info(clusterSummary)
 	runner.SetAutoMode(*yes)
 	runner.SetCollection(*collection)

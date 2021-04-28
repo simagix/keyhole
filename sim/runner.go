@@ -438,6 +438,9 @@ func (rn *Runner) splitChunks() error {
 		}
 	}
 
+	if len(shards) < 2 {
+		return nil
+	}
 	rn.Logger.Info("moving chunks...")
 	filter = bson.M{"ns": ns}
 	opts := options.Find()
