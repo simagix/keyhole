@@ -50,14 +50,19 @@ func (p *Comparison) SetVerbose(verbose bool) {
 
 // Run executes compare commands
 func (p *Comparison) Run() error {
-	var err error
 	if len(flag.Args()) < 2 {
 		return fmt.Errorf(`usage: keyhole -compare source_uri target_uri`)
 	}
-	if strings.HasSuffix(flag.Arg(0), "-stats.bson.gz") && strings.HasSuffix(flag.Arg(1), "-stats.bson.gz") {
+	return p.Compare(flag.Arg(0), flag.Arg(1))
+}
+
+// Compare executes compare commands
+func (p *Comparison) Compare(source string, target string) error {
+	var err error
+	if strings.HasSuffix(source, "-stats.bson.gz") && strings.HasSuffix(target, "-stats.bson.gz") { // compare files
 		var data []byte
 		var fd *bufio.Reader
-		if fd, err = gox.NewFileReader(flag.Arg(0)); err != nil {
+		if fd, err = gox.NewFileReader(source); err != nil {
 			return err
 		}
 		if data, err = ioutil.ReadAll(fd); err != nil {
@@ -66,7 +71,7 @@ func (p *Comparison) Run() error {
 		if err = bson.Unmarshal(data, p.SourceStats); err != nil {
 			return err
 		}
-		if fd, err = gox.NewFileReader(flag.Arg(1)); err != nil {
+		if fd, err = gox.NewFileReader(target); err != nil {
 			return err
 		}
 		if data, err = ioutil.ReadAll(fd); err != nil {
@@ -82,14 +87,14 @@ func (p *Comparison) Run() error {
 	var sourceConnString connstring.ConnString
 	var targetConnString connstring.ConnString
 	// connection string is required from here forward
-	if sourceConnString, err = mdb.ParseURI(flag.Arg(0)); err != nil {
+	if sourceConnString, err = mdb.ParseURI(source); err != nil {
 		return err
 	}
 	if sourceClient, err = mdb.NewMongoClient(sourceConnString.String()); err != nil {
 		return err
 	}
 
-	if targetConnString, err = mdb.ParseURI(flag.Arg(1)); err != nil {
+	if targetConnString, err = mdb.ParseURI(target); err != nil {
 		return err
 	}
 	if targetClient, err = mdb.NewMongoClient(targetConnString.String()); err != nil {
