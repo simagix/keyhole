@@ -400,24 +400,49 @@ func (ix *IndexStats) PrintIndexesOf(databases []Database) {
 	}
 }
 
+// IndexNS defines from and to namespaces
+type IndexNS struct {
+	From string
+	To   string
+}
+
 // CreateIndexes creates indexes
 func (ix *IndexStats) CreateIndexes(client *mongo.Client, namespaces ...[]string) error {
+	indexNamespaces := []IndexNS{}
+	if len(namespaces) > 0 {
+		for _, v := range namespaces[0] {
+			indexNamespaces = append(indexNamespaces, IndexNS{From: v, To: v})
+		}
+	}
+	return ix.CreateIndexesWithDest(client, indexNamespaces)
+}
+
+// CreateIndexesWithDest creates indexes
+func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []IndexNS) error {
 	var ctx = context.Background()
 	var err error
 	namespaceMap := map[string]bool{}
+	indexMap := map[string]string{}
 	if len(namespaces) > 0 {
-		for _, ns := range namespaces[0] {
-			namespaceMap[ns] = true
+		for _, ns := range namespaces {
+			namespaceMap[ns.From] = true
+			indexMap[ns.From] = ns.To
 		}
 	}
 	for _, db := range ix.Databases {
 		for _, coll := range db.Collections {
-			ns := db.Name + "." + coll.Name
+			dbName := db.Name
+			collName := coll.Name
+			ns := dbName + "." + collName
 			if SkipNamespace(ns, namespaceMap) == true {
 				continue
 			}
-			client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: coll.Name}, {Key: "index", Value: "*"}})
-			collection := client.Database(db.Name).Collection(coll.Name)
+			if indexMap[ns] != "" {
+				dbName, collName = SplitNamespace(indexMap[ns])
+				ns = dbName + "." + collName
+			}
+			client.Database(dbName).RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: collName}, {Key: "index", Value: "*"}})
+			collection := client.Database(dbName).Collection(collName)
 			indexes := []mongo.IndexModel{}
 			for _, o := range coll.Indexes {
 				if o.IsShardKey == true {
@@ -460,7 +485,7 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client, namespaces ...[]string
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
 				}
-				ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, coll.NS))
+				ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, ns))
 				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
 			}
 			if _, err = collection.Indexes().CreateMany(ctx, indexes); err != nil {
