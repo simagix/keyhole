@@ -63,6 +63,7 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		}
 		opts.SetTLSConfig(&tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}})
 	}
+	opts.SetServerSelectionTimeout(5 * time.Second)
 	if client, err = mongo.NewClient(opts); err != nil {
 		return client, err
 	}
@@ -70,7 +71,7 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err = client.Connect(ctx); err != nil {
-		panic(err)
+		return client, err
 	}
 	err = client.Ping(ctx, nil)
 	return client, err
