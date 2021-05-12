@@ -417,7 +417,7 @@ func (rn *Runner) splitChunks() error {
 	if cursor, err = rn.client.Database("config").Collection("shards").Find(ctx, bson.D{{}}); err != nil {
 		return err
 	}
-	shards := []bson.M{}
+	otherShards := []bson.M{}
 	for cursor.Next(ctx) {
 		v := bson.M{}
 		if err = cursor.Decode(&v); err != nil {
@@ -425,20 +425,20 @@ func (rn *Runner) splitChunks() error {
 			continue
 		}
 		if primary != v["_id"].(string) {
-			shards = append(shards, v)
+			otherShards = append(otherShards, v)
 		}
 	}
 	shardKeys := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
 		"N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-	divider := 1 + len(shardKeys)/(len(shards)+1)
-	for i := range shards {
+	divider := 1 + len(shardKeys)/(len(otherShards)+1)
+	for i := range otherShards {
 		cmd := bson.D{{Key: "split", Value: ns}, {Key: "middle", Value: bson.M{"email": shardKeys[(i+1)*divider]}}}
 		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil { // could be split already
 			return err
 		}
 	}
 
-	if len(shards) < 2 {
+	if len(otherShards) < 1 {
 		return nil
 	}
 	rn.Logger.Info("moving chunks...")
@@ -454,18 +454,18 @@ func (rn *Runner) splitChunks() error {
 		if err = cursor.Decode(&v); err != nil {
 			continue
 		}
-		if v["shard"].(string) == shards[i]["_id"].(string) {
+		if v["shard"].(string) == otherShards[i]["_id"].(string) {
 			i++
 			continue
 		}
 		cmd := bson.D{{Key: "moveChunk", Value: ns}, {Key: "find", Value: v["min"].(bson.M)},
-			{Key: "to", Value: shards[i]["_id"].(string)}}
-		rn.Logger.Info(fmt.Sprintf("moving %v from %v to %v", v["min"], v["shard"], shards[i]["_id"]))
+			{Key: "to", Value: otherShards[i]["_id"].(string)}}
+		rn.Logger.Info(fmt.Sprintf("moving %v from %v to %v", v["min"], v["shard"], otherShards[i]["_id"]))
 		if err = rn.client.Database("admin").RunCommand(ctx, cmd).Decode(&result); err != nil {
 			log.Fatal(err)
 		}
 		i++
-		if i == len(shards) {
+		if i == len(otherShards) {
 			break
 		}
 	}
