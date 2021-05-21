@@ -35,6 +35,9 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		return client, err
 	}
 	opts := options.Client().ApplyURI(uri)
+	if opts.AppName == nil {
+		opts.SetAppName("Keyhole Lib")
+	}
 	if connString.ReplicaSet == "" && len(connString.Hosts) == 1 && strings.HasPrefix(uri, "mongodb://") {
 		opts.SetDirect(true)
 	}
