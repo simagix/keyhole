@@ -35,6 +35,7 @@ type LogInfo struct {
 
 	filename string
 	regex    string
+	regexp   *regexp.Regexp
 	silent   bool
 	verbose  bool
 }
@@ -79,7 +80,8 @@ const dollarCmd = "$cmd"
 // NewLogInfo -
 func NewLogInfo(version string) *LogInfo {
 	li := LogInfo{Logger: NewLogger(version, "-loginfo"), Collscan: false, silent: false, verbose: false}
-	li.regex = `^(\S+) \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
+	// li.regex = `^(\S+) \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
+	li.regex = `^(\S+) \S+\s+(\w+)\s+\[\w+\] (warning: log .* \.\.\. )?(\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	return &li
 }
 
@@ -196,6 +198,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	index := 0
 	var ts string
 	var hist = Histogram{Ops: map[string]int{}}
+	li.regexp = regexp.MustCompile(li.regex)
 	for {
 		if lineCounts > 0 && li.silent == false && index%50 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/lineCounts)
