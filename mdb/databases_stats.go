@@ -185,6 +185,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				var sampleDoc bson.M
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
+				opts.SetHint(bson.D{{"_id",1}})
 				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 					p.Logger.Error(err.Error())
 					return
