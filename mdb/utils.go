@@ -4,6 +4,7 @@ package mdb
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -153,4 +154,13 @@ func SkipNamespace(namespace string, namespaceMap map[string]bool) bool {
 		return false
 	}
 	return true
+}
+
+// DoesFileExist returns true if file exists
+func DoesFileExist(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }

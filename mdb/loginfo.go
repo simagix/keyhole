@@ -137,13 +137,16 @@ func getConfigOptions(buffers []string) []string {
 	return strs
 }
 
-const topN = 25
+const (
+	logExt = "-log.bson.gz"
+	topN   = 25
+)
 
 // AnalyzeFile analyze logs from a file
 func (li *LogInfo) AnalyzeFile(filename string) error {
 	var err error
 	li.filename = filename
-	if strings.HasSuffix(filename, "-log.bson.gz") == true {
+	if strings.HasSuffix(filename, logExt) == true {
 		var data []byte
 		var err error
 		var fd *bufio.Reader
@@ -311,10 +314,10 @@ func (li *LogInfo) OutputBSON() error {
 		ofile = ofile[:len(ofile)-3]
 	}
 	if strings.HasSuffix(ofile, ".log") == false {
-		bsonf += ofile + "-log.bson.gz"
+		bsonf += ofile + logExt
 		tsvf += ofile + ".tsv"
 	} else {
-		bsonf = ofile[:len(ofile)-4] + "-log.bson.gz"
+		bsonf = ofile[:len(ofile)-4] + logExt
 		tsvf = ofile[:len(ofile)-4] + ".tsv"
 	}
 	if li.Redaction == true {
@@ -329,11 +332,18 @@ func (li *LogInfo) OutputBSON() error {
 	if data, err = bson.Marshal(li); err != nil {
 		return err
 	}
-	outdir := "./out/"
+	outdir := "./out"
 	os.Mkdir(outdir, 0755)
-	bsonf = outdir + bsonf
-	gox.OutputGzipped(data, bsonf)
-	fmt.Println("bson log info written to", bsonf)
+	idx := strings.Index(bsonf, logExt)
+	basename := bsonf[:idx]
+	ofile = fmt.Sprintf(`%v/%v%v`, outdir, basename, logExt)
+	i := 1
+	for DoesFileExist(ofile) {
+		ofile = fmt.Sprintf(`%v/%v.%d%v`, outdir, basename, i, logExt)
+		i++
+	}
+	gox.OutputGzipped(data, ofile)
+	fmt.Println("bson log info written to", ofile)
 	re := regexp.MustCompile(`\r?\n`)
 	// output tsv file
 	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
@@ -342,10 +352,19 @@ func (li *LogInfo) OutputBSON() error {
 		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avg), doc.MaxMilli, doc.Count,
 			doc.TotalMilli, doc.Namespace, doc.Scan, re.ReplaceAllString(doc.Index, " "), doc.Filter))
 	}
-	tsvf = outdir + tsvf
+
+	idx = strings.Index(tsvf, ".tsv")
+	basename = tsvf[:idx]
+	ofile = fmt.Sprintf(`%v/%v.tsv`, outdir, basename)
+	i = 1
+	for DoesFileExist(ofile) {
+		ofile = fmt.Sprintf(`%v/%v.%d.tsv`, outdir, basename, i)
+		i++
+	}
+
 	data = []byte(strings.Join(lines, "\n"))
-	ioutil.WriteFile(tsvf, data, 0644)
-	fmt.Println("TSV log info written to", tsvf)
+	ioutil.WriteFile(ofile, data, 0644)
+	fmt.Println("TSV log info written to", ofile)
 	return nil
 }
 

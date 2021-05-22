@@ -68,11 +68,15 @@ type Index struct {
 	Usage        []IndexUsage `json:"usage" bson:"usage"`
 }
 
+const (
+	indexExt = "-index.bson.gz"
+)
+
 // NewIndexStats establish seeding parameters
 func NewIndexStats(version string) *IndexStats {
 	hostname, _ := os.Hostname()
 	return &IndexStats{version: version, Logger: NewLogger(version, "-index"),
-		filename: hostname + "-index.bson.gz", Databases: []Database{}}
+		filename: hostname + indexExt, Databases: []Database{}}
 }
 
 // SetFilename sets output file name
@@ -87,7 +91,7 @@ func (ix *IndexStats) SetLogger(logger *Logger) {
 
 // SetClusterDetailsFromFile File sets cluster details from a file
 func (ix *IndexStats) SetClusterDetailsFromFile(filename string) error {
-	if strings.HasSuffix(filename, "-index.bson.gz") == false &&
+	if strings.HasSuffix(filename, indexExt) == false &&
 		strings.HasSuffix(filename, "-stats.bson.gz") == false {
 		return errors.New("unsupported file type")
 	}
@@ -325,9 +329,18 @@ func (ix *IndexStats) OutputBSON() error {
 	if buf, err = bson.Marshal(bsond); err != nil {
 		return err
 	}
-	outdir := "./out/"
+
+	outdir := "./out"
 	os.Mkdir(outdir, 0755)
-	ofile := outdir + ix.filename
+	idx := strings.Index(ix.filename, indexExt)
+	basename := ix.filename[:idx]
+	ofile := fmt.Sprintf(`%v/%v%v`, outdir, basename, indexExt)
+	i := 1
+	for DoesFileExist(ofile) {
+		ofile = fmt.Sprintf(`%v/%v.%d%v`, outdir, basename, i, indexExt)
+		i++
+	}
+
 	if err = gox.OutputGzipped(buf, ofile); err == nil {
 		fmt.Println("Index stats is written to", ofile)
 	}

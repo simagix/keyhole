@@ -192,10 +192,16 @@ func (p *Comparison) OutputBSON() error {
 	if data, err = bson.Marshal(p); err != nil {
 		return err
 	}
-	outdir := "./out/"
+	outdir := "./out"
 	os.Mkdir(outdir, 0755)
-	ofile := outdir + p.TargetStats.HostInfo.System.Hostname + "-compare.bson.gz"
-	ofile = strings.ReplaceAll(ofile, ":", "_")
+	basename := p.TargetStats.HostInfo.System.Hostname
+	basename = strings.ReplaceAll(basename, ":", "_")
+	ofile := fmt.Sprintf(`%v/%v-compare.bson.gz`, outdir, basename)
+	i := 1
+	for mdb.DoesFileExist(ofile) {
+		ofile = fmt.Sprintf(`%v/%v.%d-compare.bson.gz`, outdir, basename, i)
+		i++
+	}
 	if err = gox.OutputGzipped(data, ofile); err != nil {
 		return err
 	}

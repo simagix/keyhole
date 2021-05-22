@@ -232,10 +232,18 @@ func (p *ClusterStats) OutputBSON() error {
 	if data, err = bson.Marshal(p); err != nil {
 		return err
 	}
-	outdir := "./out/"
+
+	outdir := "./out"
 	os.Mkdir(outdir, 0755)
-	ofile := outdir + p.HostInfo.System.Hostname + "-stats.bson.gz"
-	ofile = strings.ReplaceAll(ofile, ":", "_")
+	basename := p.HostInfo.System.Hostname
+	basename = strings.ReplaceAll(basename, ":", "_")
+	ofile := fmt.Sprintf(`%v/%v-stats.bson.gz`, outdir, basename)
+	i := 1
+	for DoesFileExist(ofile) {
+		ofile = fmt.Sprintf(`%v/%v.%d-stats.bson.gz`, outdir, basename, i)
+		i++
+	}
+
 	if err = gox.OutputGzipped(data, ofile); err != nil {
 		return err
 	}
