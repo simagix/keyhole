@@ -498,7 +498,9 @@ func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []I
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
 				}
-				ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, ns))
+				if ix.verbose {
+					ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, ns))
+				}
 				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
 			}
 			if _, err = collection.Indexes().CreateMany(ctx, indexes); err != nil {
