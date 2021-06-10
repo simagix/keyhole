@@ -49,14 +49,29 @@ func (p *Logger) Error(v ...interface{}) {
 	p.print("E", fmt.Sprint(v...))
 }
 
+// Errorf adds and prints a message
+func (p *Logger) Errorf(format string, v ...interface{}) {
+	p.print("E", fmt.Sprintf(format, v...))
+}
+
 // Info adds and prints a message
 func (p *Logger) Info(v ...interface{}) {
 	p.print("I", fmt.Sprint(v...))
 }
 
+// Infof adds and prints a message
+func (p *Logger) Infof(format string, v ...interface{}) {
+	p.print("I", fmt.Sprintf(format, v...))
+}
+
 // Warn adds and prints a warning message
 func (p *Logger) Warn(v ...interface{}) {
 	p.print("W", fmt.Sprint(v...))
+}
+
+// Warnf adds and prints a message
+func (p *Logger) Warnf(format string, v ...interface{}) {
+	p.print("W", fmt.Sprintf(format, v...))
 }
 
 // Log adds and prints a message

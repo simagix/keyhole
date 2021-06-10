@@ -34,7 +34,7 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 		uri = os.Getenv("DATABASE_URL")
 	}
 
-	if client, err = NewMongoClient(uri, "testdata/certs/ca.pem", "testdata/certs/client.pem"); err != nil {
+	if client, err = NewMongoClient(uri); err != nil {
 		t.Fatal(uri, err)
 	}
 	collection := client.Database("test").Collection(ExamplesCollection)
