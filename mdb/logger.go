@@ -5,6 +5,7 @@ package mdb
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,19 @@ func NewLogger(fullVersion string, params string) *Logger {
 	p.Collected = time.Now()
 	p.Logs = []string{fmt.Sprintf(`%v I %v begins`, p.Collected.Format(time.RFC3339), fullVersion)}
 	return &p
+}
+
+var instance *Logger
+var once sync.Once
+
+// GetLogger returns Logger instance
+func GetLogger(fullVersion string) *Logger {
+	once.Do(func() {
+		instance = &Logger{Version: fullVersion, Warnings: []string{}}
+		instance.Collected = time.Now()
+		instance.Logs = []string{fmt.Sprintf(`%v I %v begins`, instance.Collected.Format(time.RFC3339), fullVersion)}
+	})
+	return instance
 }
 
 // SetNoColor set nocolor flag

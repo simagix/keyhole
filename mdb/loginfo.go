@@ -342,8 +342,11 @@ func (li *LogInfo) OutputBSON() error {
 		ofile = fmt.Sprintf(`%v/%v.%d%v`, outdir, basename, i, logExt)
 		i++
 	}
-	gox.OutputGzipped(data, ofile)
-	fmt.Println("bson log info written to", ofile)
+	if err = gox.OutputGzipped(data, ofile); err != nil {
+		fmt.Println("write error:", err)
+	} else {
+		fmt.Println("bson log info written to", ofile)
+	}
 	re := regexp.MustCompile(`\r?\n`)
 	// output tsv file
 	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
@@ -363,8 +366,11 @@ func (li *LogInfo) OutputBSON() error {
 	}
 
 	data = []byte(strings.Join(lines, "\n"))
-	ioutil.WriteFile(ofile, data, 0644)
-	fmt.Println("TSV log info written to", ofile)
+	if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+		fmt.Println("write error:", err)
+	} else {
+		fmt.Println("TSV log info written to", ofile)
+	}
 	return nil
 }
 
