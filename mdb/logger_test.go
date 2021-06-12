@@ -25,3 +25,14 @@ func TestWarnf(t *testing.T) {
 	logger := NewLogger("TestWarnf", "-test")
 	logger.Warnf(`%v => %v`, "key", 100)
 }
+
+func TestDebug(t *testing.T) {
+	logger := GetLogger("TestDebug")
+	logger.Debug(`no message`)
+	logger.SetLoggerLevel(Debug)
+	logger.Debug(`debug message`)
+	logger.SetLoggerLevel(Info)
+	logger.Debug(`no message`)
+	logger.SetLoggerLevel(Trace)
+	logger.Debug(`trace message`)
+}
