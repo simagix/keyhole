@@ -115,6 +115,9 @@ func (ix *IndexStats) SetNoColor(nocolor bool) {
 // SetVerbose sets verbose level
 func (ix *IndexStats) SetVerbose(verbose bool) {
 	ix.verbose = verbose
+	if verbose && ix.Logger != nil {
+		ix.Logger.SetLoggerLevel(Debug)
+	}
 }
 
 // GetIndexes list all indexes of collections of databases
@@ -130,15 +133,11 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 	cnt := 0
 	for _, name := range dbNames {
 		if name == "admin" || name == "config" || name == "local" {
-			if ix.verbose == true {
-				ix.Logger.Info("Skip", name)
-			}
+			ix.Logger.Debug("skip ", name)
 			continue
 		}
 		cnt++
-		if ix.verbose == true {
-			ix.Logger.Info("checking", name)
-		}
+		ix.Logger.Debug("checking ", name)
 		if collections, err = ix.GetIndexesFromDB(client, name); err != nil {
 			return ix.Databases, err
 		}
@@ -157,9 +156,7 @@ func (ix *IndexStats) GetIndexesFromDB(client *mongo.Client, db string) ([]Colle
 	var cur *mongo.Cursor
 	var ctx = context.Background()
 	var collections []Collection
-	if ix.verbose {
-		fmt.Println("GetIndexesFromDB()", db)
-	}
+	ix.Logger.Debugf(`GetIndexesFromDB(%v)`, db)
 	if cur, err = client.Database(db).ListCollections(ctx, bson.M{}); err != nil {
 		return collections, err
 	}
@@ -174,9 +171,7 @@ func (ix *IndexStats) GetIndexesFromDB(client *mongo.Client, db string) ([]Colle
 			continue
 		}
 		if strings.HasPrefix(elem.Name, "system.") || (elem.Type != "" && elem.Type != "collection") {
-			if ix.verbose == true {
-				ix.Logger.Info("skip", elem.Name)
-			}
+			ix.Logger.Debug("skip ", elem.Name)
 			continue
 		}
 		collectionNames = append(collectionNames, elem.Name)
@@ -252,9 +247,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		// Check shard keys
 		var v map[string]interface{}
 		ns := collection.Database().Name() + "." + collection.Name()
-		if ix.verbose {
-			ix.Logger.Info("GetIndexesFromCollection", ns, o.KeyString)
-		}
+		ix.Logger.Debug("GetIndexesFromCollection ", ns, o.KeyString)
 		if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
 			o.IsShardKey = true
 		}

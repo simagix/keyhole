@@ -118,6 +118,9 @@ func (p *DatabaseStats) SetRedaction(redaction bool) {
 // SetVerbose sets verbosity
 func (p *DatabaseStats) SetVerbose(verbose bool) {
 	p.verbose = verbose
+	if verbose && p.Logger != nil {
+		p.Logger.SetLoggerLevel(Debug)
+	}
 }
 
 // GetAllDatabasesStats gets all db info
@@ -128,9 +131,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	var listdb ListDatabases
 	var databases []Database
 	t := time.Now()
-	if p.verbose {
-		p.Logger.Info("GetAllDatabasesStats")
-	}
+	p.Logger.Debug("GetAllDatabasesStats")
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
 		return listdb.Databases, nil
 	}
@@ -159,9 +160,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			coll := fmt.Sprintf("%v", elem["name"])
 			collType := fmt.Sprintf("%v", elem["type"])
 			if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
-				if p.verbose {
-					p.Logger.Info(fmt.Sprintf(`skip %v %v`, collType, coll))
-				}
+				p.Logger.Debugf(`skip %v %v`, collType, coll)
 				continue
 			}
 			collectionNames = append(collectionNames, coll)
@@ -175,17 +174,14 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			go func(client *mongo.Client, collectionName string) {
 				defer wg.Done()
 				ns := db.Name + "." + collectionName
-				if p.verbose {
-					msg := fmt.Sprintf(`collecting from %v`, ns)
-					p.Logger.Info(msg)
-				}
+				p.Logger.Debugf(`collecting from %v`, ns)
 				collection := client.Database(db.Name).Collection(collectionName)
 
 				var cursor *mongo.Cursor
 				var sampleDoc bson.M
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
-				opts.SetHint(bson.D{{"_id",1}})
+				opts.SetHint(bson.D{{"_id", 1}})
 				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 					p.Logger.Error(err.Error())
 					return
@@ -206,9 +202,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 					}
 				}
 				if sampleDoc == nil {
-					if p.verbose {
-						p.Logger.Info("no sample doc available")
-					}
+					p.Logger.Debug("no sample doc available")
 				}
 				if p.redaction == true {
 					redact := NewRedactor()
@@ -265,10 +259,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		db.Collections = collections
 		databases = append(databases, db)
 	}
-	if p.verbose {
-		msg := fmt.Sprintf("GetAllDatabasesStats took %v", time.Now().Sub(t))
-		p.Logger.Info(msg)
-	}
+	p.Logger.Debugf("GetAllDatabasesStats took %v", time.Now().Sub(t))
 	return databases, nil
 }
 
