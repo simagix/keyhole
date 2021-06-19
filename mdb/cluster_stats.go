@@ -128,6 +128,9 @@ func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) error {
 		if p.OplogStats, err = GetOplogStats(client); err != nil {
 			p.Logger.Info(fmt.Sprintf(`GetOplogStats(): %v`, err))
 		}
+		if p.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
+			p.Logger.Errorf(`GetReplSetGetStatus(): %v`, err)
+		}
 	} else if p.Cluster == Sharded {
 		if p.Shards, err = GetShards(client); err != nil {
 			p.Logger.Info(fmt.Sprintf(`GetShards(): %v`, err))

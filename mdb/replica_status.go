@@ -15,15 +15,15 @@ import (
 // ReplSetGetStatus stores replset info
 type ReplSetGetStatus struct {
 	Members []struct {
-		ID     int    `bson:"_id"`
-		Health int    `bson:"health"`
-		Name   string `bson:"name"`
-		// Optime         primitive.Timestamp `bson:"optime"`
-		State          int    `bson:"state"`
-		StateStr       string `bson:"stateStr"`
-		SyncingTo      string `bson:"syncingTo"`
-		SyncSourceHost string `bson:"syncSourceHost"`
-		Uptime         int64  `bson:"uptime"`
+		ID             int                              `bson:"_id"`
+		Health         int                              `bson:"health"`
+		Name           string                           `bson:"name"`
+		Optime         struct{ TS primitive.Timestamp } `bson:"optime"`
+		State          int                              `bson:"state"`
+		StateStr       string                           `bson:"stateStr"`
+		SyncingTo      string                           `bson:"syncingTo"`
+		SyncSourceHost string                           `bson:"syncSourceHost"`
+		Uptime         int64                            `bson:"uptime"`
 	} `bson:"members"`
 	Set            string `bson:"set"`
 	SyncingTo      string `bson:"syncingTo"`
