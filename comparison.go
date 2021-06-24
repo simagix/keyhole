@@ -23,7 +23,7 @@ import (
 
 // Comparison contains parameters of comparison parameters
 type Comparison struct {
-	Logger      *mdb.Logger       `bson:"keyhole"`
+	Logger      *gox.Logger       `bson:"keyhole"`
 	SourceStats *mdb.ClusterStats `bson:"source"`
 	TargetStats *mdb.ClusterStats `bson:"target"`
 	nocolor     bool
@@ -32,7 +32,7 @@ type Comparison struct {
 
 // NewComparison returns *Comparison
 func NewComparison(keyholeVersion string) *Comparison {
-	comp := Comparison{Logger: mdb.NewLogger(keyholeVersion, "-compare")}
+	comp := Comparison{Logger: gox.GetLogger(keyholeVersion)}
 	comp.SourceStats = mdb.NewClusterStats(keyholeVersion)
 	comp.TargetStats = mdb.NewClusterStats(keyholeVersion)
 	return &comp

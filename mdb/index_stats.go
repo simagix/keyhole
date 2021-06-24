@@ -24,8 +24,8 @@ import (
 
 // IndexStats holder indexes reader struct
 type IndexStats struct {
-	Databases []Database `bson:"databases"`
-	Logger    *Logger    `bson:"keyhole"`
+	Databases []Database  `bson:"databases"`
+	Logger    *gox.Logger `bson:"keyhole"`
 
 	filename string
 	nocolor  bool
@@ -75,18 +75,13 @@ const (
 // NewIndexStats establish seeding parameters
 func NewIndexStats(version string) *IndexStats {
 	hostname, _ := os.Hostname()
-	return &IndexStats{version: version, Logger: NewLogger(version, "-index"),
+	return &IndexStats{version: version, Logger: gox.GetLogger(version),
 		filename: hostname + indexExt, Databases: []Database{}}
 }
 
 // SetFilename sets output file name
 func (ix *IndexStats) SetFilename(filename string) {
 	ix.filename = strings.Replace(filename, ":", "_", -1)
-}
-
-// SetLogger sets logger
-func (ix *IndexStats) SetLogger(logger *Logger) {
-	ix.Logger = logger
 }
 
 // SetClusterDetailsFromFile File sets cluster details from a file
@@ -116,7 +111,7 @@ func (ix *IndexStats) SetNoColor(nocolor bool) {
 func (ix *IndexStats) SetVerbose(verbose bool) {
 	ix.verbose = verbose
 	if verbose && ix.Logger != nil {
-		ix.Logger.SetLoggerLevel(Debug)
+		ix.Logger.SetLoggerLevel(gox.Debug)
 	}
 }
 
@@ -146,7 +141,7 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 	if cnt == 0 && ix.verbose == true {
 		ix.Logger.Info("No database is available")
 	}
-	ix.Logger.Add(`GetIndexes ends`)
+	ix.Logger.Info(`GetIndexes ends`)
 	return ix.Databases, err
 }
 
@@ -197,7 +192,7 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	var icur *mongo.Cursor
 	var scur *mongo.Cursor
 	db := collection.Database().Name()
-	ix.Logger.Add(fmt.Sprintf(`GetIndexesFromCollection from %v.%v`, db, collection.Name()))
+	ix.Logger.Debugf(`GetIndexesFromCollection from %v.%v`, db, collection.Name())
 
 	var indexStats = []IndexUsage{}
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
@@ -272,8 +267,8 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		for i := 0; i < len(indexStats); i++ {
 			if indexesFound[i] != true {
 				ns := collection.Database().Name() + "." + collection.Name()
-				ix.Logger.Warning(fmt.Sprintf(`inconsistent index '%v' of namespace '%v' on shard '%v'`,
-					indexStats[i].Name, ns, indexStats[i].Shard))
+				ix.Logger.Warnf(`inconsistent index '%v' of namespace '%v' on shard '%v'`,
+					indexStats[i].Name, ns, indexStats[i].Shard)
 			}
 		}
 	}

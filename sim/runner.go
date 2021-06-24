@@ -27,7 +27,7 @@ import (
 
 // Runner -
 type Runner struct {
-	Logger  *mdb.Logger         `bson:"keyhole"`
+	Logger  *gox.Logger         `bson:"keyhole"`
 	Metrics map[string][]bson.M `bson:"metrics"`
 	Results []string            `bson:"results"`
 
@@ -55,7 +55,7 @@ type Runner struct {
 // NewRunner - Constructor
 func NewRunner(connString connstring.ConnString) (*Runner, error) {
 	var err error
-	runner := Runner{Logger: mdb.NewLogger("keyhole", "default"), connString: connString, conns: runtime.NumCPU(),
+	runner := Runner{Logger: gox.GetLogger("keyhole"), connString: connString, conns: runtime.NumCPU(),
 		channel: make(chan string), collectionName: mdb.ExamplesCollection, Metrics: map[string][]bson.M{},
 		mutex: sync.RWMutex{}}
 	runner.dbName = connString.Database
@@ -99,11 +99,6 @@ func (rn *Runner) SetTPS(tps int) {
 
 // SetAutoMode set transaction per second
 func (rn *Runner) SetAutoMode(auto bool) { rn.auto = auto }
-
-// SetLogger sets keyhole Logger
-func (rn *Runner) SetLogger(logger *mdb.Logger) {
-	rn.Logger = logger
-}
 
 // SetTemplateFilename -
 func (rn *Runner) SetTemplateFilename(filename string) {

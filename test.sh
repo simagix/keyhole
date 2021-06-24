@@ -143,13 +143,15 @@ ${EXEC} --compare ${DATABASE_URI} ${DATABASE_URI}
 validate "--compare <uri> <uri>"
 
 # Test info Atlas
-echo ; echo "==> Test printing clusters summary (--info <atlas_uri>)"
-${EXEC} --info "atlas://${ATLAS_AUTH}"
+if [ "${ATLAS_SIMAGIX_AUTH}" != "" ]; then
+    echo ; echo "==> Test printing clusters summary (--info <atlas_uri>)"
+    ${EXEC} --info "atlas://${ATLAS_SIMAGIX_AUTH}"
+fi
 
 # Test loginfo Atlas
 # echo ; echo "==> Test printing performance stats from a log file (--loginfo <atlas_uri>)"
 # ${EXEC} --seed ${ATLAS_URL}
-# ${EXEC} --loginfo "atlas://${ATLAS_AUTH}@${ATLAS_GROUP}/keyhole"
+# ${EXEC} --loginfo "atlas://${ATLAS_SIMAGIX_AUTH}@${ATLAS_GROUP}/keyhole"
 rm -f mongodb.log.*
 
 shutdownServer

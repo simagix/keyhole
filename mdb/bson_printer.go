@@ -47,12 +47,11 @@ func (p *BSONPrinter) Print(filename string) error {
 	if doc["keyhole"] == nil {
 		return errors.New("unsupported, keyhole signature not found")
 	}
-	var logger Logger
+	var logger gox.Logger
 	if buf, err := bson.Marshal(doc["keyhole"]); err == nil {
 		if err = bson.Unmarshal(buf, &logger); err != nil {
 			return err
 		}
-		logger.SetNoColor(p.nocolor)
 		fmt.Println(logger.Print())
 	} else {
 		return err
@@ -78,7 +77,7 @@ func (p *BSONPrinter) Print(filename string) error {
 	} else if strings.HasSuffix(filename, ".bson.gz") {
 		if strings.HasSuffix(filename, "-perf.bson.gz") {
 			type Perf struct {
-				Logger  *Logger             `bson:"keyhole"`
+				Logger  *gox.Logger         `bson:"keyhole"`
 				Metrics map[string][]bson.M `bson:"metrics"`
 				Results []string            `bson:"results"`
 			}

@@ -26,7 +26,7 @@ const COLLSCAN = "COLLSCAN"
 type LogInfo struct {
 	Collscan   bool        `bson:"collscan"`
 	Histogram  []Histogram `bson:"histogram"`
-	Logger     *Logger     `bson:"keyhole"`
+	Logger     *gox.Logger `bson:"keyhole"`
 	LogType    string      `bson:"type"`
 	Regex      string      `bson:"regex"`
 	OpPatterns []OpPattern `bson:"opPatterns"`
@@ -79,7 +79,7 @@ const dollarCmd = "$cmd"
 
 // NewLogInfo -
 func NewLogInfo(version string) *LogInfo {
-	li := LogInfo{Logger: NewLogger(version, "-loginfo"), Collscan: false, silent: false, verbose: false}
+	li := LogInfo{Logger: gox.GetLogger(version), Collscan: false, silent: false, verbose: false}
 	// li.regex = `^(\S+) \S+\s+(\w+)\s+\[\w+\] (\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	li.regex = `^(\S+) \S+\s+(\w+)\s+\[\w+\] (warning: log .* \.\.\. )?(\w+) (\S+) \S+: (.*) (\d+)ms$` // SERVER-37743
 	return &li

@@ -23,7 +23,7 @@ const (
 
 // DatabaseStats stores struct
 type DatabaseStats struct {
-	Logger *Logger
+	Logger *gox.Logger
 
 	threads   int
 	redaction bool
@@ -97,12 +97,7 @@ type Chunk struct {
 
 // NewDatabaseStats returns DatabaseStats
 func NewDatabaseStats(version string) *DatabaseStats {
-	return &DatabaseStats{Logger: NewLogger(version, version), threads: 16, version: version}
-}
-
-// SetLogger sets Logger
-func (p *DatabaseStats) SetLogger(Logger *Logger) {
-	p.Logger = Logger
+	return &DatabaseStats{Logger: gox.GetLogger(version), threads: 16, version: version}
 }
 
 // SetNumberThreads set # of threads
@@ -119,7 +114,7 @@ func (p *DatabaseStats) SetRedaction(redaction bool) {
 func (p *DatabaseStats) SetVerbose(verbose bool) {
 	p.verbose = verbose
 	if verbose && p.Logger != nil {
-		p.Logger.SetLoggerLevel(Debug)
+		p.Logger.SetLoggerLevel(gox.Debug)
 	}
 }
 
@@ -148,7 +143,6 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		defer cur.Close(ctx)
 		var collections = []Collection{}
 		ir := NewIndexStats(p.version)
-		ir.SetLogger(p.Logger)
 		ir.SetVerbose(p.verbose)
 		collectionNames := []string{}
 

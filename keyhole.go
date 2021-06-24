@@ -268,14 +268,13 @@ func Run(fullVersion string) {
 	if runner, err = sim.NewRunner(connString); err != nil {
 		log.Fatal(err)
 	}
-	logger := mdb.NewLogger(fullVersion, "")
+	logger := gox.GetLogger(fullVersion)
 	logger.Info(fullVersion)
 	logger.Info(clusterSummary)
 	runner.SetAutoMode(*yes)
 	runner.SetCollection(*collection)
 	runner.SetDropFirstMode(*drop)
 	runner.SetDuration(*duration)
-	runner.SetLogger(logger)
 	runner.SetNumberConnections(*conn)
 	runner.SetPeekingMode(*peek)
 	runner.SetSimOnlyMode(*simonly)
