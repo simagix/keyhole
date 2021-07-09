@@ -180,7 +180,7 @@ func Run(fullVersion string) {
 		stats.SetRedaction(*redaction)
 		stats.SetVerbose(true)
 		if err = CollectCluserDetails(stats, client, connString); err != nil {
-			log.Fatal(err)
+			log.Fatalf(`a valid user with roles 'clusterMonitor' and 'readAnyDatabase' on all mongo processes are required.\n%v`, err)
 		}
 		return
 	} else if *cardinality != "" { // --card <collection> [-v]
