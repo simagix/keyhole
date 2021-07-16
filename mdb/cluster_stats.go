@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
@@ -70,6 +69,9 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	var err error
 	if p.Logger == nil {
 		p.Logger = gox.GetLogger(p.version)
+		if p.verbose {
+			p.Logger.SetLoggerLevel(gox.Debug)
+		}
 	}
 	p.Logger.Info("GetClusterStats() begins")
 	if err = p.GetClusterStatsSummary(client); err != nil {
@@ -79,10 +81,10 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		p.Logger.Info(fmt.Sprintf(`GetCmdLineOpts(): %v`, err))
 	}
 	if p.Cluster == Sharded { //collects from the primary of each shard
-		p.Logger.Info("sharded detected, collecting from all servers")
 		if p.Shards, err = GetShards(client); err != nil {
-			p.Logger.Info(fmt.Sprintf(`GetShards(): %v`, err))
+			p.Logger.Infof(`GetShards(): %v`, err)
 		}
+		p.Logger.Infof("%v shards detected, collecting from all servers", len(p.Shards))
 		if p.Shards, err = p.GetServersStatsSummary(p.Shards, connString); err != nil {
 			return err
 		}
@@ -159,26 +161,33 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 	}
 	wg := gox.NewWaitGroup(4)
 	var mu sync.Mutex
-	echan := make(chan error, 1)
+	var e error
 	for i, uri := range uris {
 		s := uri
 		cs, _ := connstring.Parse(s)
 		if cs.Password != "" {
-			s = strings.ReplaceAll(s, url.QueryEscape(cs.Password), "xxxxxx")
+			s = strings.Replace(s, url.QueryEscape(cs.Password), "xxxxxx", 1)
 		}
-		p.Logger.Infof(`[t-%d] begin collecting from %v`, i, s)
+		p.Logger.Debugf(`[t-%d] begin collecting from %v`, i, s)
 		wg.Add(1)
 		go func(uri string, n int, logger *gox.Logger) {
 			defer wg.Done()
 			var sclient *mongo.Client
+			var err error
 			if sclient, err = NewMongoClient(uri); err != nil {
-				echan <- err
+				logger.Infof(`[t-%d] error collecting: %v`, n, err)
+				mu.Lock()
+				e = err
+				mu.Unlock()
 				return
 			}
 			defer sclient.Disconnect(context.Background())
 			server := NewClusterStats(p.Logger.AppName)
-			if err = server.GetClusterStatsSummary(sclient); err != nil {
-				echan <- err
+			if e = server.GetClusterStatsSummary(sclient); e != nil {
+				logger.Infof(`[t-%d] error collecting: %v`, n, err)
+				mu.Lock()
+				e = err
+				mu.Unlock()
 				return
 			}
 			mu.Lock()
@@ -186,21 +195,13 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			node.Servers = append(node.Servers, *server)
 			smap[server.ServerStatus.Repl.SetName] = node
 			mu.Unlock()
-			logger.Infof(`[t-%d] end collecting from %v`, n, s)
-			echan <- nil
+			logger.Debugf(`[t-%d] end collecting from %v`, n, s)
 		}(uri, i, p.Logger)
 	}
-	for count := 0; count < len(uris); {
-		select {
-		case err := <-echan:
-			count++
-			if err != nil {
-				return shards, err
-			}
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
 	wg.Wait()
+	if e != nil {
+		return shards, e
+	}
 	shards = []Shard{}
 	for _, v := range smap {
 		shards = append(shards, v)
