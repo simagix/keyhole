@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/url"
 	"strings"
 	"syscall"
@@ -33,6 +34,14 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 	var connString connstring.ConnString
 	if connString, err = connstring.Parse(uri); err != nil {
 		return client, err
+	}
+	for _, host := range connString.Hosts {
+		if strings.Index(host, ":") < 0 {
+			host += ":27017"
+		}
+		if _, err = net.Dial("tcp", host); err != nil {
+			return nil, err
+		}
 	}
 	opts := options.Client().ApplyURI(uri)
 	if opts.AppName == nil {
@@ -66,18 +75,13 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		}
 		opts.SetTLSConfig(&tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}})
 	}
-	opts.SetServerSelectionTimeout(5 * time.Second)
 	if client, err = mongo.NewClient(opts); err != nil {
 		return client, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err = client.Connect(ctx); err != nil {
-		return client, err
-	}
-	err = client.Ping(ctx, nil)
-	return client, err
+	return client, client.Connect(ctx)
 }
 
 // ParseURI checks if password is included
