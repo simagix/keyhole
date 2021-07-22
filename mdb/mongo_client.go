@@ -39,9 +39,12 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		if strings.Index(host, ":") < 0 {
 			host += ":27017"
 		}
-		if _, err = net.Dial("tcp", host); err != nil {
+		dial := net.Dialer{Timeout: 2 * time.Second}
+		var c net.Conn
+		if c, err = dial.Dial("tcp", host); err != nil {
 			return nil, err
 		}
+		c.Close()
 	}
 	opts := options.Client().ApplyURI(uri)
 	if opts.AppName == nil {

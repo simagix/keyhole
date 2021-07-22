@@ -86,7 +86,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		}
 		p.Logger.Infof("%v shards detected, collecting from all servers", len(p.Shards))
 		if p.Shards, err = p.GetServersStatsSummary(p.Shards, connString); err != nil {
-			return err
+			p.Logger.Error(err)
 		}
 		p.Logger.Info("end collecting from all servers")
 	} else if p.Cluster == Replica && p.Process == "mongod" { //collects replica info
@@ -100,7 +100,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(p.ServerStatus.Repl.Hosts, ","))
 		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
 		if p.Shards, err = p.GetServersStatsSummary(oneShard, connString); err != nil {
-			return err
+			p.Logger.Error(err)
 		}
 		p.Logger.Info("end collecting from all servers")
 	}
@@ -159,7 +159,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 	if uris, err = GetAllServerURIs(shards, connString); err != nil {
 		return shards, err
 	}
-	wg := gox.NewWaitGroup(4)
+	wg := gox.NewWaitGroup(6)
 	var mu sync.Mutex
 	var e error
 	for i, uri := range uris {
