@@ -465,7 +465,7 @@ func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []I
 				if o.Background == true {
 					opt.SetBackground(o.Background)
 				}
-				if o.ExpireAfterSeconds > 0 {
+				if o.ExpireAfterSeconds >= 0 {
 					opt.SetExpireAfterSeconds(o.ExpireAfterSeconds)
 				}
 				if o.Unique == true {
