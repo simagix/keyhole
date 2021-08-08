@@ -168,14 +168,14 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 		if cs.Password != "" {
 			s = strings.Replace(s, url.QueryEscape(cs.Password), "xxxxxx", 1)
 		}
-		p.Logger.Debugf(`[t-%d] begin collecting from %v`, i, s)
+		p.Logger.Debugf(`[t-%d] collect from %v`, i, s)
 		wg.Add(1)
 		go func(uri string, n int, logger *gox.Logger) {
 			defer wg.Done()
 			var sclient *mongo.Client
 			var err error
 			if sclient, err = NewMongoClient(uri); err != nil {
-				logger.Infof(`[t-%d] error collecting: %v`, n, err)
+				logger.Infof(`[t-%d] error: %v`, n, err)
 				mu.Lock()
 				e = err
 				mu.Unlock()
@@ -184,7 +184,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			defer sclient.Disconnect(context.Background())
 			server := NewClusterStats(p.Logger.AppName)
 			if e = server.GetClusterStatsSummary(sclient); e != nil {
-				logger.Infof(`[t-%d] error collecting: %v`, n, err)
+				logger.Infof(`[t-%d] error: %v`, n, err)
 				mu.Lock()
 				e = err
 				mu.Unlock()
@@ -195,7 +195,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			node.Servers = append(node.Servers, *server)
 			smap[server.ServerStatus.Repl.SetName] = node
 			mu.Unlock()
-			logger.Debugf(`[t-%d] end collecting from %v`, n, s)
+			logger.Debugf(`[t-%d] completed`, n)
 		}(uri, i, p.Logger)
 	}
 	wg.Wait()

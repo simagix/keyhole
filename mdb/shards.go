@@ -59,7 +59,7 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		if isSRV == false && connString.AuthSource != "" {
 			ruri += "&authSource=" + connString.AuthSource
 		} else if isSRV == true {
-			ruri += "&authSource=admin&ssl=true"
+			ruri += "&authSource=admin&tls=true"
 		}
 		if connString.SSLCaFile != "" {
 			ruri += "&tlsCAFile=" + connString.SSLCaFile
@@ -85,12 +85,12 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 		for _, host := range hosts {
 			ruri := "mongodb://"
 			if connString.Username != "" {
-				ruri += fmt.Sprintf(`%v:%v@%v/?`, connString.Username, url.QueryEscape(connString.Password), host)
+				ruri += fmt.Sprintf(`%v:%v@%v/?connect=direct&`, connString.Username, url.QueryEscape(connString.Password), host)
 			} else {
-				ruri += fmt.Sprintf(`%v/?`, host)
+				ruri += fmt.Sprintf(`%v/?connect=direct&`, host)
 			}
 			if isSRV == true {
-				ruri += "authSource=admin&ssl=true"
+				ruri += "authSource=admin&tls=true"
 			} else {
 				if connString.AuthSource != "" {
 					ruri += "authSource=" + connString.AuthSource
@@ -98,7 +98,7 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 					ruri += "authSource=admin"
 				}
 				if connString.SSLCaFile != "" {
-					ruri += "&ssl=true"
+					ruri += "&tls=true"
 					ruri += "&tlsCAFile=" + connString.SSLCaFile
 				}
 				if connString.SSLClientCertificateKeyFile != "" {
