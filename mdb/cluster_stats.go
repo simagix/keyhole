@@ -175,7 +175,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			var sclient *mongo.Client
 			var err error
 			if sclient, err = NewMongoClient(uri); err != nil {
-				logger.Infof(`[t-%d] error: %v`, n, err)
+				logger.Errorf(`[t-%d] error: %v`, n, err)
 				mu.Lock()
 				e = err
 				mu.Unlock()
@@ -183,8 +183,8 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			}
 			defer sclient.Disconnect(context.Background())
 			server := NewClusterStats(p.Logger.AppName)
-			if e = server.GetClusterStatsSummary(sclient); e != nil {
-				logger.Infof(`[t-%d] error: %v`, n, err)
+			if err = server.GetClusterStatsSummary(sclient); err != nil {
+				logger.Errorf(`[t-%d] error: %v`, n, err)
 				mu.Lock()
 				e = err
 				mu.Unlock()
