@@ -5,10 +5,15 @@ package mdb
 import (
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/x/mongo/driver/topology"
+
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
+	// TopologyConnectionError keyhole custom error codes
+	TopologyConnectionError int = 20001
+
 	errorInterrupted       int32 = 11601
 	namespaceExistsErrCode int32 = 48
 	unauthorizedError      int32 = 13
@@ -68,6 +73,8 @@ func GetErrorCode(err error) int {
 			return e.WriteConcernError.Code
 		}
 		return 0
+	case topology.ConnectionError:
+		return TopologyConnectionError
 	default:
 		fmt.Printf("unsupported type %T, %v\n", err, err) // prints unsupported error type
 		return 0
