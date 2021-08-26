@@ -59,6 +59,7 @@ func Run(fullVersion string) {
 	tx := flag.String("tx", "", "file with defined transactions")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
+	viewlog := flag.String("viewlog", "", "view v4.4+ log file")
 	webserver := flag.Bool("web", false, "enable web server")
 	wt := flag.Bool("wt", false, "visualize wiredTiger cache usage")
 	yes := flag.Bool("yes", false, "bypass confirmation")
@@ -157,6 +158,9 @@ func Run(fullVersion string) {
 		if err := printer.Print(*print); err != nil {
 			log.Fatal(err)
 		}
+		return
+	} else if *viewlog != "" {
+		mdb.OutputLogInOldFormat(*viewlog)
 		return
 	} else if len(flag.Args()) == 0 {
 		flag.PrintDefaults()
