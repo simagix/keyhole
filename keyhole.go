@@ -55,7 +55,7 @@ func Run(fullVersion string) {
 	seed := flag.Bool("seed", false, "seed a database for demo")
 	simonly := flag.Bool("simonly", false, "simulation only mode")
 	tps := flag.Int("tps", 20, "number of trasaction per second per connection")
-	total := flag.Int("total", 1000, "nuumber of documents to create")
+	total := flag.Int("total", 1000, "number of documents to create")
 	tx := flag.String("tx", "", "file with defined transactions")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("v", false, "verbose")
