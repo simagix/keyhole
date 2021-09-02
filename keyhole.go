@@ -30,7 +30,7 @@ func Run(fullVersion string) {
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
 	compare := flag.Bool("compare", false, "compare 2 clusters or 2 -allinfo output files")
-	conn := flag.Int("conn", 0, "nuumber of connections")
+	conn := flag.Int("conn", 0, "number of connections")
 	createIndex := flag.String("createIndex", "", "create indexes")
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
