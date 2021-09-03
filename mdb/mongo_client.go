@@ -53,27 +53,35 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 	if connString.Username == "" && connString.AuthMechanism == "" {
 		opts.Auth = nil
 	}
-	if connString.SSLCaFile != "" {
-		connString.SSL = true
-		roots := x509.NewCertPool()
-		var caBytes []byte
-		if caBytes, err = ioutil.ReadFile(connString.SSLCaFile); err != nil {
-			return nil, err
+	if connString.SSLSet {
+		tlsConfig := new(tls.Config)
+		if connString.SSLInsecureSet {
+			tlsConfig.InsecureSkipVerify = true
 		}
-		if ok := roots.AppendCertsFromPEM(caBytes); !ok {
-			return client, errors.New("failed to parse root certificate")
-		}
-		var certs tls.Certificate
-		if connString.SSLClientCertificateKeyFile != "" {
-			var clientBytes []byte
-			if clientBytes, err = ioutil.ReadFile(connString.SSLClientCertificateKeyFile); err != nil {
+		if connString.SSLCaFileSet {
+			connString.SSL = true
+			roots := x509.NewCertPool()
+			var caBytes []byte
+			if caBytes, err = ioutil.ReadFile(connString.SSLCaFile); err != nil {
 				return nil, err
 			}
-			if certs, err = tls.X509KeyPair(clientBytes, clientBytes); err != nil {
-				return nil, err
+			if ok := roots.AppendCertsFromPEM(caBytes); !ok {
+				return client, errors.New("failed to parse root certificate")
 			}
+			var certs tls.Certificate
+			if connString.SSLClientCertificateKeyFileSet {
+				var clientBytes []byte
+				if clientBytes, err = ioutil.ReadFile(connString.SSLClientCertificateKeyFile); err != nil {
+					return nil, err
+				}
+				if certs, err = tls.X509KeyPair(clientBytes, clientBytes); err != nil {
+					return nil, err
+				}
+			}
+			tlsConfig.RootCAs = roots
+			tlsConfig.Certificates = []tls.Certificate{certs}
 		}
-		opts.SetTLSConfig(&tls.Config{RootCAs: roots, Certificates: []tls.Certificate{certs}})
+		opts.SetTLSConfig(tlsConfig)
 	}
 	if client, err = mongo.NewClient(opts); err != nil {
 		return client, err

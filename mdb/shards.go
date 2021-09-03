@@ -61,11 +61,17 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		} else if isSRV == true {
 			ruri += "&authSource=admin&tls=true"
 		}
-		if connString.SSLCaFile != "" {
+		if connString.SSLSet {
+			ruri += "&tls=true"
+		}
+		if connString.SSLCaFileSet {
 			ruri += "&tlsCAFile=" + connString.SSLCaFile
 		}
-		if connString.SSLClientCertificateKeyFile != "" {
+		if connString.SSLClientCertificateKeyFileSet {
 			ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
+		}
+		if connString.SSLInsecureSet {
+			ruri += fmt.Sprintf("&tlsInsecure=%v", connString.SSLInsecure)
 		}
 		list = append(list, ruri)
 	}
@@ -97,12 +103,17 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 				} else if connString.Username != "" {
 					ruri += "authSource=admin"
 				}
-				if connString.SSLCaFile != "" {
+				if connString.SSLSet {
 					ruri += "&tls=true"
+				}
+				if connString.SSLCaFileSet {
 					ruri += "&tlsCAFile=" + connString.SSLCaFile
 				}
-				if connString.SSLClientCertificateKeyFile != "" {
+				if connString.SSLClientCertificateKeyFileSet {
 					ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
+				}
+				if connString.SSLInsecureSet {
+					ruri += "&tlsInsecure=true"
 				}
 			}
 			list = append(list, ruri)
