@@ -38,9 +38,11 @@ if [[ -d "mdb/testdata/certs/" ]]; then
     export TLS_SERVER="--tlsCAFile mdb/testdata/certs/ca.pem --tlsCertificateKeyFile mdb/testdata/certs/server.pem"
 fi
 
+echo "${TLS_MODE} ${TLS_SERVER}"
 mongod --port 30097 --dbpath data/db --logpath data/mongod.log --fork \
     --wiredTigerCacheSizeGB 1 --keyFile out/keyfile --replSet rs ${TLS_MODE} ${TLS_SERVER}
 
+echo "${TLS} ${TLS_CLIENT}"
 mongo --quiet mongodb://user:password@localhost:30097/admin --eval 'rs.initiate()' ${TLS} ${TLS_CLIENT} > /dev/null 2>&1
 validate "init replica set"
 sleep 2

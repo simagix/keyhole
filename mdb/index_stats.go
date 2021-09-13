@@ -382,7 +382,7 @@ func (ix *IndexStats) PrintIndexesOf(databases []Database) {
 						font = CodeRed
 					}
 					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.KeyString, tailCode))
-				} else if o.TotalOps == 0 {
+				} else if o.TotalOps == 0 && o.ExpireAfterSeconds < 0 {
 					if ix.nocolor == false {
 						font = CodeBlue
 					}
