@@ -201,8 +201,8 @@ func (f *Seed) seedRobots(client *mongo.Client) error {
 			}
 		}
 	}
-	modelsCount, _ := modelsCollection.CountDocuments(ctx, bson.M{})
-	robotsCount, _ := robotsCollection.CountDocuments(ctx, bson.M{})
+	modelsCount, _ := modelsCollection.EstimatedDocumentCount(ctx)
+	robotsCount, _ := robotsCollection.EstimatedDocumentCount(ctx)
 	fmt.Printf("Seeded models: %d, robots: %d\n", modelsCount, robotsCount)
 	return err
 }
@@ -243,7 +243,7 @@ func (f *Seed) seedNumbers(client *mongo.Client) error {
 	}
 	indexView.CreateOne(ctx, idx)
 
-	numbersCount, _ := numbersCollection.CountDocuments(ctx, bson.M{})
+	numbersCount, _ := numbersCollection.EstimatedDocumentCount(ctx)
 	fmt.Printf("Seeded numbers: %d\n", numbersCount)
 	return err
 }
@@ -302,9 +302,10 @@ func (f *Seed) SeedVehicles(client *mongo.Client) error {
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}, {Key: "brand", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "ts", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}, {Key: "coordinate", Value: "2dsphere"}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "filters.k", Value: 1}, {Key: "filters.v", Value: 1}}})
-	dealersCount, _ := dealersCollection.CountDocuments(ctx, bson.M{})
+	dealersCount, _ := dealersCollection.EstimatedDocumentCount(ctx)
 	vehiclesCount := f.seedCollection(vehiclesCollection, 1)
 	fopts := options.Find()
 	filter := bson.D{{Key: "color", Value: "Red"}}
@@ -324,6 +325,8 @@ var colors = []string{"Beige", "Black", "Blue", "Brown", "Gold",
 	"Gray", "Green", "Orange", "Pink", "Purple",
 	"Red", "Silver", "White", "Yellow"}
 var locations = []string{"US-NY", "US-GA", "US-IL", "US-TX", "US-CA", "US-WA"}
+
+var now = time.Now()
 
 func getVehicle() bson.M {
 	curYear := time.Now().Year()
@@ -345,6 +348,7 @@ func getVehicle() bson.M {
 		"style":    style,
 		"year":     year,
 		"used":     used,
+		"ts":       time.Date(year, now.Month(), 1, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location()),
 		"filters": []bson.M{
 			bson.M{"k": "brand", "v": brand},
 			bson.M{"k": "color", "v": color},
@@ -393,7 +397,7 @@ func (f *Seed) seedCollection(c *mongo.Collection, fnum int) int {
 	if f.showProgress {
 		fmt.Fprintf(os.Stderr, "\r        \r")
 	}
-	cnt, _ := c.CountDocuments(ctx, bson.M{})
+	cnt, _ := c.EstimatedDocumentCount(ctx)
 	return int(cnt)
 }
 
