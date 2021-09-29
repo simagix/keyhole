@@ -192,7 +192,6 @@ func (p *Comparison) OutputBSON() error {
 	if data, err = bson.Marshal(p); err != nil {
 		return err
 	}
-	outdir := "./out"
 	os.Mkdir(outdir, 0755)
 	basename := p.TargetStats.HostInfo.System.Hostname
 	basename = strings.ReplaceAll(basename, ":", "_")

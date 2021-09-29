@@ -13,6 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+const (
+	outdir = "./out"
+)
+
 // CodeDefault shows default color
 var CodeDefault = "\x1b[0m"
 

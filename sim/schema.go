@@ -27,7 +27,6 @@ func GetSchema(c *mongo.Collection, verbose bool) (string, error) {
 		return "", err
 	}
 	if verbose == true {
-		outdir := "./out/"
 		os.Mkdir(outdir, 0755)
 		ofile := outdir + c.Name() + ".json"
 		err = ioutil.WriteFile(ofile, data, 0644)

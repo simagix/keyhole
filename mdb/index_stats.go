@@ -58,6 +58,7 @@ type Index struct {
 	Sparse                  bool   `json:"sparse" bson:"sparse"`
 	Unique                  bool   `json:"unique" bson:"unique"`
 	Version                 int32  `json:"v" bson:"v,truncate"`
+	Weights                 bson.D `json:"weights" bson:"weights"`
 
 	EffectiveKey string       `json:"effectiveKey" bson:"effectiveKey"`
 	Fields       []string     `json:"fields" bson:"fields"`
@@ -306,33 +307,33 @@ func checkIfDupped(doc Index, list []Index) bool {
 }
 
 // OutputBSON writes index stats bson to a file
-func (ix *IndexStats) OutputBSON() error {
+func (ix *IndexStats) OutputBSON() (string, []byte, error) {
 	var err error
 	var bsond bson.D
-	var buf []byte
-	if buf, err = bson.Marshal(ix); err != nil {
-		return err
+	var data []byte
+	var ofile string
+	if data, err = bson.Marshal(ix); err != nil {
+		return ofile, data, err
 	}
-	bson.Unmarshal(buf, &bsond)
-	if buf, err = bson.Marshal(bsond); err != nil {
-		return err
+	bson.Unmarshal(data, &bsond)
+	if data, err = bson.Marshal(bsond); err != nil {
+		return ofile, data, err
 	}
 
-	outdir := "./out"
 	os.Mkdir(outdir, 0755)
 	idx := strings.Index(ix.filename, indexExt)
 	basename := ix.filename[:idx]
-	ofile := fmt.Sprintf(`%v/%v%v`, outdir, basename, indexExt)
+	ofile = fmt.Sprintf(`%v/%v%v`, outdir, basename, indexExt)
 	i := 1
 	for DoesFileExist(ofile) {
 		ofile = fmt.Sprintf(`%v/%v.%d%v`, outdir, basename, i, indexExt)
 		i++
 	}
 
-	if err = gox.OutputGzipped(buf, ofile); err == nil {
+	if err = gox.OutputGzipped(data, ofile); err == nil {
 		fmt.Println("Index stats is written to", ofile)
 	}
-	return err
+	return ofile, data, err
 }
 
 // OutputJSON writes json data to a file
@@ -342,7 +343,6 @@ func (ix *IndexStats) OutputJSON() error {
 	if data, err = bson.MarshalExtJSON(ix, false, false); err != nil {
 		return err
 	}
-	outdir := "./out/"
 	os.Mkdir(outdir, 0755)
 	ofile := outdir + strings.ReplaceAll(filepath.Base(ix.filename), "bson.gz", "json")
 	ioutil.WriteFile(ofile, data, 0644)
@@ -485,6 +485,9 @@ func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []I
 				}
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)
+				}
+				if o.Weights != nil {
+					opt.SetWeights(o.Weights)
 				}
 				if ix.verbose {
 					ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, ns))

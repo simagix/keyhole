@@ -93,7 +93,6 @@ func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 		if counter == 1 {
 			fmt.Println(stdout)
 		}
-		outdir := "./out/"
 		os.Mkdir(outdir, 0755)
 		ofile := fmt.Sprintf("./out/%v-explain-%03d.json.gz", filepath.Base(filename), counter)
 		data, _ := bson.MarshalExtJSON(document, false, false)

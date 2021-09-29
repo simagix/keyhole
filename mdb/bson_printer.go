@@ -96,7 +96,6 @@ func (p *BSONPrinter) Print(filename string) error {
 			}
 			cluster.Print()
 		}
-		outdir := "./out/"
 		os.Mkdir(outdir, 0755)
 		ofile := filepath.Base(filename)
 		idx := strings.Index(ofile, ".bson")

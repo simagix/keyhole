@@ -303,12 +303,14 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 }
 
 // OutputBSON writes loginfo bson data
-func (li *LogInfo) OutputBSON() error {
+func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	var err error
+	var data []byte
+	var ofile string
 	if len(li.OpPatterns) == 0 {
-		return err
+		return "", data, err
 	}
-	ofile := filepath.Base(li.filename)
+	ofile = filepath.Base(li.filename)
 	var bsonf, tsvf string
 	if strings.HasSuffix(ofile, ".gz") {
 		ofile = ofile[:len(ofile)-3]
@@ -328,11 +330,9 @@ func (li *LogInfo) OutputBSON() error {
 	} else if li.LogType == "logv2" {
 		li.Regex = ""
 	}
-	var data []byte
 	if data, err = bson.Marshal(li); err != nil {
-		return err
+		return ofile, data, err
 	}
-	outdir := "./out"
 	os.Mkdir(outdir, 0755)
 	idx := strings.Index(bsonf, logExt)
 	basename := bsonf[:idx]
@@ -358,20 +358,20 @@ func (li *LogInfo) OutputBSON() error {
 
 	idx = strings.Index(tsvf, ".tsv")
 	basename = tsvf[:idx]
-	ofile = fmt.Sprintf(`%v/%v.tsv`, outdir, basename)
+	tsv := fmt.Sprintf(`%v/%v.tsv`, outdir, basename)
 	i = 1
-	for DoesFileExist(ofile) {
-		ofile = fmt.Sprintf(`%v/%v.%d.tsv`, outdir, basename, i)
+	for DoesFileExist(tsv) {
+		tsv = fmt.Sprintf(`%v/%v.%d.tsv`, outdir, basename, i)
 		i++
 	}
 
-	data = []byte(strings.Join(lines, "\n"))
-	if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+	tsvData := []byte(strings.Join(lines, "\n"))
+	if err = ioutil.WriteFile(tsv, tsvData, 0644); err != nil {
 		fmt.Println("write error:", err)
 	} else {
-		fmt.Println("TSV log info written to", ofile)
+		fmt.Println("TSV log info written to", tsv)
 	}
-	return nil
+	return ofile, data, err
 }
 
 // OutputJSON writes json data to a file
@@ -381,7 +381,6 @@ func (li *LogInfo) OutputJSON() error {
 	if data, err = bson.MarshalExtJSON(li, false, false); err != nil {
 		return err
 	}
-	outdir := "./out/"
 	os.Mkdir(outdir, 0755)
 	ofile := outdir + strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json")
 	ioutil.WriteFile(ofile, data, 0644)

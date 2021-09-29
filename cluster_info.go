@@ -15,14 +15,16 @@ func GetClusterSummary(version string, client *mongo.Client) string {
 }
 
 // CollectCluserDetails collects cluster details
-func CollectCluserDetails(stats *mdb.ClusterStats, client *mongo.Client, connString connstring.ConnString) error {
+func CollectCluserDetails(stats *mdb.ClusterStats, client *mongo.Client, connString connstring.ConnString, maobiURL string) error {
 	var err error
+	var data []byte
+	var ofile string
 	if err = stats.GetClusterStats(client, connString); err != nil {
 		return err
 	}
-	if err = stats.OutputBSON(); err != nil {
+	stats.Print()
+	if ofile, data, err = stats.OutputBSON(); err != nil {
 		return err
 	}
-	stats.Print()
-	return err
+	return GenerateMaobiReport(maobiURL, data, ofile)
 }

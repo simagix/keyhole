@@ -4,14 +4,19 @@ die() { echo "$*" 1>&2 ; exit 1; }
 VERSION="v$(cat version)-$(date "+%Y%m%d")"
 REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
 LDFLAGS="-X main.version=$VERSION -X main.repo=$REPO"
+TAG="simagix/keyhole"
 [[ "$(which go)" = "" ]] && die "go command not found"
 [[ "$GOPATH" = "" ]] && die "GOPATH not set"
 [[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building keyhole should be under ${GOPATH}/src/github.com/$REPO"
 mkdir -p dist
-if [[ "$1" == "all" ]]; then
+if [[ "$1" == "docker" ]]; then
   docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
-  docker build  -f Dockerfile . -t $REPO
-  id=$(docker create $REPO)
+  BR=$(git branch --show-current)
+  if [[ "${BR}" == "master" ]]; then
+    BR="latest"
+  fi 
+  docker build  -f Dockerfile -t ${TAG}:${BR} .
+  id=$(docker create ${TAG}:${BR})
   docker cp $id:/dist - | tar vx
 else
   if [ "$1" == "cross-platform"  ]; then

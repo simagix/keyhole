@@ -25,6 +25,10 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
+const (
+	outdir = "./out"
+)
+
 // Runner -
 type Runner struct {
 	Logger  *gox.Logger         `bson:"keyhole"`
@@ -210,7 +214,6 @@ func (rn *Runner) terminate() {
 	var filenames []string
 	var result string
 
-	outdir := "./out/"
 	os.Mkdir(outdir, 0755)
 	rn.Cleanup()
 	rn.Results = []string{}

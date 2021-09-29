@@ -21,10 +21,15 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
+const (
+	outdir  = "./out"
+	htmldir = "./html"
+)
+
 // Run executes main()
 func Run(fullVersion string) {
 	var err error
-	allinfo := flag.Bool("allinfo", false, "get all cluster info")
+	allinfo := flag.String("allinfo", "", "database connection string")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
 	collection := flag.String("collection", "", "collection name to print schema")
@@ -38,9 +43,10 @@ func Run(fullVersion string) {
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
 	file := flag.String("file", "", "template file for seedibg data")
 	ftdc := flag.Bool("ftdc", false, "download from atlas://user:key@group/cluster")
-	index := flag.Bool("index", false, "get indexes info")
-	info := flag.Bool("info", false, "Atlas info (atlas://user:key)")
+	index := flag.String("index", "", "get indexes info")
+	info := flag.String("info", "", "database connection string (Atlas uses atlas://user:key)")
 	loginfo := flag.Bool("loginfo", false, "log performance analytic from file or Atlas")
+	maobiURL := flag.String("maobi", "", "maobi url")
 	nocolor := flag.Bool("nocolor", false, "disable color codes")
 	pause := flag.Bool("pause", false, "pause an Atlas cluster atlas://user:key@group/cluster")
 	peek := flag.Bool("peek", false, "only collect stats")
@@ -68,7 +74,13 @@ func Run(fullVersion string) {
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 	var uri string
-	if len(flag.Args()) > 0 {
+	if *allinfo != "" {
+		uri = *allinfo
+	} else if *info != "" {
+		uri = *info
+	} else if *index != "" {
+		uri = *index
+	} else if len(flag.Args()) > 0 {
 		uri = flag.Arg(0)
 	}
 
@@ -79,7 +91,9 @@ func Run(fullVersion string) {
 		}
 		api.SetArgs(flag.Args())
 		api.SetFTDC(*ftdc)
-		api.SetInfo(*info)
+		if *info != "" {
+			api.SetInfo(true)
+		}
 		api.SetLoginfo(*loginfo)
 		api.SetPause(*pause)
 		api.SetResume(*resume)
@@ -94,7 +108,7 @@ func Run(fullVersion string) {
 			l.SetRegexPattern(*regex)
 			l.SetSilent(*nocolor)
 			l.SetVerbose(*verbose)
-			if err = AnalyzeMongoLogs(l, api.GetLogNames()); err != nil {
+			if err = AnalyzeMongoLogs(l, api.GetLogNames(), *maobiURL); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -148,7 +162,7 @@ func Run(fullVersion string) {
 		l.SetRegexPattern(*regex)
 		l.SetSilent(*nocolor)
 		l.SetVerbose(*verbose)
-		if err = AnalyzeMongoLogs(l, flag.Args()); err != nil {
+		if err = AnalyzeMongoLogs(l, flag.Args(), *maobiURL); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -162,7 +176,7 @@ func Run(fullVersion string) {
 	} else if *viewlog != "" {
 		mdb.OutputLogInOldFormat(*viewlog)
 		return
-	} else if len(flag.Args()) == 0 {
+	} else if uri == "" {
 		flag.PrintDefaults()
 		fmt.Println("\nusage: keyhole [options] <connection_string>")
 		return
@@ -179,12 +193,12 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	}
 
-	if *allinfo || (*info && *verbose) {
+	if *allinfo != "" || (*info != "" && *verbose) {
 		stats := mdb.NewClusterStats(fullVersion)
 		stats.SetRedaction(*redaction)
 		stats.SetVerbose(true)
-		if err = CollectCluserDetails(stats, client, connString); err != nil {
-			log.Fatalf(`a valid user with roles 'clusterMonitor' and 'readAnyDatabase' on all mongo processes are required.\n%v`, err)
+		if err = CollectCluserDetails(stats, client, connString, *maobiURL); err != nil {
+			log.Fatalf("a valid user with roles 'clusterMonitor' and 'readAnyDatabase' on all mongo processes are required.\n%v", err)
 		}
 		return
 	} else if *cardinality != "" { // --card <collection> [-v]
@@ -218,11 +232,11 @@ func Run(fullVersion string) {
 			log.Fatal(err)
 		}
 		return
-	} else if *index == true {
+	} else if *index != "" {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
-		if err = CollectIndexStats(ix, client); err != nil {
+		if err = CollectIndexStats(ix, client, *maobiURL); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -252,7 +266,7 @@ func Run(fullVersion string) {
 	}
 
 	clusterSummary := GetClusterSummary(fullVersion, client)
-	if *info == true {
+	if *info != "" {
 		fmt.Println(clusterSummary)
 		return
 	}

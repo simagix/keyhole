@@ -240,22 +240,22 @@ func (p *ClusterStats) Print() {
 }
 
 // OutputBSON writes bson data to a file
-func (p *ClusterStats) OutputBSON() error {
-	if p.HostInfo.System.Hostname == "" {
-		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
-		return errors.New(result)
-	}
+func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	var err error
 	var data []byte
+	var ofile string
+	if p.HostInfo.System.Hostname == "" {
+		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
+		return ofile, data, errors.New(result)
+	}
 	if data, err = bson.Marshal(p); err != nil {
-		return err
+		return ofile, data, err
 	}
 
-	outdir := "./out"
 	os.Mkdir(outdir, 0755)
 	basename := p.HostInfo.System.Hostname
 	basename = strings.ReplaceAll(basename, ":", "_")
-	ofile := fmt.Sprintf(`%v/%v-stats.bson.gz`, outdir, basename)
+	ofile = fmt.Sprintf(`%v/%v-stats.bson.gz`, outdir, basename)
 	i := 1
 	for DoesFileExist(ofile) {
 		ofile = fmt.Sprintf(`%v/%v.%d-stats.bson.gz`, outdir, basename, i)
@@ -263,8 +263,8 @@ func (p *ClusterStats) OutputBSON() error {
 	}
 
 	if err = gox.OutputGzipped(data, ofile); err != nil {
-		return err
+		return ofile, data, err
 	}
 	fmt.Println(fmt.Sprintf(`bson data written to %v`, ofile))
-	return err
+	return ofile, data, err
 }

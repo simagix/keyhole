@@ -81,6 +81,8 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 		}
 		op = res[1]
 		filter = res[2]
+	} else if op == "query" {
+		op = "find"
 	}
 
 	if op == "insert" {

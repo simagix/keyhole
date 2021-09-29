@@ -25,15 +25,17 @@ func DuplicateIndexesFromFile(index *mdb.IndexStats, client *mongo.Client, filen
 }
 
 // CollectIndexStats collects all indexes stats
-func CollectIndexStats(index *mdb.IndexStats, client *mongo.Client) error {
+func CollectIndexStats(index *mdb.IndexStats, client *mongo.Client, maobiURL string) error {
 	var err error
+	var data []byte
+	var ofile string
 	var databases []mdb.Database
 	if databases, err = index.GetIndexes(client); err != nil {
 		return err
 	}
 	index.PrintIndexesOf(databases)
-	if err = index.OutputBSON(); err != nil {
+	if ofile, data, err = index.OutputBSON(); err != nil {
 		return err
 	}
-	return err
+	return GenerateMaobiReport(maobiURL, data, ofile)
 }
