@@ -86,7 +86,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		}
 	}
 
-	if li.Collscan == true && stat.scan != COLLSCAN {
+	if li.Collscan && stat.scan != COLLSCAN {
 		return stat, errors.New("skip, -collscan")
 	}
 	if doc.Attributes.Command == nil {
@@ -138,7 +138,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			break
 		}
 		fmap := stage.(map[string]interface{})
-		if isRegex(fmap) == false {
+		if !isRegex(fmap) {
 			walker := gox.NewMapWalker(cb)
 			doc := walker.Walk(fmap)
 			if buf, err := json.Marshal(doc); err == nil {
@@ -146,8 +146,8 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			} else {
 				stat.filter = "{}"
 			}
-			if strings.Index(stat.filter, "$match") < 0 && strings.Index(stat.filter, "$sort") < 0 &&
-				strings.Index(stat.filter, "$facet") < 0 && strings.Index(stat.filter, "$indexStats") < 0 {
+			if !strings.Contains(stat.filter, "$match") && !strings.Contains(stat.filter, "$sort") &&
+				!strings.Contains(stat.filter, "$facet") && !strings.Contains(stat.filter, "$indexStats") {
 				stat.filter = "{}"
 			}
 		} else {
@@ -167,7 +167,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 		} else {
 			return stat, errors.New("no filter found")
 		}
-		if isRegex(fmap) == false {
+		if !isRegex(fmap) {
 			walker := gox.NewMapWalker(cb)
 			doc := walker.Walk(fmap)
 			var data []byte
@@ -209,7 +209,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 func isRegex(doc map[string]interface{}) bool {
 	if buf, err := json.Marshal(doc); err != nil {
 		return false
-	} else if strings.Index(string(buf), "$regularExpression") >= 0 {
+	} else if strings.Contains(string(buf), "$regularExpression") {
 		return true
 	}
 	return false

@@ -31,7 +31,7 @@ func getMongoClient() *mongo.Client {
 }
 
 func TestCreateIndexes(t *testing.T) {
-	var docs = []bson.M{bson.M{"email": 1, "hostIp": 1}}
+	var docs = []bson.M{{"email": 1, "hostIp": 1}}
 	connString, _ := connstring.Parse(UnitTestURL)
 	runner, _ := NewRunner(connString)
 	if err := runner.createIndexes(docs); err != nil {

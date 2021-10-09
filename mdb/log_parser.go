@@ -18,16 +18,16 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 
 	scan := ""
 	aggStages := ""
-	if strings.HasSuffix(str, "ms") == false {
+	if !strings.HasSuffix(str, "ms") {
 		return stat, errors.New("unrecognized log")
 	}
-	if li.regexp.MatchString(str) == false {
+	if !li.regexp.MatchString(str) {
 		return stat, errors.New("unrecognized log")
 	}
-	if strings.Index(str, "COLLSCAN") >= 0 {
+	if strings.Contains(str, "COLLSCAN") {
 		scan = COLLSCAN
 	}
-	if li.Collscan == true && scan != COLLSCAN {
+	if li.Collscan && scan != COLLSCAN {
 		return stat, err
 	}
 	result := li.regexp.FindStringSubmatch(str)
@@ -41,10 +41,10 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	body := result[6]
 	for _, r := range body {
 		epos++
-		if isFound == false && r == '{' {
+		if !isFound && r == '{' {
 			isFound = true
 			bpos++
-		} else if isFound == true {
+		} else if isFound {
 			if r == '{' {
 				bpos++
 			} else if r == '}' {
@@ -52,7 +52,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 			}
 		}
 
-		if isFound == true && bpos == 0 {
+		if isFound && bpos == 0 {
 			break
 		}
 	}
@@ -87,10 +87,10 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 
 	if op == "insert" {
 		filter = "{ }"
-	} else if hasFilter(op) == false {
+	} else if !hasFilter(op) {
 		return stat, err
 	}
-	if op == "delete" && strings.Index(filter, "writeConcern:") >= 0 {
+	if op == "delete" && strings.Contains(filter, "writeConcern:") {
 		return stat, err
 	} else if op == "find" {
 		nstr := "{ }"
@@ -116,13 +116,11 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 		if s != "" {
 			nstr = s
 		}
-		if strings.HasSuffix(nstr, " }") {
-			nstr = nstr[:len(nstr)-2]
-		}
+		nstr = strings.TrimSuffix(nstr, " }")
 		filter = "{" + nstr + ": 1}"
 	} else if op == "delete" || op == "update" || op == "remove" || op == "findAndModify" {
 		var s string
-		if strings.Index(filter, "query: ") >= 0 {
+		if strings.Contains(filter, "query: ") {
 			s = getDocByField(filter, "query: ")
 		} else {
 			s = getDocByField(filter, "q: ")
@@ -187,13 +185,13 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 			i = strings.Index(tmp, " IXSCAN")
 		}
 		index = index[:len(index)-2]
-	} else if strings.Index(str, "planSummary: EOF") >= 0 {
+	} else if strings.Contains(str, "planSummary: EOF") {
 		index = "EOF"
-	} else if strings.Index(str, "planSummary: IDHACK") >= 0 {
+	} else if strings.Contains(str, "planSummary: IDHACK") {
 		index = "IDHACK"
-	} else if strings.Index(str, "planSummary: COUNT_SCAN") >= 0 {
+	} else if strings.Contains(str, "planSummary: COUNT_SCAN") {
 		index = "COUNT_SCAN"
-	} else if strings.Index(str, "planSummary: DISTINCT_SCAN") >= 0 {
+	} else if strings.Contains(str, "planSummary: DISTINCT_SCAN") {
 		index = "DISTINCT_SCAN"
 	} else if strings.Index(str, "exception: shard version not ok") > 0 {
 		return stat, err

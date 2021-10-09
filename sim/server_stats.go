@@ -60,7 +60,7 @@ func (st *ServerStats) SetVerbose(verbose bool) { st.verbose = verbose }
 // SetPeekingMode sets peeking mode
 func (st *ServerStats) SetPeekingMode(peek bool) {
 	st.peek = peek
-	if st.peek == true {
+	if st.peek {
 		st.freq.serverStatus = 1
 		st.freq.replset = 5
 	}
@@ -68,10 +68,6 @@ func (st *ServerStats) SetPeekingMode(peek bool) {
 
 // getServerStatus gets db.serverStatus() every minute
 func (st *ServerStats) getServerStatus(client *mongo.Client) error {
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
 	var pstat = anly.ServerStatusDoc{}
 	var stat = anly.ServerStatusDoc{}
 	var iop int
@@ -154,16 +150,11 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 
 // getReplSetGetStatus gets {replSetGetStatus: 1} every minute
 func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
 	var err error
 	var replSetStatus = anly.ReplSetStatusDoc{}
 	var doc bson.M
 	if st.verbose {
-		rstr := fmt.Sprintf("ReplSetGetStatus gets every minute")
-		st.channel <- rstr
+		st.channel <- "ReplSetGetStatus gets every minute"
 	}
 	st.channel <- "[" + st.mkey + "] ReplSetGetStatus begins"
 
@@ -196,10 +187,6 @@ func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
 
 // getDBStats gets dbStats every 10 seconds
 func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
 	var err error
 	var docs map[string]interface{}
 	var prevDataSize float64
@@ -234,10 +221,6 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 
 // getMongoConfig gets mongo configs
 func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
 	var err error
 	st.channel <- "[" + st.mkey + "] getMongoConfig begins"
 	serverInfoDocs[st.uri] = anly.ServerInfoDoc{}

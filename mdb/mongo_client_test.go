@@ -3,6 +3,7 @@
 package mdb
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -39,7 +40,7 @@ func TestNewMongoClientWithOptions(t *testing.T) {
 	}
 	collection := client.Database("test").Collection(ExamplesCollection)
 	var count int64
-	if count, err = collection.CountDocuments(nil, bson.M{}); err != nil {
+	if count, err = collection.CountDocuments(context.TODO(), bson.M{}); err != nil {
 		t.Fatal(uri, err)
 	}
 	t.Log(count, "total counts from", uri)

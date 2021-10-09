@@ -21,8 +21,7 @@ func TestGetTransactions(t *testing.T) {
 
 func TestExecTXByTemplateAndTX(t *testing.T) {
 	var filename = "testdata/transactions.json"
-	var client *mongo.Client
-	client = getMongoClient()
+	var client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	c := client.Database(mdb.KeyholeDB).Collection(mdb.ExamplesCollection)
 	tx := GetTransactions(filename)

@@ -34,8 +34,7 @@ func TestChangeStreamClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	client = getMongoClient()
-	var pipeline []bson.D
-	pipeline = mongo.Pipeline{}
+	var pipeline = mongo.Pipeline{}
 	c := client.Database(cs.Database).Collection(collection)
 	c.InsertOne(ctx, bson.M{"city": "Atlanta"})
 
@@ -62,8 +61,7 @@ func TestChangeStreamDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	client = getMongoClient()
-	var pipeline []bson.D
-	pipeline = mongo.Pipeline{}
+	var pipeline = mongo.Pipeline{}
 	c := client.Database(cs.Database).Collection(collection)
 	c.InsertOne(ctx, bson.M{"city": "Atlanta"})
 
@@ -91,8 +89,7 @@ func TestChangeStreamCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	client = getMongoClient()
-	var pipeline []bson.D
-	pipeline = mongo.Pipeline{}
+	var pipeline = mongo.Pipeline{}
 	c := client.Database(cs.Database).Collection(collection)
 	c.InsertOne(ctx, bson.M{"city": "Atlanta"})
 

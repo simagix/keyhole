@@ -114,7 +114,7 @@ func execTXByTemplateAndTX(c *mongo.Collection, doc bson.M, tx Transaction) (bso
 			}
 		}
 	}
-	execTime[tx.C] = time.Now().Sub(t)
+	execTime[tx.C] = time.Since(t)
 	execTime["total"] = 1
 	return execTime, err
 }

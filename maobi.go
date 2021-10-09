@@ -41,6 +41,9 @@ func GenerateMaobiReport(maobiURL string, data []byte, ofile string) error {
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 	fileWriter, err := bodyWriter.CreateFormFile("file", ofile)
+	if err != nil {
+		return err
+	}
 	fileWriter.Write(data)
 	contentType := bodyWriter.FormDataContentType()
 	bodyWriter.Close()
@@ -54,6 +57,6 @@ func GenerateMaobiReport(maobiURL string, data []byte, ofile string) error {
 		return err
 	}
 	ioutil.WriteFile(filename, body, 0644)
-	fmt.Println(fmt.Sprintf(`HTML report written to %v`, filename))
+	fmt.Printf("HTML report written to %v\n", filename)
 	return err
 }

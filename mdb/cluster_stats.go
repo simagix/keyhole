@@ -98,7 +98,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 
 		setName := p.ServerStatus.Repl.SetName
 		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(p.ServerStatus.Repl.Hosts, ","))
-		oneShard := []Shard{Shard{ID: setName, State: 1, Host: s}}
+		oneShard := []Shard{{ID: setName, State: 1, Host: s}}
 		if p.Shards, err = p.GetServersStatsSummary(oneShard, connString); err != nil {
 			p.Logger.Error(err)
 		}
@@ -245,7 +245,7 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	var data []byte
 	var ofile string
 	if p.HostInfo.System.Hostname == "" {
-		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
+		result := `roles 'clusterMonitor' and 'readAnyDatabase' are required`
 		return ofile, data, errors.New(result)
 	}
 	if data, err = bson.Marshal(p); err != nil {
@@ -265,6 +265,6 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	if err = gox.OutputGzipped(data, ofile); err != nil {
 		return ofile, data, err
 	}
-	fmt.Println(fmt.Sprintf(`bson data written to %v`, ofile))
+	fmt.Printf("bson data written to %v\n", ofile)
 	return ofile, data, err
 }

@@ -15,8 +15,7 @@ import (
 var dbName = "keyhole"
 
 func TestGetIndexesFromDB(t *testing.T) {
-	var client *mongo.Client
-	client = getMongoClient()
+	var client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	c := client.Database(dbName).Collection(ExamplesCollection)
 	seedNumbers(c)
@@ -28,8 +27,7 @@ func TestGetIndexesFromDB(t *testing.T) {
 }
 
 func TestGetIndexes(t *testing.T) {
-	var client *mongo.Client
-	client = getMongoClient()
+	var client = getMongoClient()
 	defer client.Disconnect(context.Background())
 	c := client.Database(dbName).Collection(ExamplesCollection)
 	seedNumbers(c)

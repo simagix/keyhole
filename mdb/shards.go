@@ -56,9 +56,9 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 			ruri += hosts
 		}
 		ruri += fmt.Sprintf(`/%v?replicaSet=%v`, connString.Database, setName)
-		if isSRV == false && connString.AuthSource != "" {
+		if !isSRV && connString.AuthSource != "" {
 			ruri += "&authSource=" + connString.AuthSource
-		} else if isSRV == true {
+		} else if isSRV {
 			ruri += "&authSource=admin&tls=true"
 		}
 		if connString.SSLSet {
@@ -95,7 +95,7 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 			} else {
 				ruri += fmt.Sprintf(`%v/?connect=direct&`, host)
 			}
-			if isSRV == true {
+			if isSRV {
 				ruri += "authSource=admin&tls=true"
 			} else {
 				if connString.AuthSource != "" {

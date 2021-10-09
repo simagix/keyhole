@@ -51,7 +51,7 @@ func (r *Redactor) callback(v interface{}) interface{} {
 				b[i] = byte(23 + 65) // X
 			} else if c >= 97 && c <= 122 { // a-f
 				b[i] = byte(5 + 97) // f
-			} else if c >= 97 && c <= 122 { // g-z
+			} else if c >= 103 && c <= 142 { // g-z
 				b[i] = byte(23 + 97) // x
 			} else {
 				b[i] = byte(c)

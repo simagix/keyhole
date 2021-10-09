@@ -26,7 +26,7 @@ func GetSchema(c *mongo.Collection, verbose bool) (string, error) {
 	if data, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 		return "", err
 	}
-	if verbose == true {
+	if verbose {
 		os.Mkdir(outdir, 0755)
 		ofile := outdir + c.Name() + ".json"
 		err = ioutil.WriteFile(ofile, data, 0644)

@@ -210,7 +210,7 @@ func Run(fullVersion string) {
 			fmt.Println(card.GetSummary(summary))
 		}
 		return
-	} else if *changeStreams == true {
+	} else if *changeStreams {
 		stream := mdb.NewChangeStream()
 		stream.SetCollection(*collection)
 		stream.SetDatabase(connString.Database)
@@ -240,7 +240,7 @@ func Run(fullVersion string) {
 			log.Fatal(err)
 		}
 		return
-	} else if *schema == true {
+	} else if *schema {
 		if *collection == "" {
 			log.Fatal("usage: keyhole [-v] --schema --collection collection_name <mongodb_uri>")
 		}
@@ -251,7 +251,7 @@ func Run(fullVersion string) {
 		}
 		fmt.Println(str)
 		return
-	} else if *seed == true {
+	} else if *seed {
 		f := NewSeed()
 		f.SetCollection(*collection)
 		f.SetDatabase(connString.Database)
@@ -276,7 +276,7 @@ func Run(fullVersion string) {
 		addr := fmt.Sprintf(":%d", *port)
 		log.Println(http.ListenAndServe(addr, nil))
 	}()
-	if *wt == true {
+	if *wt {
 		fmt.Println(clusterSummary)
 		log.Printf("URL: http://localhost:%d/wt\n", *port)
 		MonitorWiredTigerCache(fullVersion, client)

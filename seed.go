@@ -298,7 +298,7 @@ func (f *Seed) SeedVehicles(client *mongo.Client) error {
 
 	// create index example
 	indexView := vehiclesCollection.Indexes()
-	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{"location", 1}, {"color", 1}}})
+	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "location", Value: 1}, {Key: "color", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "color", Value: 1}, {Key: "brand", Value: 1}}})
 	indexView.CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "dealer", Value: 1}}})
@@ -350,11 +350,11 @@ func getVehicle() bson.M {
 		"used":     used,
 		"ts":       time.Date(year, now.Month(), 1, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location()),
 		"filters": []bson.M{
-			bson.M{"k": "brand", "v": brand},
-			bson.M{"k": "color", "v": color},
-			bson.M{"k": "style", "v": style},
-			bson.M{"k": "year", "v": year},
-			bson.M{"k": "used", "v": used}},
+			{"k": "brand", "v": brand},
+			{"k": "color", "v": color},
+			{"k": "style", "v": style},
+			{"k": "year", "v": year},
+			{"k": "used", "v": used}},
 	}
 }
 
@@ -431,7 +431,7 @@ func (f *Seed) seedFromTemplate(client *mongo.Client) error {
 		for iview.Next(ctx) {
 			var doc mdb.Index
 			iview.Decode(&doc)
-			if doc.Unique == true {
+			if doc.Unique {
 				uniq = &doc
 				break
 			}
@@ -465,7 +465,7 @@ func (f *Seed) seedFromTemplate(client *mongo.Client) error {
 			inserted, err := populateData(c, num, doc)
 			remaining += (num - inserted)
 			if err != nil {
-				if mdb.IsUnauthorizedError(err) == true {
+				if mdb.IsUnauthorizedError(err) {
 					return
 				}
 				// log.Println("bulkWrite failed", err)
@@ -483,11 +483,8 @@ func (f *Seed) seedFromTemplate(client *mongo.Client) error {
 	}
 	wg.Wait()
 	if remaining > 0 {
-		inserted, err := populateData(c, remaining, doc) // catchup
+		inserted, _ := populateData(c, remaining, doc) // catchup
 		remaining -= inserted
-		if err != nil && mdb.IsUnauthorizedError(err) == true {
-
-		}
 	}
 
 	if f.showProgress {

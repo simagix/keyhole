@@ -131,8 +131,6 @@ func emptyBinData(firstDoc bson.M) bson.M {
 			if v.(primitive.Binary).Subtype != 4 { // empty data when it's not UUID
 				firstDoc[k] = primitive.Binary{Subtype: v.(primitive.Binary).Subtype}
 			}
-		} else {
-			// fmt.Println(v, t)
 		}
 	}
 	return firstDoc
@@ -154,7 +152,7 @@ func SkipNamespace(namespace string, namespaceMap map[string]bool) bool {
 	}
 	dbName, _ := SplitNamespace(namespace)
 	allDB := dbName + ".*"
-	if namespaceMap[allDB] == true || namespaceMap[namespace] == true {
+	if namespaceMap[allDB] || namespaceMap[namespace] {
 		return false
 	}
 	return true
