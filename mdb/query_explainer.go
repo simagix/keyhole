@@ -186,19 +186,6 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 	return buffer.String()
 }
 
-func (qe *QueryExplainer) getDocument(depth []string) interface{} {
-	doc := qe.document
-	for _, key := range depth {
-		for _, value := range doc {
-			if key == value.Key {
-				doc = value.Value.(bson.D)
-			}
-		}
-	}
-	fmt.Println(gox.Stringify(doc))
-	return doc
-}
-
 // https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/plan_ranker.cpp
 // we can run hint as {"explain": {"find": collectionName, "filter": filter, "sort": sortSpec, "hint": index}}
 func (qe *QueryExplainer) getStageStats(document bson.D) StageStats {

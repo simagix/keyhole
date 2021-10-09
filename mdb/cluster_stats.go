@@ -105,6 +105,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		p.Logger.Info("end collecting from all servers")
 	}
 	db := NewDatabaseStats(p.Logger.AppName)
+	db.SetNumberShards(len(p.Shards))
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
 	if p.Databases, err = db.GetAllDatabasesStats(client); err != nil {

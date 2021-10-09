@@ -3,8 +3,10 @@
 package mdb
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +20,7 @@ import (
 )
 
 const (
+	maxNumShards       = 3
 	sampleDocSizeLimit = (32 * 1024) // 32KB
 )
 
@@ -25,8 +28,9 @@ const (
 type DatabaseStats struct {
 	Logger *gox.Logger
 
-	threads   int
+	numShards int
 	redaction bool
+	threads   int
 	verbose   bool
 	version   string
 }
@@ -100,6 +104,11 @@ func NewDatabaseStats(version string) *DatabaseStats {
 	return &DatabaseStats{Logger: gox.GetLogger(version), threads: 16, version: version}
 }
 
+// SetNumberShards set # of threads
+func (p *DatabaseStats) SetNumberShards(n int) {
+	p.numShards = n
+}
+
 // SetNumberThreads set # of threads
 func (p *DatabaseStats) SetNumberThreads(threads int) {
 	p.threads = threads
@@ -125,6 +134,18 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	var ctx = context.Background()
 	var listdb ListDatabases
 	var databases []Database
+	var isGetChunksDistr = (p.verbose && p.numShards <= maxNumShards)
+	if p.numShards > maxNumShards {
+		isGetChunksDistr = false
+		fmt.Printf("There are %v shards, and it will take time to calculate chunks distribution info.\n", p.numShards)
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Do you wish to collect chunks distribution info [y/N]: ")
+		text, _ := reader.ReadString('\n')
+		text = strings.TrimSuffix(text, "\n")
+		if text == "y" || text == "Y" {
+			isGetChunksDistr = true
+		}
+	}
 	t := time.Now()
 	p.Logger.Debug("GetAllDatabasesStats")
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
@@ -213,14 +234,13 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				var stats bson.M
 				client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 				chunks := []Chunk{}
-				if stats["shards"] != nil && p.verbose {
-					keys := []string{}
-
-					for k := range stats["shards"].(primitive.M) {
-						keys = append(keys, k)
+				if isGetChunksDistr && stats["shards"] != nil {
+					shardNames := []string{}
+					for shard := range stats["shards"].(primitive.M) {
+						shardNames = append(shardNames, shard)
 					}
-					sort.Strings(keys)
-					for _, k := range keys {
+					sort.Strings(shardNames)
+					for _, k := range shardNames {
 						m := (stats["shards"].(primitive.M)[k]).(primitive.M)
 						delete(m, "$clusterTime")
 						delete(m, "$gleStats")

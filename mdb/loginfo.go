@@ -5,7 +5,6 @@ package mdb
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -110,31 +109,6 @@ func (li *LogInfo) SetRegexPattern(regex string) {
 	if regex != "" {
 		li.regex = regex
 	}
-}
-
-func getConfigOptions(buffers []string) []string {
-	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
-	var strs []string
-
-	for _, buf := range buffers {
-		if matched.MatchString(buf) {
-			result := matched.FindStringSubmatch(string(buf))
-			if result[1] == "db" {
-				s := "db " + result[3]
-				strs = append(strs, s)
-			} else if result[1] == "options:" {
-				re := regexp.MustCompile(`((\S+):)`)
-				body := re.ReplaceAllString(result[3], "\"$1\":")
-				var buf bytes.Buffer
-				json.Indent(&buf, []byte(body), "", "  ")
-
-				strs = append(strs, "config options:")
-				strs = append(strs, buf.String())
-				return strs
-			}
-		}
-	}
-	return strs
 }
 
 const (
