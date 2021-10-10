@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/simagix/gox"
@@ -82,6 +83,9 @@ func Run(fullVersion string) {
 		uri = *index
 	} else if len(flag.Args()) > 0 {
 		uri = flag.Arg(0)
+	}
+	if *maobiURL == "" && os.Getenv("MAOBI") != "" {
+		*maobiURL = os.Getenv("MAOBI")
 	}
 
 	if strings.HasPrefix(uri, "atlas://") {
