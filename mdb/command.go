@@ -17,7 +17,6 @@ func RunAdminCommand(client *mongo.Client, command string) (bson.M, error) {
 // RunCommandOnDB execute admin Command at given database
 func RunCommandOnDB(client *mongo.Client, command string, db string) (bson.M, error) {
 	var result = bson.M{}
-	var err error
-	err = client.Database(db).RunCommand(context.Background(), bson.D{{Key: command, Value: 1}}).Decode(&result)
+	var err = client.Database(db).RunCommand(context.Background(), bson.D{{Key: command, Value: 1}}).Decode(&result)
 	return result, err
 }

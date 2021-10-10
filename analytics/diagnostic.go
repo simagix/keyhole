@@ -203,7 +203,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 		d.SystemMetricsList = append(d.SystemMetricsList, diagDataMap[key].SystemMetricsList...)
 		d.ReplSetStatusList = append(d.ReplSetStatusList, diagDataMap[key].ReplSetStatusList...)
 	}
-	log.Println(len(filenames), "files loaded, time spent:", time.Now().Sub(btime))
+	log.Println(len(filenames), "files loaded, time spent:", time.Since(btime))
 	return err
 }
 
@@ -242,7 +242,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	mem := fmt.Sprintf("Memory Alloc = %v MiB, TotalAlloc = %v MiB", m.Alloc/(1024*1024), m.TotalAlloc/(1024*1024))
-	log.Println(filename, "blocks:", len(metrics.Data), ", time:", time.Now().Sub(btm), mem)
+	log.Println(filename, "blocks:", len(metrics.Data), ", time:", time.Since(btm), mem)
 	return diagData, err
 }
 

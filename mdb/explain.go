@@ -50,7 +50,7 @@ func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 		buffer, _, rerr := reader.ReadLine()
 		if rerr != nil {
 			break
-		} else if strings.HasSuffix(string(buffer), "ms") == false {
+		} else if !strings.HasSuffix(string(buffer), "ms") {
 			continue
 		}
 		if err = qe.ReadQueryShape(buffer); err != nil {
@@ -119,7 +119,7 @@ func (e *Explain) PrintExplainResults(filename string) error {
 	doc := bson.M{}
 	json.Unmarshal(data, &doc)
 	if doc["stdout"] == nil {
-		usage := "Usage: keyhole --explain <mongod.log> <uri> | <result.json.gz>"
+		usage := "usage: keyhole --explain <mongod.log> <uri> | <result.json.gz>"
 		return errors.New(usage)
 	}
 	fmt.Println(doc["stdout"])

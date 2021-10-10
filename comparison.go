@@ -132,7 +132,7 @@ func (p *Comparison) compare() error {
 	}
 	// compare a few key metrics
 	codeDefault := mdb.CodeDefault
-	if p.nocolor == true {
+	if p.nocolor {
 		codeDefault = ""
 	}
 	printer := message.NewPrinter(language.English)
@@ -156,7 +156,7 @@ func (p *Comparison) compare() error {
 			gox.GetStorageSize(db.Stats.DataSize), p.getColor(db.Stats.DataSize, dbMap[db.Name].Stats.DataSize), gox.GetStorageSize(dbMap[db.Name].Stats.DataSize), codeDefault))
 		p.Logger.Info(printer.Sprintf(" ├─Average Data Size:    \t%12s%v\t%12s%v",
 			gox.GetStorageSize(db.Stats.AvgObjSize), p.getColor(db.Stats.AvgObjSize, dbMap[db.Name].Stats.AvgObjSize), gox.GetStorageSize(dbMap[db.Name].Stats.AvgObjSize), codeDefault))
-		p.Logger.Info(fmt.Sprintf(" └─Number of indexes:"))
+		p.Logger.Info(" └─Number of indexes:")
 		for _, coll := range db.Collections {
 			length := 0
 			if val, ok := collMap[coll.NS]; ok {
@@ -169,7 +169,7 @@ func (p *Comparison) compare() error {
 }
 
 func (p *Comparison) getColor(a int64, b int64) string {
-	if p.nocolor == true {
+	if p.nocolor {
 		if a != b {
 			return " ≠"
 		}
@@ -184,7 +184,7 @@ func (p *Comparison) getColor(a int64, b int64) string {
 // OutputBSON writes bson data to a file
 func (p *Comparison) OutputBSON() error {
 	if p.TargetStats.HostInfo.System.Hostname == "" {
-		result := `Roles 'clusterMonitor' and 'readAnyDatabase' are required`
+		result := `roles 'clusterMonitor' and 'readAnyDatabase' are required`
 		return errors.New(result)
 	}
 	var err error

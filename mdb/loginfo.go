@@ -5,7 +5,6 @@ package mdb
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -112,31 +111,6 @@ func (li *LogInfo) SetRegexPattern(regex string) {
 	}
 }
 
-func getConfigOptions(buffers []string) []string {
-	matched := regexp.MustCompile(`^\S+ .? CONTROL\s+\[\w+\] (\w+(:)?) (.*)$`)
-	var strs []string
-
-	for _, buf := range buffers {
-		if matched.MatchString(buf) == true {
-			result := matched.FindStringSubmatch(string(buf))
-			if result[1] == "db" {
-				s := "db " + result[3]
-				strs = append(strs, s)
-			} else if result[1] == "options:" {
-				re := regexp.MustCompile(`((\S+):)`)
-				body := re.ReplaceAllString(result[3], "\"$1\":")
-				var buf bytes.Buffer
-				json.Indent(&buf, []byte(body), "", "  ")
-
-				strs = append(strs, "config options:")
-				strs = append(strs, string(buf.Bytes()))
-				return strs
-			}
-		}
-	}
-	return strs
-}
-
 const (
 	logExt = "-log.bson.gz"
 	topN   = 25
@@ -146,7 +120,7 @@ const (
 func (li *LogInfo) AnalyzeFile(filename string) error {
 	var err error
 	li.filename = filename
-	if strings.HasSuffix(filename, logExt) == true {
+	if strings.HasSuffix(filename, logExt) {
 		var data []byte
 		var err error
 		var fd *bufio.Reader
@@ -172,7 +146,7 @@ func (li *LogInfo) AnalyzeFile(filename string) error {
 			return err
 		}
 		var lineCounts int
-		if li.silent == false {
+		if !li.silent {
 			lineCounts, _ = gox.CountLines(reader)
 		}
 		file.Seek(0, 0)
@@ -203,7 +177,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	var hist = Histogram{Ops: map[string]int{}}
 	li.regexp = regexp.MustCompile(li.regex)
 	for {
-		if lineCounts > 0 && li.silent == false && index%50 == 0 {
+		if lineCounts > 0 && !li.silent && index%50 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/lineCounts)
 		}
 		if buf, isPrefix, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
@@ -214,7 +188,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			continue
 		}
 		str := string(buf)
-		for isPrefix == true {
+		for isPrefix {
 			var bbuf []byte
 			if bbuf, isPrefix, err = reader.ReadLine(); err != nil {
 				break
@@ -222,7 +196,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			str += string(bbuf)
 		}
 		if li.LogType == "" { //examine the log logType
-			if regexp.MustCompile("^{.*}$").MatchString(str) == true {
+			if regexp.MustCompile("^{.*}$").MatchString(str) {
 				li.LogType = "logv2"
 				if stat, err = li.ParseLogv2(str); err != nil {
 					continue
@@ -296,7 +270,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 	sort.Slice(li.OpPatterns, func(i, j int) bool {
 		return float64(li.OpPatterns[i].TotalMilli)/float64(li.OpPatterns[i].Count) > float64(li.OpPatterns[j].TotalMilli)/float64(li.OpPatterns[j].Count)
 	})
-	if li.silent == false {
+	if !li.silent {
 		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
 	return nil
@@ -312,17 +286,15 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	}
 	ofile = filepath.Base(li.filename)
 	var bsonf, tsvf string
-	if strings.HasSuffix(ofile, ".gz") {
-		ofile = ofile[:len(ofile)-3]
-	}
-	if strings.HasSuffix(ofile, ".log") == false {
+	ofile = strings.TrimSuffix(ofile, ".gz")
+	if !strings.HasSuffix(ofile, ".log") {
 		bsonf += ofile + logExt
 		tsvf += ofile + ".tsv"
 	} else {
 		bsonf = ofile[:len(ofile)-4] + logExt
 		tsvf = ofile[:len(ofile)-4] + ".tsv"
 	}
-	if li.Redaction == true {
+	if li.Redaction {
 		li.SlowOps = []SlowOps{}
 	}
 	if li.LogType == "text" {
@@ -399,7 +371,7 @@ func (li *LogInfo) printLogsSummary() string {
 	red := CodeRed
 	green := CodeGreen
 	tail := CodeDefault
-	if li.silent == true {
+	if li.silent {
 		red = ""
 		green = ""
 		tail = ""

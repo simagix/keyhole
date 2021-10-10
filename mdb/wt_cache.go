@@ -41,7 +41,7 @@ func (wtc *WiredTigerCache) Start(client *mongo.Client) {
 	}
 	proc := filepath.Base(ss.Process)
 	if proc != "mongod" && proc != "mongod.exe" {
-		fmt.Println(fmt.Sprintf(`connected to %v, exiting...`, ss.Process))
+		fmt.Printf("connected to %v, exiting...\n", ss.Process)
 		os.Exit(0)
 	}
 	for {
@@ -133,7 +133,7 @@ func (wtc *WiredTigerCache) GetWiredTigerCacheData(w http.ResponseWriter, r *htt
 	})
 	var unit string
 	unit, topCaches = getTopChartPoints(topCaches, wtc.numPoints)
-	data := [][]interface{}{[]interface{}{"Name Space", unit}}
+	data := [][]interface{}{{"Name Space", unit}}
 	title := fmt.Sprintf("Data and Indexes in WiredTiger Cache (%s)", unit)
 	for _, v := range topCaches {
 		data = append(data, []interface{}{v.label, v.value})
@@ -146,7 +146,7 @@ func (wtc *WiredTigerCache) GetWiredTigerCacheData(w http.ResponseWriter, r *htt
 	points = append(points, ChartDataPoint{label: "Indexes", value: cacheIndexesSize})
 	unit, points = getTopChartPoints(points, wtc.numPoints)
 	title = fmt.Sprintf("Data vs. Indexes in WiredTiger Cache (%s)", unit)
-	data = [][]interface{}{[]interface{}{"Name Space", unit}}
+	data = [][]interface{}{{"Name Space", unit}}
 	for _, v := range points {
 		data = append(data, []interface{}{v.label, v.value})
 	}
@@ -154,7 +154,7 @@ func (wtc *WiredTigerCache) GetWiredTigerCacheData(w http.ResponseWriter, r *htt
 
 	// top data cache
 	unit, topDataCache = getTopChartPoints(topDataCache, wtc.numPoints)
-	data = [][]interface{}{[]interface{}{"Name Space", unit}}
+	data = [][]interface{}{{"Name Space", unit}}
 	title = fmt.Sprintf("Data in WiredTiger Cache (%s)", unit)
 	for _, v := range topDataCache {
 		data = append(data, []interface{}{v.label, v.value})
@@ -163,7 +163,7 @@ func (wtc *WiredTigerCache) GetWiredTigerCacheData(w http.ResponseWriter, r *htt
 
 	// top indexes cache
 	unit, topIndexesCache = getTopChartPoints(topIndexesCache, wtc.numPoints)
-	data = [][]interface{}{[]interface{}{"Name Space", unit}}
+	data = [][]interface{}{{"Name Space", unit}}
 	title = fmt.Sprintf("Indexes in WiredTiger Cache (%s)", unit)
 	for _, v := range topIndexesCache {
 		data = append(data, []interface{}{v.label, v.value})

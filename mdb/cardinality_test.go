@@ -9,14 +9,12 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestGetCardinalityArray(t *testing.T) {
 	var err error
 	var summary CardinalitySummary
-	var client *mongo.Client
-	client = getMongoClient()
+	var client = getMongoClient()
 	defer client.Disconnect(context.Background())
 
 	card := NewCardinality(client)

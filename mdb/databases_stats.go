@@ -3,8 +3,10 @@
 package mdb
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +20,7 @@ import (
 )
 
 const (
+	maxNumShards       = 3
 	sampleDocSizeLimit = (32 * 1024) // 32KB
 )
 
@@ -25,8 +28,9 @@ const (
 type DatabaseStats struct {
 	Logger *gox.Logger
 
-	threads   int
+	numShards int
 	redaction bool
+	threads   int
 	verbose   bool
 	version   string
 }
@@ -100,6 +104,11 @@ func NewDatabaseStats(version string) *DatabaseStats {
 	return &DatabaseStats{Logger: gox.GetLogger(version), threads: 16, version: version}
 }
 
+// SetNumberShards set # of threads
+func (p *DatabaseStats) SetNumberShards(n int) {
+	p.numShards = n
+}
+
 // SetNumberThreads set # of threads
 func (p *DatabaseStats) SetNumberThreads(threads int) {
 	p.threads = threads
@@ -125,6 +134,18 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	var ctx = context.Background()
 	var listdb ListDatabases
 	var databases []Database
+	var isGetChunksDistr = (p.verbose && p.numShards <= maxNumShards)
+	if p.numShards > maxNumShards {
+		isGetChunksDistr = false
+		fmt.Printf("There are %v shards, and it will take time to calculate chunks distribution info.\n", p.numShards)
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Do you wish to collect chunks distribution info [y/N]: ")
+		text, _ := reader.ReadString('\n')
+		text = strings.TrimSuffix(text, "\n")
+		if text == "y" || text == "Y" {
+			isGetChunksDistr = true
+		}
+	}
 	t := time.Now()
 	p.Logger.Debug("GetAllDatabasesStats")
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
@@ -175,7 +196,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				var sampleDoc bson.M
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
-				opts.SetHint(bson.D{{"_id", 1}})
+				opts.SetHint(bson.D{{Key: "_id", Value: 1}})
 				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 					p.Logger.Error(err.Error())
 					return
@@ -198,7 +219,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				if sampleDoc == nil {
 					p.Logger.Debug("no sample doc available")
 				}
-				if p.redaction == true {
+				if p.redaction {
 					redact := NewRedactor()
 					walker := gox.NewMapWalker(redact.callback)
 					buf, _ := bson.Marshal(walker.Walk(sampleDoc))
@@ -213,14 +234,13 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				var stats bson.M
 				client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 				chunks := []Chunk{}
-				if stats["shards"] != nil && p.verbose == true {
-					keys := []string{}
-
-					for k := range stats["shards"].(primitive.M) {
-						keys = append(keys, k)
+				if isGetChunksDistr && stats["shards"] != nil {
+					shardNames := []string{}
+					for shard := range stats["shards"].(primitive.M) {
+						shardNames = append(shardNames, shard)
 					}
-					sort.Strings(keys)
-					for _, k := range keys {
+					sort.Strings(shardNames)
+					for _, k := range shardNames {
 						m := (stats["shards"].(primitive.M)[k]).(primitive.M)
 						delete(m, "$clusterTime")
 						delete(m, "$gleStats")
@@ -253,7 +273,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 		db.Collections = collections
 		databases = append(databases, db)
 	}
-	p.Logger.Debugf("GetAllDatabasesStats took %v", time.Now().Sub(t))
+	p.Logger.Debugf("GetAllDatabasesStats took %v", time.Since(t))
 	return databases, nil
 }
 
@@ -280,7 +300,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	}
 	t := time.Now()
 	coll = client.Database("config").Collection("chunks")
-	if p.verbose == true {
+	if p.verbose {
 		p.Logger.Info(fmt.Sprintf(`collectChunksDistribution on %v %v ...`, shard, ns))
 		if cur, err = coll.Find(ctx, bson.M{"ns": ns, "shard": shard}); err != nil {
 			return chunk, nil
@@ -311,7 +331,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 						{Key: "min", Value: chunk["min"]}, {Key: "max", Value: chunk["max"]},
 						{Key: "estimate", Value: true}}
 					client.Database("admin").RunCommand(ctx, cmd).Decode(&chunk)
-					if chunk["jumbo"] != nil && chunk["jumbo"].(bool) == true {
+					if chunk["jumbo"] != nil && chunk["jumbo"].(bool) {
 						jcount++
 					}
 					if chunk["numObjects"] != nil {
@@ -330,7 +350,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 			remains -= length
 		}
 		wg.Wait()
-		dur := time.Now().Sub(t)
+		dur := time.Since(t)
 		msg := fmt.Sprintf("collectChunksDistribution used %v threads on %v %v took %v for %v chunks, rate: %v",
 			p.threads, shard, ns, dur, count, dur/time.Duration(count))
 		p.Logger.Info(msg)

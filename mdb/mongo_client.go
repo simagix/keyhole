@@ -36,7 +36,7 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		return client, err
 	}
 	for _, host := range connString.Hosts {
-		if strings.Index(host, ":") < 0 {
+		if !strings.Contains(host, ":") {
 			host += ":27017"
 		}
 		dial := net.Dialer{Timeout: 2 * time.Second}

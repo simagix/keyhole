@@ -104,7 +104,7 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 			}
 			return summary, err
 		}
-		if cur.Next(ctx) == false {
+		if !cur.Next(ctx) {
 			cur.Close(ctx)
 			return summary, err
 		}
@@ -135,7 +135,7 @@ func (card *Cardinality) GetCardinalityArray(database string, collection string,
 		return summary, err
 	}
 	defer cur.Close(ctx)
-	if cur.Next(ctx) == false {
+	if !cur.Next(ctx) {
 		return summary, err
 	}
 	doc = bson.M{}

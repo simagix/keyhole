@@ -27,8 +27,8 @@ func TestGetAllShardURIs(t *testing.T) {
 	uri := "mongodb+srv://user:secret@keyhole.example.com/db"
 	connString, _ := connstring.Parse(uri)
 	shards := []Shard{
-		Shard{ID: "shard-0", Host: "shard0/shard-00-00:27017,shard-00-01:27017,shard-00-02:27017", State: 1},
-		Shard{ID: "shard-1", Host: "shard1/shard-01-00:27017,shard-01-01:27017,shard-01-02:27017", State: 1},
+		{ID: "shard-0", Host: "shard0/shard-00-00:27017,shard-00-01:27017,shard-00-02:27017", State: 1},
+		{ID: "shard-1", Host: "shard1/shard-01-00:27017,shard-01-01:27017,shard-01-02:27017", State: 1},
 	}
 	var list []string
 	var err error
@@ -55,8 +55,8 @@ func TestGetAllServerURIs(t *testing.T) {
 	uri := "mongodb+srv://user:secret@keyhole.example.com/db"
 	connString, _ := connstring.Parse(uri)
 	shards := []Shard{
-		Shard{ID: "shard-0", Host: "shard0/shard-00-00:27017,shard-00-01:27017,shard-00-02:27017", State: 1},
-		Shard{ID: "shard-1", Host: "shard1/shard-01-00:27017,shard-01-01:27017,shard-01-02:27017", State: 1},
+		{ID: "shard-0", Host: "shard0/shard-00-00:27017,shard-00-01:27017,shard-00-02:27017", State: 1},
+		{ID: "shard-1", Host: "shard1/shard-01-00:27017,shard-01-01:27017,shard-01-02:27017", State: 1},
 	}
 	var list []string
 	var err error

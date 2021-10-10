@@ -117,7 +117,7 @@ func (rn *Runner) SetVerbose(verbose bool) {
 // SetPeekingMode -
 func (rn *Runner) SetPeekingMode(mode bool) {
 	rn.peek = mode
-	if rn.peek == true {
+	if rn.peek {
 		go func(x int) {
 			time.Sleep(time.Duration(x) * time.Minute)
 			rn.terminate()
@@ -156,10 +156,10 @@ func (rn *Runner) SetSimOnlyMode(mode bool) {
 // Start process requests
 func (rn *Runner) Start() error {
 	var err error
-	if rn.peek == true {
+	if rn.peek {
 		return nil
 	}
-	if rn.auto == false {
+	if !rn.auto {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Begin a load test [y/N]: ")
 		text, _ := reader.ReadString('\n')
@@ -184,13 +184,13 @@ func (rn *Runner) Start() error {
 	// last minute - normal TPS ops until exit
 	rn.Logger.Info(fmt.Sprintf("Total TPS: %d (%d tps/conn * %d conns), duration: %d (mins)", rn.tps*rn.conns, rn.tps, rn.conns, rn.duration))
 	simTime := rn.duration
-	if rn.simOnly == false {
+	if !rn.simOnly {
 		simTime--
 		rn.createIndexes(tdoc.Indexes)
 	}
 	for i := 0; i < rn.conns; i++ {
 		go func(thread int) {
-			if rn.simOnly == false && rn.duration > 0 {
+			if !rn.simOnly && rn.duration > 0 {
 				if err = rn.PopulateData(); err != nil {
 					rn.Logger.Info("Thread", thread, "existing with", err)
 					return
@@ -343,13 +343,13 @@ func (rn *Runner) createIndexes(docs []bson.M) error {
 		keys := bson.D{}
 		for k, v := range doc {
 			x := int32(1)
-			switch v.(type) {
+			switch v := v.(type) {
 			case int:
-				if v.(int) < 0 {
+				if v < 0 {
 					x = -1
 				}
 			case float64:
-				if v.(float64) < 0 {
+				if v < 0 {
 					x = -1
 				}
 			}
@@ -370,10 +370,10 @@ func (rn *Runner) createIndexes(docs []bson.M) error {
 // Cleanup drops the temp database
 func (rn *Runner) Cleanup() error {
 	var err error
-	if rn.peek == true {
+	if rn.peek {
 		return err
 	}
-	if rn.simOnly == false && rn.dbName == mdb.KeyholeDB {
+	if !rn.simOnly && rn.dbName == mdb.KeyholeDB {
 		ctx := context.Background()
 		if rn.collectionName == mdb.ExamplesCollection {
 			rn.Logger.Info("dropping collection", mdb.KeyholeDB, mdb.ExamplesCollection)

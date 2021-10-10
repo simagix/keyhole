@@ -25,7 +25,7 @@ type LogVersion2 struct {
 		Type               string `json:"type" bson:"type"`
 	} `json:"attr" bson:"attr"`
 	Component string             `json:"c" bson:"c"`
-	Context   string             `json:"c" bson:"ctx"`
+	Context   string             `json:"ctx" bson:"ctx"`
 	ID        int                `json:"id" bson:"id"`
 	Message   string             `json:"msg" bson:"msg"`
 	Severity  string             `json:"s" bson:"s"`

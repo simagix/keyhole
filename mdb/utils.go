@@ -5,12 +5,8 @@ package mdb
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -64,21 +60,6 @@ func getTopChartPoints(chartPoints []ChartDataPoint, numPoints int) (string, []C
 	return "B", chartPoints
 }
 
-func toArray(array interface{}) []bson.M {
-	var mapArray []bson.M
-	if array == nil {
-		return mapArray
-	}
-	if reflect.TypeOf(array).String() == "primitive.A" {
-		for _, t := range array.(primitive.A) {
-			mapArray = append(mapArray, t.(bson.M))
-		}
-	} else {
-		mapArray = array.([]bson.M)
-	}
-	return mapArray
-}
-
 // ToInt converts to int
 func ToInt(num interface{}) int {
 	f := fmt.Sprintf("%v", num)
@@ -113,31 +94,6 @@ func toFloat64(num interface{}) float64 {
 	return x
 }
 
-func trimMap(doc bson.M) bson.M {
-	delete(doc, "$clusterTime")
-	delete(doc, "operationTime")
-	delete(doc, "$gleStats")
-	delete(doc, "ok")
-	return doc
-}
-
-func emptyBinData(firstDoc bson.M) bson.M {
-	for k, v := range firstDoc {
-		if reflect.TypeOf(v) == nil {
-			continue
-		}
-		t := reflect.TypeOf(v).String()
-		if t == "primitive.Binary" {
-			if v.(primitive.Binary).Subtype != 4 { // empty data when it's not UUID
-				firstDoc[k] = primitive.Binary{Subtype: v.(primitive.Binary).Subtype}
-			}
-		} else {
-			// fmt.Println(v, t)
-		}
-	}
-	return firstDoc
-}
-
 // SplitNamespace returns db, collection
 func SplitNamespace(namespace string) (string, string) {
 	dot := strings.Index(namespace, ".")
@@ -154,7 +110,7 @@ func SkipNamespace(namespace string, namespaceMap map[string]bool) bool {
 	}
 	dbName, _ := SplitNamespace(namespace)
 	allDB := dbName + ".*"
-	if namespaceMap[allDB] == true || namespaceMap[namespace] == true {
+	if namespaceMap[allDB] || namespaceMap[namespace] {
 		return false
 	}
 	return true

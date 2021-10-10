@@ -74,7 +74,7 @@ func (rn *Runner) PopulateData() error {
 	var err error
 	c := rn.client.Database(rn.dbName).Collection(rn.collectionName)
 	btime := time.Now()
-	for time.Now().Sub(btime) < time.Minute {
+	for time.Since(btime) < time.Minute {
 		var contentArray []interface{}
 		docidx := 0
 		for i := 0; i < 1000; i++ {
@@ -125,10 +125,10 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 		counter := 0
 		connID := fmt.Sprintf("c%v-%v", minutes, thread)
 		minutes++
-		for time.Now().Sub(beginTime) < time.Minute {
+		for time.Since(beginTime) < time.Minute {
 			innerTime := time.Now()
 			txCount := 0
-			for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS {
+			for time.Since(innerTime) < time.Second && txCount < totalTPS {
 				doc := simDocs[batchCount%len(simDocs)]
 				batchCount++
 				if stage == setupStage || stage == thrashingStage {
@@ -158,14 +158,14 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 					c.DeleteMany(ctx, bson.M{"_search": strconv.FormatInt(rand.Int63(), 16)})
 				}
 				time.Sleep(10 * time.Microsecond)
-			} // for time.Now().Sub(innerTime) < time.Second && txCount < totalTPS
+			}
 			totalCount += txCount
 			counter++
-			milli := 1000 - time.Now().Sub(innerTime).Milliseconds()
+			milli := 1000 - time.Since(innerTime).Milliseconds()
 			if milli > 0 {
 				time.Sleep(time.Duration(milli) * time.Millisecond)
 			}
-		} // for time.Now().Sub(beginTime) < time.Minute
+		}
 
 		rn.mutex.Lock()
 		metrics := rn.Metrics[connID]
@@ -180,7 +180,7 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 			stats := fmt.Sprintf("Connection %d executions Time (including network latency):", thread)
 			tm := time.Now()
 			client.Ping(ctx, nil)
-			stats += fmt.Sprintf("\n\t[%12s] %v", "Ping", time.Now().Sub(tm))
+			stats += fmt.Sprintf("\n\t[%12s] %v", "Ping", time.Since(tm))
 			keys := make([]string, 0, len(durations))
 			for k := range durations {
 				keys = append(keys, k)
@@ -216,12 +216,12 @@ func (rn *Runner) Simulate(duration int, transactions []Transaction, thread int)
 			log.Printf("%s average TPS was %d, lower than original %d\n", stage, totalCount/counter, totalTPS)
 		}
 
-		seconds := 60 - time.Now().Sub(beginTime).Seconds()
+		seconds := 60 - time.Since(beginTime).Seconds()
 		if seconds > 0 {
 			time.Sleep(time.Duration(seconds) * time.Second)
 		}
-	} //for run := 0; run < duration; run++
-	if rn.simOnly == false {
+	}
+	if !rn.simOnly {
 		c.Drop(ctx)
 	}
 	return nil

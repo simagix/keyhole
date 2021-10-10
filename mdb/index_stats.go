@@ -87,8 +87,7 @@ func (ix *IndexStats) SetFilename(filename string) {
 
 // SetClusterDetailsFromFile File sets cluster details from a file
 func (ix *IndexStats) SetClusterDetailsFromFile(filename string) error {
-	if strings.HasSuffix(filename, indexExt) == false &&
-		strings.HasSuffix(filename, "-stats.bson.gz") == false {
+	if !strings.HasSuffix(filename, indexExt) && !strings.HasSuffix(filename, "-stats.bson.gz") {
 		return errors.New("unsupported file type")
 	}
 	var data []byte
@@ -139,7 +138,7 @@ func (ix *IndexStats) GetIndexes(client *mongo.Client) ([]Database, error) {
 		}
 		ix.Databases = append(ix.Databases, Database{Name: name, Collections: collections})
 	}
-	if cnt == 0 && ix.verbose == true {
+	if cnt == 0 && ix.verbose {
 		ix.Logger.Info("No database is available")
 	}
 	ix.Logger.Info(`GetIndexes ends`)
@@ -260,13 +259,13 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	}
 	sort.Slice(list, func(i, j int) bool { return (list[i].EffectiveKey < list[j].EffectiveKey) })
 	for i, o := range list {
-		if o.KeyString != "{ _id: 1 }" && o.IsShardKey == false {
+		if o.KeyString != "{ _id: 1 }" && !o.IsShardKey {
 			list[i].IsDupped = checkIfDupped(o, list)
 		}
 	}
 	if len(indexesFound) != len(indexStats) {
 		for i := 0; i < len(indexStats); i++ {
-			if indexesFound[i] != true {
+			if !indexesFound[i] {
 				ns := collection.Database().Name() + "." + collection.Name()
 				ix.Logger.Warnf(`inconsistent index '%v' of namespace '%v' on shard '%v'`,
 					indexStats[i].Name, ns, indexStats[i].Shard)
@@ -284,7 +283,7 @@ func checkIfDupped(doc Index, list []Index) bool {
 	for _, o := range list {
 		if strings.Index(o.KeyString, "2dsphere") > 0 {
 			continue
-		} else if o.IsDupped == false && doc.Fields[0] == o.Fields[0] && doc.KeyString != o.KeyString && len(o.Fields) >= len(doc.Fields) {
+		} else if !o.IsDupped && doc.Fields[0] == o.Fields[0] && doc.KeyString != o.KeyString && len(o.Fields) >= len(doc.Fields) {
 			// check indexes if not marked as dupped, has the same first field, and more or equal number of fields
 			nmatched := 0
 			for i, fld := range doc.Fields {
@@ -353,8 +352,6 @@ func (ix *IndexStats) OutputJSON() error {
 // Print prints indexes
 func (ix *IndexStats) Print() {
 	ix.PrintIndexesOf(ix.Databases)
-	if ix.verbose {
-	}
 }
 
 // PrintIndexesOf prints indexes
@@ -375,15 +372,15 @@ func (ix *IndexStats) PrintIndexesOf(databases []Database) {
 				}
 				if o.KeyString == "{ _id: 1 }" {
 					buffer.WriteString(fmt.Sprintf("%v  %v%v", font, o.KeyString, tailCode))
-				} else if o.IsShardKey == true {
+				} else if o.IsShardKey {
 					buffer.WriteString(fmt.Sprintf("%v* %v%v", font, o.KeyString, tailCode))
-				} else if o.IsDupped == true {
-					if ix.nocolor == false {
+				} else if o.IsDupped {
+					if !ix.nocolor {
 						font = CodeRed
 					}
 					buffer.WriteString(fmt.Sprintf("%vx %v%v", font, o.KeyString, tailCode))
 				} else if o.TotalOps == 0 && o.ExpireAfterSeconds < 0 {
-					if ix.nocolor == false {
+					if !ix.nocolor {
 						font = CodeBlue
 					}
 					buffer.WriteString(fmt.Sprintf("%v? %v%v", font, o.KeyString, tailCode))
@@ -435,7 +432,7 @@ func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []I
 			dbName := db.Name
 			collName := coll.Name
 			ns := dbName + "." + collName
-			if SkipNamespace(ns, namespaceMap) == true {
+			if SkipNamespace(ns, namespaceMap) {
 				continue
 			}
 			if indexMap[ns] != "" {
@@ -446,32 +443,19 @@ func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []I
 			collection := client.Database(dbName).Collection(collName)
 			indexes := []mongo.IndexModel{}
 			for _, o := range coll.Indexes {
-				if o.IsShardKey == true {
-					// TODO
-				}
-				var indexKey bson.D
-				for _, field := range o.Fields {
-					for _, e := range o.Key {
-						if field == e.Key {
-							indexKey = append(indexKey, e)
-							break
-						}
-					}
-				}
-
 				opt := options.Index()
 				// opt.SetVersion(o.Version)
 				opt.SetName(o.Name)
-				if o.Background == true {
+				if o.Background {
 					opt.SetBackground(o.Background)
 				}
 				if o.ExpireAfterSeconds >= 0 {
 					opt.SetExpireAfterSeconds(o.ExpireAfterSeconds)
 				}
-				if o.Unique == true {
+				if o.Unique {
 					opt.SetUnique(o.Unique)
 				}
-				if o.Sparse == true {
+				if o.Sparse {
 					opt.SetSparse(o.Sparse)
 				}
 				if o.Collation != nil {

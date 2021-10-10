@@ -33,8 +33,7 @@ func GetMongoClient() *mongo.Client {
 
 func TestSeed(t *testing.T) {
 	var err error
-	var client *mongo.Client
-	client = GetMongoClient()
+	var client = GetMongoClient()
 	defer client.Disconnect(context.Background())
 	dbName := "keyhole"
 	total := 100

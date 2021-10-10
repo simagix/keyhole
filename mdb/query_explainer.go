@@ -128,7 +128,7 @@ func (qe *QueryExplainer) GetExplainDetails(doc bson.M) ExplainSummary {
 
 	allPlansExecution := doc["executionStats"].(bson.D).Map()["allPlansExecution"].(primitive.A)
 	// pick a shard to evaluate if a sharded cluster
-	if qe.isSharded == true && len(allPlansExecution) > 0 {
+	if qe.isSharded && len(allPlansExecution) > 0 {
 		maxReturned := int32(0)
 		shardNames := []string{}
 		for i, plansExecution := range allPlansExecution {
@@ -184,19 +184,6 @@ func (qe *QueryExplainer) GetSummary(summary ExplainSummary) string {
 		}
 	}
 	return buffer.String()
-}
-
-func (qe *QueryExplainer) getDocument(depth []string) interface{} {
-	doc := qe.document
-	for _, key := range depth {
-		for _, value := range doc {
-			if key == value.Key {
-				doc = value.Value.(bson.D)
-			}
-		}
-	}
-	fmt.Println(gox.Stringify(doc))
-	return doc
 }
 
 // https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/plan_ranker.cpp
@@ -307,9 +294,7 @@ func (qe *QueryExplainer) GetIndexesScores(keys []string) []IndexScore {
 			}
 		}
 		var strbuf bytes.Buffer
-		fields := []string{}
 		for n, value := range keys {
-			fields = append(fields, value.Key)
 			if n == 0 {
 				strbuf.WriteString("{")
 			}

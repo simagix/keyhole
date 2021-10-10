@@ -28,8 +28,9 @@ func TestGetIndexSuggestionFromFilter(t *testing.T) {
 	str := `{"filter": {"ct": "abc", "cs": {"$exists": true}}}`
 	bson.UnmarshalExtJSON([]byte(str), true, &explain)
 	index := GetIndexSuggestion(explain, summary.List)
-	if `{"ct":1,"cs":1}` != gox.Stringify(index) {
-		t.Fatal("Expected", `{ "ct": 1, "cs": 1 }`, "but got", gox.Stringify(index))
+	str = `{"ct":1,"cs":1}`
+	if str != gox.Stringify(index) {
+		t.Fatal("Expected", str, "but got", gox.Stringify(index))
 	}
 	t.Log(gox.Stringify(index))
 }
