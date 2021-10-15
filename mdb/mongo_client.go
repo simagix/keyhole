@@ -99,9 +99,9 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 	begin := strings.Index(uri, "://")
 	begin += 3
 	colon := strings.Index(uri[begin:], ":")
+	colon += begin
 	at := strings.LastIndex(uri, "@")
 	if colon > 0 && at > colon {
-		colon += begin
 		uri = strings.Replace(uri, uri[colon+1:at], url.QueryEscape(uri[colon+1:at]), 1)
 	}
 	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
