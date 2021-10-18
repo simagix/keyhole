@@ -99,7 +99,7 @@ func (p *BSONPrinter) Print(filename string) error {
 		os.Mkdir(outdir, 0755)
 		ofile := filepath.Base(filename)
 		idx := strings.Index(ofile, ".bson")
-		ofile = outdir + (ofile)[:idx] + ".json"
+		ofile = fmt.Sprintf(`%v/%v.json`, outdir, (ofile)[:idx])
 		if data, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 			return err
 		}

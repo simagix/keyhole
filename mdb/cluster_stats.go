@@ -169,7 +169,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 		if cs.Password != "" {
 			s = strings.Replace(s, url.QueryEscape(cs.Password), "xxxxxx", 1)
 		}
-		p.Logger.Debugf(`[t-%d] collect from %v`, i, s)
+		p.Logger.Infof(`[t-%d] collect from %v`, i, s)
 		wg.Add(1)
 		go func(uri string, n int, logger *gox.Logger) {
 			defer wg.Done()
@@ -196,7 +196,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 			node.Servers = append(node.Servers, *server)
 			smap[server.ServerStatus.Repl.SetName] = node
 			mu.Unlock()
-			logger.Debugf(`[t-%d] completed`, n)
+			logger.Infof(`[t-%d] completed`, n)
 		}(uri, i, p.Logger)
 	}
 	wg.Wait()
