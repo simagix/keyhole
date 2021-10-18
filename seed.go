@@ -131,16 +131,25 @@ func (f *Seed) SeedData(client *mongo.Client) error {
 func (f *Seed) SeedAllDemoData(client *mongo.Client) error {
 	var err error
 	if err = f.SeedFavorites(client); err != nil {
-		return err
+		fmt.Println("SeedFavorites", err)
 	}
 	if err = f.seedRobots(client); err != nil {
-		return err
+		fmt.Println("seedRobots", err)
 	}
 	if err = f.seedNumbers(client); err != nil {
-		return err
+		fmt.Println("seedNumbers", err)
 	}
 	if err = f.SeedVehicles(client); err != nil {
+		fmt.Println("SeedVehicles", err)
+	}
+	stats := mdb.NewClusterStats("")
+	if err = stats.GetClusterStatsSummary(client); err != nil {
 		return err
+	}
+	if stats.Version >= "5.0" {
+		if err = f.SeedTimeSeriesData(client); err != nil {
+			return err
+		}
 	}
 	return err
 }
@@ -161,11 +170,16 @@ func (f *Seed) SeedFavorites(client *mongo.Client) error {
 	}
 
 	for i := 0; i < 10; i++ {
-		c.InsertOne(ctx, bson.M{"_id": i + 1000, "type": "sports", "name": util.Favorites.Sports[i]})
-		c.InsertOne(ctx, bson.M{"_id": i + 1100, "type": "book", "name": util.Favorites.Books[i]})
-		c.InsertOne(ctx, bson.M{"_id": i + 1200, "type": "movie", "name": util.Favorites.Movies[i]})
-		c.InsertOne(ctx, bson.M{"_id": i + 1300, "type": "city", "name": util.Favorites.Cities[i]})
-		c.InsertOne(ctx, bson.M{"_id": i + 1400, "type": "music", "name": util.Favorites.Music[i]})
+		docs := []interface{}{
+			bson.M{"_id": i + 1000, "type": "sports", "name": util.Favorites.Sports[i]},
+			bson.M{"_id": i + 1100, "type": "book", "name": util.Favorites.Books[i]},
+			bson.M{"_id": i + 1200, "type": "movie", "name": util.Favorites.Movies[i]},
+			bson.M{"_id": i + 1300, "type": "city", "name": util.Favorites.Cities[i]},
+			bson.M{"_id": i + 1400, "type": "music", "name": util.Favorites.Music[i]},
+		}
+		if _, err = c.InsertMany(ctx, docs); err != nil {
+			continue
+		}
 	}
 	favoritesCount := f.seedCollection(favoritesCollection, 2)
 	fmt.Printf("Seeded favorites: %d\n", favoritesCount)
@@ -532,4 +546,64 @@ func populateData(c *mongo.Collection, num int, doc map[string]interface{}) (int
 		return 0, err
 	}
 	return len(res.InsertedIDs), err
+}
+
+// SeedTimeSeriesData seeds demo data of timeseries
+func (f *Seed) SeedTimeSeriesData(client *mongo.Client) error {
+	var err error
+	var ctx = context.Background()
+	var collName = "weather24h"
+	coll := client.Database(f.database).Collection(collName)
+	if f.isDrop {
+		if err = coll.Drop(ctx); err != nil {
+			return err
+		}
+	}
+	var tsOpts = options.TimeSeries()
+	tsOpts.SetTimeField("timestamp")
+	tsOpts.SetMetaField("metadata")
+	tsOpts.SetGranularity("hours")
+	var opts = options.CreateCollection()
+	opts.SetTimeSeriesOptions(tsOpts)
+	if err = coll.Database().CreateCollection(ctx, collName, opts); err != nil {
+		return err
+	}
+	idx := mongo.IndexModel{
+		Keys: bson.D{{Key: "metadata.sensorId", Value: 1}, {Key: "timestamp", Value: 1}},
+	}
+	indexView := coll.Indexes()
+	indexView.CreateOne(ctx, idx)
+	now := time.Now()
+	var total int
+	for i := 1; i <= 10; i++ {
+		temp := rand.Intn(10) + 60
+		var docs []interface{}
+		for day := 1; day <= 90; day++ {
+			datetime := now.AddDate(0, 0, day*-1)
+			for hr := 0; hr < 24; hr++ {
+				if hr == 0 {
+					temp++
+				} else if hr < 7 {
+					temp += 2
+				} else if hr < 10 {
+					temp++
+				} else if hr < 14 {
+				} else if hr < 19 {
+					temp--
+				} else {
+					temp -= 2
+				}
+				docs = append(docs, bson.M{"metadata": bson.M{"sensorId": i + 1000, "type": "temperature"},
+					"timestamp": time.Date(datetime.Year(), datetime.Month(), datetime.Day(), hr, 0, 0, 0, time.UTC),
+					"temp":      temp})
+			}
+		}
+		var res *mongo.InsertManyResult
+		if res, err = coll.InsertMany(ctx, docs); err != nil {
+			continue
+		}
+		total += len(res.InsertedIDs)
+	}
+	fmt.Printf("Seeded %v: %d\n", collName, total)
+	return nil
 }
