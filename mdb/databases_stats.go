@@ -174,7 +174,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 			}
 			coll := fmt.Sprintf("%v", elem["name"])
 			collType := fmt.Sprintf("%v", elem["type"])
-			if strings.Index(coll, "system.") == 0 || (elem["type"] != nil && collType != "collection") {
+			if collType != "timeseries" && collType != "collection" {
 				p.Logger.Debugf(`skip %v %v`, collType, coll)
 				continue
 			}
@@ -196,7 +196,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 				var sampleDoc bson.M
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
-				opts.SetHint(bson.D{{Key: "_id", Value: 1}})
+				opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
 				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 					p.Logger.Error(err.Error())
 					return
