@@ -150,6 +150,9 @@ func (f *Seed) SeedAllDemoData(client *mongo.Client) error {
 		if err = f.SeedTimeSeriesData(client); err != nil {
 			return err
 		}
+		if err = f.SeedTimeSeriesWeather(client); err != nil {
+			return err
+		}
 	}
 	return err
 }
@@ -548,8 +551,8 @@ func populateData(c *mongo.Collection, num int, doc map[string]interface{}) (int
 	return len(res.InsertedIDs), err
 }
 
-// SeedTimeSeriesData seeds demo data of timeseries
-func (f *Seed) SeedTimeSeriesData(client *mongo.Client) error {
+// SeedTimeSeriesWeather seeds demo data of timeseries
+func (f *Seed) SeedTimeSeriesWeather(client *mongo.Client) error {
 	var err error
 	var ctx = context.Background()
 	var collName = "weather24h"
@@ -568,11 +571,11 @@ func (f *Seed) SeedTimeSeriesData(client *mongo.Client) error {
 	if err = coll.Database().CreateCollection(ctx, collName, opts); err != nil {
 		return err
 	}
-	idx := mongo.IndexModel{
-		Keys: bson.D{{Key: "metadata.sensorId", Value: 1}, {Key: "timestamp", Value: 1}},
-	}
+	var indexes []mongo.IndexModel
+	indexes = append(indexes, mongo.IndexModel{Keys: bson.D{{Key: "timestamp", Value: 1}}})
 	indexView := coll.Indexes()
-	indexView.CreateOne(ctx, idx)
+	indexView.CreateMany(ctx, indexes)
+
 	now := time.Now()
 	var total int
 	for i := 1; i <= 10; i++ {
@@ -605,5 +608,91 @@ func (f *Seed) SeedTimeSeriesData(client *mongo.Client) error {
 		total += len(res.InsertedIDs)
 	}
 	fmt.Printf("Seeded %v: %d\n", collName, total)
+	return nil
+}
+
+// SeedTimeSeriesData seeds demo data of timeseries
+func (f *Seed) SeedTimeSeriesData(client *mongo.Client) error {
+	var err error
+	var ctx = context.Background()
+	var minCollName = "ts_minutes"
+	var secCollName = "ts_seconds"
+	minColl := client.Database(f.database).Collection(minCollName)
+	secColl := client.Database(f.database).Collection(secCollName)
+	if f.isDrop {
+		if err = minColl.Drop(ctx); err != nil {
+			return err
+		}
+		if err = secColl.Drop(ctx); err != nil {
+			return err
+		}
+	}
+	var tsOpts = options.TimeSeries()
+	tsOpts.SetTimeField("timestamp")
+	tsOpts.SetMetaField("metadata")
+	tsOpts.SetGranularity("minutes")
+	var opts = options.CreateCollection()
+	opts.SetTimeSeriesOptions(tsOpts)
+	if err = minColl.Database().CreateCollection(ctx, minCollName, opts); err != nil {
+		return err
+	}
+
+	var indexes []mongo.IndexModel
+	indexes = append(indexes, mongo.IndexModel{Keys: bson.D{{Key: "timestamp", Value: 1}}})
+	indexView := minColl.Indexes()
+	indexView.CreateMany(ctx, indexes)
+
+	tsOpts.SetGranularity("seconds")
+	opts.SetTimeSeriesOptions(tsOpts)
+	if err = secColl.Database().CreateCollection(ctx, secCollName, opts); err != nil {
+		return err
+	}
+	indexView = secColl.Indexes()
+	indexView.CreateMany(ctx, indexes)
+
+	datetime := time.Now()
+	var total int
+	temp := rand.Intn(10) + 60
+	var mdocs []interface{}
+	var sdocs []interface{}
+	for hr := 0; hr < 24; hr++ {
+		if hr == 0 {
+			temp++
+		} else if hr < 7 {
+			temp += 2
+		} else if hr < 10 {
+			temp++
+		} else if hr < 14 {
+		} else if hr < 19 {
+			temp--
+		} else {
+			temp -= 2
+		}
+		sdocs = nil
+		for mn := 0; mn < 60; mn++ {
+			mdocs = append(mdocs, bson.M{"metadata": bson.M{"sensorId": 1000, "type": "temperature"},
+				"timestamp": time.Date(datetime.Year(), datetime.Month(), datetime.Day(), hr, mn, 0, 0, time.UTC),
+				"temp":      temp,
+				"tags":      bson.M{"field1": rand.Intn(10), "field2": rand.Intn(10)}})
+			for sc := 0; sc < 60; sc++ {
+				sdocs = append(sdocs, bson.M{"metadata": bson.M{"sensorId": 1000, "type": "temperature"},
+					"timestamp": time.Date(datetime.Year(), datetime.Month(), datetime.Day(), hr, mn, sc, 0, time.UTC),
+					"temp":      temp,
+					"tags":      bson.M{"field1": rand.Intn(10), "field2": rand.Intn(10)}})
+			}
+		}
+		var res *mongo.InsertManyResult
+		if res, err = secColl.InsertMany(ctx, sdocs); err != nil {
+			return err
+		}
+		total += len(res.InsertedIDs)
+	}
+	fmt.Printf("Seeded %v: %d\n", secCollName, total)
+	var res *mongo.InsertManyResult
+	if res, err = minColl.InsertMany(ctx, mdocs); err != nil {
+		return err
+	}
+	mTotal := len(res.InsertedIDs)
+	fmt.Printf("Seeded %v: %d\n", minCollName, mTotal)
 	return nil
 }
