@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
@@ -182,6 +183,9 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 				mu.Unlock()
 				return
 			}
+			tm := time.Now()
+			sclient.Ping(context.Background(), nil)
+			logger.Infof(`[t-%d] ping: %v`, n, time.Since(tm))
 			defer sclient.Disconnect(context.Background())
 			server := NewClusterStats(p.Logger.AppName)
 			if err = server.GetClusterStatsSummary(sclient); err != nil {
