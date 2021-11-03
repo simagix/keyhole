@@ -8,13 +8,13 @@ import (
 )
 
 // DuplicateIndexesFromFile duplicate indexes from definitions defined in a file
-func DuplicateIndexesFromFile(index *mdb.IndexStats, client *mongo.Client, filename string) error {
+func DuplicateIndexesFromFile(index *mdb.IndexStats, client *mongo.Client, filename string, isDrop bool) error {
 	var err error
 	var databases []mdb.Database
 	if err = index.SetClusterDetailsFromFile(filename); err != nil {
 		return err
 	}
-	if err = index.CreateIndexes(client); err != nil {
+	if err = index.CopyIndexes(client, isDrop); err != nil {
 		return err
 	}
 	if databases, err = index.GetIndexes(client); err != nil {

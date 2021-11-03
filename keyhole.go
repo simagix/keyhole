@@ -225,7 +225,7 @@ func Run(fullVersion string) {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
-		if err = DuplicateIndexesFromFile(ix, client, *createIndex); err != nil {
+		if err = DuplicateIndexesFromFile(ix, client, *createIndex, *drop); err != nil {
 			log.Fatal(err)
 		}
 		return

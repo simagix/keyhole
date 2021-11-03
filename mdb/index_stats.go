@@ -412,11 +412,22 @@ func (ix *IndexStats) CreateIndexes(client *mongo.Client, namespaces ...[]string
 			indexNamespaces = append(indexNamespaces, IndexNS{From: v, To: v})
 		}
 	}
-	return ix.CreateIndexesWithDest(client, indexNamespaces)
+	return ix.CopyIndexesWithDest(client, indexNamespaces, true)
 }
 
-// CreateIndexesWithDest creates indexes
-func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []IndexNS) error {
+// CopyIndexes copies indexes
+func (ix *IndexStats) CopyIndexes(client *mongo.Client, isDrop bool, namespaces ...[]string) error {
+	indexNamespaces := []IndexNS{}
+	if len(namespaces) > 0 {
+		for _, v := range namespaces[0] {
+			indexNamespaces = append(indexNamespaces, IndexNS{From: v, To: v})
+		}
+	}
+	return ix.CopyIndexesWithDest(client, indexNamespaces, isDrop)
+}
+
+// CopyIndexesWithDest copies indexes
+func (ix *IndexStats) CopyIndexesWithDest(client *mongo.Client, namespaces []IndexNS, isDrop bool) error {
 	var ctx = context.Background()
 	var err error
 	namespaceMap := map[string]bool{}
@@ -439,7 +450,11 @@ func (ix *IndexStats) CreateIndexesWithDest(client *mongo.Client, namespaces []I
 				dbName, collName = SplitNamespace(indexMap[ns])
 				ns = dbName + "." + collName
 			}
-			client.Database(dbName).RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: collName}, {Key: "index", Value: "*"}})
+			if isDrop {
+				var doc bson.M
+				cmd := bson.D{{Key: "dropIndexes", Value: collName}, {Key: "index", Value: "*"}}
+				client.Database(dbName).RunCommand(ctx, cmd).Decode(&doc)
+			}
 			collection := client.Database(dbName).Collection(collName)
 			indexes := []mongo.IndexModel{}
 			for _, o := range coll.Indexes {
