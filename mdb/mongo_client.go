@@ -96,6 +96,9 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 func ParseURI(uri string) (connstring.ConnString, error) {
 	var err error
 	var connString connstring.ConnString
+	if uri, err = url.QueryUnescape(uri); err != nil {
+		return connString, err
+	}
 	begin := strings.Index(uri, "://")
 	begin += 3
 	colon := strings.Index(uri[begin:], ":")

@@ -50,11 +50,27 @@ func TestParseURI(t *testing.T) {
 	var err error
 	var cs connstring.ConnString
 
-	uri := "mongodb://user:%24secret@localhost/keyhole"
+	uri := "mongodb://user:secret@localhost/keyhole"
+	if cs, err = ParseURI(uri); err != nil {
+		t.Fatal(err)
+	}
+	if cs.Password != "secret" {
+		t.Fatal(err)
+	}
+
+	uri = "mongodb://user:$secret@localhost/keyhole"
 	if cs, err = ParseURI(uri); err != nil {
 		t.Fatal(err)
 	}
 	if cs.Password != "$secret" {
+		t.Fatal(err)
+	}
+
+	uri = "mongodb://user:%5Esecret@localhost/keyhole"
+	if cs, err = ParseURI(uri); err != nil {
+		t.Fatal(err)
+	}
+	if cs.Password != "^secret" {
 		t.Fatal(err)
 	}
 }
