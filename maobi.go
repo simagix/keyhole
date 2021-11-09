@@ -19,7 +19,7 @@ import (
 func GenerateMaobiReport(maobiURL string, data []byte, ofile string) error {
 	var err error
 	var murl *url.URL
-	if maobiURL == "" {
+	if maobiURL == "" || ofile == "" {
 		return nil
 	}
 	if murl, err = url.Parse(maobiURL); err != nil {

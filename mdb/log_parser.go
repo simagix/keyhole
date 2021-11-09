@@ -64,9 +64,9 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	if strings.HasPrefix(ns, "admin.") || strings.HasPrefix(ns, "config.") || strings.HasPrefix(ns, "local.") {
 		stat.op = dollarCmd
 		return stat, errors.New("system database")
-	} else if strings.HasSuffix(ns, ".$cmd") {
-		stat.op = dollarCmd
-		return stat, errors.New("system command")
+		// } else if strings.HasSuffix(ns, ".$cmd") {
+		// stat.op = dollarCmd
+		// return stat, errors.New("system command")
 	}
 	filter := body[:epos]
 	ms := result[7]
@@ -224,6 +224,14 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 	filter += aggStages
 	milli, _ := strconv.Atoi(ms)
+
+	if strings.HasSuffix(ns, ".$cmd") {
+		ns = strings.TrimSuffix(ns, "$cmd")
+		coll := getDocByField(body, op+":")
+		coll = strings.TrimPrefix(coll, `"`)
+		quote := strings.Index(coll, `"`)
+		ns += coll[:quote]
+	}
 	stat = LogStats{filter: filter, index: index, milli: milli, ns: ns, op: op, scan: scan, utc: utc}
 	return stat, nil
 }
