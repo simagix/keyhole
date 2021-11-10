@@ -73,6 +73,14 @@ func TestParseURI(t *testing.T) {
 	if cs.Password != "^secret" {
 		t.Fatal(err)
 	}
+
+	uri = "mongodb+srv://user:%5Esecret@shardedclustersource.zywgx.mongodb.net/myFirstDatabase"
+	if cs, err = ParseURI(uri); err != nil {
+		t.Fatal(err)
+	}
+	if cs.Password != "^secret" {
+		t.Fatal(err)
+	}
 }
 
 func TestParseURITLSOptions(t *testing.T) {
