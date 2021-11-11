@@ -96,16 +96,17 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 func ParseURI(uri string) (connstring.ConnString, error) {
 	var err error
 	var connString connstring.ConnString
-	if uri, err = url.QueryUnescape(uri); err != nil {
-		return connString, err
-	}
 	begin := strings.Index(uri, "://")
 	begin += 3
 	colon := strings.Index(uri[begin:], ":")
 	colon += begin
 	at := strings.LastIndex(uri, "@")
 	if colon > 0 && at > colon {
-		uri = strings.Replace(uri, uri[colon+1:at], url.QueryEscape(uri[colon+1:at]), 1)
+		portion := uri[colon+1 : at]
+		if portion, err = url.QueryUnescape(portion); err != nil {
+			return connString, err
+		}
+		uri = strings.Replace(uri, portion, url.QueryEscape(portion), 1)
 	}
 	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
