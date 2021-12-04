@@ -44,6 +44,7 @@ type ClusterStats struct {
 	Shards           []Shard          `bson:"shards"`
 	Version          string           `bson:"version"`
 
+	dbNames []string
 	redact  bool
 	verbose bool
 	version string
@@ -53,6 +54,11 @@ type ClusterStats struct {
 func NewClusterStats(version string) *ClusterStats {
 	s := ClusterStats{version: version}
 	return &s
+}
+
+// SetDBNames sets redact
+func (p *ClusterStats) SetDBNames(dbNames []string) {
+	p.dbNames = dbNames
 }
 
 // SetRedaction sets redact
@@ -109,7 +115,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	db.SetNumberShards(len(p.Shards))
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
-	if p.Databases, err = db.GetAllDatabasesStats(client); err != nil {
+	if p.Databases, err = db.GetAllDatabasesStats(client, p.dbNames); err != nil {
 		p.Logger.Info(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
 	return nil
