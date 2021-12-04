@@ -128,7 +128,7 @@ func (p *DatabaseStats) SetVerbose(verbose bool) {
 }
 
 // GetAllDatabasesStats gets all db info
-func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, error) {
+func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []string) ([]Database, error) {
 	var err error
 	var cur *mongo.Cursor
 	var ctx = context.Background()
@@ -150,6 +150,19 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client) ([]Database, 
 	p.Logger.Debug("GetAllDatabasesStats")
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
 		return listdb.Databases, nil
+	}
+	if len(dbNames) > 0 {
+		dict := map[string]bool{}
+		for _, name := range dbNames {
+			dict[name] = true
+		}
+		list := []Database{}
+		for _, db := range listdb.Databases {
+			if dict[db.Name] {
+				list = append(list, db)
+			}
+		}
+		listdb.Databases = list
 	}
 	sort.Slice(listdb.Databases, func(i, j int) bool {
 		return listdb.Databases[i].Name < listdb.Databases[j].Name
