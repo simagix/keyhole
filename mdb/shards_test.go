@@ -6,11 +6,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 func TestGetAllShardURIstWithConn(t *testing.T) {
 	var err error
+	UnitTestURL = "mongodb://user:password@localhost/"
 	client := getMongoClient()
 	defer client.Disconnect(context.Background())
 	var shards []Shard
@@ -20,6 +22,9 @@ func TestGetAllShardURIstWithConn(t *testing.T) {
 	connString, _ := connstring.Parse(UnitTestURL)
 	if _, err := GetAllShardURIs(shards, connString); err != nil {
 		t.Fatal(err)
+	}
+	for _, shard := range shards {
+		t.Log(gox.Stringify(shard, "", "  "))
 	}
 }
 

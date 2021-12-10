@@ -56,7 +56,7 @@ func (wtc *WiredTigerCache) Start(client *mongo.Client) {
 func (wtc *WiredTigerCache) GetAllDatabasesStats(client *mongo.Client) error {
 	var err error
 	dbi := NewDatabaseStats(wtc.version)
-	wtc.databases, err = dbi.GetAllDatabasesStats(client)
+	wtc.databases, err = dbi.GetAllDatabasesStats(client, []string{})
 	return err
 }
 

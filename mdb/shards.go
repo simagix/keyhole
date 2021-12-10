@@ -21,6 +21,7 @@ type Shard struct {
 	Host    string         `bson:"host"`
 	State   int            `bson:"state"`
 	Servers []ClusterStats `bson:"servers"`
+	Tags    []string       `bson:"tags"`
 }
 
 // GetShards return all shards from listShards command

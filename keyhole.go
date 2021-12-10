@@ -30,7 +30,8 @@ const (
 // Run executes main()
 func Run(fullVersion string) {
 	var err error
-	allinfo := flag.String("allinfo", "", "database connection string")
+	var dbNames IncludeDB
+	allinfo := flag.String("allinfo", "", "database connection string, used with optional -db")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
 	collection := flag.String("collection", "", "collection name to print schema")
@@ -38,6 +39,7 @@ func Run(fullVersion string) {
 	compare := flag.Bool("compare", false, "compare 2 clusters or 2 -allinfo output files")
 	conn := flag.Int("conn", 0, "number of connections")
 	createIndex := flag.String("createIndex", "", "create indexes")
+	flag.Var(&dbNames, "db", `database to include with -allinfo`)
 	diag := flag.String("diag", "", "diagnosis of server status or diagnostic.data")
 	drop := flag.Bool("drop", false, "drop examples collection before seeding")
 	duration := flag.Int("duration", 5, "load test duration in minutes")
@@ -198,12 +200,20 @@ func Run(fullVersion string) {
 	}
 
 	if *allinfo != "" || (*info != "" && *verbose) {
+		var data []byte
+		var ofile string
 		stats := mdb.NewClusterStats(fullVersion)
+		stats.SetDBNames(dbNames)
 		stats.SetRedaction(*redaction)
 		stats.SetVerbose(true)
-		if err = CollectCluserDetails(stats, client, connString, *maobiURL); err != nil {
+		if err = stats.GetClusterStats(client, connString); err != nil {
 			log.Fatalf("a valid user with roles 'clusterMonitor' and 'readAnyDatabase' on all mongo processes are required.\n%v", err)
 		}
+		stats.Print()
+		if ofile, data, err = stats.OutputBSON(); err != nil {
+			return
+		}
+		GenerateMaobiReport(*maobiURL, data, ofile)
 		return
 	} else if *cardinality != "" { // --card <collection> [-v]
 		card := mdb.NewCardinality(client)
@@ -225,7 +235,7 @@ func Run(fullVersion string) {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
-		if err = DuplicateIndexesFromFile(ix, client, *createIndex); err != nil {
+		if err = DuplicateIndexesFromFile(ix, client, *createIndex, *drop); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -312,4 +322,10 @@ func Run(fullVersion string) {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"ok": 1, "message": "hello keyhole!"})
+}
+
+// GetClusterSummary returns MongoDB cluster summary
+func GetClusterSummary(version string, client *mongo.Client) string {
+	stats := mdb.NewClusterStats(version)
+	return stats.GetClusterShortSummary(client)
 }
