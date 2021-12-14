@@ -29,14 +29,16 @@ func TestGetAllShardURIstWithConn(t *testing.T) {
 }
 
 func TestGetAllShardURIs(t *testing.T) {
-	uri := "mongodb+srv://user:secret@keyhole.example.com/db"
-	connString, _ := connstring.Parse(uri)
+	uri := "mongodb://user:secret@localhost/?authSource=admin&w=2&readPreference=secondary&tls=true"
+	connString, err := connstring.Parse(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
 	shards := []Shard{
 		{ID: "shard-0", Host: "shard0/shard-00-00:27017,shard-00-01:27017,shard-00-02:27017", State: 1},
 		{ID: "shard-1", Host: "shard1/shard-01-00:27017,shard-01-01:27017,shard-01-02:27017", State: 1},
 	}
 	var list []string
-	var err error
 	if list, err = GetAllShardURIs(shards, connString); err != nil {
 		t.Fatal(err)
 	}
@@ -44,15 +46,11 @@ func TestGetAllShardURIs(t *testing.T) {
 		t.Fatal("expected 2, but got", len(list))
 	}
 	expected := []string{
-		"mongodb://user:secret@shard-00-00:27017,shard-00-01:27017,shard-00-02:27017/?replicaSet=shard0&authSource=admin&ssl=true",
-		"mongodb://user:secret@shard-01-00:27017,shard-01-01:27017,shard-01-02:27017/?replicaSet=shard1&authSource=admin&ssl=true",
+		"mongodb://user:secret@shard-00-00:27017,shard-00-01:27017,shard-00-02:27017/?replicaSet=shard0&authSource=admin&tls=true&readPreference=secondary&w=2",
+		"mongodb://user:secret@shard-01-00:27017,shard-01-01:27017,shard-01-02:27017/?replicaSet=shard1&authSource=admin&tls=true&readPreference=secondary&w=2",
 	}
 	for i, v := range list {
-		if v != expected[i] {
-			t.Log(v)
-			t.Log(expected[i])
-			t.Fatal("not expected")
-		}
+		assertEqual(t, v, expected[i])
 	}
 }
 
@@ -85,5 +83,11 @@ func TestGetAllServerURIs(t *testing.T) {
 			t.Log(expected[i])
 			t.Fatal("not expected")
 		}
+	}
+}
+
+func assertEqual(t *testing.T, a interface{}, b interface{}) {
+	if a != b {
+		t.Fatalf("%s != %s", a, b)
 	}
 }

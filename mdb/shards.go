@@ -62,18 +62,7 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		} else if isSRV {
 			ruri += "&authSource=admin&tls=true"
 		}
-		if connString.SSLSet {
-			ruri += "&tls=true"
-		}
-		if connString.SSLCaFileSet {
-			ruri += "&tlsCAFile=" + connString.SSLCaFile
-		}
-		if connString.SSLClientCertificateKeyFileSet {
-			ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
-		}
-		if connString.SSLInsecureSet {
-			ruri += fmt.Sprintf("&tlsInsecure=%v", connString.SSLInsecure)
-		}
+		ruri += getQueryParams(connString)
 		list = append(list, ruri)
 	}
 	return list, nil
@@ -104,21 +93,41 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 				} else if connString.Username != "" {
 					ruri += "authSource=admin"
 				}
-				if connString.SSLSet {
-					ruri += "&tls=true"
-				}
-				if connString.SSLCaFileSet {
-					ruri += "&tlsCAFile=" + connString.SSLCaFile
-				}
-				if connString.SSLClientCertificateKeyFileSet {
-					ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
-				}
-				if connString.SSLInsecureSet {
-					ruri += "&tlsInsecure=true"
-				}
 			}
+			ruri += getQueryParams(connString)
 			list = append(list, ruri)
 		}
 	}
 	return list, nil
+}
+
+func getQueryParams(connString connstring.ConnString) string {
+	ruri := ""
+	if connString.SSLSet {
+		ruri += "&tls=true"
+	}
+	if connString.SSLCaFileSet {
+		ruri += "&tlsCAFile=" + connString.SSLCaFile
+	}
+	if connString.SSLClientCertificateKeyFileSet {
+		ruri += "&tlsCertificateKeyFile=" + connString.SSLClientCertificateKeyFile
+	}
+	if connString.SSLInsecureSet {
+		ruri += "&tlsInsecure=true"
+	}
+	if connString.ReadPreference != "" {
+		ruri += "&readPreference=" + connString.ReadPreference
+	}
+	if connString.WNumberSet {
+		ruri += fmt.Sprintf("&w=%v", connString.WNumber)
+	} else if connString.WString != "" {
+		ruri += "&w=" + connString.WString
+	}
+	if connString.RetryReadsSet {
+		ruri += "&retryReads=true"
+	}
+	if connString.RetryWritesSet {
+		ruri += "&retryWrites=true"
+	}
+	return ruri
 }

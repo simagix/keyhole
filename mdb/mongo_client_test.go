@@ -98,3 +98,23 @@ func TestParseURITLSOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNewMongoClientReadPreference(t *testing.T) {
+	var err error
+	var client *mongo.Client
+
+	uri := "mongodb://user:password@localhost/admin?replicaSet=replset&readPreference=secondary"
+	if os.Getenv("DATABASE_URL") != "" {
+		uri = os.Getenv("DATABASE_URL")
+	}
+
+	if client, err = NewMongoClient(uri); err != nil {
+		t.Fatal(uri, err)
+	}
+	collection := client.Database("test").Collection(ExamplesCollection)
+	var count int64
+	if count, err = collection.CountDocuments(context.TODO(), bson.M{}); err != nil {
+		t.Fatal(uri, err)
+	}
+	t.Log(count, "total counts from", uri)
+}
