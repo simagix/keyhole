@@ -15,8 +15,9 @@ const (
 
 // Config stores keyhole configuration
 type Config struct {
-	Action string `bson:"action,omitempty"`
-	URI    string `bson:"uri,omitempty"`
+	Action   string `bson:"action,omitempty"`
+	Filename string `bson:"filename,omitempty"`
+	URI      string `bson:"uri,omitempty"`
 }
 
 // Exec executes a plan based on a configuration file
@@ -33,7 +34,11 @@ func Exec(filename string) error {
 	}
 
 	if cfg.Action == printConnections {
-		return PrintConnectionsFromURI(cfg.URI)
+		if cfg.Filename != "" {
+			return PrintConnectionsFromFile(cfg.Filename)
+		} else if cfg.URI != "" {
+			return PrintConnectionsFromURI(cfg.URI)
+		}
 	}
 	return err
 }

@@ -3,10 +3,14 @@
 package keyhole
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+
+	"github.com/simagix/gox"
 
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,6 +18,69 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
+
+// Logv2Network stores logv2 network info
+type Logv2Network struct {
+	Attributes struct {
+		ConnectionCount int    `json:"connectionCount" bson:"connectionCount"`
+		ConnectionID    int    `json:"connectionId" bson:"connectionId"`
+		Remote          string `json:"remote" bson:"remote"`
+	} `json:"attr" bson:"attr"`
+	Component string            `json:"c" bson:"c"`
+	Context   string            `json:"ctx" bson:"ctx"`
+	ID        int               `json:"id" bson:"id"`
+	Message   string            `json:"msg" bson:"msg"`
+	Timestamp map[string]string `json:"t" bson:"t"`
+}
+
+// PrintConnectionsFromFile print all connection info from a log file
+func PrintConnectionsFromFile(filename string) error {
+	var err error
+	var reader *bufio.Reader
+	if reader, err = gox.NewFileReader(filename); err != nil {
+		return err
+	}
+	accepted := 0
+	ended := 0
+	connMap := map[string][2]int{}
+	for {
+		var data []byte
+		if data, _, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
+			break
+		}
+		str := string(data)
+		if !strings.Contains(str, `"c":"NETWORK"`) {
+			continue
+		}
+		var doc Logv2Network
+		if err = json.Unmarshal(data, &doc); err != nil || doc.Component != "NETWORK" {
+			continue
+		}
+		strs := strings.Split(doc.Attributes.Remote, ":")
+		if len(connMap[strs[0]]) == 0 {
+			connMap[strs[0]] = [2]int{0, 0}
+		}
+		nums := connMap[strs[0]]
+		if doc.Message == "Connection accepted" {
+			accepted++
+			fmt.Printf(" - conn ID: %-10d desc: conn%-10d client: %-40s\n", doc.Attributes.ConnectionID, doc.Attributes.ConnectionID, doc.Attributes.Remote)
+			nums[0]++
+			connMap[strs[0]] = nums
+		} else if doc.Message == "Connection ended" {
+			ended++
+			nums[1]++
+			connMap[strs[0]] = nums
+		}
+	}
+	fmt.Println()
+	fmt.Println("Summary:")
+	fmt.Println(" - connections accepted", accepted)
+	fmt.Println(" - connections ended", ended)
+	for k, v := range connMap {
+		fmt.Printf(" - %v had %v accepted, %v ended\n", k, v[0], v[1])
+	}
+	return nil
+}
 
 // PrintConnectionsFromURI print all connection info from all mongod
 func PrintConnectionsFromURI(uri string) error {
