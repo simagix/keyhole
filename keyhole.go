@@ -1,4 +1,4 @@
-// Copyright 2020 Kuei-chun Chen. All rights reserved.
+// Copyright 2020-present Kuei-chun Chen. All rights reserved.
 
 package keyhole
 
@@ -31,6 +31,9 @@ const (
 func Run(fullVersion string) {
 	var err error
 	var dbNames IncludeDB
+
+	config := flag.String("config", "", "configuration file")
+
 	allinfo := flag.String("allinfo", "", "database connection string, used with optional -db")
 	cardinality := flag.String("cardinality", "", "check collection cardinality")
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
@@ -76,6 +79,14 @@ func Run(fullVersion string) {
 	flag.Parse()
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
+
+	if *config != "" {
+		if err = Exec(*config); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	var uri string
 	if *allinfo != "" {
 		uri = *allinfo
