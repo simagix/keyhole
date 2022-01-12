@@ -1,4 +1,4 @@
-// Copyright 2020 Kuei-chun Chen. All rights reserved.
+// Copyright 2020-present Kuei-chun Chen. All rights reserved.
 
 package mdb
 
@@ -98,7 +98,7 @@ func toFloat64(num interface{}) float64 {
 func SplitNamespace(namespace string) (string, string) {
 	dot := strings.Index(namespace, ".")
 	if dot < 0 {
-		return "", ""
+		return namespace, ""
 	}
 	return namespace[:dot], namespace[dot+1:]
 }

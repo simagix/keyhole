@@ -39,7 +39,7 @@ func Run(fullVersion string) {
 	changeStreams := flag.Bool("changeStreams", false, "change streams watch")
 	collection := flag.String("collection", "", "collection name to print schema")
 	collscan := flag.Bool("collscan", false, "list only COLLSCAN (with --loginfo)")
-	compare := flag.Bool("compare", false, "compare 2 clusters or 2 -allinfo output files")
+	compare := flag.Bool("compare", false, "(deprecated) compare 2 clusters or 2 -allinfo output files")
 	conn := flag.Int("conn", 0, "number of connections")
 	createIndex := flag.String("createIndex", "", "create indexes")
 	flag.Var(&dbNames, "db", `database to include with -allinfo`)
@@ -81,7 +81,7 @@ func Run(fullVersion string) {
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 
 	if *config != "" {
-		if err = Exec(*config); err != nil {
+		if err = Exec(*config, fullVersion); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -131,15 +131,7 @@ func Run(fullVersion string) {
 		}
 		return
 	} else if *compare {
-		comp := NewComparison(fullVersion)
-		comp.SetNoColor(*nocolor)
-		comp.SetVerbose(*verbose)
-		if err = comp.Run(); err != nil {
-			log.Fatal(err)
-		}
-		if err = comp.OutputBSON(); err != nil {
-			log.Fatal(err)
-		}
+		PrintCompareHelp()
 		return
 	} else if *webserver {
 		addr := fmt.Sprintf(":%d", *port)

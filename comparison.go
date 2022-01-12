@@ -1,11 +1,10 @@
-// Copyright 2020 Kuei-chun Chen. All rights reserved.
+// Copyright 2020-present Kuei-chun Chen. All rights reserved.
 
 package keyhole
 
 import (
 	"bufio"
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -46,14 +45,6 @@ func (p *Comparison) SetNoColor(nocolor bool) {
 // SetVerbose sets verbose
 func (p *Comparison) SetVerbose(verbose bool) {
 	p.verbose = verbose
-}
-
-// Run executes compare commands
-func (p *Comparison) Run() error {
-	if len(flag.Args()) < 2 {
-		return fmt.Errorf(`usage: keyhole -compare source_uri target_uri`)
-	}
-	return p.Compare(flag.Arg(0), flag.Arg(1))
 }
 
 // Compare executes compare commands

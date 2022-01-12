@@ -47,12 +47,11 @@ type ClusterStats struct {
 	dbNames []string
 	redact  bool
 	verbose bool
-	version string
 }
 
 // NewClusterStats returns *ClusterStats
-func NewClusterStats(version string) *ClusterStats {
-	s := ClusterStats{version: version}
+func NewClusterStats(signature string) *ClusterStats {
+	s := ClusterStats{Logger: gox.GetLogger(signature)}
 	return &s
 }
 
@@ -75,10 +74,7 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) error {
 	var err error
 	if p.Logger == nil {
-		p.Logger = gox.GetLogger(p.version)
-		if p.verbose {
-			p.Logger.SetLoggerLevel(gox.Debug)
-		}
+		p.Logger = gox.GetLogger("")
 	}
 	p.Logger.Info("GetClusterStats() begins")
 	if err = p.GetClusterStatsSummary(client); err != nil {
@@ -158,7 +154,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 	var uris []string
 	var smap = map[string]Shard{}
 	if p.Logger == nil {
-		p.Logger = gox.GetLogger(p.version)
+		p.Logger = gox.GetLogger("")
 	}
 	for _, v := range shards {
 		v.Servers = []ClusterStats{}

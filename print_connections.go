@@ -33,6 +33,22 @@ type Logv2Network struct {
 	Timestamp map[string]string `json:"t" bson:"t"`
 }
 
+// PrintConnections print all connection info
+func PrintConnections(cfg *Config) error {
+	var err error
+	if cfg.Filename != "" {
+		if err = PrintConnectionsFromFile(cfg.Filename); err != nil {
+			return err
+		}
+	}
+	if cfg.URI != "" {
+		if err = PrintConnectionsFromURI(cfg.URI); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 // PrintConnectionsFromFile print all connection info from a log file
 func PrintConnectionsFromFile(filename string) error {
 	var err error
