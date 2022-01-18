@@ -62,7 +62,7 @@ func GetAllShardURIs(shards []Shard, connString connstring.ConnString) ([]string
 		} else if isSRV {
 			ruri += "&authSource=admin&tls=true"
 		}
-		ruri += getQueryParams(connString)
+		ruri += GetQueryParams(connString, false)
 		list = append(list, ruri)
 	}
 	return list, nil
@@ -94,14 +94,15 @@ func GetAllServerURIs(shards []Shard, connString connstring.ConnString) ([]strin
 					ruri += "authSource=admin"
 				}
 			}
-			ruri += getQueryParams(connString)
+			ruri += GetQueryParams(connString, true)
 			list = append(list, ruri)
 		}
 	}
 	return list, nil
 }
 
-func getQueryParams(connString connstring.ConnString) string {
+// GetQueryParams returns partial connection string from ConnString
+func GetQueryParams(connString connstring.ConnString, isConnectDirect bool) string {
 	ruri := ""
 	if connString.SSLSet {
 		ruri += "&tls=true"
@@ -115,8 +116,21 @@ func getQueryParams(connString connstring.ConnString) string {
 	if connString.SSLInsecureSet {
 		ruri += "&tlsInsecure=true"
 	}
-	if connString.ReadPreference != "" {
+	if connString.ReadPreference != "" && !isConnectDirect {
 		ruri += "&readPreference=" + connString.ReadPreference
+	}
+	if len(connString.ReadPreferenceTagSets) > 0 && !isConnectDirect {
+		ruri += "&readPreferenceTags="
+		cnt := 0
+		for _, amap := range connString.ReadPreferenceTagSets {
+			for k, v := range amap {
+				ruri += k + ":" + v
+				if cnt > 0 {
+					ruri += ","
+				}
+				cnt++
+			}
+		}
 	}
 	if connString.WNumberSet {
 		ruri += fmt.Sprintf("&w=%v", connString.WNumber)

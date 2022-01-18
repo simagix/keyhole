@@ -192,6 +192,15 @@ func Run(fullVersion string) {
 	}
 
 	var client *mongo.Client
+	tag := "readPreferenceTags=nodeType:ANALYTICS"
+	var fastMode bool
+	if strings.Contains(uri, ".mongodb.net") && strings.Contains(uri, tag) {
+		fastMode = true
+		if *allinfo != "" {
+			gox.GetLogger(fullVersion).Infof(`remove "%v" from connection string for fast processing`, tag)
+		}
+		uri = strings.Replace(uri, tag, "", -1)
+	}
 	// connection string is required from here forward
 	var connString connstring.ConnString
 	if connString, err = mdb.ParseURI(uri); err != nil {
@@ -209,6 +218,7 @@ func Run(fullVersion string) {
 		stats.SetDBNames(dbNames)
 		stats.SetRedaction(*redaction)
 		stats.SetVerbose(true)
+		stats.SetFastMode(fastMode)
 		if err = stats.GetClusterStats(client, connString); err != nil {
 			log.Fatalf("a valid user with roles 'clusterMonitor' and 'readAnyDatabase' on all mongo processes are required.\n%v", err)
 		}
@@ -238,6 +248,7 @@ func Run(fullVersion string) {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
+		ix.SetFastMode(fastMode)
 		if err = DuplicateIndexesFromFile(ix, client, *createIndex, *drop); err != nil {
 			log.Fatal(err)
 		}
@@ -253,6 +264,7 @@ func Run(fullVersion string) {
 		ix := mdb.NewIndexStats(fullVersion)
 		ix.SetNoColor(*nocolor)
 		ix.SetVerbose(*verbose)
+		ix.SetFastMode(fastMode)
 		if err = CollectIndexStats(ix, client, *maobiURL); err != nil {
 			log.Fatal(err)
 		}

@@ -44,20 +44,27 @@ type ClusterStats struct {
 	Shards           []Shard          `bson:"shards"`
 	Version          string           `bson:"version"`
 
-	dbNames []string
-	redact  bool
-	verbose bool
+	dbNames   []string
+	fastMode  bool
+	redact    bool
+	signature string
+	verbose   bool
 }
 
 // NewClusterStats returns *ClusterStats
 func NewClusterStats(signature string) *ClusterStats {
-	s := ClusterStats{Logger: gox.GetLogger(signature)}
+	s := ClusterStats{signature: signature}
 	return &s
 }
 
 // SetDBNames sets redact
 func (p *ClusterStats) SetDBNames(dbNames []string) {
 	p.dbNames = dbNames
+}
+
+// SetFastMode sets fastMode mode
+func (p *ClusterStats) SetFastMode(fastMode bool) {
+	p.fastMode = fastMode
 }
 
 // SetRedaction sets redact
@@ -73,9 +80,7 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 // GetClusterStats collects cluster stats
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) error {
 	var err error
-	if p.Logger == nil {
-		p.Logger = gox.GetLogger("")
-	}
+	p.Logger = gox.GetLogger(p.signature)
 	p.Logger.Info("GetClusterStats() begins")
 	if err = p.GetClusterStatsSummary(client); err != nil {
 		return err
@@ -100,7 +105,11 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		}
 
 		setName := p.ServerStatus.Repl.SetName
-		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(p.ServerStatus.Repl.Hosts, ","))
+		hosts := []string{}
+		for _, member := range p.ReplSetGetStatus.Members {
+			hosts = append(hosts, member.Name)
+		}
+		s := fmt.Sprintf(`%v/%v`, setName, strings.Join(hosts, ","))
 		oneShard := []Shard{{ID: setName, State: 1, Host: s}}
 		if p.Shards, err = p.GetServersStatsSummary(oneShard, connString); err != nil {
 			p.Logger.Error(err)
@@ -111,6 +120,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	db.SetNumberShards(len(p.Shards))
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
+	db.SetFastMode(p.fastMode)
 	if p.Databases, err = db.GetAllDatabasesStats(client, p.dbNames); err != nil {
 		p.Logger.Info(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
@@ -120,6 +130,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 // GetClusterStatsSummary collects cluster stats
 func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) error {
 	var err error
+	p.Logger = gox.GetLogger(p.signature)
 	if p.BuildInfo, err = GetBuildInfo(client); err != nil {
 		return err
 	}
@@ -153,9 +164,7 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 	var err error
 	var uris []string
 	var smap = map[string]Shard{}
-	if p.Logger == nil {
-		p.Logger = gox.GetLogger("")
-	}
+	p.Logger = gox.GetLogger(p.signature)
 	for _, v := range shards {
 		v.Servers = []ClusterStats{}
 		smap[v.ID] = v

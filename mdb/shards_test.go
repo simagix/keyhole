@@ -86,6 +86,21 @@ func TestGetAllServerURIs(t *testing.T) {
 	}
 }
 
+func TestGetQueryParams(t *testing.T) {
+	var err error
+	var cs connstring.ConnString
+	var expected string
+	uri := "mongodb+srv://user:password@tags.jgtm2.mongodb.net/keyhole?readPreference=secondary&readPreferenceTags=nodeType:ANALYTICS"
+	if cs, err = connstring.Parse(uri); err != nil {
+		t.Fatal(err)
+	}
+	expected = "&tls=true&readPreference=secondary&readPreferenceTags=nodeType:ANALYTICS"
+	assertEqual(t, expected, GetQueryParams(cs, false))
+
+	expected = "&tls=true"
+	assertEqual(t, expected, GetQueryParams(cs, true))
+}
+
 func assertEqual(t *testing.T, a interface{}, b interface{}) {
 	if a != b {
 		t.Fatalf("%s != %s", a, b)

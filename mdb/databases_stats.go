@@ -28,6 +28,7 @@ const (
 type DatabaseStats struct {
 	Logger *gox.Logger
 
+	fastMode  bool
 	numShards int
 	redaction bool
 	threads   int
@@ -104,6 +105,11 @@ func NewDatabaseStats(version string) *DatabaseStats {
 	return &DatabaseStats{Logger: gox.GetLogger(version), threads: 16, version: version}
 }
 
+// SetFastMode sets fastMode mode
+func (p *DatabaseStats) SetFastMode(fastMode bool) {
+	p.fastMode = fastMode
+}
+
 // SetNumberShards set # of threads
 func (p *DatabaseStats) SetNumberShards(n int) {
 	p.numShards = n
@@ -174,10 +180,10 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 		if cur, err = client.Database(db.Name).ListCollections(ctx, bson.D{{}}); err != nil {
 			return listdb.Databases, err
 		}
-		defer cur.Close(ctx)
 		var collections = []Collection{}
 		ir := NewIndexStats(p.version)
 		ir.SetVerbose(p.verbose)
+		ir.SetFastMode(p.fastMode)
 		collectionNames := []string{}
 
 		for cur.Next(ctx) {
@@ -193,6 +199,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 			}
 			collectionNames = append(collectionNames, coll)
 		}
+		cur.Close(ctx)
 
 		sort.Strings(collectionNames)
 		var wg = gox.NewWaitGroup(4) // runs in parallel
@@ -242,27 +249,28 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 				if err != nil {
 					p.Logger.Error(err)
 				}
-
-				// stats
 				var stats bson.M
-				client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
 				chunks := []Chunk{}
-				if isGetChunksDistr && stats["shards"] != nil {
-					shardNames := []string{}
-					for shard := range stats["shards"].(primitive.M) {
-						shardNames = append(shardNames, shard)
-					}
-					sort.Strings(shardNames)
-					for _, k := range shardNames {
-						m := (stats["shards"].(primitive.M)[k]).(primitive.M)
-						delete(m, "$clusterTime")
-						delete(m, "$gleStats")
-						if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
-							// p.Logger.Error(cerr)
-						} else {
-							chunk.Objects = toInt64(m["count"])
-							chunk.Size = toInt64(m["size"])
-							chunks = append(chunks, chunk)
+				if !p.fastMode {
+					// stats
+					client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
+					if isGetChunksDistr && stats["shards"] != nil {
+						shardNames := []string{}
+						for shard := range stats["shards"].(primitive.M) {
+							shardNames = append(shardNames, shard)
+						}
+						sort.Strings(shardNames)
+						for _, k := range shardNames {
+							m := (stats["shards"].(primitive.M)[k]).(primitive.M)
+							delete(m, "$clusterTime")
+							delete(m, "$gleStats")
+							if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
+								// p.Logger.Error(cerr)
+							} else {
+								chunk.Objects = toInt64(m["count"])
+								chunk.Size = toInt64(m["size"])
+								chunks = append(chunks, chunk)
+							}
 						}
 					}
 				}

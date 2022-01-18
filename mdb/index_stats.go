@@ -27,6 +27,7 @@ type IndexStats struct {
 	Databases []Database  `bson:"databases"`
 	Logger    *gox.Logger `bson:"keyhole"`
 
+	fastMode bool
 	filename string
 	nocolor  bool
 	verbose  bool
@@ -78,6 +79,11 @@ func NewIndexStats(version string) *IndexStats {
 	hostname, _ := os.Hostname()
 	return &IndexStats{version: version, Logger: gox.GetLogger(version),
 		filename: hostname + indexExt, Databases: []Database{}}
+}
+
+// SetFastMode sets fastMode mode
+func (ix *IndexStats) SetFastMode(fastMode bool) {
+	ix.fastMode = fastMode
 }
 
 // SetFilename sets output file name
@@ -243,8 +249,10 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		var v map[string]interface{}
 		ns := collection.Database().Name() + "." + collection.Name()
 		ix.Logger.Debug("GetIndexesFromCollection ", ns, o.KeyString)
-		if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
-			o.IsShardKey = true
+		if !ix.fastMode {
+			if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
+				o.IsShardKey = true
+			}
 		}
 		o.EffectiveKey = strings.Replace(o.KeyString[2:len(o.KeyString)-2], ": -1", ": 1", -1)
 		o.Usage = []IndexUsage{}
