@@ -8,13 +8,15 @@ import (
 )
 
 func TestGetClustersSummary(t *testing.T) {
-	publicKey := os.Getenv("ATLAS_PUB")
-	privateKey := os.Getenv("ATLAS_PRI")
+	var err error
+	var str string
+
+	publicKey := os.Getenv("ATLAS_USER_PS")
+	privateKey := os.Getenv("ATLAS_KEY_PS")
 	api := NewKey(publicKey, privateKey)
-	api.SetVerbose(testing.Verbose())
-	if str, err := api.GetClustersSummary(); err != nil {
+	// api.SetVerbose(testing.Verbose())
+	if str, err = api.GetClustersSummary(); err != nil {
 		t.Fatal(err)
-	} else {
-		t.Log(str)
 	}
+	t.Log(str)
 }

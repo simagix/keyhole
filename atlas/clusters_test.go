@@ -3,21 +3,56 @@
 package atlas
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
-
-	"github.com/simagix/gox"
 )
 
 func TestGetClusters(t *testing.T) {
-	publicKey := os.Getenv("ATLAS_PUB")
-	privateKey := os.Getenv("ATLAS_PRI")
+	var err error
+	var data []byte
+	var doc map[string]interface{}
+
+	publicKey := os.Getenv("ATLAS_USER_PS")
+	privateKey := os.Getenv("ATLAS_KEY_PS")
 	groupID := os.Getenv("ATLAS_GROUP")
 	api := NewKey(publicKey, privateKey)
 	api.SetVerbose(testing.Verbose())
-	if doc, err := api.GetClusters(groupID); err != nil {
+	if doc, err = api.GetClusters(groupID); err != nil {
 		t.Fatal(err)
-	} else {
-		t.Log(gox.Stringify(doc, "", "  "))
+	}
+	if data, err = json.Marshal(doc); err != nil {
+		t.Fatal(err)
+	}
+	os.Mkdir("./out", 0755)
+	ofile := `./out/clusters.json`
+	if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetCluster(t *testing.T) {
+	var err error
+	var data []byte
+	var doc map[string]interface{}
+	clusterName := "demo"
+
+	publicKey := os.Getenv("ATLAS_USER_PS")
+	privateKey := os.Getenv("ATLAS_KEY_PS")
+	groupID := os.Getenv("ATLAS_GROUP")
+	api := NewKey(publicKey, privateKey)
+	// api.SetVerbose(testing.Verbose())
+	if doc, err = api.GetCluster(groupID, clusterName); err != nil {
+		t.Fatal(err)
+	}
+	if data, err = json.Marshal(doc); err != nil {
+		t.Fatal(err)
+	}
+	os.Mkdir("./out", 0755)
+	ofile := fmt.Sprintf(`./out/cluster-%v.json`, clusterName)
+	if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+		t.Fatal(err)
 	}
 }
