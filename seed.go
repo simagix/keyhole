@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/uuid"
 )
 
 // Seed seeds feeder
@@ -233,10 +234,15 @@ func (f *Seed) seedNumbers(client *mongo.Client) error {
 	}
 
 	var docs []interface{}
-	docs = append(docs, bson.M{"a": rand.Intn(100), "b": primitive.NewDecimal128(100, 0), "c": math.NaN()})
-	for n := 1; n < 1000; n++ {
-		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100)})
+	for n := 0; n < 999; n++ {
+		auuid, err := uuid.New()
+		if err != nil {
+			return err
+		}
+		bindata := primitive.Binary{Subtype: byte(4), Data: []byte(auuid[:])}
+		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100), "uuid": bindata})
 	}
+	docs = append(docs, bson.M{"a": rand.Intn(100), "b": primitive.NewDecimal128(100, 0), "c": math.NaN()})
 	if _, err = numbersCollection.InsertMany(ctx, docs); err != nil {
 		fmt.Println("Seeded numbers: 0", err) // could be < v3.4
 		return nil
