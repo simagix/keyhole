@@ -74,13 +74,24 @@ func TestParseURI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uri = "mongodb+srv://user:%5Esecret@shardedclustersource.zywgx.mongodb.net/myFirstDatabase"
-	if cs, err = ParseURI(uri); err != nil {
-		t.Fatal(err)
+	if os.Getenv("ATLAS_URL") != "" {
+		uri = os.Getenv("ATLAS_URL")
+		if cs, err = ParseURI(uri); err != nil {
+			t.Fatal(err)
+		}
+		if cs.Password != os.Getenv("ATLAS_SECRET") {
+			t.Fatal(err)
+		}
 	}
-	if cs.Password != "^secret" {
-		t.Fatal(err)
-	}
+}
+
+func TestParseURIX509(t *testing.T) {
+	uri := "mongodb+srv://demo.jgtm2.mongodb.net/?authSource=$external&authMechanism=MONGODB-X509&tlsCertificateKeyFile=testdata/certs/client.pem"
+	cs, err := ParseURI(uri)
+	assertEqual(t, nil, err)
+	uri = cs.String() // password can be injected if missing
+	_, err = NewMongoClient(uri)
+	assertEqual(t, nil, err)
 }
 
 func TestParseURITLSOptions(t *testing.T) {
