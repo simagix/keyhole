@@ -481,10 +481,10 @@ func (ix *IndexStats) CopyIndexesWithDest(client *mongo.Client, namespaces []Ind
 				if o.Sparse {
 					opt.SetSparse(o.Sparse)
 				}
+				var collation *options.Collation
 				if o.Collation != nil {
-					var collation *options.Collation
 					if data, err := bson.Marshal(o.Collation); err != nil {
-						fmt.Println(err)
+						return err
 					} else {
 						bson.Unmarshal(data, &collation)
 						opt.SetCollation(collation)
@@ -500,9 +500,31 @@ func (ix *IndexStats) CopyIndexesWithDest(client *mongo.Client, namespaces []Ind
 					ix.Logger.Info(fmt.Sprintf(`creating index %v on %v `, o.KeyString, ns))
 				}
 				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
+				if o.Key.Map()["_id"] != nil {
+					collNames, err := client.Database(dbName).ListCollectionNames(ctx, bson.D{})
+					var exists bool
+					for _, name := range collNames {
+						if name == coll.Name {
+							exists = true
+							break
+						}
+					}
+					if !exists {
+						collOpts := options.CreateCollection()
+						if collation != nil {
+							collOpts.SetCollation(collation)
+						}
+						if err = client.Database(dbName).CreateCollection(ctx, collName, collOpts); err != nil {
+							return err
+						}
+						if _, err = collection.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: o.Key, Options: opt}); err != nil {
+							return err
+						}
+					}
+				}
 			}
 			if _, err = collection.Indexes().CreateMany(ctx, indexes); err != nil {
-				fmt.Println(err)
+				return err
 			}
 		}
 	}
