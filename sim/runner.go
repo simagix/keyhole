@@ -237,7 +237,7 @@ func (rn *Runner) terminate() {
 		}
 
 		// save metrics to a file
-		filename := outdir + keyholeStatsDataFile + "-" + getReplicaSetName(uri) + ".gz"
+		filename := fmt.Sprintf("%v/%v-%v.gz", outdir, keyholeStatsDataFile, getReplicaSetName(uri))
 		filenames = append(filenames, filename)
 		gox.OutputGzipped(data, filename)
 		d := anly.NewDiagnosticData()
@@ -262,14 +262,14 @@ func (rn *Runner) terminate() {
 		rn.Results = append(rn.Results, result)
 	}
 	hostname, _ := os.Hostname()
-	filename = fmt.Sprintf(`%s%s.%s-perf.bson.gz`, outdir, hostname, fileTimestamp)
+	filename = fmt.Sprintf(`%s/%s.%s-perf.bson.gz`, outdir, hostname, fileTimestamp)
 	var buf []byte
 	if buf, err = bson.Marshal(rn); err != nil {
 		rn.Logger.Info("marshal error:", err)
 	}
 	gox.OutputGzipped(buf, filename)
 	filenames = append(filenames, filename)
-	zipFile := fmt.Sprintf(`%s%s.%s-perf.zip`, outdir, hostname, fileTimestamp)
+	zipFile := fmt.Sprintf(`%s/%s.%s-perf.zip`, outdir, hostname, fileTimestamp)
 	gox.ZipFiles(zipFile, filenames)
 	rn.Logger.Info("stats written to ", zipFile)
 	for _, f := range filenames {

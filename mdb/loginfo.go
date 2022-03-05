@@ -354,7 +354,7 @@ func (li *LogInfo) OutputJSON() error {
 		return err
 	}
 	os.Mkdir(outdir, 0755)
-	ofile := outdir + strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json")
+	ofile := fmt.Sprintf("%v/%v", outdir, strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json"))
 	ioutil.WriteFile(ofile, data, 0644)
 	fmt.Println("json data written to", ofile)
 	return err

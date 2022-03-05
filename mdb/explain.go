@@ -94,7 +94,7 @@ func (e *Explain) ExecuteAllPlans(client *mongo.Client, filename string) error {
 			fmt.Println(stdout)
 		}
 		os.Mkdir(outdir, 0755)
-		ofile := fmt.Sprintf("./out/%v-explain-%03d.json.gz", filepath.Base(filename), counter)
+		ofile := fmt.Sprintf("%v/%v-explain-%03d.json.gz", outdir, filepath.Base(filename), counter)
 		data, _ := bson.MarshalExtJSON(document, false, false)
 		if err = gox.OutputGzipped(data, ofile); err != nil {
 			return err
