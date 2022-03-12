@@ -483,12 +483,12 @@ func (ix *IndexStats) CopyIndexesWithDest(client *mongo.Client, namespaces []Ind
 				}
 				var collation *options.Collation
 				if o.Collation != nil {
-					if data, err := bson.Marshal(o.Collation); err != nil {
+					data, err := bson.Marshal(o.Collation)
+					if err != nil {
 						return err
-					} else {
-						bson.Unmarshal(data, &collation)
-						opt.SetCollation(collation)
 					}
+					bson.Unmarshal(data, &collation)
+					opt.SetCollation(collation)
 				}
 				if o.PartialFilterExpression != nil {
 					opt.SetPartialFilterExpression(o.PartialFilterExpression)

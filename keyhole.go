@@ -211,13 +211,13 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	}
 
-	if *allinfo != "" || (*info != "" && *verbose) {
+	if *allinfo != "" {
 		var data []byte
 		var ofile string
 		stats := mdb.NewClusterStats(fullVersion)
 		stats.SetDBNames(dbNames)
 		stats.SetRedaction(*redaction)
-		stats.SetVerbose(true)
+		stats.SetVerbose(*verbose)
 		stats.SetFastMode(fastMode)
 		if err = stats.GetClusterStats(client, connString); err != nil {
 			log.Fatalf("a valid user with roles 'clusterMonitor' and 'readAnyDatabase' on all mongo processes are required.\n%v", err)

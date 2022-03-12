@@ -3,12 +3,9 @@
 package mdb
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -140,18 +137,6 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 	var ctx = context.Background()
 	var listdb ListDatabases
 	var databases []Database
-	var isGetChunksDistr = (p.verbose && p.numShards <= maxNumShards)
-	if p.numShards > maxNumShards {
-		isGetChunksDistr = false
-		fmt.Printf("There are %v shards, and it will take time to calculate chunks distribution info.\n", p.numShards)
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Do you wish to collect chunks distribution info [y/N]: ")
-		text, _ := reader.ReadString('\n')
-		text = strings.TrimSuffix(text, "\n")
-		if text == "y" || text == "Y" {
-			isGetChunksDistr = true
-		}
-	}
 	t := time.Now()
 	p.Logger.Debug("GetAllDatabasesStats")
 	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
@@ -254,7 +239,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 				if !p.fastMode {
 					// stats
 					client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-					if isGetChunksDistr && stats["shards"] != nil {
+					if stats["shards"] != nil {
 						shardNames := []string{}
 						for shard := range stats["shards"].(primitive.M) {
 							shardNames = append(shardNames, shard)
