@@ -202,27 +202,34 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
 				opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
-				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
-					p.Logger.Error(err.Error())
-					return
-				}
-				dsize := 0
-				for cursor.Next(ctx) {
-					var v bson.M
-					cursor.Decode(&v)
-					if buf, err := bson.Marshal(v); err != nil {
+				
+				if !strings.HasPrefix(collectionName, "system.") {
+					if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 						p.Logger.Error(err.Error())
-						continue
-					} else if len(buf) > dsize && len(buf) < sampleDocSizeLimit {
-						sampleDoc = v
-						dsize = len(buf)
-					} else if len(buf) > sampleDocSizeLimit {
-						sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
-						dsize = len(buf)
+						return
 					}
-				}
-				if sampleDoc == nil {
-					p.Logger.Debug("no sample doc available")
+
+					dsize := 0
+					for cursor.Next(ctx) {
+						var v bson.M
+						cursor.Decode(&v)
+						if buf, err := bson.Marshal(v); err != nil {
+							p.Logger.Error(err.Error())
+							continue
+						} else if len(buf) > dsize && len(buf) < sampleDocSizeLimit {
+							sampleDoc = v
+							dsize = len(buf)
+						} else if len(buf) > sampleDocSizeLimit {
+							sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
+							dsize = len(buf)
+						}
+					}
+
+					if sampleDoc == nil {
+						p.Logger.Debug("no sample doc available")
+					}
+				} else {
+					p.Logger.Debug("skip ", collectionName)
 				}
 				if p.redaction {
 					redact := NewRedactor()
