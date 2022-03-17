@@ -200,6 +200,11 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	db := collection.Database().Name()
 	ix.Logger.Debugf(`GetIndexesFromCollection from %v.%v`, db, collection.Name())
 
+	if strings.HasPrefix(collection.Name(), "system.") {
+		ix.Logger.Debug("skip ", collection.Name())
+		return list, nil
+	}
+	
 	var indexStats = []IndexUsage{}
 	if scur, err = collection.Aggregate(ctx, pipeline); err != nil {
 		ix.Logger.Error(err)
