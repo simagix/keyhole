@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -202,7 +203,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 				opts := options.Find()
 				opts.SetLimit(5) // get 5 samples and choose the max_size()
 				opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
-				
+
 				if !strings.HasPrefix(collectionName, "system.") {
 					if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
 						p.Logger.Error(err.Error())
