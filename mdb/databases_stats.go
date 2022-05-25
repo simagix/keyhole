@@ -258,7 +258,7 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 							delete(m, "$clusterTime")
 							delete(m, "$gleStats")
 							if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
-								// p.Logger.Error(cerr)
+								p.Logger.Errorf(`ns %v error %v`, ns, cerr)
 							} else {
 								chunk.Objects = toInt64(m["count"])
 								chunk.Size = toInt64(m["size"])
@@ -304,7 +304,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	var chunk Chunk
 	var mu sync.Mutex
 	coll := client.Database("config").Collection("collections")
-	if err = coll.FindOne(ctx, bson.D{{Key: "_id", Value: ns}, {Key: "dropped", Value: false}}).Decode(&doc); err != nil {
+	if err = coll.FindOne(ctx, bson.D{{Key: "_id", Value: ns}, {Key: "dropped", Value: bson.M{"$ne": true}}}).Decode(&doc); err != nil {
 		return chunk, err
 	}
 	for _, v := range doc {

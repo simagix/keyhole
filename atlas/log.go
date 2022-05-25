@@ -59,14 +59,14 @@ func (api *API) DownloadLogs() ([]string, error) {
 	hosts := []entity{}
 	for _, process := range processes.([]interface{}) {
 		maps := process.(map[string]interface{})
-		process := maps["typeName"].(string)
+		typeName := maps["typeName"].(string)
 		host := maps["hostname"].(string)
 		if hostname != "" && hostname != host {
 			continue
 		}
-		if process == "REPLICA_PRIMARY" || process == "REPLICA_SECONDARY" {
+		if typeName == "REPLICA_PRIMARY" || typeName == "REPLICA_SECONDARY" {
 			hosts = append(hosts, entity{hostname: host, log: "mongodb.gz"})
-		} else if process == "SHARD_MONGOS" {
+		} else if typeName == "SHARD_MONGOS" {
 			hosts = append(hosts, entity{hostname: host, log: "mongos.gz"})
 		}
 	}
