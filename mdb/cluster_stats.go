@@ -265,7 +265,21 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		return ofile, data, errors.New(result)
 	}
 	if data, err = bson.Marshal(p); err != nil {
-		return ofile, data, err
+		maxCollections := 2022
+		left := maxCollections
+		gox.GetLogger("").Errorf("error marshaling bson: %v, retry and limit # of collections to %v", err, maxCollections)
+		for i, db := range p.Databases {
+			if len(db.Collections) < left {
+				left -= len(db.Collections)
+			} else {
+				p.Databases[i].Collections = db.Collections[:left]
+				p.Databases = p.Databases[:i+1]
+				break
+			}
+		}
+		if data, err = bson.Marshal(p); err != nil {
+			return ofile, data, err
+		}
 	}
 
 	os.Mkdir(outdir, 0755)

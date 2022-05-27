@@ -224,7 +224,7 @@ func Run(fullVersion string) {
 		}
 		stats.Print()
 		if ofile, data, err = stats.OutputBSON(); err != nil {
-			return
+			log.Fatalf("failed to output bson file\n%v", err)
 		}
 		GenerateMaobiReport(*maobiURL, data, ofile)
 		return
