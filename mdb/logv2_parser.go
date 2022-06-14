@@ -17,11 +17,22 @@ type Logv2 struct {
 	Attributes struct {
 		Command            map[string]interface{} `json:"command" bson:"command"`
 		Milli              int                    `json:"durationMillis" bson:"durationMillis"`
+		KeysExamined       int                    `json:"keysExamined" bson:"keysExamined"`
+		DocsExamined       int                    `json:"docsExamined" bson:"docsExamined"`
+		NReturned          int                    `json:"nreturned" bson:"nreturned"`
+		ResultLen          int                    `json:"reslen" bson:"reslen"`
+		Yields             int                    `json:"numYields" bson:"numYields"`
 		NS                 string                 `json:"ns" bson:"ns"`
 		OriginatingCommand map[string]interface{} `json:"originatingCommand" bson:"originatingCommand"`
 		PlanSummary        string                 `json:"planSummary" bson:"planSummary"`
 		Type               string                 `json:"type" bson:"type"`
 	} `json:"attr" bson:"attr"`
+	Storage struct {
+		Data struct {
+			BytesRead         int `json:"bytesRead" bson:"bytesRead"`
+			TimeReadingMicros int `json:"timeReadingMicros" bson:"timeReadingMicros"`
+		} `json:"data" bson:"data"`
+	} `json:"storage" bson:"storage"`
 	Component string            `json:"c" bson:"c"`
 	ID        int               `json:"id" bson:"id"`
 	Message   string            `json:"msg" bson:"msg"`
@@ -60,7 +71,16 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
 		return stat, errors.New("unsupported command")
 	}
+
 	stat.milli = doc.Attributes.Milli
+	stat.keysExamined = doc.Attributes.KeysExamined
+	stat.docsExamined = doc.Attributes.DocsExamined
+	stat.nreturned = doc.Attributes.NReturned
+	stat.reslen = doc.Attributes.ResultLen
+	stat.yields = doc.Attributes.Yields
+	stat.storageBytesRead = doc.Storage.Data.BytesRead
+	stat.storageTimeReadingMicro = doc.Storage.Data.TimeReadingMicros
+
 	if doc.Attributes.NS == "" {
 		return stat, errors.New("no namespace found")
 	}

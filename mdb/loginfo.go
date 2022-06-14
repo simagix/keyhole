@@ -41,14 +41,21 @@ type LogInfo struct {
 
 // OpPattern stores performance data
 type OpPattern struct {
-	Command    string `bson:"command"`    // count, delete, find, remove, and update
-	Count      int    `bson:"count"`      // number of ops
-	Filter     string `bson:"filter"`     // query pattern
-	MaxMilli   int    `bson:"maxmilli"`   // max millisecond
-	Namespace  string `bson:"ns"`         // database.collectin
-	Scan       string `bson:"scan"`       // COLLSCAN
-	TotalMilli int    `bson:"totalmilli"` // total milliseconds
-	Index      string `bson:"index"`      // index used
+	Command           string `bson:"command"`           // count, delete, find, remove, and update
+	Count             int    `bson:"count"`             // number of ops
+	Filter            string `bson:"filter"`            // query pattern
+	MaxMilli          int    `bson:"maxmilli"`          // max millisecond
+	Namespace         string `bson:"ns"`                // database.collectin
+	Scan              string `bson:"scan"`              // COLLSCAN
+	TotalMilli        int    `bson:"totalmilli"`        // total milliseconds
+	KeysExamined      int    `bson:"keysExamined"`      // total keys examined
+	DocsExamined      int    `bson:"docsExamined"`      // total docs examined
+	NReturned         int    `bson:"nreturned"`         // total docs returned
+	Reslen            int    `bson:"reslen"`            // total size of results returned
+	Yields            int    `bson:"yields"`            // total yields
+	BytesRead         int    `bson:"bytesRead"`         // total bytesRead
+	TimeReadingMicros int    `bson:"timeReadingMicros"` // total time reading from disk in microseconds
+	Index             string `bson:"index"`             // index used
 }
 
 // SlowOps holds slow ops log and time
@@ -59,13 +66,20 @@ type SlowOps struct {
 
 // LogStats log stats structure
 type LogStats struct {
-	filter string
-	index  string
-	milli  int
-	ns     string
-	op     string
-	scan   string
-	utc    string
+	filter                  string
+	index                   string
+	milli                   int
+	keysExamined            int
+	docsExamined            int
+	nreturned               int
+	reslen                  int
+	yields                  int
+	storageBytesRead        int
+	storageTimeReadingMicro int
+	ns                      string
+	op                      string
+	scan                    string
+	utc                     string
 }
 
 // Histogram stores ops info
@@ -249,17 +263,31 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		}
 
 		if ok {
-			max := opsMap[key].MaxMilli
+			opsMapField := opsMap[key]
+			max := opsMapField.MaxMilli
 			if stat.milli > max {
 				max = stat.milli
 			}
-			x := opsMap[key].TotalMilli + stat.milli
-			y := opsMap[key].Count + 1
-			opsMap[key] = OpPattern{Command: opsMap[key].Command, Namespace: stat.ns, Filter: opsMap[key].Filter,
-				MaxMilli: max, TotalMilli: x, Count: y, Scan: stat.scan, Index: stat.index}
+			milli := opsMapField.TotalMilli + stat.milli
+			count := opsMapField.Count + 1
+			keysExamined := opsMapField.KeysExamined + stat.keysExamined
+			docsExamined := opsMapField.DocsExamined + stat.docsExamined
+			nreturned := opsMapField.NReturned + stat.nreturned
+			reslen := opsMapField.Reslen + stat.reslen
+			yields := opsMapField.Yields + stat.yields
+			bytesRead := opsMapField.BytesRead + stat.storageBytesRead
+			timeReadingMicros := opsMapField.TimeReadingMicros + stat.storageTimeReadingMicro
+			opsMap[key] = OpPattern{
+				Command: opsMapField.Command, Namespace: stat.ns, Filter: opsMapField.Filter, MaxMilli: max,
+				TotalMilli: milli, Count: count, KeysExamined: keysExamined, DocsExamined: docsExamined,
+				NReturned: nreturned, Reslen: reslen, Yields: yields, BytesRead: bytesRead,
+				TimeReadingMicros: timeReadingMicros, Scan: stat.scan, Index: stat.index}
 		} else {
-			opsMap[key] = OpPattern{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: stat.milli,
-				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index}
+			opsMap[key] = OpPattern{
+				Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: stat.milli,
+				MaxMilli: stat.milli, Count: 1, KeysExamined: stat.keysExamined, DocsExamined: stat.docsExamined,
+				NReturned: stat.nreturned, Reslen: stat.reslen, Yields: stat.yields, BytesRead: stat.storageBytesRead,
+				TimeReadingMicros: stat.storageTimeReadingMicro, Scan: stat.scan, Index: stat.index}
 		}
 	}
 	li.Histogram = append(li.Histogram, hist)
@@ -321,11 +349,11 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	}
 	re := regexp.MustCompile(`\r?\n`)
 	// output tsv file
-	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
+	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Total KeysExamined", "Total DocsExamined", "Total NReturned", "Total Reslen", "Total Yields", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
 	for i, doc := range li.OpPatterns {
-		avg := float64(doc.TotalMilli) / float64(doc.Count)
-		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avg), doc.MaxMilli, doc.Count,
-			doc.TotalMilli, doc.Namespace, doc.Scan, re.ReplaceAllString(doc.Index, " "), doc.Filter))
+		avgMilli := float64(doc.TotalMilli) / float64(doc.Count)
+		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avgMilli), doc.MaxMilli, doc.Count,
+			doc.TotalMilli, doc.KeysExamined, doc.DocsExamined, doc.NReturned, doc.Reslen, doc.Namespace, doc.Scan, re.ReplaceAllString(doc.Index, " "), doc.Filter))
 	}
 
 	idx = strings.Index(tsvf, ".tsv")
@@ -403,8 +431,8 @@ func (li *LogInfo) printLogsSummary() string {
 			}
 		}
 		output := ""
-		avg := float64(value.TotalMilli) / float64(value.Count)
-		avgstr := gox.MilliToTimeString(avg)
+		avgMilli := float64(value.TotalMilli) / float64(value.Count)
+		avgstr := gox.MilliToTimeString(avgMilli)
 		if value.Scan == COLLSCAN {
 			output = fmt.Sprintf("|%-10s %v%8s%v %6s %8d %6d %-33s %v%-62s%v|\n", value.Command, red, value.Scan, tail,
 				avgstr, value.MaxMilli, value.Count, value.Namespace, red, str, tail)
