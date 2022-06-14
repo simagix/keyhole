@@ -349,7 +349,7 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	}
 	re := regexp.MustCompile(`\r?\n`)
 	// output tsv file
-	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Total KeysExamined", "Total DocsExamined", "Total NReturned", "Total Reslen", "Total Yields", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
+	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Total KeysExamined", "Total DocsExamined", "Total NReturned", "Total Reslen", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
 	for i, doc := range li.OpPatterns {
 		avgMilli := float64(doc.TotalMilli) / float64(doc.Count)
 		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avgMilli), doc.MaxMilli, doc.Count,
