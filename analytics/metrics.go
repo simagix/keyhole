@@ -76,7 +76,6 @@ func NewMetrics() *Metrics {
 }
 
 const analyticsEndpoint = `/d/simagix-grafana/mongodb-mongo-ftdc?orgId=1&from=%v&to=%v`
-const disksEndpoint = `/d/simagix-grafana-disks/mongodb-disks-stats?orgId=1&from=%v&to=%v`
 
 // SetVerbose sets verbose mode
 func (m *Metrics) SetVerbose(verbose bool) { m.verbose = verbose }

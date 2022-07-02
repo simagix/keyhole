@@ -3,11 +3,9 @@
 package analytics
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"strings"
-	"time"
 )
 
 func getFilenames(filenames []string) []string {
@@ -32,18 +30,4 @@ func getFilenames(filenames []string) []string {
 		}
 	}
 	return fnames
-}
-
-func parseTime(filename string) (time.Time, error) {
-	layout := "2006-01-02T15-04-05Z"
-	x := strings.Index(filename, "metrics.")
-	y := strings.LastIndex(filename, "-")
-	if x < 0 || y < 0 || y < x {
-		return time.Now(), errors.New("not valid")
-	}
-	t, err := time.Parse(layout, filename[x+8:y])
-	if err != nil {
-		return time.Now(), err
-	}
-	return t, nil
 }

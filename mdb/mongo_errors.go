@@ -12,11 +12,8 @@ import (
 
 const (
 	// TopologyConnectionError keyhole custom error codes
-	TopologyConnectionError int = 20001
-
-	errorInterrupted       int32 = 11601
-	namespaceExistsErrCode int32 = 48
-	unauthorizedError      int32 = 13
+	TopologyConnectionError int   = 20001
+	unauthorizedError       int32 = 13
 )
 
 var (

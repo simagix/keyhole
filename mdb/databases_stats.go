@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	maxNumShards       = 3
 	sampleDocSizeLimit = (32 * 1024) // 32KB
 )
 

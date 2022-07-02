@@ -20,8 +20,6 @@ import (
 
 const metaEmail = "$email"
 const metaIP = "$ip"
-const metaSSN = "$ssn"
-const metaTEL = "$tel"
 const metaDate = "$date"
 const metaOID = "$oId"
 const numberDecimal = "$numberDecimal"
@@ -188,10 +186,6 @@ func getMagicString(str string, meta bool) string {
 			return metaEmail
 		} else if str == metaIP || isIP(str) {
 			return metaIP
-			// } else if str == metaSSN || isSSN(str) {
-			// 	return metaSSN
-			// } else if str == metaTEL || isPhoneNumber(str) {
-			// 	return metaTEL
 		} else if str == metaDate || isDateString(str) {
 			return metaDate
 		} else if str == metaOID || (len(str) == 24 && isHexString(str)) {
@@ -205,10 +199,6 @@ func getMagicString(str string, meta bool) string {
 		return getIP()
 	} else if str == metaEmail || isEmailAddress(str) {
 		return GetEmailAddress()
-		// } else if str == metaSSN || isSSN(str) {
-		// 	return getSSN()
-		// } else if str == metaTEL || isPhoneNumber(str) {
-		// 	return getPhoneNumber()
 	} else if isHexString(str) {
 		return gox.GetRandomHexString(len(str))
 	} else if strings.HasPrefix(str, "$") { // could be a variable
@@ -329,29 +319,6 @@ func getRandomNumber(x float64) float64 {
 		return math.Round(v)
 	}
 	return math.Round(v*100) / 100
-}
-
-var quotes = []string{
-	"Frankly, my dear, I don't give a damn.",
-	"I'm going to make him an offer he can't refuse.",
-	"Toto, I've a feeling we're not in Kansas anymore.",
-	"Here's looking at you, kid.",
-	"Go ahead, make my day.",
-	"All right, Mr. DeMille, I'm ready for my close-up.",
-	"May the Force be with you.",
-	"Fasten your seatbelts. It's going to be a bumpy night.",
-	"You talkin' to me?",
-	"What we've got here is failure to communicate.",
-	"I love the smell of napalm in the morning.",
-	"Love means never having to say you're sorry.",
-	"The stuff that dreams are made of.",
-	"E.T. phone home.",
-	"They call me Mister Tibbs!",
-	"You're gonna need a bigger boat.",
-	"Of all the gin joints in all the towns in all the world, she walks into mine.",
-	"Bond. James Bond.",
-	"There's no place like home.",
-	"Show me the money!",
 }
 
 var domains = []string{"gmail.com", "me.com", "yahoo.com", "outlook.com", "google.com",
