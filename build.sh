@@ -6,8 +6,6 @@ REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
 LDFLAGS="-X main.version=$VERSION -X main.repo=$REPO"
 TAG="simagix/keyhole"
 [[ "$(which go)" = "" ]] && die "go command not found"
-[[ "$GOPATH" = "" ]] && die "GOPATH not set"
-[[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building keyhole should be under ${GOPATH}/src/github.com/$REPO"
 mkdir -p dist
 if [[ "$1" == "docker" ]]; then
   docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
