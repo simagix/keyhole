@@ -17,11 +17,6 @@ import (
 
 // FTDC stores Atlas logs API info
 type FTDC struct {
-	apiKey      API
-	clusterName string
-	clusterType string
-	groupID     string
-	verbose     bool
 }
 
 // DownloadFTDC downloads logs
@@ -67,7 +62,7 @@ func (api *API) DownloadFTDC() (string, error) {
 	resp.Body.Close()
 	json.Unmarshal(body, &doc)
 	if doc["id"] == nil {
-		return "", errors.New("Error creating logCollection job")
+		return "", errors.New("error creating logCollection job")
 	}
 	jobID := doc["id"].(string)
 	fmt.Println(gox.Stringify(doc, "", "  "))

@@ -31,8 +31,8 @@ func PrintAllStats(docs []ServerStatusDoc, span int) string {
 // printStatsDetails -
 func printStatsDetails(docs []ServerStatusDoc, span int) string {
 	var lines []string
-	var iops uint64
-	var dur uint64
+	var iops int64
+	var dur int64
 	if span < 0 {
 		span = 60
 	}
@@ -46,23 +46,23 @@ func printStatsDetails(docs []ServerStatusDoc, span int) string {
 	for _, doc := range docs {
 		buf, _ := json.Marshal(doc)
 		json.Unmarshal(buf, &stat2)
-		dur = uint64(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
+		dur = int64(stat2.LocalTime.Sub(stat1.LocalTime).Seconds())
 		if cnt == 0 {
 			stat1 = stat2
 		} else if cnt == 1 {
-			iops = stat2.OpCounters.Command - stat1.OpCounters.Command +
-				stat2.OpCounters.Delete - stat1.OpCounters.Delete +
-				stat2.OpCounters.Getmore - stat1.OpCounters.Getmore +
-				stat2.OpCounters.Insert - stat1.OpCounters.Insert +
-				stat2.OpCounters.Query - stat1.OpCounters.Query +
-				stat2.OpCounters.Update - stat1.OpCounters.Update
+			iops = int64(stat2.OpCounters.Command-stat1.OpCounters.Command) +
+				int64(stat2.OpCounters.Delete-stat1.OpCounters.Delete) +
+				int64(stat2.OpCounters.Getmore-stat1.OpCounters.Getmore) +
+				int64(stat2.OpCounters.Insert-stat1.OpCounters.Insert) +
+				int64(stat2.OpCounters.Query-stat1.OpCounters.Query) +
+				int64(stat2.OpCounters.Update-stat1.OpCounters.Update)
 			if dur > 0 {
 				iops = iops / dur
 			} else {
 				iops = 0
 			}
-			if (stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults) >= 0 &&
-				(stat2.OpCounters.Command-stat1.OpCounters.Command) >= 0 &&
+			if (int64(stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults)) >= 0 &&
+				(int64(stat2.OpCounters.Command-stat1.OpCounters.Command)) >= 0 &&
 				iops >= 0 {
 				lines = append(lines, fmt.Sprintf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|",
 					stat2.LocalTime.In(loc).Format(time.RFC3339),
@@ -82,21 +82,21 @@ func printStatsDetails(docs []ServerStatusDoc, span int) string {
 			}
 			stat1 = stat2
 		} else if stat2.Host == stat1.Host {
-			if cnt == len(docs)-1 || dur >= uint64(span) {
-				iops := stat2.OpCounters.Command - stat1.OpCounters.Command +
-					stat2.OpCounters.Delete - stat1.OpCounters.Delete +
-					stat2.OpCounters.Getmore - stat1.OpCounters.Getmore +
-					stat2.OpCounters.Insert - stat1.OpCounters.Insert +
-					stat2.OpCounters.Query - stat1.OpCounters.Query +
-					stat2.OpCounters.Update - stat1.OpCounters.Update
+			if cnt == len(docs)-1 || dur >= int64(span) {
+				iops := int64(stat2.OpCounters.Command-stat1.OpCounters.Command) +
+					int64(stat2.OpCounters.Delete-stat1.OpCounters.Delete) +
+					int64(stat2.OpCounters.Getmore-stat1.OpCounters.Getmore) +
+					int64(stat2.OpCounters.Insert-stat1.OpCounters.Insert) +
+					int64(stat2.OpCounters.Query-stat1.OpCounters.Query) +
+					int64(stat2.OpCounters.Update-stat1.OpCounters.Update)
 				if dur > 0 {
 					iops = iops / dur
 				} else {
 					iops = 0
 				}
 
-				if (stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults) >= 0 &&
-					(stat2.OpCounters.Command-stat1.OpCounters.Command) >= 0 &&
+				if (int64(stat2.ExtraInfo.PageFaults-stat1.ExtraInfo.PageFaults)) >= 0 &&
+					(int64(stat2.OpCounters.Command-stat1.OpCounters.Command)) >= 0 &&
 					iops >= 0 {
 					lines = append(lines, fmt.Sprintf("|%-25s|%7d|%7d|%6d|%8d|%8d|%8d|%8d|%8d|%8d|%8d|",
 						stat2.LocalTime.In(loc).Format(time.RFC3339),

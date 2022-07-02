@@ -43,7 +43,7 @@ func (api *API) GetClustersSummary() (string, error) {
 			return strings.Join(buffers, "\n"), err
 		}
 		processes := doc["results"]
-		buffers = append(buffers, fmt.Sprint("\n  - Processes:"))
+		buffers = append(buffers, "\n  - Processes:")
 		replicaSetName := ""
 		for _, process := range processes.([]interface{}) {
 			maps := process.(map[string]interface{})

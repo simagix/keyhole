@@ -3,13 +3,10 @@
 package analytics
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
@@ -112,40 +109,9 @@ func (m *Metrics) ProcessFiles(filenames []string) error {
 	m.endpoints = diag.endpoints
 	m.AddFTDCDetailStats(diag)
 	for _, endpoint := range diag.endpoints {
-		log.Println(fmt.Sprintf("http://localhost:%d%v", port, endpoint))
+		log.Printf("http://localhost:%d%v\n", port, endpoint)
 	}
 	return nil
-}
-
-func (m *Metrics) readProcessedFTDC(infile string) error {
-	log.Println("Reading from processed FTDC data", infile)
-	var err error
-	var data []byte
-	var file *os.File
-	var reader *bufio.Reader
-
-	if file, err = os.Open(infile); err != nil {
-		return err
-	}
-	if reader, err = gox.NewReader(file); err != nil {
-		return err
-	}
-	if data, err = ioutil.ReadAll(reader); err != nil {
-		return err
-	}
-	buffer := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buffer)
-	if err = dec.Decode(&m.ftdcStats); err != nil {
-		return err
-	}
-	points := m.ftdcStats.TimeSeriesData["wt_cache_used"].DataPoints
-	tm1 := time.Unix(0, int64(points[0][1])*int64(time.Millisecond)).Unix() * 1000
-	tm2 := time.Unix(0, int64(points[len(points)-1][1])*int64(time.Millisecond)).Unix() * 1000
-	log.Println(tm1, tm2)
-	endpoint := fmt.Sprintf(analyticsEndpoint, tm1, tm2)
-	log.Printf("http://localhost:3000%v\n", endpoint)
-	log.Printf("http://localhost:3030%v\n", endpoint)
-	return err
 }
 
 // Handler handle HTTP requests
@@ -157,7 +123,7 @@ func (m *Metrics) Handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/grafana/dir" {
 		m.readDirectory(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/scores/") {
-		fmt.Fprintf(w, GetFormulaHTML(r.URL.Path[9:]))
+		fmt.Fprint(w, GetFormulaHTML(r.URL.Path[9:]))
 	} else {
 		json.NewEncoder(w).Encode(bson.M{"ok": 1, "message": "hello mongo-ftdc!"})
 	}
@@ -261,7 +227,7 @@ func (m *Metrics) query(w http.ResponseWriter, r *http.Request) {
 				rowList = append(rowList, []string{fmt.Sprintf(`CPU: %v cores (%v)`,
 					m.ftdcStats.ServerInfo.HostInfo.System.NumCores,
 					m.ftdcStats.ServerInfo.HostInfo.System.CPUArch)})
-				if m.verbose == true {
+				if m.verbose {
 					rowList = append(rowList, []string{fmt.Sprintf(`Host: %v`, m.ftdcStats.ServerInfo.HostInfo.System.Hostname)})
 				}
 				rowList = append(rowList, []string{fmt.Sprintf(`Memory: %v`,
@@ -376,7 +342,7 @@ func (m *Metrics) AddFTDCDetailStats(diag *DiagnosticData) {
 		m.ftdcStats.MaxWTCache = m.ftdcStats.TimeSeriesData["wt_cache_max"].DataPoints[0][0]
 	}
 	etm := time.Now()
-	if m.verbose == true {
+	if m.verbose {
 		log.Println("data points added for", m.ftdcStats.ServerInfo.HostInfo.System.Hostname, ", time spent:", etm.Sub(btm).String())
 	}
 }

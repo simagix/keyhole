@@ -29,7 +29,7 @@ func GetMetricsFilenames(filenames []string) []string {
 		case mode.IsDir():
 			files, _ := ioutil.ReadDir(filename)
 			for _, file := range files {
-				if file.IsDir() == false &&
+				if file.IsDir() &&
 					(strings.HasPrefix(file.Name(), "metrics.") || strings.HasPrefix(file.Name(), "keyhole_stats.")) {
 					fnames = append(fnames, filename+"/"+file.Name())
 				}
@@ -93,9 +93,7 @@ func GetShortLabel(label string) string {
 		label = label[12:]
 	} else if strings.HasPrefix(label, "wt_") {
 		label = label[3:]
-		if strings.HasSuffix(label, "_evicted") {
-			label = label[:len(label)-8]
-		}
+		label = strings.TrimSuffix(label, "_evicted")
 	}
 	return label
 }

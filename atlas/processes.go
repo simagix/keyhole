@@ -20,7 +20,7 @@ func (api *API) GetProcesses(groupID string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	json.Unmarshal(b, &doc)
-	if api.verbose == true {
+	if api.verbose {
 		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	return doc, err

@@ -53,9 +53,7 @@ func NewKey(publicKey string, privateKey string) *API {
 // ParseURI returns API struct from a URI
 func ParseURI(uri string) (*API, error) {
 	api := &API{contentType: ApplicationJSON, acceptType: ApplicationJSON, params: []string{}}
-	if strings.HasPrefix(uri, "atlas://") == true {
-		uri = uri[8:]
-	}
+	uri = strings.TrimPrefix(uri, "atlas://")
 	i := strings.Index(uri, "@")
 	if i > 0 {
 		tailer := uri[i+1:]
@@ -183,12 +181,12 @@ func (api *API) Patch(uri string, body []byte) ([]byte, error) {
 func (api *API) Execute() string {
 	var err error
 	var str string
-	if api.info == true {
+	if api.info {
 		if str, err = api.GetClustersSummary(); err != nil {
 			return err.Error()
 		}
 		return str
-	} else if api.loginfo == true {
+	} else if api.loginfo {
 		if api.logNames, err = api.DownloadLogs(); err != nil {
 			return err.Error()
 		}
@@ -196,17 +194,17 @@ func (api *API) Execute() string {
 			return "Files downloaded:\n" + "\t" + strings.Join(api.logNames, "\n\t ")
 		}
 		return "No file downloaded"
-	} else if api.ftdc == true {
+	} else if api.ftdc {
 		if str, err = api.DownloadFTDC(); err != nil {
 			return err.Error()
 		}
 		return str
-	} else if api.resume == true {
+	} else if api.resume {
 		if str, err = api.ClustersDo("PATCH", `{ "paused": false }`); err != nil {
 			return err.Error()
 		}
 		return str
-	} else if api.pause == true {
+	} else if api.pause {
 		if str, err = api.ClustersDo("PATCH", `{ "paused": true }`); err != nil {
 			return err.Error()
 		}
@@ -229,7 +227,7 @@ func (api *API) Execute() string {
 			return err.Error()
 		}
 		return str
-	} else if api.alerts == true {
+	} else if api.alerts {
 		if str, err = api.AlertsDo("GET", `{ }`); err != nil {
 			return err.Error()
 		}

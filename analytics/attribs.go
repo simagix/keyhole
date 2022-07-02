@@ -119,7 +119,7 @@ func (attr *Attribs) GetSystemMetricsDataPoints(i int) SystemMetricsDoc {
 
 func (attr *Attribs) get(key string, i int) uint64 {
 	arr := (*attr.attribsMap)[key]
-	if i < len(arr) && math.IsNaN(float64(arr[i])) == false {
+	if i < len(arr) && !math.IsNaN(float64(arr[i])) {
 		return arr[i]
 	}
 	return 0

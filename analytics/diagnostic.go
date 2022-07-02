@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -126,30 +125,6 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string) (string, error)
 	return strings.Join(strs, "\n"), nil
 }
 
-// readDiagnosticDir reads diagnotics.data from a directory
-func (d *DiagnosticData) readDiagnosticDir(dirname string) error {
-	var err error
-	var files []os.FileInfo
-	var filenames []string
-
-	if files, err = ioutil.ReadDir(dirname); err != nil {
-		return err
-	}
-
-	for _, f := range files {
-		if strings.Index(f.Name(), "metrics.") != 0 && strings.Index(f.Name(), "keyhole_stats.") != 0 {
-			continue
-		}
-		filename := dirname + "/" + f.Name()
-		filenames = append(filenames, filename)
-	}
-
-	if len(filenames) == 0 {
-		return errors.New("No metrics file found under " + dirname)
-	}
-	return d.readDiagnosticFiles(filenames)
-}
-
 // readDiagnosticFiles reads multiple files
 func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var err error
@@ -157,7 +132,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 		return errors.New("no valid data file found")
 	}
 	sort.Strings(filenames)
-	if strings.Index(filenames[0], "keyhole_stats.") >= 0 {
+	if strings.Contains(filenames[0], "keyhole_stats.") {
 		for _, filename := range filenames {
 			if err = d.analyzeServerStatusFromFile(filename); err != nil {
 				return err
@@ -176,7 +151,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var wg = gox.NewWaitGroup(nThreads) // use 4 threads to read
 	for threadNum := 0; threadNum < len(filenames); threadNum++ {
 		filename := filenames[threadNum]
-		if strings.Index(filename, "metrics.") < 0 {
+		if !strings.Contains(filename, "metrics.") {
 			continue
 		}
 		wg.Add(1)
@@ -291,7 +266,7 @@ func (d *DiagnosticData) AnalyzeServerStatus(reader *bufio.Reader) error {
 	}
 
 	if len(allDocs) == 0 && len(allRepls) == 0 {
-		return errors.New("No doc found")
+		return errors.New("no doc found")
 	}
 
 	d.ServerStatusList = append(d.ServerStatusList, allDocs...)
