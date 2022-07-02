@@ -68,7 +68,7 @@ func GetQualifiedNamespaces(client *mongo.Client) ([]string, error) {
 	var err error
 	var ctx = context.Background()
 	var cursor *mongo.Cursor
-	var dbNames = []string{}
+	var dbNames []string
 	var namespaces = []string{}
 
 	if dbNames, err = GetQualifiedDatabases(client); err != nil {

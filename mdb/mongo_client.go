@@ -18,7 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // KeyholeDB default database
@@ -112,7 +112,7 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
 		fmt.Printf("Enter %v's Password: ", connString.Username)
 		var data []byte
-		if data, err = terminal.ReadPassword(int(syscall.Stdin)); err != nil {
+		if data, err = term.ReadPassword(int(syscall.Stdin)); err != nil {
 			return connString, err
 		}
 		fmt.Println("")

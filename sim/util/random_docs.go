@@ -65,8 +65,8 @@ func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
 	str = re.ReplaceAllString(str, "{\"$$numberDecimal\": $1}")
 	re = regexp.MustCompile(`numberDouble\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	str = re.ReplaceAllString(str, "{\"$$numberDouble\": $1}")
-	str = re.ReplaceAllString(str, "{\"$$numberLong\": $1}")
 	re = regexp.MustCompile(`NumberLong\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	str = re.ReplaceAllString(str, "{\"$$numberLong\": $1}")
 	re = regexp.MustCompile(`NumberInt\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	str = re.ReplaceAllString(str, "{\"$$numberInt\": $1}")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
@@ -109,7 +109,7 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 		case float32, float64:
 			(*doc)[key] = getNumber(value)
 		case string:
-			if meta == false {
+			if meta {
 				if value.(string) == metaDate || isDateString(value.(string)) {
 					(*doc)[key] = getDate()
 					continue
@@ -148,7 +148,7 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 		case float32, float64:
 			(*doc)[key] = getNumber(value)
 		case string:
-			if meta == false {
+			if meta {
 				if value.(string) == metaDate || isDateString(value.(string)) {
 					(*doc)[key] = getDate()
 					continue
@@ -181,7 +181,7 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 // Returns randomized string.  if meta is true, it intends to avoid future regex
 // actions by replacing the values with $email, $ip, and $date.
 func getMagicString(str string, meta bool) string {
-	if meta == true {
+	if meta {
 		if str == metaEmail || isEmailAddress(str) {
 			return metaEmail
 		} else if str == metaIP || isIP(str) {
@@ -291,19 +291,19 @@ func getDate() time.Time {
 
 func getNumber(num interface{}) interface{} {
 	var value float64
-	switch num.(type) {
+	switch num := num.(type) {
 	case int:
-		return int(getRandomNumber(float64(num.(int))))
+		return int(getRandomNumber(float64(num)))
 	case int8:
-		return int8(getRandomNumber(float64(num.(int8))))
+		return int8(getRandomNumber(float64(num)))
 	case int32:
-		return int32(getRandomNumber(float64(num.(int32))))
+		return int32(getRandomNumber(float64(num)))
 	case int64:
-		return int64(getRandomNumber(float64(num.(int64))))
+		return int64(getRandomNumber(float64(num)))
 	case float32:
-		return float32(getRandomNumber(float64(num.(float32))))
+		return float32(getRandomNumber(float64(num)))
 	case float64:
-		return getRandomNumber(num.(float64))
+		return getRandomNumber(num)
 	default:
 		return value
 	}

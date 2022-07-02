@@ -48,8 +48,6 @@ func (m *Metrics) ReadAllMetrics(data *[]byte) error {
 				return err
 			}
 			metricsData = append(metricsData, md)
-		} else {
-			// log.Println("==>", out["type"])
 		}
 	}
 	m.Data = metricsData

@@ -53,9 +53,9 @@ func GetDemoDoc() bson.M {
 	favoriteMovies := []string{Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)], Favorites.Movies[rand.Intn(n)]}
 	favoriteMovies = unique(append(favoriteMovies, Favorites.Movies[0:3]...), 3)
 	favoritesList := []bson.M{
-		bson.M{"sport": favoriteSports[0], "music": favoriteMusic[0], "city": favoriteCities[0], "book": favoriteBooks[0], "movie": favoriteMovies[0]},
-		bson.M{"sport": favoriteSports[1], "music": favoriteMusic[1], "city": favoriteCities[1], "book": favoriteBooks[1], "movie": favoriteMovies[1]},
-		bson.M{"sport": favoriteSports[2], "music": favoriteMusic[2], "city": favoriteCities[2], "book": favoriteBooks[2], "movie": favoriteMovies[2]},
+		{"sport": favoriteSports[0], "music": favoriteMusic[0], "city": favoriteCities[0], "book": favoriteBooks[0], "movie": favoriteMovies[0]},
+		{"sport": favoriteSports[1], "music": favoriteMusic[1], "city": favoriteCities[1], "book": favoriteBooks[1], "movie": favoriteMovies[1]},
+		{"sport": favoriteSports[2], "music": favoriteMusic[2], "city": favoriteCities[2], "book": favoriteBooks[2], "movie": favoriteMovies[2]},
 	}
 	favoritesKVList := []bson.M{}
 	for i := 0; i < 3; i++ {
@@ -63,11 +63,11 @@ func GetDemoDoc() bson.M {
 			bson.M{
 				"level": int32(i + 1),
 				"categories": []bson.M{
-					bson.M{"key": "sport", "value": favoriteSports[i]},
-					bson.M{"key": "music", "value": favoriteMusic[i]},
-					bson.M{"key": "city", "value": favoriteCities[i]},
-					bson.M{"key": "book", "value": favoriteBooks[i]},
-					bson.M{"key": "movie", "value": favoriteMovies[i]},
+					{"key": "sport", "value": favoriteSports[i]},
+					{"key": "music", "value": favoriteMusic[i]},
+					{"key": "city", "value": favoriteCities[i]},
+					{"key": "book", "value": favoriteBooks[i]},
+					{"key": "movie", "value": favoriteMovies[i]},
 				}})
 	}
 	favoritesKVSet := []bson.M{}

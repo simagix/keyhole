@@ -80,7 +80,7 @@ func traverseDocElem(attribsList *[]string, attribsMap *map[string][]uint64, doc
 		}
 	case bool:
 		v := uint64(0)
-		if value == true {
+		if value {
 			v = 1
 		}
 		x := []uint64{v}
