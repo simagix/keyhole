@@ -6,8 +6,22 @@ REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
 LDFLAGS="-X main.version=$VERSION -X main.repo=$REPO"
 TAG="simagix/keyhole"
 [[ "$(which go)" = "" ]] && die "go command not found"
-[[ "$GOPATH" = "" ]] && die "GOPATH not set"
-[[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building keyhole should be under ${GOPATH}/src/github.com/$REPO"
+
+if [[ "$1" == "help" ]]; then
+  echo "usage: build.sh [docker|cross-platform]"
+  exit
+fi
+
+gover=$(go version | cut -d' ' -f3)
+if [ "$gover" \< "go1.18" ]; then
+    [[ "$GOPATH" = "" ]] && die "GOPATH not set"
+    [[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building keyhole should be under ${GOPATH}/src/github.com/$REPO"
+fi
+
+if [ ! -f go.sum ]; then
+    go mod tidy
+fi
+
 mkdir -p dist
 if [[ "$1" == "docker" ]]; then
   docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
