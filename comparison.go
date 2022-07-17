@@ -118,8 +118,8 @@ func (p *Comparison) compare() error {
 	var err error
 	// build target stats map
 	dbMap := map[string]mdb.Database{}
-	for i, db := range p.TargetStats.Databases {
-		dbMap[db.Name] = p.TargetStats.Databases[i]
+	for i, db := range *p.TargetStats.Databases {
+		dbMap[db.Name] = (*p.TargetStats.Databases)[i]
 	}
 	// compare a few key metrics
 	codeDefault := mdb.CodeDefault
@@ -129,8 +129,8 @@ func (p *Comparison) compare() error {
 	printer := message.NewPrinter(language.English)
 	p.Logger.Info("=== Comparison Results (source vs. target) ===")
 	p.Logger.Info(printer.Sprintf("Number of Databases:       \t%12d%v\t%12d%v",
-		len(p.SourceStats.Databases), p.getColor(int64(len(p.SourceStats.Databases)), int64(len(p.TargetStats.Databases))), len(p.TargetStats.Databases), codeDefault))
-	for _, db := range p.SourceStats.Databases {
+		len(*p.SourceStats.Databases), p.getColor(int64(len(*p.SourceStats.Databases)), int64(len(*p.TargetStats.Databases))), len(*p.TargetStats.Databases), codeDefault))
+	for _, db := range *p.SourceStats.Databases {
 		collMap := map[string]mdb.Collection{}
 		for i, coll := range dbMap[db.Name].Collections {
 			collMap[coll.NS] = dbMap[db.Name].Collections[i]

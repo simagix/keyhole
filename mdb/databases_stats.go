@@ -305,7 +305,7 @@ func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard st
 	var mu sync.Mutex
 	coll := client.Database("config").Collection("collections")
 	if err = coll.FindOne(ctx, bson.D{{Key: "_id", Value: ns}, {Key: "dropped", Value: bson.M{"$ne": true}}}).Decode(&doc); err != nil {
-		return chunk, err
+		return chunk, nil
 	}
 	for _, v := range doc {
 		if v.Key == "key" {

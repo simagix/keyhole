@@ -3,6 +3,7 @@
 package mdb
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ type ClusterStats struct {
 	BuildInfo        BuildInfo        `bson:"buildInfo"`
 	CmdLineOpts      CmdLineOpts      `bson:"getCmdLineOpts"`
 	Cluster          string           `bson:"cluster"`
-	Databases        []Database       `bson:"databases"`
+	Databases        *[]Database      `bson:"databases"`
 	Host             string           `bson:"host"`
 	HostInfo         HostInfo         `bson:"hostInfo"`
 	Logger           *gox.Logger      `bson:"keyhole"`
@@ -121,9 +122,11 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	db.SetRedaction(p.redact)
 	db.SetVerbose(p.verbose)
 	db.SetFastMode(p.fastMode)
-	if p.Databases, err = db.GetAllDatabasesStats(client, p.dbNames); err != nil {
+	var databases []Database
+	if databases, err = db.GetAllDatabasesStats(client, p.dbNames); err != nil {
 		p.Logger.Info(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
 	}
+	p.Databases = &databases
 	return nil
 }
 
@@ -264,23 +267,6 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		result := `roles 'clusterMonitor' and 'readAnyDatabase' are required`
 		return ofile, data, errors.New(result)
 	}
-	if data, err = bson.Marshal(p); err != nil {
-		maxCollections := 2022
-		left := maxCollections
-		gox.GetLogger("").Errorf("error marshaling bson: %v, retry and limit # of collections to %v", err, maxCollections)
-		for i, db := range p.Databases {
-			if len(db.Collections) < left {
-				left -= len(db.Collections)
-			} else {
-				p.Databases[i].Collections = db.Collections[:left]
-				p.Databases = p.Databases[:i+1]
-				break
-			}
-		}
-		if data, err = bson.Marshal(p); err != nil {
-			return ofile, data, err
-		}
-	}
 
 	os.Mkdir(outdir, 0755)
 	basename := p.HostInfo.System.Hostname
@@ -292,7 +278,49 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		i++
 	}
 
-	if err = gox.OutputGzipped(data, ofile); err != nil {
+	databases := p.Databases
+	p.Databases = nil
+	var summaries []Database
+	for _, db := range *databases {
+		dbSummary := Database{
+			Name:       db.Name,
+			SizeOnDisk: db.SizeOnDisk,
+			Empty:      db.Empty,
+			Shards:     db.Shards,
+			Stats:      db.Stats}
+		summaries = append(summaries, dbSummary)
+	}
+	p.Databases = &summaries
+	var buffer bytes.Buffer
+	if data, err = bson.Marshal(p); err != nil {
+		return ofile, data, err
+	}
+	nw := 0
+	var n int
+	for nw < len(data) {
+		if n, err = buffer.Write(data); err != nil {
+			return ofile, data, err
+		}
+		nw += n
+	}
+
+	for _, db := range *databases {
+		for _, coll := range db.Collections {
+			if data, err = bson.Marshal(coll); err != nil {
+				return ofile, data, err
+			}
+			nw := 0
+			var n int
+			for nw < len(data) {
+				if n, err = buffer.Write(data); err != nil {
+					return ofile, data, err
+				}
+				nw += n
+			}
+		}
+	}
+
+	if err = gox.OutputGzipped(buffer.Bytes(), ofile); err != nil {
 		return ofile, data, err
 	}
 	fmt.Printf("bson data written to %v\n", ofile)

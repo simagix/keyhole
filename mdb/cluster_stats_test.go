@@ -30,10 +30,10 @@ func TestOutputBSON(t *testing.T) {
 	}
 
 	// test bson.Marshal() overflow
-	// for index := range stats.Databases {
+	// for index, db := range *stats.Databases {
 	// 	for i := 0; i < 12; i++ {
-	// 		colls := stats.Databases[index].Collections
-	// 		stats.Databases[index].Collections = append(stats.Databases[index].Collections, colls...)
+	// 		colls := db.Collections
+	// 		(*stats.Databases)[index].Collections = append(db.Collections, colls...)
 	// 	}
 	// }
 
