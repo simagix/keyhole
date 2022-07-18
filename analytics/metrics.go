@@ -262,7 +262,7 @@ func (m *Metrics) query(w http.ResponseWriter, r *http.Request) {
 				rowList = append(rowList, []string{fmt.Sprintf(`CPU: %v cores (%v)`,
 					m.ftdcStats.ServerInfo.HostInfo.System.NumCores,
 					m.ftdcStats.ServerInfo.HostInfo.System.CPUArch)})
-				if m.verbose == true {
+				if m.verbose {
 					rowList = append(rowList, []string{fmt.Sprintf(`Host: %v`, m.ftdcStats.ServerInfo.HostInfo.System.Hostname)})
 				}
 				rowList = append(rowList, []string{fmt.Sprintf(`Memory: %v`,
@@ -377,7 +377,7 @@ func (m *Metrics) AddFTDCDetailStats(diag *DiagnosticData) {
 		m.ftdcStats.MaxWTCache = m.ftdcStats.TimeSeriesData["wt_cache_max"].DataPoints[0][0]
 	}
 	etm := time.Now()
-	if m.verbose == true {
+	if m.verbose {
 		log.Println("data points added for", m.ftdcStats.ServerInfo.HostInfo.System.Hostname, ", time spent:", etm.Sub(btm).String())
 	}
 }

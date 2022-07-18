@@ -23,7 +23,7 @@ func (api *API) GetClusters(groupID string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	json.Unmarshal(b, &doc)
-	if api.verbose == true {
+	if api.verbose {
 		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	return doc, err
@@ -40,7 +40,7 @@ func (api *API) GetCluster(groupID string, clusterName string) (map[string]inter
 		return nil, err
 	}
 	json.Unmarshal(b, &doc)
-	if api.verbose == true {
+	if api.verbose {
 		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	return doc, err

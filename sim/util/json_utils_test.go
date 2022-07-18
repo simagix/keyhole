@@ -14,7 +14,7 @@ func TestCloneDoc(t *testing.T) {
 	var edoc = bson.M{"name": "keyhole"}
 	var doc = bson.M{"_id": primitive.NewObjectID(), "sub": edoc}
 	newDoc := CloneDoc(doc)
-	if reflect.DeepEqual(doc["sub"], newDoc["sub"]) == true {
+	if reflect.DeepEqual(doc["sub"], newDoc["sub"]) {
 		t.Fatal()
 	}
 }

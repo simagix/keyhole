@@ -60,7 +60,7 @@ func TestGetDocByTemplate(t *testing.T) {
 
 func TestGetMagicString(t *testing.T) {
 	email := getMagicString("ken.chen@simagix.com", false)
-	if isEmailAddress(email) == false {
+	if !isEmailAddress(email) {
 		t.Fatal(email)
 	}
 
@@ -70,18 +70,18 @@ func TestGetMagicString(t *testing.T) {
 	}
 
 	uri := getMagicString("https://localhost:8080", true)
-	if strings.HasPrefix(uri, "https://") == false {
+	if !strings.HasPrefix(uri, "https://") {
 		t.Fatal(uri)
 	}
 }
 
 func TestIsEmailAddress(t *testing.T) {
 	email := "ken.chen@simagix.com"
-	if isEmailAddress(email) == false {
+	if !isEmailAddress(email) {
 		t.Fatal(email)
 	}
 	email = "ken.chen/simagix.com"
-	if isEmailAddress(email) == true {
+	if isEmailAddress(email) {
 		t.Fatal(email)
 	}
 
@@ -89,83 +89,83 @@ func TestIsEmailAddress(t *testing.T) {
 
 func TestGetEmailAddress(t *testing.T) {
 	email := GetEmailAddress()
-	if isEmailAddress(email) == false {
+	if !isEmailAddress(email) {
 		t.Fatal(email)
 	}
 }
 
 func TestIsIP(t *testing.T) {
 	ip := "192.168.1.1"
-	if isIP(ip) == false {
+	if !isIP(ip) {
 		t.Fatal(ip)
 	}
 	ip = "182.168.315.1"
-	if isIP(ip) == true {
+	if isIP(ip) {
 		t.Fatal(ip)
 	}
 }
 
 func TestGetIP(t *testing.T) {
 	ip := getIP()
-	if isIP(ip) == false {
+	if !isIP(ip) {
 		t.Fatal(ip)
 	}
 }
 
 func TestIsSSN(t *testing.T) {
 	ssn := "555-12-3456"
-	if isSSN(ssn) == false {
+	if !isSSN(ssn) {
 		t.Fatal(ssn)
 	}
 	ssn = "55-2343-0909"
-	if isSSN(ssn) == true {
+	if isSSN(ssn) {
 		t.Fatal(ssn)
 	}
 }
 
 func TestGetSSN(t *testing.T) {
 	ssn := getSSN()
-	if isSSN(ssn) == false {
+	if !isSSN(ssn) {
 		t.Fatal(ssn)
 	}
 }
 
 func TestIsPhoneNumber(t *testing.T) {
 	phone := "(555) 123-4567"
-	if isPhoneNumber(phone) == false {
+	if !isPhoneNumber(phone) {
 		t.Fatal(phone)
 	}
 	phone = "+1886 2 555 1234"
-	if isPhoneNumber(phone) == true {
+	if isPhoneNumber(phone) {
 		t.Fatal(phone)
 	}
 }
 
 func TestGetPhoneNumber(t *testing.T) {
 	phone := getPhoneNumber()
-	if isPhoneNumber(phone) == false {
+	if !isPhoneNumber(phone) {
 		t.Fatal(phone)
 	}
 }
 
 func TestIsHexString(t *testing.T) {
 	hex := "ABCDEF0123456789"
-	if isHexString(hex) == false {
+	if !isHexString(hex) {
 		t.Fatal(hex)
 	}
 	hex = "XXYYZZ"
-	if isHexString(hex) == true {
+	if isHexString(hex) {
 		t.Fatal(hex)
 	}
 }
 
 func TestIsDateString(t *testing.T) {
 	var dstr = "2018-10-15T12:00:00Z"
-	if isDateString(dstr) == false {
+	if !isDateString(dstr) {
 		t.Fatal(dstr)
 	}
 	dstr = "10/15/2018 12:00:00"
-	if isDateString(dstr) == true {
+	if isDateString(dstr) {
 		t.Fatal(dstr)
 	}
 }

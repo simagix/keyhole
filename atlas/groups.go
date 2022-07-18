@@ -28,7 +28,7 @@ func (api *API) GetGroups() (map[string]interface{}, error) {
 		return doc, err
 	}
 	json.Unmarshal(b, &doc)
-	if api.verbose == true {
+	if api.verbose {
 		fmt.Println(gox.Stringify(doc, "", "  "))
 	}
 	return doc, err

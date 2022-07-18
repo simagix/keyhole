@@ -111,7 +111,7 @@ func RandomizeDocument(doc *map[string]interface{}, f interface{}, meta bool) {
 		case float32, float64:
 			(*doc)[key] = getNumber(value)
 		case string:
-			if meta == false {
+			if !meta {
 				if value.(string) == metaDate || isDateString(value.(string)) {
 					(*doc)[key] = getDate()
 					continue
@@ -150,7 +150,7 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 		case float32, float64:
 			(*doc)[key] = getNumber(value)
 		case string:
-			if meta == false {
+			if !meta {
 				if value.(string) == metaDate || isDateString(value.(string)) {
 					(*doc)[key] = getDate()
 					continue
@@ -183,7 +183,7 @@ func getArrayOfRandomDocs(obj []interface{}, doc *[]interface{}, meta bool) {
 // Returns randomized string.  if meta is true, it intends to avoid future regex
 // actions by replacing the values with $email, $ip, and $date.
 func getMagicString(str string, meta bool) string {
-	if meta == true {
+	if meta {
 		if str == metaEmail || isEmailAddress(str) {
 			return metaEmail
 		} else if str == metaIP || isIP(str) {

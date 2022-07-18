@@ -12,7 +12,7 @@ func TestUnique(t *testing.T) {
 	var result = []string{"baseball", "tennis", "basketball"}
 
 	arr = unique(arr, 3)
-	if reflect.DeepEqual(result, arr) == false {
+	if !reflect.DeepEqual(result, arr) {
 		t.Fatal()
 	}
 }
