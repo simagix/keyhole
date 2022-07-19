@@ -180,7 +180,7 @@ func TestGetNumber(t *testing.T) {
 	if x.(int) < 100 || x.(int) >= 1000 {
 		t.Fatal("expected between 100 and 1000, but got", x)
 	}
-	x = getNumber(int8(23))
+	x = getNumber(int8(123))
 	if x.(int8) < 10 || x.(int8) >= 100 {
 		t.Fatal("expected between 100 and 1000, but got", x)
 	}

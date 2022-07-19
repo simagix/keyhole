@@ -4,7 +4,6 @@ package analytics
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -49,7 +48,7 @@ func GetOptime(optime interface{}) int64 {
 			return GetOptime(intr)
 		}
 	default:
-		log.Println(fmt.Sprintf("default => type: %T, value: %v\n", optime, optime))
+		log.Printf("default => type: %T, value: %v\n", optime, optime)
 	}
 	return ts
 }

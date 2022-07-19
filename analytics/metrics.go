@@ -113,7 +113,7 @@ func (m *Metrics) ProcessFiles(filenames []string) error {
 	m.endpoints = diag.endpoints
 	m.AddFTDCDetailStats(diag)
 	for _, endpoint := range diag.endpoints {
-		log.Println(fmt.Sprintf("http://localhost:%d%v", port, endpoint))
+		log.Printf("http://localhost:%d%v\n", port, endpoint)
 	}
 	return nil
 }
@@ -158,7 +158,7 @@ func (m *Metrics) Handler(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/grafana/dir" {
 		m.readDirectory(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/scores/") {
-		fmt.Fprintf(w, GetFormulaHTML(r.URL.Path[9:]))
+		fmt.Fprint(w, GetFormulaHTML(r.URL.Path[9:]))
 	} else {
 		json.NewEncoder(w).Encode(bson.M{"ok": 1, "message": "hello mongo-ftdc!"})
 	}

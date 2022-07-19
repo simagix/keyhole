@@ -157,7 +157,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 		return errors.New("no valid data file found")
 	}
 	sort.Strings(filenames)
-	if strings.Index(filenames[0], "keyhole_stats.") >= 0 {
+	if strings.Contains(filenames[0], "keyhole_stats.") {
 		for _, filename := range filenames {
 			if err = d.analyzeServerStatusFromFile(filename); err != nil {
 				return err
@@ -176,7 +176,7 @@ func (d *DiagnosticData) readDiagnosticFiles(filenames []string) error {
 	var wg = gox.NewWaitGroup(nThreads) // use 4 threads to read
 	for threadNum := 0; threadNum < len(filenames); threadNum++ {
 		filename := filenames[threadNum]
-		if strings.Index(filename, "metrics.") < 0 {
+		if !strings.Contains(filename, "metrics.") {
 			continue
 		}
 		wg.Add(1)
@@ -291,7 +291,7 @@ func (d *DiagnosticData) AnalyzeServerStatus(reader *bufio.Reader) error {
 	}
 
 	if len(allDocs) == 0 && len(allRepls) == 0 {
-		return errors.New("No doc found")
+		return errors.New("no doc found")
 	}
 
 	d.ServerStatusList = append(d.ServerStatusList, allDocs...)

@@ -20,8 +20,9 @@ import (
 
 const metaEmail = "$email"
 const metaIP = "$ip"
-const metaSSN = "$ssn"
-const metaTEL = "$tel"
+
+// const metaSSN = "$ssn"
+// const metaTEL = "$tel"
 const metaDate = "$date"
 const metaOID = "$oId"
 const numberDecimal = "$numberDecimal"
@@ -68,7 +69,7 @@ func GetRandomizedDoc(buf []byte, meta bool) (bson.M, error) {
 	re = regexp.MustCompile(`numberDouble\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	str = re.ReplaceAllString(str, "{\"$$numberDouble\": $1}")
 	str = re.ReplaceAllString(str, "{\"$$numberLong\": $1}")
-	re = regexp.MustCompile(`NumberLong\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
+	// re = regexp.MustCompile(`NumberLong\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	re = regexp.MustCompile(`NumberInt\("?([-+]?[0-9]*\.?[0-9]*)"?\)`)
 	str = re.ReplaceAllString(str, "{\"$$numberInt\": $1}")
 	re = regexp.MustCompile(`ISODate\(\S+\)`)
@@ -301,19 +302,19 @@ func getDate() time.Time {
 
 func getNumber(num interface{}) interface{} {
 	var value float64
-	switch num.(type) {
+	switch num := num.(type) {
 	case int:
-		return int(getRandomNumber(float64(num.(int))))
+		return int(getRandomNumber(float64(num)))
 	case int8:
-		return int8(getRandomNumber(float64(num.(int8))))
+		return int8(getRandomNumber(float64(num)))
 	case int32:
-		return int32(getRandomNumber(float64(num.(int32))))
+		return int32(getRandomNumber(float64(num)))
 	case int64:
-		return int64(getRandomNumber(float64(num.(int64))))
+		return int64(getRandomNumber(float64(num)))
 	case float32:
-		return float32(getRandomNumber(float64(num.(float32))))
+		return float32(getRandomNumber(float64(num)))
 	case float64:
-		return getRandomNumber(num.(float64))
+		return getRandomNumber(num)
 	default:
 		return value
 	}
@@ -331,7 +332,7 @@ func getRandomNumber(x float64) float64 {
 	return math.Round(v*100) / 100
 }
 
-var quotes = []string{
+var Quotes = []string{
 	"Frankly, my dear, I don't give a damn.",
 	"I'm going to make him an offer he can't refuse.",
 	"Toto, I've a feeling we're not in Kansas anymore.",
