@@ -224,6 +224,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	filter = strings.Replace(strings.Replace(filter, "{ ", "{", -1), " }", "}", -1)
 	filter += aggStages
 	milli, _ := strconv.Atoi(ms)
+	reslen := getDocByField(str, "reslen:")
 
 	if strings.HasSuffix(ns, ".$cmd") {
 		ns = strings.TrimSuffix(ns, "$cmd")
@@ -232,7 +233,8 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 		quote := strings.Index(coll, `"`)
 		ns += coll[:quote]
 	}
-	stat = LogStats{filter: filter, index: index, milli: milli, ns: ns, op: op, scan: scan, utc: utc}
+	stat = LogStats{filter: filter, index: index, milli: milli, ns: ns, op: op,
+		reslen: ToInt(reslen[:strings.Index(reslen, " ")]), scan: scan, utc: utc}
 	return stat, nil
 }
 

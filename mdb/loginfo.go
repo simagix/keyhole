@@ -41,14 +41,15 @@ type LogInfo struct {
 
 // OpPattern stores performance data
 type OpPattern struct {
-	Command    string `bson:"command"`    // count, delete, find, remove, and update
-	Count      int    `bson:"count"`      // number of ops
-	Filter     string `bson:"filter"`     // query pattern
-	MaxMilli   int    `bson:"maxmilli"`   // max millisecond
-	Namespace  string `bson:"ns"`         // database.collectin
-	Scan       string `bson:"scan"`       // COLLSCAN
-	TotalMilli int    `bson:"totalmilli"` // total milliseconds
-	Index      string `bson:"index"`      // index used
+	Command     string `bson:"command"`     // count, delete, find, remove, and update
+	Count       int    `bson:"count"`       // number of ops
+	Filter      string `bson:"filter"`      // query pattern
+	MaxMilli    int    `bson:"maxmilli"`    // max millisecond
+	Namespace   string `bson:"ns"`          // database.collectin
+	Scan        string `bson:"scan"`        // COLLSCAN
+	TotalMilli  int64  `bson:"totalmilli"`  // total milliseconds
+	TotalReslen int64  `bson:"totalreslen"` // total reslen
+	Index       string `bson:"index"`       // index used
 }
 
 // SlowOps holds slow ops log and time
@@ -64,6 +65,7 @@ type LogStats struct {
 	milli  int
 	ns     string
 	op     string
+	reslen int
 	scan   string
 	utc    string
 }
@@ -253,12 +255,13 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			if stat.milli > max {
 				max = stat.milli
 			}
-			x := opsMap[key].TotalMilli + stat.milli
+			x := opsMap[key].TotalMilli + int64(stat.milli)
 			y := opsMap[key].Count + 1
+			z := opsMap[key].TotalReslen + int64(stat.reslen)
 			opsMap[key] = OpPattern{Command: opsMap[key].Command, Namespace: stat.ns, Filter: opsMap[key].Filter,
-				MaxMilli: max, TotalMilli: x, Count: y, Scan: stat.scan, Index: stat.index}
+				MaxMilli: max, TotalMilli: x, Count: y, Scan: stat.scan, Index: stat.index, TotalReslen: z}
 		} else {
-			opsMap[key] = OpPattern{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: stat.milli,
+			opsMap[key] = OpPattern{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: int64(stat.milli),
 				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index}
 		}
 	}
@@ -321,11 +324,11 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	}
 	re := regexp.MustCompile(`\r?\n`)
 	// output tsv file
-	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
+	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Total Reslen", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
 	for i, doc := range li.OpPatterns {
 		avg := float64(doc.TotalMilli) / float64(doc.Count)
-		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avg), doc.MaxMilli, doc.Count,
-			doc.TotalMilli, doc.Namespace, doc.Scan, re.ReplaceAllString(doc.Index, " "), doc.Filter))
+		lines = append(lines, fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", i+1, doc.Command, gox.MilliToTimeString(avg), doc.MaxMilli, doc.Count,
+			doc.TotalMilli, doc.TotalReslen, doc.Namespace, doc.Scan, re.ReplaceAllString(doc.Index, " "), doc.Filter))
 	}
 
 	idx = strings.Index(tsvf, ".tsv")

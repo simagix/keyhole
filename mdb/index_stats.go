@@ -506,7 +506,7 @@ func (ix *IndexStats) CopyIndexesWithDest(client *mongo.Client, namespaces []Ind
 				}
 				indexes = append(indexes, mongo.IndexModel{Keys: o.Key, Options: opt})
 				if o.Key.Map()["_id"] != nil {
-					collNames, err := client.Database(dbName).ListCollectionNames(ctx, bson.D{})
+					collNames, _ := client.Database(dbName).ListCollectionNames(ctx, bson.D{})
 					var exists bool
 					for _, name := range collNames {
 						if name == coll.Name {

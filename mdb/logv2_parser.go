@@ -20,6 +20,7 @@ type Logv2 struct {
 		NS                 string                 `json:"ns" bson:"ns"`
 		OriginatingCommand map[string]interface{} `json:"originatingCommand" bson:"originatingCommand"`
 		PlanSummary        string                 `json:"planSummary" bson:"planSummary"`
+		Reslen             int                    `json:"reslen" bson:"reslen"`
 		Type               string                 `json:"type" bson:"type"`
 	} `json:"attr" bson:"attr"`
 	Component string            `json:"c" bson:"c"`
@@ -85,6 +86,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 			stat.index = plan
 		}
 	}
+	stat.reslen = doc.Attributes.Reslen
 
 	if li.Collscan && stat.scan != COLLSCAN {
 		return stat, errors.New("skip, -collscan")
