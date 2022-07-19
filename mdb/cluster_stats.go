@@ -324,5 +324,5 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		return ofile, data, err
 	}
 	fmt.Printf("bson data written to %v\n", ofile)
-	return ofile, data, err
+	return ofile, buffer.Bytes(), err
 }
