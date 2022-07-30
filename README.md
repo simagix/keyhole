@@ -11,6 +11,10 @@ Keyhole is a tool to explore MongoDB deployments. Start with [Survey Your Mongo 
 This software is not supported by MongoDB, Inc. under any of their commercial support subscriptions or otherwise. Any usage of keyhole is at your own risk.
 
 ## Changes
+### v1.3.x
+- `-allinfo` supports high number of collections
+- `-loginfo` includes raw logs
+
 ### v1.2.1
 - Supports ReadPreferenceTagSets
 

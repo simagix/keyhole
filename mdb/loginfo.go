@@ -30,9 +30,10 @@ type LogInfo struct {
 	Regex      string      `bson:"regex"`
 	OpPatterns []OpPattern `bson:"opPatterns"`
 	Redaction  bool        `bson:"redact"`
-	SlowOps    []SlowOps   `bson:"slowOps"`
+	SlowOps    []RawLog    `bson:"slowOps"`
 
 	filename string
+	logs     []string
 	regex    string
 	regexp   *regexp.Regexp
 	silent   bool
@@ -52,8 +53,8 @@ type OpPattern struct {
 	Index       string `bson:"index"`       // index used
 }
 
-// SlowOps holds slow ops log and time
-type SlowOps struct {
+// RawLog holds slow ops log and time
+type RawLog struct {
 	Milli int
 	Log   string
 }
@@ -241,7 +242,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		key := stat.op + "." + stat.ns + "." + stat.filter + "." + stat.scan
 		_, ok := opsMap[key]
 		if stat.op != "insert" && (len(li.SlowOps) < topN || stat.milli > li.SlowOps[topN-1].Milli) {
-			li.SlowOps = append(li.SlowOps, SlowOps{Milli: stat.milli, Log: str})
+			li.SlowOps = append(li.SlowOps, RawLog{Milli: stat.milli, Log: str})
 			sort.Slice(li.SlowOps, func(i, j int) bool {
 				return li.SlowOps[i].Milli > li.SlowOps[j].Milli
 			})
@@ -263,6 +264,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		} else {
 			opsMap[key] = OpPattern{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: int64(stat.milli),
 				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index}
+			li.logs = append(li.logs, str) // append a sample
 		}
 	}
 	li.Histogram = append(li.Histogram, hist)
@@ -298,16 +300,38 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 		tsvf = ofile[:len(ofile)-4] + ".tsv"
 	}
 	if li.Redaction {
-		li.SlowOps = []SlowOps{}
+		li.SlowOps = []RawLog{}
 	}
 	if li.LogType == "text" {
 		li.Regex = li.regex
 	} else if li.LogType == "logv2" {
 		li.Regex = ""
 	}
+
+	var buffer bytes.Buffer
 	if data, err = bson.Marshal(li); err != nil {
 		return ofile, data, err
 	}
+	nw := 0
+	var n int
+	for nw < len(data) {
+		if n, err = buffer.Write(data); err != nil {
+			return ofile, data, err
+		}
+		nw += n
+	}
+
+	if !li.Redaction {
+		for _, log := range li.logs {
+			if data, err = bson.Marshal(bson.M{"raw": log}); err != nil {
+				continue
+			}
+			if _, err = buffer.Write(data); err != nil {
+				return ofile, data, err
+			}
+		}
+	}
+
 	os.Mkdir(outdir, 0755)
 	idx := strings.Index(bsonf, logExt)
 	basename := bsonf[:idx]
@@ -317,13 +341,14 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 		ofile = fmt.Sprintf(`%v/%v.%d%v`, outdir, basename, i, logExt)
 		i++
 	}
-	if err = gox.OutputGzipped(data, ofile); err != nil {
+	if err = gox.OutputGzipped(buffer.Bytes(), ofile); err != nil {
 		fmt.Println("write error:", err)
 	} else {
 		fmt.Println("bson log info written to", ofile)
 	}
+
+	// output TSV file
 	re := regexp.MustCompile(`\r?\n`)
-	// output tsv file
 	lines := []string{fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v", "Row", "Category", "Avg Time", "Max Time", "Count", "Total Time", "Total Reslen", "Namespace", "COLLSCAN", "Index(es) Used", "Query Pattern")}
 	for i, doc := range li.OpPatterns {
 		avg := float64(doc.TotalMilli) / float64(doc.Count)

@@ -11,6 +11,8 @@ import (
 	"github.com/simagix/gox"
 )
 
+var hasFilters = map[string]bool{"count": true, "delete": true, "find": true, "remove": true, "update": true, "aggregate": true, "getMore": true, "getmore": true, "findAndModify": true, "distinct": true}
+
 // ParseLog - parses text message before v4.4
 func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	var err error
@@ -87,7 +89,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 
 	if op == "insert" {
 		filter = "{ }"
-	} else if !hasFilter(op) {
+	} else if !hasFilters[op] {
 		return stat, err
 	}
 	if op == "delete" && strings.Contains(filter, "writeConcern:") {
@@ -241,17 +243,6 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 func getDocByField(str string, key string) string {
 	ml := gox.NewMongoLog(str)
 	return ml.Get(key)
-}
-
-var filters = []string{"count", "delete", "find", "remove", "update", "aggregate", "getMore", "getmore", "findAndModify", "distinct"}
-
-func hasFilter(op string) bool {
-	for _, f := range filters {
-		if f == op {
-			return true
-		}
-	}
-	return false
 }
 
 // convert $in: [...] to $in: [ ]
