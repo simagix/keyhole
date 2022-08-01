@@ -371,7 +371,7 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	} else {
 		fmt.Println("TSV log info written to", tsv)
 	}
-	return ofile, data, err
+	return ofile, buffer.Bytes(), err
 }
 
 // OutputJSON writes json data to a file
