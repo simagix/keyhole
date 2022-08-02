@@ -60,7 +60,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	}
 
 	re := regexp.MustCompile(`^(\w+) ({.*})$`)
-	utc := result[1][:15] + `0:00Z`
+	utc := result[1][:16] + `:00Z`
 	op := result[4]
 	ns := result[5]
 	if strings.HasPrefix(ns, "admin.") || strings.HasPrefix(ns, "config.") || strings.HasPrefix(ns, "local.") {

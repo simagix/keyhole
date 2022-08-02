@@ -24,7 +24,7 @@ const COLLSCAN = "COLLSCAN"
 // LogInfo keeps loginfo struct
 type LogInfo struct {
 	Collscan   bool        `bson:"collscan"`
-	Histogram  []Histogram `bson:"histogram"`
+	Histograms []Histogram `bson:"histogram"`
 	Logger     *gox.Logger `bson:"keyhole"`
 	LogType    string      `bson:"type"`
 	Regex      string      `bson:"regex"`
@@ -231,7 +231,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 		if stat.utc != ts { //	push
 			fmt.Fprintf(os.Stderr, "\r     %v\r", stat.utc)
 			if ts != "" {
-				li.Histogram = append(li.Histogram, hist)
+				li.Histograms = append(li.Histograms, hist)
 			}
 			ts = stat.utc
 			hist = Histogram{UTC: ts, Ops: map[string]int{}}
@@ -267,7 +267,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 			li.logs = append(li.logs, str) // append a sample
 		}
 	}
-	li.Histogram = append(li.Histogram, hist)
+	li.Histograms = append(li.Histograms, hist)
 	li.OpPatterns = make([]OpPattern, 0, len(opsMap))
 	for _, value := range opsMap {
 		li.OpPatterns = append(li.OpPatterns, value)

@@ -203,7 +203,7 @@ func (li *LogInfo) ParseLogv2(str string) (LogStats, error) {
 	if isGetMore {
 		stat.op = cmdGetMore
 	}
-	utc := doc.Timestamp["$date"][:15] + `0:00Z` // todo doc.Timestamp.Format(time.RFC3339)[:15]
+	utc := doc.Timestamp["$date"][:16] + `:00Z`
 	stat.utc = utc
 	return stat, nil
 }
