@@ -24,6 +24,7 @@ const COLLSCAN = "COLLSCAN"
 // LogInfo keeps loginfo struct
 type LogInfo struct {
 	Collscan   bool        `bson:"collscan"`
+	DBVersion  string      `bson:"version"`
 	Histograms []Histogram `bson:"histogram"`
 	Logger     *gox.Logger `bson:"keyhole"`
 	LogType    string      `bson:"type"`
@@ -211,12 +212,26 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 				}
 			}
 		} else if li.LogType == "logv2" || str[0:1] == "{" {
-			if stat, err = li.ParseLogv2(str); err != nil {
+			if li.DBVersion == "" && strings.Index(str, `"Build Info"`) > 0 {
+				label := `"version":"`
+				idx := strings.Index(str, label)
+				if idx > 0 {
+					li.DBVersion = str[idx+len(label):]
+					idx = strings.Index(li.DBVersion, `"`)
+					li.DBVersion = "v" + li.DBVersion[:idx]
+				}
+			} else if stat, err = li.ParseLogv2(str); err != nil {
 				continue
 			}
 			li.LogType = "logv2"
 		} else {
-			if stat, err = li.ParseLog(str); err != nil {
+			if li.DBVersion == "" && strings.Index(str, " CONTROL ") > 0 {
+				label := "db version"
+				idx := strings.Index(str, label)
+				if idx > 0 {
+					li.DBVersion = str[idx+len(label)+1:]
+				}
+			} else if stat, err = li.ParseLog(str); err != nil {
 				continue
 			}
 		}
