@@ -238,7 +238,7 @@ func (li *LogInfo) ParseLog(str string) (LogStats, error) {
 	resLength := 0
 	idx := strings.Index(reslen, " ")
 	if reslen != "" && idx > 0 {
-		resLength = ToInt(reslen[:])
+		resLength = ToInt(reslen[:idx])
 	}
 	stat = LogStats{filter: filter, index: index, milli: milli, ns: ns, op: op,
 		reslen: resLength, scan: scan, utc: utc}

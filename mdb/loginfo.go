@@ -278,7 +278,7 @@ func (li *LogInfo) Parse(reader *bufio.Reader, counts ...int) error {
 				MaxMilli: max, TotalMilli: x, Count: y, Scan: stat.scan, Index: stat.index, TotalReslen: z}
 		} else {
 			opsMap[key] = OpPattern{Command: stat.op, Namespace: stat.ns, Filter: stat.filter, TotalMilli: int64(stat.milli),
-				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index}
+				MaxMilli: stat.milli, Count: 1, Scan: stat.scan, Index: stat.index, TotalReslen: int64(stat.reslen)}
 			li.logs = append(li.logs, str) // append a sample
 		}
 	}
