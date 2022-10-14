@@ -47,7 +47,14 @@ var serverStatusChartsLegends = []string{
 	"net_in", "net_out", "net_requests", "net_physical_in", "net_physical_out",
 	"ops_query", "ops_insert", "ops_update", "ops_delete", "ops_getmore", "ops_command",
 	"q_active_read", "q_active_write", "q_queued_read", "q_queued_write",
-	"scan_keys", "scan_objects", "scan_sort",
+	"scan_keys", "scan_objects", "scan_sort", "tcmalloc_current_allocated_bytes",
+	"tcmalloc_heap_size", "tcmalloc_pageheap_free_bytes", "tcmalloc_pageheap_unmapped_bytes",
+	"tcmalloc_max_total_thread_cache_bytes", "tcmalloc_current_total_thread_cache_bytes",
+	"tcmalloc_total_free_bytes", "tcmalloc_central_cache_free_bytes", "tcmalloc_transfer_cache_free_bytes",
+	"tcmalloc_thread_cache_free_bytes", "tcmalloc_aggressive_memory_decommit", "tcmalloc_pageheap_committed_bytes",
+	"tcmalloc_pageheap_scavenge_count", "tcmalloc_pageheap_commit_count", "tcmalloc_pageheap_total_commit_bytes",
+	"tcmalloc_pageheap_decommit_count", "tcmalloc_pageheap_total_decommit_bytes", "tcmalloc_pageheap_reserve_count",
+	"tcmalloc_pageheap_total_reserve_bytes", "tcmalloc_spinlock_total_delay_ns", "tcmalloc_release_rate",
 }
 var wiredTigerChartsLegends = []string{
 	"wt_blkmgr_read", "wt_blkmgr_written", "wt_blkmgr_written_checkpoint",
@@ -275,6 +282,58 @@ func getServerStatusTimeSeriesDoc(serverStatusList []ServerStatusDoc) map[string
 			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.GlobalLock.CurrentQueue.Writers), t))
 			timeSeriesData["q_queued_write"] = x
 
+			x = timeSeriesData["tcmalloc_current_allocated_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.Generic.CurrentAllocatedBytes), t))
+			timeSeriesData["tcmalloc_current_allocated_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_heap_size"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.Generic.HeapSize), t))
+			timeSeriesData["tcmalloc_heap_size"] = x
+
+			x = timeSeriesData["tcmalloc_pageheap_free_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapFreeBytes), t))
+			timeSeriesData["tcmalloc_pageheap_free_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_pageheap_unmapped_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapUnmappedBytes), t))
+			timeSeriesData["tcmalloc_pageheap_unmapped_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_max_total_thread_cache_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.MaxTotalThreadCacheBytes), t))
+			timeSeriesData["tcmalloc_max_total_thread_cache_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_current_total_thread_cache_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.CurrentTotalThreadCacheBytes), t))
+			timeSeriesData["tcmalloc_current_total_thread_cache_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_total_free_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.TotalFreeBytes), t))
+			timeSeriesData["tcmalloc_total_free_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_central_cache_free_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.CentralCacheFreeBytes), t))
+			timeSeriesData["tcmalloc_central_cache_free_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_transfer_cache_free_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.TransferCacheFreeBytes), t))
+			timeSeriesData["tcmalloc_transfer_cache_free_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_thread_cache_free_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.ThreadCacheFreeBytes), t))
+			timeSeriesData["tcmalloc_thread_cache_free_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_aggressive_memory_decommit"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.AggressiveMemoryDecommit), t))
+			timeSeriesData["tcmalloc_aggressive_memory_decommit"] = x
+
+			x = timeSeriesData["tcmalloc_pageheap_committed_bytes"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapComittedBytes), t))
+			timeSeriesData["tcmalloc_pageheap_committed_bytes"] = x
+
+			x = timeSeriesData["tcmalloc_release_rate"]
+			x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.ReleaseRate), t))
+			timeSeriesData["tcmalloc_release_rate"] = x
+
 			if i > 0 {
 				seconds := math.Round(stat.LocalTime.Sub(pstat.LocalTime).Seconds())
 				if seconds < 1 {
@@ -344,6 +403,38 @@ func getServerStatusTimeSeriesDoc(serverStatusList []ServerStatusDoc) map[string
 				x = timeSeriesData["scan_sort"]
 				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.Metrics.Operation.ScanAndOrder-pstat.Metrics.Operation.ScanAndOrder)/seconds, t))
 				timeSeriesData["scan_sort"] = x
+
+				x = timeSeriesData["tcmalloc_spinlock_total_delay_ns"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.SpinLockTotalDelayNanos-pstat.TCMalloc.TCMalloc.SpinLockTotalDelayNanos)/seconds, t))
+				timeSeriesData["tcmalloc_spinlock_total_delay_ns"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_commit_count"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapCommitCount-pstat.TCMalloc.TCMalloc.PageheapCommitCount)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_commit_count"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_total_commit_bytes"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapTotalCommitBytes-pstat.TCMalloc.TCMalloc.PageheapTotalCommitBytes)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_total_commit_bytes"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_decommit_count"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapDecommitCount-pstat.TCMalloc.TCMalloc.PageheapDecommitCount)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_decommit_count"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_total_decommit_bytes"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapTotalDecommitBytes-pstat.TCMalloc.TCMalloc.PageheapTotalDecommitBytes)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_total_decommit_bytes"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_reserve_count"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapReserveCount-pstat.TCMalloc.TCMalloc.PageheapReserveCount)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_reserve_count"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_total_reserve_bytes"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapTotalReserveBytes-pstat.TCMalloc.TCMalloc.PageheapTotalReserveBytes)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_total_reserve_bytes"] = x
+
+				x = timeSeriesData["tcmalloc_pageheap_scavenge_count"]
+				x.DataPoints = append(x.DataPoints, getDataPoint(float64(stat.TCMalloc.TCMalloc.PageheapScavengeCount-pstat.TCMalloc.TCMalloc.PageheapScavengeCount)/seconds, t))
+				timeSeriesData["tcmalloc_pageheap_scavenge_count"] = x
 			} // if i > 0
 		} // if stat.Uptime > pstat.Uptime
 

@@ -70,6 +70,29 @@ func (attr *Attribs) GetServerStatusDataPoints(i int) ServerStatusDoc {
 	ss.WiredTiger.DataHandle.Active = attr.get("serverStatus/wiredTiger/data-handle/connection data handles currently active", i)
 	ss.WiredTiger.ConcurrentTransactions.Read.Available = attr.get("serverStatus/wiredTiger/concurrentTransactions/read/available", i)
 	ss.WiredTiger.ConcurrentTransactions.Write.Available = attr.get("serverStatus/wiredTiger/concurrentTransactions/write/available", i)
+
+	ss.TCMalloc.Generic.CurrentAllocatedBytes = attr.get("serverStatus/tcmalloc/generic/current_allocated_bytes", i)
+	ss.TCMalloc.Generic.HeapSize = attr.get("serverStatus/tcmalloc/generic/heap_size", i)
+	ss.TCMalloc.TCMalloc.PageheapFreeBytes = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_free_bytes", i)
+	ss.TCMalloc.TCMalloc.PageheapUnmappedBytes = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_unmapped_bytes", i)
+	ss.TCMalloc.TCMalloc.MaxTotalThreadCacheBytes = attr.get("serverStatus/tcmalloc/tcmalloc/max_total_thread_cache_bytes", i)
+	ss.TCMalloc.TCMalloc.CurrentTotalThreadCacheBytes = attr.get("serverStatus/tcmalloc/tcmalloc/current_total_thread_cache_bytes", i)
+	ss.TCMalloc.TCMalloc.TotalFreeBytes = attr.get("serverStatus/tcmalloc/tcmalloc/total_free_bytes", i)
+	ss.TCMalloc.TCMalloc.CentralCacheFreeBytes = attr.get("serverStatus/tcmalloc/tcmalloc/central_cache_free_bytes", i)
+	ss.TCMalloc.TCMalloc.TransferCacheFreeBytes = attr.get("serverStatus/tcmalloc/tcmalloc/transfer_cache_free_bytes", i)
+	ss.TCMalloc.TCMalloc.ThreadCacheFreeBytes = attr.get("serverStatus/tcmalloc/tcmalloc/thread_cache_free_bytes", i)
+	ss.TCMalloc.TCMalloc.AggressiveMemoryDecommit = attr.get("serverStatus/tcmalloc/tcmalloc/aggressive_memory_decommit", i)
+	ss.TCMalloc.TCMalloc.PageheapComittedBytes = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_committed_bytes", i)
+	ss.TCMalloc.TCMalloc.PageheapScavengeCount = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_scavenge_count", i)
+	ss.TCMalloc.TCMalloc.PageheapCommitCount = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_commit_count", i)
+	ss.TCMalloc.TCMalloc.PageheapTotalCommitBytes = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_total_commit_bytes", i)
+	ss.TCMalloc.TCMalloc.PageheapDecommitCount = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_decommit_count", i)
+	ss.TCMalloc.TCMalloc.PageheapTotalDecommitBytes = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_total_decommit_bytes", i)
+	ss.TCMalloc.TCMalloc.PageheapReserveCount = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_reserve_count", i)
+	ss.TCMalloc.TCMalloc.PageheapTotalReserveBytes = attr.get("serverStatus/tcmalloc/tcmalloc/pageheap_total_reserve_bytes", i)
+	ss.TCMalloc.TCMalloc.SpinLockTotalDelayNanos = attr.get("serverStatus/tcmalloc/tcmalloc/spinlock_total_delay_ns", i)
+	ss.TCMalloc.TCMalloc.ReleaseRate = attr.get("serverStatus/tcmalloc/tcmalloc/release_rate", i)
+
 	return ss
 }
 

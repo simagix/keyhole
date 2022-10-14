@@ -1,0 +1,14 @@
+# OSX
+.DS_Store
+
+# IDE
+.idea/
+.run/
+*.iml
+/vendor/
+
+# Build artefact
+keyhole
+
+# Tests
+testdata/

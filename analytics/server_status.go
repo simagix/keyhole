@@ -146,6 +146,41 @@ type ConnectionsDoc struct {
 	Active       uint64 `json:"active" bson:"active"`
 }
 
+// TCMallocDoc contains docs from db.serverStatus().tcmalloc
+type TCMallocDoc struct {
+	Generic  GenericTCMAllocDoc  `json:"generic" bson:"generic"`
+	TCMalloc DetailedTCMallocDoc `json:"tcmalloc" bson:"tcmalloc"`
+}
+
+// GenericTCMAllocDoc contains docs from db.serverStatus().tcmalloc.generic
+type GenericTCMAllocDoc struct {
+	CurrentAllocatedBytes uint64 `json:"current_allocated_bytes" bson:"current_allocated_bytes"`
+	HeapSize              uint64 `json:"heap_size" bson:"heap_size"`
+}
+
+// DetailedTCMallocDoc contains docs from db.serverStatus().tcmalloc.tcmalloc
+type DetailedTCMallocDoc struct {
+	PageheapFreeBytes            uint64 `json:"pageheap_free_bytes" bson:"pageheap_free_bytes"`
+	PageheapUnmappedBytes        uint64 `json:"pageheap_unmapped_bytes" bson:"pageheap_unmapped_bytes"`
+	MaxTotalThreadCacheBytes     uint64 `json:"max_total_thread_cache_bytes" bson:"max_total_thread_cache_bytes"`
+	CurrentTotalThreadCacheBytes uint64 `json:"current_total_thread_cache_bytes" bson:"current_total_thread_cache_bytes"`
+	TotalFreeBytes               uint64 `json:"total_free_bytes" bson:"total_free_bytes"`
+	CentralCacheFreeBytes        uint64 `json:"central_cache_free_bytes" bson:"central_cache_free_bytes"`
+	TransferCacheFreeBytes       uint64 `json:"transfer_cache_free_bytes" bson:"transfer_cache_free_bytes"`
+	ThreadCacheFreeBytes         uint64 `json:"thread_cache_free_bytes" bson:"thread_cache_free_bytes"`
+	AggressiveMemoryDecommit     uint64 `json:"aggressive_memory_decommit" bson:"aggressive_memory_decommit"`
+	PageheapComittedBytes        uint64 `json:"pageheap_committed_bytes" bson:"pageheap_committed_bytes"`
+	PageheapScavengeCount        uint64 `json:"pageheap_scavenge_count" bson:"pageheap_scavenge_count"`
+	PageheapCommitCount          uint64 `json:"pageheap_commit_count" bson:"pageheap_commit_count"`
+	PageheapTotalCommitBytes     uint64 `json:"pageheap_total_commit_bytes" bson:"pageheap_total_commit_bytes"`
+	PageheapDecommitCount        uint64 `json:"pageheap_decommit_count" bson:"pageheap_decommit_count"`
+	PageheapTotalDecommitBytes   uint64 `json:"pageheap_total_decommit_bytes" bson:"pageheap_total_decommit_bytes"`
+	PageheapReserveCount         uint64 `json:"pageheap_reserve_count" bson:"pageheap_reserve_count"`
+	PageheapTotalReserveBytes    uint64 `json:"pageheap_total_reserve_bytes" bson:"pageheap_total_reserve_bytes"`
+	SpinLockTotalDelayNanos      uint64 `json:"spinlock_total_delay_ns" bson:"spinlock_total_delay_ns"`
+	ReleaseRate                  uint64 `json:"release_rate" bson:"release_rate"`
+}
+
 // ServerStatusDoc contains docs from db.serverStatus()
 type ServerStatusDoc struct {
 	Connections ConnectionsDoc `json:"connections" bson:"connections"`
@@ -164,4 +199,5 @@ type ServerStatusDoc struct {
 	Uptime      uint64         `json:"uptime" bson:"uptime"`
 	Version     string         `json:"version" bson:"version"`
 	WiredTiger  WiredTigerDoc  `json:"wiredTiger" bson:"wiredTiger"`
+	TCMalloc    TCMallocDoc    `json:"tcmalloc" bson:"tcmalloc"`
 }
