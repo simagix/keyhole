@@ -1,6 +1,6 @@
 # Keyhole - Survey Your Mongo Land
 
-Keyhole is a tool to explore MongoDB deployments. Start with [Survey Your Mongo Land](https://www.simagix.com/2021/02/survey-your-mongo-land.html).
+Keyhole is a tool to explore MongoDB deployments. Start with [Survey Your Mongo Land](https://www.simagix.com/2021/02/survey-your-mongo-land.html).  For MongoDB JSON logs parsing, use the improved [Hatchet](https://github.com/simagix/hatchet) project.
 
 ## License
 
