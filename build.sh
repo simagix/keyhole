@@ -1,7 +1,7 @@
 #! /bin/bash
 # Copyright 2020 Kuei-chun Chen. All rights reserved.
 die() { echo "$*" 1>&2 ; exit 1; }
-VERSION="v$(cat version)-$(date "+%Y%m%d")"
+VERSION="v$(cat version)-$(git log -1 --date=format:"%Y%m%d" --format="%ad")"
 REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
 LDFLAGS="-X main.version=$VERSION -X main.repo=$REPO"
 TAG="simagix/keyhole"
