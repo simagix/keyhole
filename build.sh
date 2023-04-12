@@ -32,6 +32,7 @@ if [[ "$1" == "docker" ]]; then
   docker build  -f Dockerfile -t ${TAG}:${BR} .
   id=$(docker create ${TAG}:${BR})
   docker cp $id:/dist - | tar vx
+  docker run ${TAG}:${BR} /keyhole -version
 else
   if [ "$1" == "cross-platform"  ]; then
     env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/keyhole-osx-x64 main/keyhole.go
