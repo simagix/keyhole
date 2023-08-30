@@ -115,20 +115,21 @@ func (f *Seed) SeedData(client *mongo.Client) error {
 }
 
 // SeedAllDemoData - seed data for demo
-//  models: {
-//    "_id": string
-//   "name": string,
-//   "description": string
-//   "year": integer
-// }
 //
-// robots: {
-//   "_id": string
-//   "modelId": string
-//   "notes": string,
-//   "batteryPct": float,
-//   "tasks": [{"for": string, "minutesUsed": integer}]
-// }
+//	 models: {
+//	   "_id": string
+//	  "name": string,
+//	  "description": string
+//	  "year": integer
+//	}
+//
+//	robots: {
+//	  "_id": string
+//	  "modelId": string
+//	  "notes": string,
+//	  "batteryPct": float,
+//	  "tasks": [{"for": string, "minutesUsed": integer}]
+//	}
 func (f *Seed) SeedAllDemoData(client *mongo.Client) error {
 	var err error
 	if err = f.SeedFavorites(client); err != nil {
@@ -359,7 +360,7 @@ func getVehicle() bson.M {
 	if delta == 0 {
 		used = false
 	}
-	brand := brands[rand.Intn(len(styles))]
+	brand := brands[rand.Intn(len(brands))]
 	color := colors[rand.Intn(len(colors))]
 	style := styles[rand.Intn(len(styles))]
 
