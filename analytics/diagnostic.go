@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -129,10 +128,10 @@ func (d *DiagnosticData) PrintDiagnosticData(filenames []string) (string, error)
 // readDiagnosticDir reads diagnotics.data from a directory
 func (d *DiagnosticData) readDiagnosticDir(dirname string) error {
 	var err error
-	var files []os.FileInfo
+	var files []os.DirEntry
 	var filenames []string
 
-	if files, err = ioutil.ReadDir(dirname); err != nil {
+	if files, err = os.ReadDir(dirname); err != nil {
 		return err
 	}
 
@@ -218,7 +217,7 @@ func (d *DiagnosticData) readDiagnosticFile(filename string) (DiagnosticData, er
 	if r, err = gox.NewFileReader(filename); err != nil {
 		return diagData, err
 	}
-	if buffer, err = ioutil.ReadAll(r); err != nil {
+	if buffer, err = io.ReadAll(r); err != nil {
 		return diagData, err
 	}
 

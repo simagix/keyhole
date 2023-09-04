@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -131,7 +131,7 @@ func (li *LogInfo) AnalyzeFile(filename string) error {
 		if fd, err = gox.NewFileReader(filename); err != nil {
 			return err
 		}
-		if data, err = ioutil.ReadAll(fd); err != nil {
+		if data, err = io.ReadAll(fd); err != nil {
 			return err
 		}
 		if err = bson.Unmarshal(data, &li); err != nil {
@@ -381,7 +381,7 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 	}
 
 	tsvData := []byte(strings.Join(lines, "\n"))
-	if err = ioutil.WriteFile(tsv, tsvData, 0644); err != nil {
+	if err = os.WriteFile(tsv, tsvData, 0644); err != nil {
 		fmt.Println("write error:", err)
 	} else {
 		fmt.Println("TSV log info written to", tsv)
@@ -398,7 +398,7 @@ func (li *LogInfo) OutputJSON() error {
 	}
 	os.Mkdir(outdir, 0755)
 	ofile := fmt.Sprintf("%v/%v", outdir, strings.ReplaceAll(filepath.Base(li.filename), "bson.gz", "json"))
-	ioutil.WriteFile(ofile, data, 0644)
+	os.WriteFile(ofile, data, 0644)
 	fmt.Println("json data written to", ofile)
 	return err
 }

@@ -4,7 +4,7 @@ package keyhole
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
@@ -43,7 +43,7 @@ func Exec(filename string, signature string) error {
 	var err error
 	var cfg *Config
 	var data []byte
-	if data, err = ioutil.ReadFile(filename); err != nil {
+	if data, err = os.ReadFile(filename); err != nil {
 		return err
 	} else if err = bson.UnmarshalExtJSON(data, false, &cfg); err != nil {
 		return err

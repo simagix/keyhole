@@ -8,7 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -102,7 +102,7 @@ func (ix *IndexStats) SetClusterDetailsFromFile(filename string) error {
 	if fd, err = gox.NewFileReader(filename); err != nil {
 		return err
 	}
-	if data, err = ioutil.ReadAll(fd); err != nil {
+	if data, err = io.ReadAll(fd); err != nil {
 		return err
 	}
 	return bson.Unmarshal(data, &ix)
@@ -357,7 +357,7 @@ func (ix *IndexStats) OutputJSON() error {
 	}
 	os.Mkdir(outdir, 0755)
 	ofile := fmt.Sprintf("%v/%v", outdir, strings.ReplaceAll(filepath.Base(ix.filename), "bson.gz", "json"))
-	ioutil.WriteFile(ofile, data, 0644)
+	os.WriteFile(ofile, data, 0644)
 	fmt.Println("json data written to", ofile)
 	return err
 }

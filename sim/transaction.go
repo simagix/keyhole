@@ -5,7 +5,7 @@ package sim
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -34,7 +34,7 @@ func GetTransactions(filename string) TransactionDoc {
 	if filename == "" {
 		return TransactionDoc{}
 	}
-	bytes, err := ioutil.ReadFile(filename)
+	bytes, err := os.ReadFile(filename)
 	if err != nil {
 		return TransactionDoc{}
 	}

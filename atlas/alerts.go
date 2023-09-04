@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/simagix/gox"
 )
@@ -31,7 +32,7 @@ func (api *API) AlertsDo(method string, data string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	json.Unmarshal(b, &doc)
 	return gox.Stringify(doc, "", "  "), err
 }
@@ -42,7 +43,7 @@ func (api *API) AddAlerts(filename string) (string, error) {
 	var buf []byte
 	var str string
 	var alerts []map[string]interface{}
-	if buf, err = ioutil.ReadFile(filename); err != nil {
+	if buf, err = os.ReadFile(filename); err != nil {
 		return "", err
 	}
 

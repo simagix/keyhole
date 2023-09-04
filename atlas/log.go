@@ -5,8 +5,8 @@ package atlas
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -85,7 +85,7 @@ func (api *API) DownloadLogs() ([]string, error) {
 			continue
 		}
 		if len(b) > 0 {
-			if err = ioutil.WriteFile(filename, b, 0644); err != nil {
+			if err = os.WriteFile(filename, b, 0644); err != nil {
 				log.Println(err)
 				continue
 			}

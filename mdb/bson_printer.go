@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +40,7 @@ func (p *BSONPrinter) Print(filename string) error {
 	if fd, err = gox.NewFileReader(filename); err != nil {
 		return err
 	}
-	if data, err = ioutil.ReadAll(fd); err != nil {
+	if data, err = io.ReadAll(fd); err != nil {
 		return err
 	}
 	bson.Unmarshal(data, &doc)
@@ -103,7 +103,7 @@ func (p *BSONPrinter) Print(filename string) error {
 		if data, err = bson.MarshalExtJSON(doc, false, false); err != nil {
 			return err
 		}
-		if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+		if err = os.WriteFile(ofile, data, 0644); err != nil {
 			return err
 		}
 		fmt.Println("json data written to", ofile)

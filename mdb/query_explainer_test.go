@@ -5,7 +5,7 @@ package mdb
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,7 +16,7 @@ func TestGetExplainSummaryReplica(t *testing.T) {
 	client := getMongoClient()
 	defer client.Disconnect(context.Background())
 	qa := NewQueryExplainer(client)
-	buffer, err := ioutil.ReadFile(filename)
+	buffer, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestGetExplainSummaryShard(t *testing.T) {
 	client := getMongoClient()
 	defer client.Disconnect(context.Background())
 	qa := NewQueryExplainer(client)
-	buffer, err := ioutil.ReadFile(filename)
+	buffer, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
