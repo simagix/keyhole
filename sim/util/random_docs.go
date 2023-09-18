@@ -5,9 +5,9 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/rand"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,7 +33,7 @@ func GetDocByTemplate(filename string, meta bool) (bson.M, error) {
 	var buf []byte
 	var err error
 
-	if buf, err = ioutil.ReadFile(filename); err != nil {
+	if buf, err = os.ReadFile(filename); err != nil {
 		return nil, err
 	}
 	v := bson.M{}

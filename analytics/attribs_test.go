@@ -3,7 +3,7 @@
 package analytics
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/simagix/keyhole/ftdc"
@@ -13,7 +13,7 @@ func TestGetServerStatusDataPoints(t *testing.T) {
 	var err error
 	var buffer []byte
 
-	if buffer, err = ioutil.ReadFile(DiagnosticDataFilename); err != nil {
+	if buffer, err = os.ReadFile(DiagnosticDataFilename); err != nil {
 		t.Fatal(err)
 	}
 	metrics := ftdc.NewMetrics()
@@ -27,7 +27,7 @@ func TestGetSystemMetricsDataPoints(t *testing.T) {
 	var err error
 	var buffer []byte
 
-	if buffer, err = ioutil.ReadFile(DiagnosticDataFilename); err != nil {
+	if buffer, err = os.ReadFile(DiagnosticDataFilename); err != nil {
 		t.Fatal(err)
 	}
 	metrics := ftdc.NewMetrics()

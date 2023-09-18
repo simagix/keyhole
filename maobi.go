@@ -5,7 +5,7 @@ package keyhole
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -52,11 +52,11 @@ func GenerateMaobiReport(maobiURL string, data []byte, ofile string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
-	ioutil.WriteFile(filename, body, 0644)
+	os.WriteFile(filename, body, 0644)
 	fmt.Printf("HTML report written to %v\n", filename)
 	return err
 }

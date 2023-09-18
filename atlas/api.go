@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -158,7 +158,7 @@ func (api *API) Get(uri string) ([]byte, error) {
 		return b, err
 	}
 	defer resp.Body.Close()
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	return b, err
 }
 
@@ -175,7 +175,7 @@ func (api *API) Patch(uri string, body []byte) ([]byte, error) {
 		return b, err
 	}
 	defer resp.Body.Close()
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	return b, err
 }
 

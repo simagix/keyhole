@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func (api *API) DownloadFTDC() (string, error) {
 	if resp, err = gox.HTTPDigest("POST", uri, api.publicKey, api.privateKey, headers, body); err != nil {
 		return "", err
 	}
-	body, _ = ioutil.ReadAll(resp.Body)
+	body, _ = io.ReadAll(resp.Body)
 	resp.Body.Close()
 	json.Unmarshal(body, &doc)
 	if doc["id"] == nil {
@@ -89,7 +90,7 @@ func (api *API) DownloadFTDC() (string, error) {
 	body, _ = api.Get(uri)
 	fname := api.clusterName + "-diagnostic.tar.gz"
 
-	ioutil.WriteFile(fname, body, 0644)
+	os.WriteFile(fname, body, 0644)
 
 	// delete the log collection job
 	uri = BaseURL + "/groups/" + api.groupID + "/logCollectionJobs/" + jobID
@@ -99,7 +100,7 @@ func (api *API) DownloadFTDC() (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	body, _ = ioutil.ReadAll(resp.Body)
+	body, _ = io.ReadAll(resp.Body)
 	json.Unmarshal(body, &doc)
 	fmt.Println(gox.Stringify(doc, "", "  "))
 	return fmt.Sprintf("FTDC archive was written to %v", fname), err

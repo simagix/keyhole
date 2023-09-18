@@ -8,9 +8,9 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -61,7 +61,7 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		if connString.SSLCaFileSet {
 			roots := x509.NewCertPool()
 			var caBytes []byte
-			if caBytes, err = ioutil.ReadFile(connString.SSLCaFile); err != nil {
+			if caBytes, err = os.ReadFile(connString.SSLCaFile); err != nil {
 				return nil, err
 			}
 			if ok := roots.AppendCertsFromPEM(caBytes); !ok {
@@ -73,7 +73,7 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 		if connString.SSLClientCertificateKeyFileSet {
 			connString.SSL = true
 			var clientBytes []byte
-			if clientBytes, err = ioutil.ReadFile(connString.SSLClientCertificateKeyFile); err != nil {
+			if clientBytes, err = os.ReadFile(connString.SSLClientCertificateKeyFile); err != nil {
 				return nil, err
 			}
 			if certs, err = tls.X509KeyPair(clientBytes, clientBytes); err != nil {

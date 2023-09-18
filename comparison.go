@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -56,7 +56,7 @@ func (p *Comparison) Compare(source string, target string) error {
 		if fd, err = gox.NewFileReader(source); err != nil {
 			return err
 		}
-		if data, err = ioutil.ReadAll(fd); err != nil {
+		if data, err = io.ReadAll(fd); err != nil {
 			return err
 		}
 		if err = bson.Unmarshal(data, p.SourceStats); err != nil {
@@ -65,7 +65,7 @@ func (p *Comparison) Compare(source string, target string) error {
 		if fd, err = gox.NewFileReader(target); err != nil {
 			return err
 		}
-		if data, err = ioutil.ReadAll(fd); err != nil {
+		if data, err = io.ReadAll(fd); err != nil {
 			return err
 		}
 		if err = bson.Unmarshal(data, p.TargetStats); err != nil {

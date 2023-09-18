@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 
@@ -29,7 +28,7 @@ func GetSchema(c *mongo.Collection, verbose bool) (string, error) {
 	if verbose {
 		os.Mkdir(outdir, 0755)
 		ofile := fmt.Sprintf("%v/%v.json", outdir, c.Name())
-		err = ioutil.WriteFile(ofile, data, 0644)
+		err = os.WriteFile(ofile, data, 0644)
 		fmt.Println(err, ofile, string(data))
 		return fmt.Sprintf("json template written to %v", ofile), err
 	}

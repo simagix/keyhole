@@ -4,7 +4,7 @@ package mdb
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/simagix/gox"
@@ -13,7 +13,7 @@ import (
 
 func TestGetIndexSuggestionFromFilter(t *testing.T) {
 	filename := "testdata/commerceticket-replica-explain.json"
-	buffer, err := ioutil.ReadFile(filename)
+	buffer, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestGetIndexSuggestionFromFilter(t *testing.T) {
 
 func TestGetIndexSuggestion(t *testing.T) {
 	filename := "testdata/TestGetIndexSuggestion.json"
-	buffer, err := ioutil.ReadFile(filename)
+	buffer, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestGetIndexSuggestion(t *testing.T) {
 
 func TestGetIndexSuggestionElemMatch(t *testing.T) {
 	filename := "testdata/TestGetIndexSuggestionElemMatch.json"
-	buffer, err := ioutil.ReadFile(filename)
+	buffer, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}

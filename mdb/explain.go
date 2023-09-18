@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,7 +113,7 @@ func (e *Explain) PrintExplainResults(filename string) error {
 	if reader, err = gox.NewFileReader(filename); err != nil {
 		return err
 	}
-	if data, err = ioutil.ReadAll(reader); err != nil {
+	if data, err = io.ReadAll(reader); err != nil {
 		return err
 	}
 	doc := bson.M{}

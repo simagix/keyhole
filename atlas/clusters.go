@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/simagix/gox"
@@ -68,7 +68,7 @@ func (api *API) ClustersDo(method string, data string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	json.Unmarshal(b, &doc)
 	return gox.Stringify(doc, "", "  "), err
 }

@@ -5,7 +5,6 @@ package atlas
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -28,7 +27,7 @@ func TestGetClusters(t *testing.T) {
 	}
 	os.Mkdir("./out", 0755)
 	ofile := `./out/clusters.json`
-	if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+	if err = os.WriteFile(ofile, data, 0644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -52,7 +51,7 @@ func TestGetCluster(t *testing.T) {
 	}
 	os.Mkdir("./out", 0755)
 	ofile := fmt.Sprintf(`./out/cluster-%v.json`, clusterName)
-	if err = ioutil.WriteFile(ofile, data, 0644); err != nil {
+	if err = os.WriteFile(ofile, data, 0644); err != nil {
 		t.Fatal(err)
 	}
 }

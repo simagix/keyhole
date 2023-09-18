@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/zlib"
 	"io"
-	"io/ioutil"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -41,7 +40,7 @@ func (m *Metrics) ReadAllMetrics(data *[]byte) error {
 				return err
 			}
 			var block []byte
-			if block, err = ioutil.ReadAll(r); err != nil {
+			if block, err = io.ReadAll(r); err != nil {
 				return err
 			}
 			if md, err = m.decode(block); err != nil {

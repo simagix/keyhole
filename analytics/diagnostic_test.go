@@ -3,7 +3,6 @@
 package analytics
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -14,10 +13,10 @@ const DiagnosticDataFilename = DiagnosticDataDirectory + "/metrics.2017-10-12T20
 
 func TestReadDiagnosticFiles(t *testing.T) {
 	var err error
-	var files []os.FileInfo
+	var files []os.DirEntry
 	var filenames []string
 
-	if files, err = ioutil.ReadDir(DiagnosticDataDirectory); err != nil {
+	if files, err = os.ReadDir(DiagnosticDataDirectory); err != nil {
 		t.Fatal(err)
 	}
 

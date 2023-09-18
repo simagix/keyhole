@@ -3,14 +3,14 @@
 package ftdc
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
 func TestReadAllMetrics(t *testing.T) {
 	var err error
 	var buffer []byte
-	if buffer, err = ioutil.ReadFile(filename); err != nil {
+	if buffer, err = os.ReadFile(filename); err != nil {
 		t.Fatal(err)
 	}
 	m := NewMetrics()

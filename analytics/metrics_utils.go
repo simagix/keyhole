@@ -4,7 +4,6 @@ package analytics
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -20,7 +19,7 @@ func getFilenames(filenames []string) []string {
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
-			files, _ := ioutil.ReadDir(filename)
+			files, _ := os.ReadDir(filename)
 			for _, file := range files {
 				if !file.IsDir() &&
 					(strings.HasPrefix(file.Name(), "metrics.") || strings.HasPrefix(file.Name(), "keyhole_stats.")) {

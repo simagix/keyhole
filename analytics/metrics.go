@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -131,7 +131,7 @@ func (m *Metrics) readProcessedFTDC(infile string) error {
 	if reader, err = gox.NewReader(file); err != nil {
 		return err
 	}
-	if data, err = ioutil.ReadAll(reader); err != nil {
+	if data, err = io.ReadAll(reader); err != nil {
 		return err
 	}
 	buffer := bytes.NewBuffer(data)
