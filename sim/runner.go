@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/simagix/gox"
-	anly "github.com/simagix/keyhole/analytics"
 	"github.com/simagix/keyhole/mdb"
+	ftdc "github.com/simagix/mongo-ftdc"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -224,7 +224,7 @@ func (rn *Runner) terminate() {
 		}
 
 		var err error
-		var stat anly.ServerStatusDoc
+		var stat ftdc.ServerStatusDoc
 		serverStatus, _ := mdb.RunAdminCommand(client, "serverStatus")
 		buf, _ := bson.Marshal(serverStatus)
 		bson.Unmarshal(buf, &stat)
@@ -240,7 +240,7 @@ func (rn *Runner) terminate() {
 		filename := fmt.Sprintf("%v/%v-%v.gz", outdir, keyholeStatsDataFile, getReplicaSetName(uri))
 		filenames = append(filenames, filename)
 		gox.OutputGzipped(data, filename)
-		d := anly.NewDiagnosticData()
+		d := ftdc.NewDiagnosticData()
 		reader := bufio.NewReader(strings.NewReader(string(data)))
 		if err = d.AnalyzeServerStatus(reader); err != nil {
 			rn.Logger.Error(err)
@@ -256,7 +256,7 @@ func (rn *Runner) terminate() {
 				p.ServerStatus.Process, p.Cluster, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
 			strs = append(strs, result)
 		}
-		strs = append(strs, anly.PrintAllStats(d.ServerStatusList, -1))
+		strs = append(strs, ftdc.PrintAllStats(d.ServerStatusList, -1))
 		result = strings.Join(strs, "\n")
 		fmt.Println(result)
 		rn.Results = append(rn.Results, result)
