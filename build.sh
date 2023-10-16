@@ -40,9 +40,9 @@ else
     env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/keyhole-win-x64.exe main/keyhole.go
   else
     rm -f keyhole
-    go build -ldflags "$LDFLAGS" main/keyhole.go
-    if [[ -f keyhole ]]; then
-      ./keyhole -version
+    go build -ldflags "$LDFLAGS" -o dist/keyhole main/keyhole.go
+    if [[ -f dist/keyhole ]]; then
+      ./dist/keyhole -version
     fi
   fi
 fi

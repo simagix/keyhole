@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/simagix/gox"
-	anly "github.com/simagix/keyhole/analytics"
 	"github.com/simagix/keyhole/mdb"
+	ftdc "github.com/simagix/mongo-ftdc"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
@@ -24,13 +24,13 @@ var fileTimestamp = strings.Replace(time.Now().Format(time.RFC3339)[:19], ":", "
 var keyholeStatsDataFile = "./keyhole_stats." + fileTimestamp
 
 var mb = 1024.0 * 1024
-var serverInfoDocs = map[string]anly.ServerInfoDoc{}
-var serverStatusDocs = map[string][]anly.ServerStatusDoc{}
-var replSetStatusDocs = map[string][]anly.ReplSetStatusDoc{}
+var serverInfoDocs = map[string]ftdc.ServerInfoDoc{}
+var serverStatusDocs = map[string][]ftdc.ServerStatusDoc{}
+var replSetStatusDocs = map[string][]ftdc.ReplSetStatusDoc{}
 
-func getServerInfoDocs(key string) anly.ServerInfoDoc         { return serverInfoDocs[key] }
-func getServerStatusDocs(key string) []anly.ServerStatusDoc   { return serverStatusDocs[key] }
-func getReplSetStatusDocs(key string) []anly.ReplSetStatusDoc { return replSetStatusDocs[key] }
+func getServerInfoDocs(key string) ftdc.ServerInfoDoc         { return serverInfoDocs[key] }
+func getServerStatusDocs(key string) []ftdc.ServerStatusDoc   { return serverStatusDocs[key] }
+func getReplSetStatusDocs(key string) []ftdc.ReplSetStatusDoc { return replSetStatusDocs[key] }
 
 // Frequency stores wait time
 type Frequency struct {
@@ -68,8 +68,8 @@ func (st *ServerStats) SetPeekingMode(peek bool) {
 
 // getServerStatus gets db.serverStatus() every minute
 func (st *ServerStats) getServerStatus(client *mongo.Client) error {
-	var pstat = anly.ServerStatusDoc{}
-	var stat = anly.ServerStatusDoc{}
+	var pstat = ftdc.ServerStatusDoc{}
+	var stat = ftdc.ServerStatusDoc{}
 	var iop int
 	var piop int
 	var r, w, c float64
@@ -92,8 +92,8 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 			filename := keyholeStatsDataFile + "-" + st.mkey + ".gz"
 			gox.OutputGzipped(data, filename)
 			// also resets
-			serverStatusDocs[st.uri] = []anly.ServerStatusDoc{}
-			replSetStatusDocs[st.uri] = []anly.ReplSetStatusDoc{}
+			serverStatusDocs[st.uri] = []ftdc.ServerStatusDoc{}
+			replSetStatusDocs[st.uri] = []ftdc.ReplSetStatusDoc{}
 		}
 
 		var msg1, msg2 string
@@ -151,7 +151,7 @@ func (st *ServerStats) getServerStatus(client *mongo.Client) error {
 // getReplSetGetStatus gets {replSetGetStatus: 1} every minute
 func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
 	var err error
-	var replSetStatus = anly.ReplSetStatusDoc{}
+	var replSetStatus = ftdc.ReplSetStatusDoc{}
 	var doc bson.M
 	if st.verbose {
 		st.channel <- "ReplSetGetStatus gets every minute"
@@ -168,7 +168,7 @@ func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
 			var ts int64
 			for _, mb := range replSetStatus.Members {
 				if mb.State == 1 {
-					ts = anly.GetOptime(mb.Optime)
+					ts = ftdc.GetOptime(mb.Optime)
 					break
 				}
 			}
@@ -176,7 +176,7 @@ func (st *ServerStats) getReplSetGetStatus(client *mongo.Client) error {
 			str := fmt.Sprintf("[%s] replication lags: ", st.mkey)
 			for _, mb := range replSetStatus.Members {
 				if mb.State == 2 {
-					str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-anly.GetOptime(mb.Optime)))
+					str += " - " + mb.Name + ": " + strconv.Itoa(int(ts-ftdc.GetOptime(mb.Optime)))
 				}
 			}
 			st.channel <- str
@@ -223,7 +223,7 @@ func (st *ServerStats) getDBStats(client *mongo.Client, dbName string) error {
 func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 	var err error
 	st.channel <- "[" + st.mkey + "] getMongoConfig begins"
-	serverInfoDocs[st.uri] = anly.ServerInfoDoc{}
+	serverInfoDocs[st.uri] = ftdc.ServerInfoDoc{}
 	var config = bson.M{}
 	// hostInfo
 	var hostInfo bson.M
@@ -246,13 +246,13 @@ func (st *ServerStats) getMongoConfig(client *mongo.Client) error {
 
 func (st *ServerStats) collectMetrics(client *mongo.Client, key string) {
 	wtc := mdb.NewWiredTigerCache("server-stats")
-	metrics := anly.NewMetrics()
+	metrics := ftdc.NewMetrics()
 	metrics.ProcessFiles([]string{})
 	for {
 		if err := wtc.GetAllDatabasesStats(client); err != nil {
 			log.Println(err)
 		}
-		diag := anly.DiagnosticData{}
+		diag := ftdc.DiagnosticData{}
 		diag.ServerInfo = getServerInfoDocs(key)
 		diag.ServerStatusList = getServerStatusDocs(key)
 		diag.ReplSetStatusList = getReplSetStatusDocs(key)

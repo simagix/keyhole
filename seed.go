@@ -1,4 +1,5 @@
-// Copyright 2021 Kuei-chun Chen. All rights reserved.
+// Copyright 202-present Kuei-chun Chen. All rights reserved.
+// seed.go
 
 package keyhole
 
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim/util"
@@ -24,7 +26,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/mongo/driver/uuid"
 )
 
 // Seed seeds feeder
@@ -236,10 +237,7 @@ func (f *Seed) seedNumbers(client *mongo.Client) error {
 
 	var docs []interface{}
 	for n := 0; n < 999; n++ {
-		auuid, err := uuid.New()
-		if err != nil {
-			return err
-		}
+		auuid := uuid.New()
 		bindata := primitive.Binary{Subtype: byte(4), Data: []byte(auuid[:])}
 		docs = append(docs, bson.M{"a": rand.Intn(100), "b": rand.Intn(100), "c": rand.Intn(100), "uuid": bindata})
 	}

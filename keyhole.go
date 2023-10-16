@@ -1,4 +1,5 @@
 // Copyright 2020-present Kuei-chun Chen. All rights reserved.
+// keyhole.go
 
 package keyhole
 
@@ -13,11 +14,11 @@ import (
 	"strings"
 
 	"github.com/simagix/gox"
-	anly "github.com/simagix/keyhole/analytics"
 	"github.com/simagix/keyhole/atlas"
 	"github.com/simagix/keyhole/mdb"
 	"github.com/simagix/keyhole/sim"
 	"github.com/simagix/keyhole/sim/util"
+	ftdc "github.com/simagix/mongo-ftdc"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
@@ -48,7 +49,7 @@ func Run(fullVersion string) {
 	duration := flag.Int("duration", 5, "load test duration in minutes")
 	explain := flag.String("explain", "", "explain a query from a JSON doc or a log line")
 	file := flag.String("file", "", "template file for seedibg data")
-	ftdc := flag.Bool("ftdc", false, "download from atlas://user:key@group/cluster")
+	ftdcOn := flag.Bool("ftdc", false, "download from atlas://user:key@group/cluster")
 	index := flag.String("index", "", "get indexes info")
 	info := flag.String("info", "", "database connection string (Atlas uses atlas://user:key)")
 	loginfo := flag.Bool("loginfo", false, "log performance analytic from file or Atlas")
@@ -107,7 +108,7 @@ func Run(fullVersion string) {
 			log.Fatal(err)
 		}
 		api.SetArgs(flag.Args())
-		api.SetFTDC(*ftdc)
+		api.SetFTDC(*ftdcOn)
 		if *info != "" {
 			api.SetInfo(true)
 		}
@@ -141,19 +142,30 @@ func Run(fullVersion string) {
 			listener.Close()
 		}
 		filenames := append([]string{*diag}, flag.Args()...)
-		metrics := anly.NewMetrics()
+		metrics := ftdc.NewMetrics()
 		if err = metrics.ProcessFiles(filenames); err != nil {
 			log.Fatal(err)
 		}
 		log.Fatal(http.ListenAndServe(addr, nil))
 	} else if *diag != "" {
 		filenames := append([]string{*diag}, flag.Args()...)
-		metrics := anly.NewDiagnosticData()
-		if str, e := metrics.PrintDiagnosticData(filenames); e != nil {
-			log.Fatal(e)
-		} else {
-			fmt.Println(str)
+		metrics := ftdc.NewDiagnosticData()
+		if err := metrics.DecodeDiagnosticData(filenames); err != nil {
+			log.Fatal(err)
 		}
+		strs := []string{}
+		if metrics.ServerInfo != nil {
+			var p mdb.ClusterStats
+			b, _ := json.Marshal(metrics.ServerInfo)
+			json.Unmarshal(b, &p)
+
+			result := fmt.Sprintf(`MongoDB v%v %v (%v) %v %v %v cores %v mem`,
+				p.BuildInfo.Version, p.HostInfo.System.Hostname, p.HostInfo.OS.Name,
+				p.ServerStatus.Process, p.Cluster, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
+			strs = append(strs, result)
+		}
+		strs = append(strs, ftdc.PrintAllStats(metrics.ServerStatusList, -1))
+		fmt.Println(strings.Join(strs, "\n"))
 		return
 	} else if *ver {
 		fmt.Println(fullVersion)
