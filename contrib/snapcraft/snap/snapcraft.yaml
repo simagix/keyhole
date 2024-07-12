@@ -5,18 +5,21 @@ summary: Peek at your MongoDB Clusters like a Pro with Keyhole
 description: |
   Keyhole is a performance analytics tool, written in GO (Golang), to collect stats from MongoDB instances and to analyze performance of a MongoDB cluster. Golang was chosen to eliminate the needs to install an interpreter or software modules.
 confinement: strict
-base: core18
+base: core20
 parts:
   keyhole:
     plugin: go
-    go-importpath: github.com/simagix/keyhole
-    source: .
+    source: https://github.com/simagix/keyhole
     source-type: git
     build-packages:
       - gcc
+    override-build: |
+        go mod tidy
+        snapcraftctl build
+
 apps:
   keyhole:
-    command: bin/keyhole
+    command: bin/main
     plugs:
       - home
       - network
