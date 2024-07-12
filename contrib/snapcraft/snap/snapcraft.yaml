@@ -16,10 +16,13 @@ parts:
     override-build: |
         go mod tidy
         snapcraftctl build
+    override-prime: |
+        snapcraftctl prime
+        mv bin/main bin/keyhole
 
 apps:
   keyhole:
-    command: bin/main
+    command: bin/keyhole
     plugs:
       - home
       - network
