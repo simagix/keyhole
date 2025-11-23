@@ -32,9 +32,11 @@ func NewMongoClient(uri string) (*mongo.Client, error) {
 	var err error
 	var client *mongo.Client
 	var connString connstring.ConnString
-	if connString, err = connstring.Parse(uri); err != nil {
+	parsed, err := connstring.Parse(uri)
+	if err != nil {
 		return client, err
 	}
+	connString = *parsed
 	for _, host := range connString.Hosts {
 		if !strings.Contains(host, ":") {
 			host += ":27017"
@@ -108,7 +110,11 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 		}
 		uri = strings.Replace(uri, portion, url.QueryEscape(portion), 1)
 	}
-	connString, err = connstring.Parse(uri)                     // ignore error to accomodate authMechanism=PLAIN
+	parsed, err := connstring.Parse(uri) // ignore error to accomodate authMechanism=PLAIN
+	if err != nil {
+		return connString, err
+	}
+	connString = *parsed
 	if connString.Username != "" && connString.Password == "" { // missing password, prompt for it
 		fmt.Printf("Enter %v's Password: ", connString.Username)
 		var data []byte
@@ -119,7 +125,11 @@ func ParseURI(uri string) (connstring.ConnString, error) {
 		connString.Password = string(data)
 		i := strings.Index(uri, connString.Username) + len(connString.Username)
 		uri = (uri)[:i] + ":" + url.QueryEscape(connString.Password) + (uri)[i:]
-		return connstring.Parse(uri)
+		parsed, err := connstring.Parse(uri)
+		if err != nil {
+			return connString, err
+		}
+		return *parsed, nil
 	}
 	return connString, err
 }
