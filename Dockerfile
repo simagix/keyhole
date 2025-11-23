@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine as builder
+FROM golang:1.25-alpine as builder
 RUN apk update && apk add git bash && rm -rf /var/cache/apk/* \  
   && mkdir -p /github.com/simagix/keyhole && cd /github.com/simagix \
   && git clone --depth 1 https://github.com/simagix/keyhole.git

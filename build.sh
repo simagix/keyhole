@@ -26,7 +26,7 @@ mkdir -p dist
 if [[ "$1" == "docker" ]]; then
   docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
   BR=$(git branch --show-current)
-  if [[ "${BR}" == "master" ]]; then
+  if [[ "${BR}" == "main" ]]; then
     BR="latest"
   fi 
   docker build  -f Dockerfile -t ${TAG}:${BR} .
