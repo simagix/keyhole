@@ -1,7 +1,9 @@
 #! /bin/bash
 # Copyright 2020 Kuei-chun Chen. All rights reserved.
 die() { echo "$*" 1>&2 ; exit 1; }
-VERSION="v$(cat version)-$(git log -1 --date=format:"%Y%m%d" --format="%ad")"
+# Use git commit date if available, otherwise use current date
+GIT_DATE=$(git log -1 --date=format:"%Y%m%d" --format="%ad" 2>/dev/null || date +"%Y%m%d")
+VERSION="v$(cat version)-${GIT_DATE}"
 REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
 LDFLAGS="-X main.version=$VERSION -X main.repo=$REPO"
 TAG="simagix/keyhole"
@@ -26,10 +28,11 @@ mkdir -p dist
 if [[ "$1" == "docker" ]]; then
   docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
   BR=$(git branch --show-current)
+  VTAG="$(cat version)"
   if [[ "${BR}" == "main" ]]; then
     BR="latest"
   fi 
-  docker build  -f Dockerfile -t ${TAG}:${BR} .
+  docker build -f Dockerfile -t ${TAG}:${BR} -t ${TAG}:${VTAG} .
   id=$(docker create ${TAG}:${BR})
   docker cp $id:/dist - | tar vx
   docker run ${TAG}:${BR} /keyhole -version

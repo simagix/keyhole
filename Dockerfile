@@ -1,8 +1,13 @@
 FROM golang:1.25-alpine AS builder
-RUN apk update && apk add git bash && rm -rf /var/cache/apk/* \  
-  && mkdir -p /github.com/simagix/keyhole && cd /github.com/simagix \
-  && git clone --depth 1 https://github.com/simagix/keyhole.git
+RUN apk update && apk add git bash && rm -rf /var/cache/apk/*
 WORKDIR /github.com/simagix/keyhole
+
+# Copy go.mod first for dependency caching
+COPY go.mod ./
+RUN go mod download
+
+# Copy source files
+COPY . .
 RUN ./build.sh cross-platform
 FROM alpine
 LABEL maintainer="Ken Chen <ken.chen@simagix.com>"
