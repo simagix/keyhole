@@ -82,7 +82,7 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) error {
 	var err error
 	p.Logger = gox.GetLogger(p.signature)
-	p.Logger.Info("GetClusterStats() begins")
+	p.Logger.Debug("GetClusterStats() begins")
 	if err = p.GetClusterStatsSummary(client); err != nil {
 		return err
 	}
@@ -130,33 +130,70 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	return nil
 }
 
+// getShortErrorMessage extracts a concise error message from verbose MongoDB errors
+func getShortErrorMessage(err error) string {
+	msg := err.Error()
+	// Extract just the error code and reason, e.g., "(AtlasError) (Unauthorized)"
+	if idx := strings.Index(msg, " not authorized"); idx > 0 {
+		return msg[:idx]
+	}
+	if idx := strings.Index(msg, " command "); idx > 0 {
+		return msg[:idx]
+	}
+	// Truncate very long messages
+	if len(msg) > 80 {
+		return msg[:80] + "..."
+	}
+	return msg
+}
+
 // GetClusterStatsSummary collects cluster stats
+// Commands that fail (e.g., on Atlas M0 shared clusters) are logged and skipped
 func (p *ClusterStats) GetClusterStatsSummary(client *mongo.Client) error {
 	var err error
+	var isSharedCluster bool
 	p.Logger = gox.GetLogger(p.signature)
+	p.Logger.Debug("GetBuildInfo()")
 	if p.BuildInfo, err = GetBuildInfo(client); err != nil {
-		return err
+		return err // buildInfo is required, fail if not available
 	}
 	p.Version = p.BuildInfo.Version
+	p.Logger.Debug("GetHostInfo()")
 	if p.HostInfo, err = GetHostInfo(client); err != nil {
-		return err
+		// hostInfo fails on shared clusters (M0/M2/M5), mark as shared and continue
+		isSharedCluster = true
+		p.Logger.Warnf("GetHostInfo() skipped: %v", getShortErrorMessage(err))
 	}
+	p.Logger.Debug("GetServerStatus()")
 	if p.ServerStatus, err = GetServerStatus(client); err != nil {
-		return err
+		// serverStatus may be restricted on shared clusters, continue without it
+		p.Logger.Warnf("GetServerStatus() skipped: %v", getShortErrorMessage(err))
 	}
 	p.Host = p.ServerStatus.Host
+	if p.Host == "" && p.HostInfo.System.Hostname != "" {
+		p.Host = p.HostInfo.System.Hostname
+	}
 	p.Process = p.ServerStatus.Process
 	p.Cluster = GetClusterType(p.ServerStatus)
 	if p.Cluster == Replica && p.Process == "mongod" { //collects replica info
-		if p.OplogStats, err = GetOplogStats(client); err != nil {
-			return err
-		}
-		if p.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
-			return err
+		if isSharedCluster {
+			// Skip oplog and replset status on shared clusters - local db is not accessible
+			p.Logger.Warn("GetOplogStats() skipped: shared cluster")
+			p.Logger.Warn("GetReplSetGetStatus() skipped: shared cluster")
+		} else {
+			p.Logger.Debug("GetOplogStats()")
+			if p.OplogStats, err = GetOplogStats(client); err != nil {
+				p.Logger.Warnf("GetOplogStats() skipped: %v", getShortErrorMessage(err))
+			}
+			p.Logger.Debug("GetReplSetGetStatus()")
+			if p.ReplSetGetStatus, err = GetReplSetGetStatus(client); err != nil {
+				p.Logger.Warnf("GetReplSetGetStatus() skipped: %v", getShortErrorMessage(err))
+			}
 		}
 	} else if p.Cluster == Sharded {
+		p.Logger.Debug("GetShards()")
 		if p.Shards, err = GetShards(client); err != nil {
-			return err
+			p.Logger.Warnf("GetShards() skipped: %v", getShortErrorMessage(err))
 		}
 	}
 	return nil
@@ -229,10 +266,12 @@ func (p *ClusterStats) GetServersStatsSummary(shards []Shard, connString connstr
 }
 
 // GetClusterShortSummary returns one line summary
+// Returns partial info if some commands fail (e.g., on Atlas M0 shared clusters)
 func (p *ClusterStats) GetClusterShortSummary(client *mongo.Client) string {
 	var err error
 	if err = p.GetClusterStatsSummary(client); err != nil {
-		return err.Error()
+		// Only buildInfo failure returns error, other failures are logged and skipped
+		return fmt.Sprintf("error: %v", err)
 	}
 	return p.GetShortSummary()
 }
@@ -247,10 +286,37 @@ func (p *ClusterStats) GetShortSummary() string {
 	if p.Cluster == Sharded {
 		numShardStr = fmt.Sprintf(`(%v)`, len(p.Shards))
 	}
-	result := fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v%v %v cores %v mem`,
-		p.BuildInfo.Version, edition, p.HostInfo.System.Hostname, p.HostInfo.OS.Name,
-		p.ServerStatus.Process, p.Cluster, numShardStr, p.HostInfo.System.NumCores, p.HostInfo.System.MemSizeMB)
-	return result
+	// Handle missing data gracefully (e.g., on Atlas M0 shared clusters)
+	hostname := p.HostInfo.System.Hostname
+	if hostname == "" {
+		hostname = p.Host // fallback to serverStatus.host
+	}
+	if hostname == "" {
+		hostname = "unknown"
+	}
+	osName := p.HostInfo.OS.Name
+	if osName == "" {
+		osName = "N/A"
+	}
+	process := p.ServerStatus.Process
+	if process == "" {
+		process = "mongod"
+	}
+	cluster := p.Cluster
+	if cluster == "" {
+		cluster = "unknown"
+	}
+	numCores := p.HostInfo.System.NumCores
+	memSizeMB := p.HostInfo.System.MemSizeMB
+	// Build result with available info
+	if numCores > 0 && memSizeMB > 0 {
+		return fmt.Sprintf(`MongoDB v%v %v %v (%v) %v %v%v %v cores %v MB mem`,
+			p.BuildInfo.Version, edition, hostname, osName,
+			process, cluster, numShardStr, numCores, memSizeMB)
+	}
+	// Minimal output when host info is not available (shared clusters)
+	return fmt.Sprintf(`MongoDB v%v %v %v %v %v%v`,
+		p.BuildInfo.Version, edition, hostname, process, cluster, numShardStr)
 }
 
 // Print prints a cluster short summary
@@ -263,13 +329,17 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	var err error
 	var data []byte
 	var ofile string
-	if p.HostInfo.System.Hostname == "" {
-		result := `roles 'clusterMonitor' and 'readAnyDatabase' are required`
+	// Use hostname from hostInfo, fallback to serverStatus.Host (for shared clusters like M0)
+	basename := p.HostInfo.System.Hostname
+	if basename == "" {
+		basename = p.Host
+	}
+	if basename == "" {
+		result := `unable to determine hostname - roles 'clusterMonitor' and 'readAnyDatabase' may be required`
 		return ofile, data, errors.New(result)
 	}
 
 	os.Mkdir(outdir, 0755)
-	basename := p.HostInfo.System.Hostname
 	basename = strings.ReplaceAll(basename, ":", "_")
 	ofile = fmt.Sprintf(`%v/%v-stats.bson.gz`, outdir, basename)
 	i := 1
