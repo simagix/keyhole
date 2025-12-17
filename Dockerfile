@@ -1,11 +1,11 @@
-FROM golang:1.25-alpine as builder
+FROM golang:1.25-alpine AS builder
 RUN apk update && apk add git bash && rm -rf /var/cache/apk/* \  
   && mkdir -p /github.com/simagix/keyhole && cd /github.com/simagix \
   && git clone --depth 1 https://github.com/simagix/keyhole.git
 WORKDIR /github.com/simagix/keyhole
 RUN ./build.sh cross-platform
 FROM alpine
-LABEL Ken Chen <ken.chen@simagix.com>
+LABEL maintainer="Ken Chen <ken.chen@simagix.com>"
 RUN addgroup -S simagix && adduser -S simagix -G simagix
 USER simagix
 WORKDIR /dist
