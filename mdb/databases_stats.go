@@ -302,39 +302,50 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 			p.Logger.Debugf(`collecting from %v`, ns)
 			collection := client.Database(dbName).Collection(collectionName)
 
-			var cursor *mongo.Cursor
 			var sampleDoc bson.M
-			opts := options.Find()
-			opts.SetLimit(3) // get up to 3 docs, prefer the 3rd one
-			opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
 
 			if !strings.HasPrefix(collectionName, "system.") {
-				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
+				// Try to get 3rd document (skip 2, limit 1) - avoids junk first docs
+				opts := options.Find()
+				opts.SetSkip(2)
+				opts.SetLimit(1)
+				opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
+
+				cursor, err := collection.Find(ctx, bson.D{{}}, opts)
+				if err != nil {
 					p.Logger.Error(err.Error())
 					return
 				}
 
-				// Collect up to 3 docs, use the 3rd if available, otherwise last available
-				var docs []bson.M
-				for cursor.Next(ctx) && len(docs) < 3 {
+				if cursor.Next(ctx) {
 					var v bson.M
 					cursor.Decode(&v)
-					docs = append(docs, v)
+					sampleDoc = v
 				}
 				cursor.Close(ctx)
 
-				if len(docs) > 0 {
-					// Prefer 3rd doc (index 2), fallback to last available
-					idx := len(docs) - 1
-					if idx > 2 {
-						idx = 2
+				// Fallback: if no 3rd doc, get first available
+				if sampleDoc == nil {
+					opts := options.Find()
+					opts.SetLimit(1)
+					opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
+					cursor, err := collection.Find(ctx, bson.D{{}}, opts)
+					if err == nil && cursor.Next(ctx) {
+						var v bson.M
+						cursor.Decode(&v)
+						sampleDoc = v
 					}
-					candidate := docs[idx]
-					if buf, err := bson.Marshal(candidate); err != nil {
+					if cursor != nil {
+						cursor.Close(ctx)
+					}
+				}
+
+				// Check size limit
+				if sampleDoc != nil {
+					if buf, err := bson.Marshal(sampleDoc); err != nil {
 						p.Logger.Error(err.Error())
-					} else if len(buf) < sampleDocSizeLimit {
-						sampleDoc = candidate
-					} else {
+						sampleDoc = nil
+					} else if len(buf) >= sampleDocSizeLimit {
 						sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
 					}
 				}
