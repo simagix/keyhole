@@ -3,10 +3,11 @@
 package mdb
 
 import (
-	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -325,9 +326,9 @@ func (p *ClusterStats) Print() {
 }
 
 // OutputBSON writes bson data to a file
+// Streams directly to gzip file to minimize memory usage
 func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	var err error
-	var data []byte
 	var ofile string
 	// Use hostname from hostInfo, fallback to serverStatus.Host (for shared clusters like M0)
 	basename := p.HostInfo.System.Hostname
@@ -336,7 +337,7 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	}
 	if basename == "" {
 		result := `unable to determine hostname - roles 'clusterMonitor' and 'readAnyDatabase' may be required`
-		return ofile, data, errors.New(result)
+		return ofile, nil, errors.New(result)
 	}
 
 	os.Mkdir(outdir, 0755)
@@ -348,6 +349,14 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		i++
 	}
 
+	// Create file and gzip writer for streaming
+	file, err := os.Create(ofile)
+	if err != nil {
+		return ofile, nil, err
+	}
+	gzWriter := gzip.NewWriter(file)
+
+	// Prepare database summaries (without collections) for ClusterStats header
 	databases := p.Databases
 	p.Databases = nil
 	var summaries []Database
@@ -361,38 +370,67 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		summaries = append(summaries, dbSummary)
 	}
 	p.Databases = &summaries
-	var buffer bytes.Buffer
-	if data, err = bson.Marshal(p); err != nil {
-		return ofile, data, err
+
+	// Stream ClusterStats header directly to gzip
+	data, err := bson.Marshal(p)
+	if err != nil {
+		gzWriter.Close()
+		file.Close()
+		os.Remove(ofile)
+		return ofile, nil, err
 	}
-	nw := 0
-	var n int
-	for nw < len(data) {
-		if n, err = buffer.Write(data); err != nil {
-			return ofile, data, err
-		}
-		nw += n
+	if _, err = gzWriter.Write(data); err != nil {
+		gzWriter.Close()
+		file.Close()
+		os.Remove(ofile)
+		return ofile, nil, err
 	}
 
+	// Stream each collection directly to gzip
 	for _, db := range *databases {
 		for _, coll := range db.Collections {
-			if data, err = bson.Marshal(coll); err != nil {
-				return ofile, data, err
+			data, err = bson.Marshal(coll)
+			if err != nil {
+				gzWriter.Close()
+				file.Close()
+				os.Remove(ofile)
+				return ofile, nil, err
 			}
-			nw := 0
-			var n int
-			for nw < len(data) {
-				if n, err = buffer.Write(data); err != nil {
-					return ofile, data, err
-				}
-				nw += n
+			if _, err = gzWriter.Write(data); err != nil {
+				gzWriter.Close()
+				file.Close()
+				os.Remove(ofile)
+				return ofile, nil, err
 			}
 		}
 	}
 
-	if err = gox.OutputGzipped(buffer.Bytes(), ofile); err != nil {
-		return ofile, data, err
+	// Close gzip writer and file
+	if err = gzWriter.Close(); err != nil {
+		file.Close()
+		os.Remove(ofile)
+		return ofile, nil, err
 	}
+	if err = file.Close(); err != nil {
+		return ofile, nil, err
+	}
+
 	fmt.Printf("bson data written to %v\n", ofile)
-	return ofile, buffer.Bytes(), err
+
+	// Read and decompress file for return value (Maobi expects uncompressed BSON)
+	file, err = os.Open(ofile)
+	if err != nil {
+		return ofile, nil, err
+	}
+	defer file.Close()
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		return ofile, nil, err
+	}
+	defer gzReader.Close()
+	data, err = io.ReadAll(gzReader)
+	if err != nil {
+		return ofile, nil, err
+	}
+	return ofile, data, nil
 }
