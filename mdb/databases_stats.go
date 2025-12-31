@@ -5,6 +5,7 @@ package mdb
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -19,8 +20,18 @@ import (
 
 const (
 	maxNumShards       = 3
+	minWorkers         = 4
 	sampleDocSizeLimit = (32 * 1024) // 32KB
 )
+
+// getNumWorkers returns the number of parallel workers (max of NumCPU and minWorkers)
+func getNumWorkers() int {
+	n := runtime.NumCPU()
+	if n < minWorkers {
+		return minWorkers
+	}
+	return n
+}
 
 // DatabaseStats stores struct
 type DatabaseStats struct {
@@ -281,7 +292,7 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 	cur.Close(ctx)
 
 	sort.Strings(collectionNames)
-	var wg = gox.NewWaitGroup(4) // runs in parallel
+	var wg = gox.NewWaitGroup(getNumWorkers()) // parallel workers based on CPU count
 	var mu sync.Mutex
 	for _, collectionName := range collectionNames {
 		wg.Add(1)
@@ -294,7 +305,7 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 			var cursor *mongo.Cursor
 			var sampleDoc bson.M
 			opts := options.Find()
-			opts.SetLimit(5) // get 5 samples and choose the max_size()
+			opts.SetLimit(3) // get up to 3 docs, prefer the 3rd one
 			opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
 
 			if !strings.HasPrefix(collectionName, "system.") {
@@ -303,19 +314,28 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 					return
 				}
 
-				dsize := 0
-				for cursor.Next(ctx) {
+				// Collect up to 3 docs, use the 3rd if available, otherwise last available
+				var docs []bson.M
+				for cursor.Next(ctx) && len(docs) < 3 {
 					var v bson.M
 					cursor.Decode(&v)
-					if buf, err := bson.Marshal(v); err != nil {
+					docs = append(docs, v)
+				}
+				cursor.Close(ctx)
+
+				if len(docs) > 0 {
+					// Prefer 3rd doc (index 2), fallback to last available
+					idx := len(docs) - 1
+					if idx > 2 {
+						idx = 2
+					}
+					candidate := docs[idx]
+					if buf, err := bson.Marshal(candidate); err != nil {
 						p.Logger.Error(err.Error())
-						continue
-					} else if len(buf) > dsize && len(buf) < sampleDocSizeLimit {
-						sampleDoc = v
-						dsize = len(buf)
-					} else if len(buf) > sampleDocSizeLimit {
+					} else if len(buf) < sampleDocSizeLimit {
+						sampleDoc = candidate
+					} else {
 						sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
-						dsize = len(buf)
 					}
 				}
 
