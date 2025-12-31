@@ -40,7 +40,7 @@ type DatabaseStats struct {
 	collStatsOnly bool // only fetch collStats (for -wt), skip sample docs and indexes
 	fastMode      bool
 	numShards     int
-	redaction     bool
+	obfuscation   bool
 	threads       int
 	verbose       bool
 	version       string
@@ -135,9 +135,9 @@ func (p *DatabaseStats) SetNumberThreads(threads int) {
 	p.threads = threads
 }
 
-// SetRedaction sets redaction
-func (p *DatabaseStats) SetRedaction(redaction bool) {
-	p.redaction = redaction
+// SetObfuscation sets obfuscation
+func (p *DatabaseStats) SetObfuscation(obfuscation bool) {
+	p.obfuscation = obfuscation
 }
 
 // SetVerbose sets verbosity
@@ -365,11 +365,9 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 				} else {
 					p.Logger.Debug("skip ", collectionName)
 				}
-				if p.redaction {
-					redact := NewRedactor()
-					walker := gox.NewMapWalker(redact.callback)
-					buf, _ := bson.Marshal(walker.Walk(sampleDoc))
-					bson.Unmarshal(buf, &sampleDoc)
+				if p.obfuscation {
+					obfuscator := gox.NewObfuscator()
+					sampleDoc = obfuscator.ObfuscateMap(sampleDoc)
 				}
 				indexes, err = ir.GetIndexesFromCollection(client, collection)
 				if err != nil {

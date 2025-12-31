@@ -50,7 +50,7 @@ type ClusterStats struct {
 	dbNames   []string
 	dbStats   *DatabaseStats
 	fastMode  bool
-	redact    bool
+	obfuscate bool
 	signature string
 	verbose   bool
 }
@@ -71,9 +71,9 @@ func (p *ClusterStats) SetFastMode(fastMode bool) {
 	p.fastMode = fastMode
 }
 
-// SetRedaction sets redact
-func (p *ClusterStats) SetRedaction(redact bool) {
-	p.redact = redact
+// SetObfuscation sets obfuscate
+func (p *ClusterStats) SetObfuscation(obfuscate bool) {
+	p.obfuscate = obfuscate
 }
 
 // SetVerbose sets verbose mode
@@ -124,7 +124,7 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 	// Setup DatabaseStats for streaming - only get summaries now, collections streamed in OutputBSON
 	p.dbStats = NewDatabaseStats(p.Logger.AppName)
 	p.dbStats.SetNumberShards(len(p.Shards))
-	p.dbStats.SetRedaction(p.redact)
+	p.dbStats.SetObfuscation(p.obfuscate)
 	p.dbStats.SetVerbose(p.verbose)
 	p.dbStats.SetFastMode(p.fastMode)
 	var databases []Database

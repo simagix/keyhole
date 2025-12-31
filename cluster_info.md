@@ -9,7 +9,7 @@ Keyhole with `--allinfo` flag collects cluster and storage information:
 ## Usages
 
 ```bash
-keyhole --allinfo <connection_string> [--redact]
+keyhole --allinfo <connection_string> [--obfuscate]
 ```
 
 ## Cluster Information Collection
@@ -22,16 +22,18 @@ keyhole --allinfo "mongodb://..."
 
 For a sharded cluster, Keyhole collects chunks information to create Shard Distribution information.  Note that, with thousands of chunks, collecting chunk sizes is a time consuming process.
 
-## Redaction
+## Obfuscation
 
-To avoid leaking PII and PHI information, you can redact the sample document collected by *Keyhole*.  For example:
+To avoid leaking PII and PHI information, you can obfuscate the sample document collected by *Keyhole*.  For example:
 
 ```bash
-keyhole --allinfo "mongodb://..." --redact
+keyhole --allinfo "mongodb://..." --obfuscate
 ```
+
+**Note:** The `--redact` flag is also supported and functions identically to `--obfuscate`.
 
 **Note:** The connection string must immediately follow `--allinfo`, or use `=` syntax:
 
 ```bash
-keyhole --allinfo="mongodb://..." --redact
+keyhole --allinfo="mongodb://..." --obfuscate
 ```

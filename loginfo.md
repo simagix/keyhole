@@ -4,8 +4,10 @@
 
 ## Usage
 ```
-keyhole --loginfo [--collscan] [-v] [--regex {regular expression}] [-redact] logfile[.gz] [more log files]
+keyhole --loginfo [--collscan] [-v] [--regex {regular expression}] [--obfuscate] logfile[.gz] [more log files]
 ```
+
+**Note:** The `--redact` flag is also supported and functions identically to `--obfuscate`.
 
 ## Examples
 ```

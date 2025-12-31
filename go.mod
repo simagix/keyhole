@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/google/uuid v1.3.1
-	github.com/simagix/gox v0.2.5
+	github.com/simagix/gox v0.3.0
 	github.com/simagix/mongo-ftdc v1.3.3
 	go.mongodb.org/mongo-driver v1.17.6
 	golang.org/x/crypto v0.45.0

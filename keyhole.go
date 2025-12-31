@@ -59,8 +59,9 @@ func Run(fullVersion string) {
 	peek := flag.Bool("peek", false, "only collect stats")
 	pipe := flag.String("pipeline", "", "aggregation pipeline")
 	port := flag.Int("port", 5408, "web server port number")
+	obfuscate := flag.Bool("obfuscate", false, "obfuscate PII data")
 	print := flag.String("print", "", "print contents of input file")
-	redaction := flag.Bool("redact", false, "redact document")
+	redaction := flag.Bool("redact", false, "obfuscate PII data (same as -obfuscate)")
 	regex := flag.String("regex", "", "regex pattern for loginfo")
 	request := flag.String("request", "", "Atlas API command")
 	resume := flag.Bool("resume", false, "resume an Atlas cluster atlas://user:key@group/cluster")
@@ -80,6 +81,9 @@ func Run(fullVersion string) {
 	flag.Parse()
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
+
+	// Both -obfuscate and -redact use the same obfuscation logic
+	obfuscation := *obfuscate || *redaction
 
 	if *config != "" {
 		if err = Exec(*config, fullVersion); err != nil {
@@ -122,7 +126,7 @@ func Run(fullVersion string) {
 		if *loginfo {
 			l := mdb.NewLogInfo(fullVersion)
 			l.SetCollscan(*collscan)
-			l.SetRedaction(*redaction)
+			l.SetObfuscation(obfuscation)
 			l.SetRegexPattern(*regex)
 			l.SetSilent(*nocolor)
 			l.SetVerbose(*verbose)
@@ -179,7 +183,7 @@ func Run(fullVersion string) {
 	} else if *loginfo && len(flag.Args()) > 0 {
 		l := mdb.NewLogInfo(fullVersion)
 		l.SetCollscan(*collscan)
-		l.SetRedaction(*redaction)
+		l.SetObfuscation(obfuscation)
 		l.SetRegexPattern(*regex)
 		l.SetSilent(*nocolor)
 		l.SetVerbose(*verbose)
@@ -228,7 +232,7 @@ func Run(fullVersion string) {
 		var ofile string
 		stats := mdb.NewClusterStats(fullVersion)
 		stats.SetDBNames(dbNames)
-		stats.SetRedaction(*redaction)
+		stats.SetObfuscation(obfuscation)
 		stats.SetVerbose(*verbose)
 		stats.SetFastMode(fastMode)
 		if err = stats.GetClusterStats(client, connString); err != nil {

@@ -23,15 +23,15 @@ const COLLSCAN = "COLLSCAN"
 
 // LogInfo keeps loginfo struct
 type LogInfo struct {
-	Collscan   bool        `bson:"collscan"`
-	DBVersion  string      `bson:"version"`
-	Histograms []Histogram `bson:"histogram"`
-	Logger     *gox.Logger `bson:"keyhole"`
-	LogType    string      `bson:"type"`
-	Regex      string      `bson:"regex"`
-	OpPatterns []OpPattern `bson:"opPatterns"`
-	Redaction  bool        `bson:"redact"`
-	SlowOps    []RawLog    `bson:"slowOps"`
+	Collscan    bool        `bson:"collscan"`
+	DBVersion   string      `bson:"version"`
+	Histograms  []Histogram `bson:"histogram"`
+	Logger      *gox.Logger `bson:"keyhole"`
+	LogType     string      `bson:"type"`
+	Regex       string      `bson:"regex"`
+	OpPatterns  []OpPattern `bson:"opPatterns"`
+	Obfuscation bool        `bson:"obfuscate"`
+	SlowOps     []RawLog    `bson:"slowOps"`
 
 	filename string
 	logs     []string
@@ -93,9 +93,9 @@ func (li *LogInfo) SetCollscan(collscan bool) {
 	li.Collscan = collscan
 }
 
-// SetRedaction sets redaction
-func (li *LogInfo) SetRedaction(redaction bool) {
-	li.Redaction = redaction
+// SetObfuscation sets obfuscation
+func (li *LogInfo) SetObfuscation(obfuscation bool) {
+	li.Obfuscation = obfuscation
 }
 
 // SetSilent -
@@ -314,8 +314,13 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 		bsonf = ofile[:len(ofile)-4] + logExt
 		tsvf = ofile[:len(ofile)-4] + ".tsv"
 	}
-	if li.Redaction {
+	if li.Obfuscation {
 		li.SlowOps = []RawLog{}
+		// Obfuscate namespaces in OpPatterns
+		obfuscator := gox.NewObfuscator()
+		for i := range li.OpPatterns {
+			li.OpPatterns[i].Namespace = obfuscator.ObfuscateNamespace(li.OpPatterns[i].Namespace)
+		}
 	}
 	if li.LogType == "text" {
 		li.Regex = li.regex
@@ -336,7 +341,7 @@ func (li *LogInfo) OutputBSON() (string, []byte, error) {
 		nw += n
 	}
 
-	if !li.Redaction {
+	if !li.Obfuscation {
 		for _, log := range li.logs {
 			if data, err = bson.Marshal(bson.M{"raw": log}); err != nil {
 				continue
