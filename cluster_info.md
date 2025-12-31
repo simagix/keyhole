@@ -9,7 +9,7 @@ Keyhole with `--allinfo` flag collects cluster and storage information:
 ## Usages
 
 ```bash
-keyhole --allinfo [--redact] <connection_string>
+keyhole --allinfo <connection_string> [--redact]
 ```
 
 ## Cluster Information Collection
@@ -17,7 +17,7 @@ keyhole --allinfo [--redact] <connection_string>
 With `--allinfo`, it collects cluster stats and output to a gzipped BSON file.  You can use [Maobi](https://hub.docker.com/repository/docker/simagix/maobi) to generate a report. For example:
 
 ```bash
-keyhole --allinfo mongodb://...
+keyhole --allinfo "mongodb://..."
 ```
 
 For a sharded cluster, Keyhole collects chunks information to create Shard Distribution information.  Note that, with thousands of chunks, collecting chunk sizes is a time consuming process.
@@ -27,5 +27,11 @@ For a sharded cluster, Keyhole collects chunks information to create Shard Distr
 To avoid leaking PII and PHI information, you can redact the sample document collected by *Keyhole*.  For example:
 
 ```bash
-keyhole --allinfo -redact mongodb://...
+keyhole --allinfo "mongodb://..." --redact
+```
+
+**Note:** The connection string must immediately follow `--allinfo`, or use `=` syntax:
+
+```bash
+keyhole --allinfo="mongodb://..." --redact
 ```
