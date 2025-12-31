@@ -37,12 +37,18 @@ func getNumWorkers() int {
 type DatabaseStats struct {
 	Logger *gox.Logger
 
-	fastMode  bool
-	numShards int
-	redaction bool
-	threads   int
-	verbose   bool
-	version   string
+	collStatsOnly bool // only fetch collStats (for -wt), skip sample docs and indexes
+	fastMode      bool
+	numShards     int
+	redaction     bool
+	threads       int
+	verbose       bool
+	version       string
+}
+
+// SetCollStatsOnly sets collStatsOnly mode (for -wt feature)
+func (p *DatabaseStats) SetCollStatsOnly(collStatsOnly bool) {
+	p.collStatsOnly = collStatsOnly
 }
 
 // ListDatabases stores listDatabases
@@ -303,69 +309,74 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 			collection := client.Database(dbName).Collection(collectionName)
 
 			var sampleDoc bson.M
+			var indexes []Index
 
-			if !strings.HasPrefix(collectionName, "system.") {
-				// Try to get 3rd document (skip 2, limit 1) - avoids junk first docs
-				opts := options.Find()
-				opts.SetSkip(2)
-				opts.SetLimit(1)
-				opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
-
-				cursor, err := collection.Find(ctx, bson.D{{}}, opts)
-				if err != nil {
-					p.Logger.Error(err.Error())
-					return
-				}
-
-				if cursor.Next(ctx) {
-					var v bson.M
-					cursor.Decode(&v)
-					sampleDoc = v
-				}
-				cursor.Close(ctx)
-
-				// Fallback: if no 3rd doc, get first available
-				if sampleDoc == nil {
+			// Skip sample doc and indexes for collStatsOnly mode (e.g., -wt)
+			if !p.collStatsOnly {
+				if !strings.HasPrefix(collectionName, "system.") {
+					// Try to get 3rd document (skip 2, limit 1) - avoids junk first docs
 					opts := options.Find()
+					opts.SetSkip(2)
 					opts.SetLimit(1)
 					opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
+
 					cursor, err := collection.Find(ctx, bson.D{{}}, opts)
-					if err == nil && cursor.Next(ctx) {
+					if err != nil {
+						p.Logger.Error(err.Error())
+						return
+					}
+
+					if cursor.Next(ctx) {
 						var v bson.M
 						cursor.Decode(&v)
 						sampleDoc = v
 					}
-					if cursor != nil {
-						cursor.Close(ctx)
-					}
-				}
+					cursor.Close(ctx)
 
-				// Check size limit
-				if sampleDoc != nil {
-					if buf, err := bson.Marshal(sampleDoc); err != nil {
-						p.Logger.Error(err.Error())
-						sampleDoc = nil
-					} else if len(buf) >= sampleDocSizeLimit {
-						sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
+					// Fallback: if no 3rd doc, get first available
+					if sampleDoc == nil {
+						opts := options.Find()
+						opts.SetLimit(1)
+						opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
+						cursor, err := collection.Find(ctx, bson.D{{}}, opts)
+						if err == nil && cursor.Next(ctx) {
+							var v bson.M
+							cursor.Decode(&v)
+							sampleDoc = v
+						}
+						if cursor != nil {
+							cursor.Close(ctx)
+						}
 					}
-				}
 
-				if sampleDoc == nil {
-					p.Logger.Debug("no sample doc available")
+					// Check size limit
+					if sampleDoc != nil {
+						if buf, err := bson.Marshal(sampleDoc); err != nil {
+							p.Logger.Error(err.Error())
+							sampleDoc = nil
+						} else if len(buf) >= sampleDocSizeLimit {
+							sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
+						}
+					}
+
+					if sampleDoc == nil {
+						p.Logger.Debug("no sample doc available")
+					}
+				} else {
+					p.Logger.Debug("skip ", collectionName)
 				}
-			} else {
-				p.Logger.Debug("skip ", collectionName)
+				if p.redaction {
+					redact := NewRedactor()
+					walker := gox.NewMapWalker(redact.callback)
+					buf, _ := bson.Marshal(walker.Walk(sampleDoc))
+					bson.Unmarshal(buf, &sampleDoc)
+				}
+				indexes, err = ir.GetIndexesFromCollection(client, collection)
+				if err != nil {
+					p.Logger.Error(err)
+				}
 			}
-			if p.redaction {
-				redact := NewRedactor()
-				walker := gox.NewMapWalker(redact.callback)
-				buf, _ := bson.Marshal(walker.Walk(sampleDoc))
-				bson.Unmarshal(buf, &sampleDoc)
-			}
-			indexes, err := ir.GetIndexesFromCollection(client, collection)
-			if err != nil {
-				p.Logger.Error(err)
-			}
+
 			collstats := Collection{NS: ns, Name: collectionName, Document: sampleDoc, Indexes: indexes}
 			chunks := []Chunk{}
 			if !p.fastMode {

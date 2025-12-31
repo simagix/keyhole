@@ -45,17 +45,25 @@ func (wtc *WiredTigerCache) Start(client *mongo.Client) {
 		os.Exit(0)
 	}
 	for {
+		t := time.Now()
 		if err = wtc.GetAllDatabasesStats(client); err != nil {
 			log.Println(err)
+		} else {
+			numColls := 0
+			for _, db := range wtc.databases {
+				numColls += len(db.Collections)
+			}
+			log.Printf("[wt] refreshed %d databases, %d collections in %v", len(wtc.databases), numColls, time.Since(t).Round(time.Millisecond))
 		}
 		time.Sleep(5 * time.Second)
 	}
 }
 
-// GetAllDatabasesStats returns db info
+// GetAllDatabasesStats returns db info (collStats only for -wt, skip sample docs and indexes)
 func (wtc *WiredTigerCache) GetAllDatabasesStats(client *mongo.Client) error {
 	var err error
 	dbi := NewDatabaseStats(wtc.version)
+	dbi.SetCollStatsOnly(true) // only need WiredTiger cache stats, skip sample docs and indexes
 	wtc.databases, err = dbi.GetAllDatabasesStats(client, []string{})
 	return err
 }
