@@ -46,7 +46,9 @@ type ClusterStats struct {
 	Shards           []Shard          `bson:"shards"`
 	Version          string           `bson:"version"`
 
+	client    *mongo.Client
 	dbNames   []string
+	dbStats   *DatabaseStats
 	fastMode  bool
 	redact    bool
 	signature string
@@ -82,6 +84,7 @@ func (p *ClusterStats) SetVerbose(verbose bool) {
 // GetClusterStats collects cluster stats
 func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstring.ConnString) error {
 	var err error
+	p.client = client // store for streaming in OutputBSON
 	p.Logger = gox.GetLogger(p.signature)
 	p.Logger.Debug("GetClusterStats() begins")
 	if err = p.GetClusterStatsSummary(client); err != nil {
@@ -118,14 +121,15 @@ func (p *ClusterStats) GetClusterStats(client *mongo.Client, connString connstri
 		}
 		p.Logger.Info("end collecting from all servers")
 	}
-	db := NewDatabaseStats(p.Logger.AppName)
-	db.SetNumberShards(len(p.Shards))
-	db.SetRedaction(p.redact)
-	db.SetVerbose(p.verbose)
-	db.SetFastMode(p.fastMode)
+	// Setup DatabaseStats for streaming - only get summaries now, collections streamed in OutputBSON
+	p.dbStats = NewDatabaseStats(p.Logger.AppName)
+	p.dbStats.SetNumberShards(len(p.Shards))
+	p.dbStats.SetRedaction(p.redact)
+	p.dbStats.SetVerbose(p.verbose)
+	p.dbStats.SetFastMode(p.fastMode)
 	var databases []Database
-	if databases, err = db.GetAllDatabasesStats(client, p.dbNames); err != nil {
-		p.Logger.Info(fmt.Sprintf(`GetAllDatabasesStats(): %v`, err))
+	if databases, err = p.dbStats.GetDatabasesSummaries(client, p.dbNames); err != nil {
+		p.Logger.Info(fmt.Sprintf(`GetDatabasesSummaries(): %v`, err))
 	}
 	p.Databases = &databases
 	return nil
@@ -356,21 +360,7 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 	}
 	gzWriter := gzip.NewWriter(file)
 
-	// Prepare database summaries (without collections) for ClusterStats header
-	databases := p.Databases
-	p.Databases = nil
-	var summaries []Database
-	for _, db := range *databases {
-		dbSummary := Database{
-			Name:       db.Name,
-			SizeOnDisk: db.SizeOnDisk,
-			Empty:      db.Empty,
-			Shards:     db.Shards,
-			Stats:      db.Stats}
-		summaries = append(summaries, dbSummary)
-	}
-	p.Databases = &summaries
-
+	// p.Databases already contains only summaries (no collections) from GetClusterStats
 	// Stream ClusterStats header directly to gzip
 	data, err := bson.Marshal(p)
 	if err != nil {
@@ -386,22 +376,21 @@ func (p *ClusterStats) OutputBSON() (string, []byte, error) {
 		return ofile, nil, err
 	}
 
-	// Stream each collection directly to gzip
-	for _, db := range *databases {
-		for _, coll := range db.Collections {
-			data, err = bson.Marshal(coll)
+	// Stream collections directly to gzip - collect and write one at a time
+	if p.client != nil && p.dbStats != nil {
+		err = p.dbStats.StreamCollections(p.client, p.dbNames, func(coll Collection) error {
+			collData, err := bson.Marshal(coll)
 			if err != nil {
-				gzWriter.Close()
-				file.Close()
-				os.Remove(ofile)
-				return ofile, nil, err
+				return err
 			}
-			if _, err = gzWriter.Write(data); err != nil {
-				gzWriter.Close()
-				file.Close()
-				os.Remove(ofile)
-				return ofile, nil, err
-			}
+			_, err = gzWriter.Write(collData)
+			return err
+		})
+		if err != nil {
+			gzWriter.Close()
+			file.Close()
+			os.Remove(ofile)
+			return ofile, nil, err
 		}
 	}
 

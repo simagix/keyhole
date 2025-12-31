@@ -134,15 +134,92 @@ func (p *DatabaseStats) SetVerbose(verbose bool) {
 // GetAllDatabasesStats gets all db info
 func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []string) ([]Database, error) {
 	var err error
-	var cur *mongo.Cursor
 	var ctx = context.Background()
-	var listdb ListDatabases
 	var databases []Database
 	t := time.Now()
 	p.Logger.Debug("GetAllDatabasesStats")
-	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
-		return listdb.Databases, nil
+
+	dbList, err := p.getDatabaseList(client, dbNames)
+	if err != nil {
+		return nil, err
 	}
+
+	for _, db := range dbList {
+		collections, err := p.getCollectionsForDatabase(client, db.Name)
+		if err != nil {
+			p.Logger.Error(err.Error())
+			continue
+		}
+		if err = client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&db.Stats); err != nil {
+			p.Logger.Error(err.Error())
+			continue
+		}
+		db.Collections = collections
+		databases = append(databases, db)
+	}
+	p.Logger.Debugf("GetAllDatabasesStats took %v", time.Since(t))
+	return databases, nil
+}
+
+// GetDatabasesSummaries returns database metadata without collections (lightweight)
+func (p *DatabaseStats) GetDatabasesSummaries(client *mongo.Client, dbNames []string) ([]Database, error) {
+	var err error
+	var ctx = context.Background()
+	var databases []Database
+	p.Logger.Debug("GetDatabasesSummaries")
+
+	dbList, err := p.getDatabaseList(client, dbNames)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, db := range dbList {
+		if err = client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&db.Stats); err != nil {
+			p.Logger.Error(err.Error())
+			continue
+		}
+		databases = append(databases, db)
+	}
+	return databases, nil
+}
+
+// CollectionWriter is a callback for streaming collections
+type CollectionWriter func(coll Collection) error
+
+// StreamCollections collects and streams each collection via callback
+func (p *DatabaseStats) StreamCollections(client *mongo.Client, dbNames []string, writer CollectionWriter) error {
+	p.Logger.Debug("StreamCollections")
+
+	dbList, err := p.getDatabaseList(client, dbNames)
+	if err != nil {
+		return err
+	}
+
+	for _, db := range dbList {
+		collections, err := p.getCollectionsForDatabase(client, db.Name)
+		if err != nil {
+			p.Logger.Error(err.Error())
+			continue
+		}
+		// Stream each collection immediately
+		for _, coll := range collections {
+			if err := writer(coll); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// getDatabaseList returns filtered and sorted database list
+func (p *DatabaseStats) getDatabaseList(client *mongo.Client, dbNames []string) ([]Database, error) {
+	var ctx = context.Background()
+	var listdb ListDatabases
+
+	if err := client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&listdb); err != nil {
+		return nil, err
+	}
+
 	if len(dbNames) > 0 {
 		dict := map[string]bool{}
 		for _, name := range dbNames {
@@ -156,139 +233,147 @@ func (p *DatabaseStats) GetAllDatabasesStats(client *mongo.Client, dbNames []str
 		}
 		listdb.Databases = list
 	}
+
 	sort.Slice(listdb.Databases, func(i, j int) bool {
 		return listdb.Databases[i].Name < listdb.Databases[j].Name
 	})
+
+	// Filter out system databases
+	var result []Database
 	for _, db := range listdb.Databases {
 		if db.Name == "admin" || db.Name == "config" || db.Name == "local" {
 			continue
 		}
-		if cur, err = client.Database(db.Name).ListCollections(ctx, bson.D{{}}); err != nil {
-			return listdb.Databases, err
-		}
-		var collections = []Collection{}
-		ir := NewIndexStats(p.version)
-		ir.SetVerbose(p.verbose)
-		ir.SetFastMode(p.fastMode)
-		collectionNames := []string{}
+		result = append(result, db)
+	}
+	return result, nil
+}
 
-		for cur.Next(ctx) {
-			var elem = bson.M{}
-			if err = cur.Decode(&elem); err != nil {
-				continue
-			}
-			coll := fmt.Sprintf("%v", elem["name"])
-			collType := fmt.Sprintf("%v", elem["type"])
-			if collType != "timeseries" && collType != "collection" {
-				p.Logger.Debugf(`skip %v %v`, collType, coll)
-				continue
-			}
-			collectionNames = append(collectionNames, coll)
-		}
-		cur.Close(ctx)
+// getCollectionsForDatabase collects all collections for a single database
+func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName string) ([]Collection, error) {
+	var err error
+	var cur *mongo.Cursor
+	var ctx = context.Background()
+	var collections []Collection
 
-		sort.Strings(collectionNames)
-		var wg = gox.NewWaitGroup(4) // runs in parallel
-		var mu sync.Mutex
-		for _, collectionName := range collectionNames {
-			wg.Add(1)
-			go func(client *mongo.Client, collectionName string) {
-				defer wg.Done()
-				ns := db.Name + "." + collectionName
-				p.Logger.Debugf(`collecting from %v`, ns)
-				collection := client.Database(db.Name).Collection(collectionName)
+	if cur, err = client.Database(dbName).ListCollections(ctx, bson.D{{}}); err != nil {
+		return nil, err
+	}
 
-				var cursor *mongo.Cursor
-				var sampleDoc bson.M
-				opts := options.Find()
-				opts.SetLimit(5) // get 5 samples and choose the max_size()
-				opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
+	ir := NewIndexStats(p.version)
+	ir.SetVerbose(p.verbose)
+	ir.SetFastMode(p.fastMode)
+	collectionNames := []string{}
 
-				if !strings.HasPrefix(collectionName, "system.") {
-					if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
-						p.Logger.Error(err.Error())
-						return
-					}
-
-					dsize := 0
-					for cursor.Next(ctx) {
-						var v bson.M
-						cursor.Decode(&v)
-						if buf, err := bson.Marshal(v); err != nil {
-							p.Logger.Error(err.Error())
-							continue
-						} else if len(buf) > dsize && len(buf) < sampleDocSizeLimit {
-							sampleDoc = v
-							dsize = len(buf)
-						} else if len(buf) > sampleDocSizeLimit {
-							sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
-							dsize = len(buf)
-						}
-					}
-
-					if sampleDoc == nil {
-						p.Logger.Debug("no sample doc available")
-					}
-				} else {
-					p.Logger.Debug("skip ", collectionName)
-				}
-				if p.redaction {
-					redact := NewRedactor()
-					walker := gox.NewMapWalker(redact.callback)
-					buf, _ := bson.Marshal(walker.Walk(sampleDoc))
-					bson.Unmarshal(buf, &sampleDoc)
-				}
-				indexes, err := ir.GetIndexesFromCollection(client, collection)
-				if err != nil {
-					p.Logger.Error(err)
-				}
-				var stats bson.M
-				chunks := []Chunk{}
-				if !p.fastMode {
-					// stats
-					client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-					if stats["shards"] != nil {
-						shardNames := []string{}
-						for shard := range stats["shards"].(primitive.M) {
-							shardNames = append(shardNames, shard)
-						}
-						sort.Strings(shardNames)
-						for _, k := range shardNames {
-							m := (stats["shards"].(primitive.M)[k]).(primitive.M)
-							delete(m, "$clusterTime")
-							delete(m, "$gleStats")
-							if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
-								p.Logger.Errorf(`ns %v error %v`, ns, cerr)
-							} else {
-								chunk.Objects = toInt64(m["count"])
-								chunk.Size = toInt64(m["size"])
-								chunks = append(chunks, chunk)
-							}
-						}
-					}
-				}
-				mu.Lock()
-				collstats := Collection{NS: ns, Name: collectionName, Chunks: chunks, Document: sampleDoc,
-					Indexes: indexes}
-				data, _ := bson.Marshal(stats)
-				bson.Unmarshal(data, &collstats.Stats)
-				collections = append(collections, collstats)
-				mu.Unlock()
-			}(client, collectionName)
-		}
-		wg.Wait()
-		sort.Slice(collections, func(i, j int) bool {
-			return collections[i].Name < collections[j].Name
-		})
-		if err = client.Database(db.Name).RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&db.Stats); err != nil {
-			p.Logger.Error(err.Error())
+	for cur.Next(ctx) {
+		var elem = bson.M{}
+		if err = cur.Decode(&elem); err != nil {
 			continue
 		}
-		db.Collections = collections
-		databases = append(databases, db)
+		coll := fmt.Sprintf("%v", elem["name"])
+		collType := fmt.Sprintf("%v", elem["type"])
+		if collType != "timeseries" && collType != "collection" {
+			p.Logger.Debugf(`skip %v %v`, collType, coll)
+			continue
+		}
+		collectionNames = append(collectionNames, coll)
 	}
-	p.Logger.Debugf("GetAllDatabasesStats took %v", time.Since(t))
-	return databases, nil
+	cur.Close(ctx)
+
+	sort.Strings(collectionNames)
+	var wg = gox.NewWaitGroup(4) // runs in parallel
+	var mu sync.Mutex
+	for _, collectionName := range collectionNames {
+		wg.Add(1)
+		go func(client *mongo.Client, collectionName string) {
+			defer wg.Done()
+			ns := dbName + "." + collectionName
+			p.Logger.Debugf(`collecting from %v`, ns)
+			collection := client.Database(dbName).Collection(collectionName)
+
+			var cursor *mongo.Cursor
+			var sampleDoc bson.M
+			opts := options.Find()
+			opts.SetLimit(5) // get 5 samples and choose the max_size()
+			opts.SetHint(bson.D{{Key: "$natural", Value: 1}})
+
+			if !strings.HasPrefix(collectionName, "system.") {
+				if cursor, err = collection.Find(ctx, bson.D{{}}, opts); err != nil {
+					p.Logger.Error(err.Error())
+					return
+				}
+
+				dsize := 0
+				for cursor.Next(ctx) {
+					var v bson.M
+					cursor.Decode(&v)
+					if buf, err := bson.Marshal(v); err != nil {
+						p.Logger.Error(err.Error())
+						continue
+					} else if len(buf) > dsize && len(buf) < sampleDocSizeLimit {
+						sampleDoc = v
+						dsize = len(buf)
+					} else if len(buf) > sampleDocSizeLimit {
+						sampleDoc = bson.M{"warning": "sample doc collecting skipped because doc size exceeds 32KB"}
+						dsize = len(buf)
+					}
+				}
+
+				if sampleDoc == nil {
+					p.Logger.Debug("no sample doc available")
+				}
+			} else {
+				p.Logger.Debug("skip ", collectionName)
+			}
+			if p.redaction {
+				redact := NewRedactor()
+				walker := gox.NewMapWalker(redact.callback)
+				buf, _ := bson.Marshal(walker.Walk(sampleDoc))
+				bson.Unmarshal(buf, &sampleDoc)
+			}
+			indexes, err := ir.GetIndexesFromCollection(client, collection)
+			if err != nil {
+				p.Logger.Error(err)
+			}
+			var stats bson.M
+			chunks := []Chunk{}
+			if !p.fastMode {
+				// stats
+				client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
+				if stats["shards"] != nil {
+					shardNames := []string{}
+					for shard := range stats["shards"].(primitive.M) {
+						shardNames = append(shardNames, shard)
+					}
+					sort.Strings(shardNames)
+					for _, k := range shardNames {
+						m := (stats["shards"].(primitive.M)[k]).(primitive.M)
+						delete(m, "$clusterTime")
+						delete(m, "$gleStats")
+						if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
+							p.Logger.Errorf(`ns %v error %v`, ns, cerr)
+						} else {
+							chunk.Objects = toInt64(m["count"])
+							chunk.Size = toInt64(m["size"])
+							chunks = append(chunks, chunk)
+						}
+					}
+				}
+			}
+			mu.Lock()
+			collstats := Collection{NS: ns, Name: collectionName, Chunks: chunks, Document: sampleDoc,
+				Indexes: indexes}
+			data, _ := bson.Marshal(stats)
+			bson.Unmarshal(data, &collstats.Stats)
+			collections = append(collections, collstats)
+			mu.Unlock()
+		}(client, collectionName)
+	}
+	wg.Wait()
+	sort.Slice(collections, func(i, j int) bool {
+		return collections[i].Name < collections[j].Name
+	})
+	return collections, nil
 }
 
 func (p *DatabaseStats) collectChunksDistribution(client *mongo.Client, shard string, ns string) (Chunk, error) {
