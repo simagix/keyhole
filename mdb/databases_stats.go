@@ -355,19 +355,19 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 			if err != nil {
 				p.Logger.Error(err)
 			}
-			var stats bson.M
+			collstats := Collection{NS: ns, Name: collectionName, Document: sampleDoc, Indexes: indexes}
 			chunks := []Chunk{}
 			if !p.fastMode {
-				// stats
-				client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&stats)
-				if stats["shards"] != nil {
+				// Decode directly into struct (avoid marshal/unmarshal roundtrip)
+				client.Database(dbName).RunCommand(ctx, bson.D{{Key: "collStats", Value: collectionName}}).Decode(&collstats.Stats)
+				if collstats.Stats.Shards != nil {
 					shardNames := []string{}
-					for shard := range stats["shards"].(primitive.M) {
+					for shard := range collstats.Stats.Shards {
 						shardNames = append(shardNames, shard)
 					}
 					sort.Strings(shardNames)
 					for _, k := range shardNames {
-						m := (stats["shards"].(primitive.M)[k]).(primitive.M)
+						m := (collstats.Stats.Shards[k]).(primitive.M)
 						delete(m, "$clusterTime")
 						delete(m, "$gleStats")
 						if chunk, cerr := p.collectChunksDistribution(client, k, ns); cerr != nil {
@@ -380,11 +380,8 @@ func (p *DatabaseStats) getCollectionsForDatabase(client *mongo.Client, dbName s
 					}
 				}
 			}
+			collstats.Chunks = chunks
 			mu.Lock()
-			collstats := Collection{NS: ns, Name: collectionName, Chunks: chunks, Document: sampleDoc,
-				Indexes: indexes}
-			data, _ := bson.Marshal(stats)
-			bson.Unmarshal(data, &collstats.Stats)
 			collections = append(collections, collstats)
 			mu.Unlock()
 		}(client, collectionName)
