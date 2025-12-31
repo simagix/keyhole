@@ -228,6 +228,18 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 	defer icur.Close(ctx)
 	indexesFound := map[int]bool{}
 
+	// Fetch shard key once per collection (instead of per index)
+	ns := collection.Database().Name() + "." + collection.Name()
+	var shardKeyDoc struct {
+		Key bson.D `bson:"key"`
+	}
+	var shardKey bson.D
+	if !ix.fastMode {
+		if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns}).Decode(&shardKeyDoc); err == nil {
+			shardKey = shardKeyDoc.Key
+		}
+	}
+
 	for icur.Next(ctx) {
 		o := Index{ExpireAfterSeconds: -1}
 		if err = icur.Decode(&o); err != nil {
@@ -250,14 +262,10 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		}
 		o.Fields = fields
 		o.KeyString = strbuf.String()
-		// Check shard keys
-		var v map[string]interface{}
-		ns := collection.Database().Name() + "." + collection.Name()
+		// Check if this index matches the shard key
 		ix.Logger.Debug("GetIndexesFromCollection ", ns, o.KeyString)
-		if !ix.fastMode {
-			if err = client.Database("config").Collection("collections").FindOne(ctx, bson.M{"_id": ns, "key": o.Key}).Decode(&v); err == nil {
-				o.IsShardKey = true
-			}
+		if shardKey != nil && keysEqual(o.Key, shardKey) {
+			o.IsShardKey = true
 		}
 		o.EffectiveKey = strings.Replace(o.KeyString[2:len(o.KeyString)-2], ": -1", ": 1", -1)
 		o.Usage = []IndexUsage{}
@@ -286,6 +294,19 @@ func (ix *IndexStats) GetIndexesFromCollection(client *mongo.Client, collection 
 		}
 	}
 	return list, nil
+}
+
+// keysEqual compares two bson.D keys for equality (same fields in same order)
+func keysEqual(a, b bson.D) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Key != b[i].Key {
+			return false
+		}
+	}
+	return true
 }
 
 // check if an index is a dup of others
