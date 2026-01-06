@@ -51,13 +51,13 @@ case "$1" in
     ;;
 
   push)
-    # Requires: docker buildx create --use
+    # Requires: docker buildx create --name multibuilder --driver docker-container --use
     BR=$(git branch --show-current)
     if [[ "${BR}" == "main" ]]; then
       BR=$(cat version)
     fi
     echo "Building multi-arch image for linux/amd64 and linux/arm64..."
-    docker buildx build --platform linux/amd64,linux/arm64 \
+    docker buildx build --builder multibuilder --platform linux/amd64,linux/arm64 \
       --provenance=false --sbom=false \
       -t ${TAG}:${BR} \
       -t ${TAG}:latest \
